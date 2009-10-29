@@ -1,0 +1,62 @@
+DEPRECATED
+<!--
+<h1>Advanced Search</h1>
+<h2>Search by Cruises</h2>
+<% form_tag "list_cruises" do %>
+<table>
+  <tr>
+    <td>Line Number	<%= text_field_tag "Line", "", :size => 12 %></td>
+    <td>ExpoCode	<%= text_field_tag "ExpoCode", "", :size => 16 %>
+      <div class="auto_complete" id="expocode_auto_complete"></div>
+      <%= javascript_tag("new Autocompleter.Local('ExpoCode','expocode_auto_complete',expocodes,{fullSearch: true, frequency: 0, minChars:1});")%>
+    </td>
+  </tr>
+  <tr>
+    <td>Data Contact	<%= text_field_tag "Chief_Scientist", "", :size => 14 %>   
+      <div class="auto_complete" id="Chief_Scientist_auto_complete"></div>
+      <%= javascript_tag("new Autocompleter.Local('Chief_Scientist','Chief_Scientist_auto_complete',pis,{fullSearch: true, frequency: 0, minChars:1});")%>	
+    </td>
+    <td>Ship		<%= text_field_tag "Ship_Name", "", :size => 12 %>   
+      <div class="auto_complete" id="Ship_Name_auto_complete"></div>
+      <%= javascript_tag("new Autocompleter.Local('Ship_Name','Ship_Name_auto_complete',ships,{fullSearch: true, frequency: 0, minChars:1});")%>
+    </td>
+    <td>Country		<%= text_field_tag "Country", "", :size => 12 %>
+      <div class="auto_complete" id="Country_auto_complete"></div>
+      <%= javascript_tag("new Autocompleter.Local('Country','Country_auto_complete',countries,{fullSearch: true, frequency: 0, minChars:1});")%>
+    </td>
+  </tr>
+</table>
+<table>
+  <tr><th>From</th><th>To</th></tr><tr>
+    <td>
+       <select name="MONTHSTART"><% (1..12).each do |month| %><option value="<%= month %>"><%= month %></option><% end %></select>
+       <select name="YEARSTART"><% (1980..2008).each do |year| %><option value="<%= year %>"><%= year %></option><% end %></select>
+    </td>
+    <td>
+       <select name="MONTHEND"><% (1..12).each do |month| %><option value="<%= month %>"><%= month %></option><% end %></select>
+       <select name="YEAREND"><% (1980..2008).each do |year| %><option value="<%= year %>" <% if year == 2008 %>selected="selected"<% end %>><%= year %></option><% end %>
+       </select>
+     </td>
+  </tr>
+<tr>
+	<td colspan="4"><%= submit_tag "Find Cruises" %></td>
+</tr>
+</table>
+<% end %>
+
+<h2>Search by Data Files</h2>
+<% form_tag "list_cruises" do %>
+<h3>File Type(s)</h3>
+<select name="FileType">
+   <option value="all">all</option>
+   <option value="sum">Sum File</option>
+   <option value="bottle">bottle</option>
+   <option value="ctd">ctd</option>
+   <option value="documentation">Documentation</option>
+</select>
+<h3>Modified Since</h3>
+<select name="MONTHSTART"><% (1..12).each do |month| %><option value="<%= month %>"><%= month %></option><% end %></select>
+<select name="YEARSTART"><% (1980..2008).each do |year| %><option value="<%= year %>"><%= year %></option><% end %></select>
+
+<%= submit_tag "Find files" %>
+<% end %>-->

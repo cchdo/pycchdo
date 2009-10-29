@@ -1,0 +1,2 @@
+module Staff::VcardHelper
+end

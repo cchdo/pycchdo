@@ -1,0 +1,2 @@
+module CruiseGroupHelper
+end

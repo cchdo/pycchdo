@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+     	            
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+                 	 	            
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+     	            
+  <meta name="AUTHOR" content="Nathan L">
+     	            
+  <meta name="CREATED" content="20020305;12273700">
+     	            
+  <meta name="CHANGEDBY" content="Nathan L">
+     	            
+  <meta name="CHANGED" content="20020305;12282800">
+</head>
+  <body>
+         
+<p><font size="4"><b>3.0 Using MATLAB to read netCDF files</b></font></p>
+         
+<p>There are two methods for reading netCDF files within Matlab. &nbsp;The
+  first method is perhaps the simplest, and most powerful, but is only available
+  for Matlab 5 and 6. &nbsp;The second method, described below, is also available
+  for those who only have access of to Matlab 4. &nbsp;</p>
+       
+<h3>3.1 using the netcdf command</h3>
+       
+<p>The netcdf command is a toolbox that needs to be installed with your matlab
+  toolboxes and was developed by Chuck Denham (<a href="http://crusty.er.usgs.gov/%7Ecdenham">
+    http://crusty.er.usgs.gov/~cdenham</a>
+    ). &nbsp;It makes use of structures and objects and it is important that
+  the user has some familiarity with these facilities in matlab.</p>
+       
+<p><a href="netcdf_worked_example.html">A simple example of the netcdf&nbsp; 
+ command</a>
+   </p>
+       
+<p>The above example shows just how easy it is to read an arbitrary netcdf 
+ file into matlab. &nbsp;It took just one line of code to read the information 
+ needed to read the entire file into matlab. &nbsp;The other lines of code 
+ are there to illustrate how one might examine the file, how to load the specific
+ variables (such as latitude, longitude, and sea surface temperature), and
+ create a preliminary quick look plot of the data. &nbsp;</p>
+     
+<p>Because of the WOCE Global Data V3 have a common structure there is always 
+ a 'time', 'latitude', 'longitude' variables and that the data fields follow 
+ the COARDS naming convention. &nbsp;In principle the user doesn't need to 
+ know anything about the structure and size of the data (i.e. format and
+dimensions)  and consequently makes programming very easy.</p>
+     
+<p>To do more sophisticated manipulations of the netcdf files with the netcdf 
+ command the reader should read the help file from the matlab command line</p>
+     
+<p>&gt;&gt; netcdf()</p>
+     
+<p>for help, and </p>
+     
+<p>&gt;&gt; netcdf('version')</p>
+     
+<p>The netcdf command also allows the writing of output files, which means 
+ that intermediate analysis files can also be in the netCDF format for further 
+ analysis.<br>
+   </p>
+     
+<h3>3.2 reading netCDF using the CSIRO matlab/netcdf interface<br>
+    </h3>
+       
+<p>Commonwealth Scientific Industrial Research Organization (CSIRO) distributes
+  an interface for the reading of netCDF files (<a href="http://www.marine.csiro.au/sw/matlab-netcdf.html">
+    http://www.marine.csiro.au/sw/matlab-netcdf.html</a>
+    ). This is a&nbsp; powerful interface for those who are only interested 
+ in reading netCDF files. For those who want to create netCDF files from within
+ matlab then you should use Chuck Denhams interface (<a href="http://crusty.er.usgs.gov/%7Ecdenham">
+    http://crusty.er.usgs.gov/~cdenham</a>
+    ). You will also need this software to use the CSIRO matlab/netCDF anyway.
+  Follow the install instructions at the above two web sites.</p>
+         
+<p><b>3.21 Sample commands of CSIRO matlab/netCDF interface </b> </p>
+         
+<p>Of the 6 main commands, the two most important commands are getnc (getcdf)
+  and inqnc (inqcdf). The detailed instructions on their use is given at
+the   web site (<a href="http://www.marine.csiro.au/sw/matlab-netcdf.html">
+http://www.marine.csiro.au/sw/matlab-netcdf.html</a>
+    <font size="2">)</font> and only the bare bones description is given
+here.   The use of inqnc allows the interactive interrogation of the netCDF
+file.   In matlab, for example:  </p>
+         
+<p><font face="Courier New"><font size="1">&gt;&gt; inqnc('rcm01037')</font></font></p>
+         
+<p><font face="Courier New"><font size="1">--- Global attributes ---</font></font></p>
+         
+<p><font face="Courier New"><font size="1">experiment_name: Deep Currents
+  (PCM6)</font></font></p>
+         
+<p><font face="Courier New"><font size="1">mooring_name: WHOI 947</font></font></p>
+         
+<p><font face="Courier New"><font size="1">pi_name: B.Owens/B.Warren</font></font></p>
+         
+<p><font face="Courier New"><font size="1">instrument_type: VACM</font></font></p>
+         
+<p><font face="Courier New"><font size="1">latitude: 40.6000</font></font></p>
+         
+<p><font face="Courier New"><font size="1">longitude: 147.3492</font></font></p>
+         
+<p><font face="Courier New"><font size="1">instrument_depth: 1999.0 m</font></font></p>
+         
+<p><font face="Courier New"><font size="1">seafloor_depth: 5280 m</font></font></p>
+         
+<p><font face="Courier New"><font size="1">sampling_interval: 30 min</font></font></p>
+         
+<p><font face="Courier New"><font size="1">earliest_start_time: 12-jun-1993
+  12:15:00</font></font></p>
+         
+<p><font face="Courier New"><font size="1">latest_stop_time: 01-jul-1995
+12:45:00</font></font></p>
+         
+<p><font face="Courier New"><font size="1">null_value: -999.9 </font></font>
+     </p>
+         
+<p><font face="Courier New"><font size="1">The 1 dimensions are 1) time =
+  35954.</font></font></p>
+         
+<p><font face="Courier New"><font size="1">time is unlimited in length</font></font></p>
+         
+<p><font face="Courier New"><font size="1">----- Get further information
+about the following variables -----</font></font></p>
+         
+<p><font face="Courier New"><font size="1">-1) None of them (no further information)</font></font></p>
+         
+<p><font face="Courier New"><font size="1">0) All of the variables</font></font></p>
+         
+<p><font face="Courier New"><font size="1">1) date 2) time 3) speed</font></font></p>
+         
+<p><font face="Courier New"><font size="1">4) direction 5) u 6) v</font></font></p>
+         
+<p><font face="Courier New"><font size="1">7) temperature 8) pressure</font></font></p>
+         
+<p><font face="Courier New"><font size="1">&gt;&gt;</font></font></p>
+         
+<p>creates a description of the contents of the file 'rcm01037'. The global
+  attributes are the information about the data, in this example includes
+the  principal investigator, the instrument name, experiment name etc. etc.
+In addition the routine gives a list of the variables that are contained
+within the file, in this case there are 8 different variables (date, time,
+speed etc.). In the case of this file the data are organized as vectors with
+each element corresponding to time and all vectors have a length of 35954.
+Because 'inqnc' is interactive it is possible to determine the attributes
+of each of the variables. To retrieve one of the variables within the above
+data set, such as speed, the getnc command is used.</p>
+         
+<p><font face="Courier New"><font size="1">&gt;&gt; speed=getnc('rcm01037','speed');</font></font></p>
+         
+<p>This is the simplest use of the getnc command. Because only two arguments
+  are provided getnc assumes that the data are to be automatically scaled,
+ flagged data will be changed to NaN (not a number), and all data are required.
+ The matlab script in <a href="Apendix_matlab.html">Appendix 2</a>
+   shows how all of the matlab data in the above  test file can be read with
+ just 7 lines of code. Considerably less than the  FORTRAN example that reads
+ a slightly different netcdf file but has exactly  the same variables shown
+ in <a href="Appendix_readnet.for.html">Appendix 1</a>
+  . However the development time for the fortran and matlab examples is similar
+ and quick.</p>
+         
+<p>The getnc command also has arguments that allows changing the missing
+values, the stride length (i.e. allows sub sampling of the variable) etc.
+In this way the user can sub-sample, scale the data and read only the variables
+that are required from the netCDF file. In very large files this represents
+an important advantage to the user. A nice example of this capability is
+shown on the above website (by Jim Mansbridge), and also by using the matlab
+command help where all of the arguments are listed.  </p>
+         
+<p><font face="Courier New"><font size="1">&gt;&gt; help inqnc</font></font></p>
+         
+<p>All of the matlab scripts, designed to read the netCDF files that appear
+  in the WOCE Global Data V2 are based on just these two matlab commands.
+The  use of the simplest form of getnc means that most of the netCDF files
+provided  from a single WOCE Data Assembly Centre will be readable with a
+single script.  It means that it is very easy and quick to create macros
+that can read the  different netCDF files from the WOCE Data Assembly Centre,
+leading to significant  savings in time and effort. Other important commands
+are whatnc (gives a list of .nc (.cdf) files in local directory) and attnc
+(gets the attributes  of particular variables like scale).  </p>
+         
+<p>If necessary the scale factor applied to data can be obtained from the
+  netCDF file by using the attnc command. For example, in matlab</p>
+         
+<p>&gt;&gt;Latitude=getnc(file,'Latitude')*attnc(file,'Latitude','Scale');</p>
+         
+<p>would force the Latitude to be correctly scaled by the Scale factor from
+  within the netcCDF file. Only the wind data needs this treatment.</p>
+         
+<p><br>
+    <br>
+     </p>
+         
+</body>
+</html>

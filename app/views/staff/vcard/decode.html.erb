@@ -1,0 +1,24 @@
+<div class="boxed">
+  <h1>vCard Import Decode/Correction</h1>
+  <div class="box_content">
+    <% form_tag '/staff/vcard/import' do %>
+      <% @cards.each_index do |i| %>
+        <% card = @cards[i] %>
+        <table class="contact" style='background-color: #dddddd; margin-bottom: 1em;'>
+          <tr><td>LastName</td><td><%= text_field_tag("contacts[#{i}][last]", card[:last]) %></td>
+          <tr><td>FirstName</td><td><%= text_field_tag("contacts[#{i}][first]", card[:first]) %></td>
+          <tr><td>Institute</td><td><%= text_field_tag("contacts[#{i}][inst]", card[:inst]) %></td>
+          <tr><td>Address</td><td><%= text_field_tag("contacts[#{i}][addrs]", card[:addrs]) %></td>
+          <tr><td></td><td><%= text_field_tag("contacts[#{i}][addrl]", card[:addrl]) %></td>
+          <tr><td>Telephone</td><td><%= text_field_tag("contacts[#{i}][tel]", card[:tel]) %></td>
+          <tr><td>Fax</td><td><%= text_field_tag("contacts[#{i}][fax]", card[:fax]) %></td>
+          <tr><td>Email</td><td><%= text_field_tag("contacts[#{i}][email]", card[:email]) %></td>
+          <tr><td>Title</td><td><%= text_field_tag("contacts[#{i}][title]", card[:title]) %></td>
+        </table>
+      <% end %>
+      <%= submit_tag 'Import' %>
+    <% end %>
+  </div>
+  <div class="box_bottom"></div>
+</div>
+

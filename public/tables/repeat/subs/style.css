@@ -1,0 +1,230 @@
+
+/** New site style**/
+	#header01 {background:#0087c7 url("images/cchdo_search_bg.gif") bottom left no-repeat;height:46px;text-align:right; padding:0 23px 0 0;}
+  #header02 {text-align:left;background-color:#076296;}
+      #nav {background-color:#101043;padding:0;margin:0;}
+      #footer {background-color:#0087c7;font-style:italic;color:#ffffff;padding:2px}
+      #content {padding:10px;vertical-align:top;}
+	body {margin:0px;padding:0px;font-family:trebuchet,arial,helvetica,sans-serif;font-size:0.9em;}
+	img {vertical-align:bottom}
+	h1,h2,h3,h4,h5,h6 {padding:0;margin:0;font-family:georgia,"times new roman",serif}
+	#navlist {padding:0;margin:0;height:31px;list-style:none;background-color:#101043;text-align:right}
+	#navlist li {float:left;position:relative;padding:0 5px 0 0;margin:0;width:10em;border-right:1px solid #ffffff;}
+	#navlist li.topnav {background:url("images/navlink_bg.gif") top right no-repeat;margin:0;height:31px;}
+	#navlist a {text-decoration:none;font-weight:bold;color:#ffffff;}
+	#navlist a:hover{color:#000000;}
+        ul.subnav {display:none;position:absolute;top:0;left:0;padding:0;margin:0;list-style:none;}
+        ul.subnav {top:auto;left:auto;}
+        /*.subnav a*/
+        li.topnav:hover ul, li:hover ul {background-color:#dddddd;display:block;}
+	/*li#who {background-image:url("images/who_we.gif");height:31px;width:161px;}*/
+
+	.Search_Input{border:1px solid #fff;background-color:#63b6dc;}
+
+/**** New site *****/
+
+/* Basin Tables */
+.Basin_table{ width: 720px; }
+
+
+/***Basin Tables ***/
+/* Open search result */
+.Open_Line_Info{
+		font-size:10pt;color: purple;
+     width:60px;
+}
+
+.Open_Param_List
+{
+   vertical-align:bottom;
+   height: 1em;
+  /*text-align:left;
+   font-size: 3pt;color: black; */
+   width:300px;
+}
+.Open_Param_UL
+{
+   font-size: 8pt; color blue;
+}
+.Open_Pic
+{
+  width:180px; 
+}
+.Open_Frame
+{
+   border: 1px solid grey;
+   table-layout:fixed;
+   width: 720px;
+  /* border-collapse: collapse;*/
+   padding:8px;
+}
+
+.Open_Main
+{
+  float:left;
+}
+.OpenSearch_file_download
+{
+    width:720px;
+    border:1px solid #101043;
+}
+
+/*-------------------------------------------*/
+
+/* Data access page */
+.table_header{ background: #123456; color: white;}
+.data_summary_table{color: white; vertical-align:top;width:450px;
+		background:#F6F6F6; /*border: 1px solid black;*/
+		border-collapse:collapse;align:center;}
+.data_types{font-size: 8pt; color: black; border: 3px;}
+.access_link{color: white; }
+.table_title{color:white;}
+/*---------------------------------------------------------------*/
+
+
+/* Data Histories tables*/
+.Line_Info{ valign: top;}
+.Page_Info{width:720; valign: top;}
+.Note{border:1px solid black ;}
+.Inner_Note{width:720px;border:1px solid black;}
+.Sort{}
+.Summary{width:720px;border:2px solid grey;}
+.Data_Hist_Entries{width:720px;border-collapse:collapse; }
+.Data_Hist_Cell{font-size:12pt; border: 2px solid black;}
+/*--------------------------------------------------------*/
+
+/* Parameter Tables */
+.p_info{background:lightgrey;width:800px;}/* display:none}*/
+.param_cell{color:blue;width:200px;text-align:left;}
+.param_header{text-align:left;}
+.params{vertical-align:top;}
+.line_entries{color:red;}
+.data_table{vertical-align:top;width:798px;background:#F6F6F6;
+            border: 1px solid black;border-collapse:collapse;}
+/*---------------------------------------------------------*/
+
+/* Data search table*/
+.form_table{table-layout: fixed; width: 400px; text-align: left;
+		border: 1px solid black; }
+.form_title{table-layout: fixed; width: 400px; text-align: center;}
+.form_subtable{}
+/*---------------------------------------------------------*/
+
+/*table{ table-layout: fixed; width: 400px;valign: top;}*/
+/*.master_table{}*/
+
+/*    Data Status Page */
+.Status_Table
+{  
+  table-layout:fixed;
+  width: 1001px;
+  border-collapse:collapse;
+  padding: 0;
+  border-collapse: collapse;
+  text-align: center;
+  background-color: lightgrey;
+     
+}
+.table_field
+{  
+  table-layout:fixed;
+  border-collapse: collapse;
+  width: 1000px;
+  padding: 0;
+  text-align: left;
+  border: 1px solid black;
+  background-color: lightgrey;
+  display:none;
+}
+.OffTab
+{
+   font-weight: bold;
+   /*padding: 4px;*/
+   /*border-style: solid;
+   border-width: 1px; */
+   border: 1px solid black;
+   padding: 0;
+   background-color: lightgrey;
+   vertical-align:bottom;
+
+}
+.OnTab
+{
+   font-weight: bold;
+   /*padding: 4px;*/
+   /*border-style: solid;
+   border-width: 1px; */
+   border: 1px solid black;
+   padding: 0;
+   border-bottom: 20px solid grey;
+   background-color: lightgrey;
+   vertical-align:bottom;
+   display: none;
+
+}
+.Status 
+{
+   vertical-align: top;
+   /*display: none;*/
+   background-color: lightgrey;
+   padding: 0px;
+	  /*font-size: x-small;*/
+    }
+.paramfield
+{
+   display:none;
+   text-align: left;
+}
+.param_list
+{
+   vertical-align:top;
+}
+.search_results
+{
+   table-layout: fixed;
+   width: 1000px ;
+   border: 1px solid black;
+   background-color:lightgrey;
+   display: none;
+}
+/*-----------------------------*/
+
+/* Data Submission Page */
+.table_header{ background:#101043;color: white;}
+.data_types{font-size: 8pt;color: black;border:3px;}
+.conf_table{border:1px solid black; }
+.sub_table{width:355px;height:170px;border: 1px  solid black;}
+.master_table{width:720px;border: 1px solid black; border-spacing: 2px;}
+.submit_bold{color:white;}
+
+/*---------------------------------------------*/
+
+
+
+#wrapper {
+  margin:2px;
+  /*width:700px;*/
+  }
+
+#welcome, #content {
+  padding:10px;
+  background-color:#fff;
+  border:1px solid #ddd;
+  }
+
+
+.col-wrapper_l {
+  padding:0;
+  width:125px;
+  margin:2px 0;
+  /*border-right:1px solid #ddd;*/
+  float:left;
+  background:url('icon/rosette.jpg') no-repeat bottom left;
+  }
+
+.col-wrapper_r {
+  padding:0;
+  margin:2px 0 2px 128px;
+  }
+
+

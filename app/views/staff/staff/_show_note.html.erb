@@ -1,0 +1,6 @@
+
+<%= link_to_remote "Hide Notes", :update =>"show_note_#{@submission_note.id}",:url => { :action => "hide_note",:sub_id =>"#{@submission_note.id}"} %>	
+<br>
+
+<%= @submission_note.notes %>
+<br>

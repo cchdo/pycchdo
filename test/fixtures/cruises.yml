@@ -1,0 +1,15 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+bad_expo:
+  id: 1
+  ExpoCode:        $$$$
+  Ship_Name:       HMSRuby
+  Line:            j10	
+  Country:         USA
+  Chief_Scientist: Fields
+  Begin_Date:      '0000-00-00'
+  EndDate:         '0000-00-00'
+  Ship_Name:       Knoll
+  Alias:
+  Group:           paficic
+another:
+  id: 2

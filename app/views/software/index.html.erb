@@ -1,0 +1,7 @@
+<h1>CCHDO Software</h1>
+<ul>
+<% Dir.foreach("#{RAILS_ROOT}/public/software") do |file| %>
+  <% next if file[0].chr == '.' %>
+  <li><a href="/software/<%= file %>"><%= file %></a></li>
+<% end %>
+</ul>

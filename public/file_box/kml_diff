@@ -1,0 +1,30 @@
+7,10c7,10
+< <north>75</north>
+< <south>35</south>
+< <east>-15</east>
+< <west>80</west>
+---
+> <north>5</north>
+> <south>-60</south>
+> <east>15</east>
+> <west>-80</west>
+32c32
+< -53.327,51.355,5
+---
+> 10.4005,-4.4794,5
+35c35
+< <name>A01</name>                      <!-- string -->
+---
+> <name>A07  </name>                      <!-- string -->
+43c43
+< <description> http://cchdo.ucsd.edu/data_access?ExpoCode=06MT30_3</description>
+---
+> <description> http://132.239.23.87/data_access?ExpoCode=35A3CITHER1_1</description>
+50c50
+< <coordinates>-53.327, 51.355,5</coordinates> 
+---
+> <coordinates>10.4005, -4.4794,5</coordinates> 
+53c53
+< -53.328,51.353,5
+---
+> 10.3999,-4.4806,5

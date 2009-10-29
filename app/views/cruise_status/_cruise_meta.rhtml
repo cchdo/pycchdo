@@ -1,0 +1,24 @@
+<% if @cruise %>
+  <% form_for :cruise, @cruise, :url => { :action => "cruise_information" } do |f| %>
+  <table class='cruise_meta_staff'>
+    <tr>
+      <td>Line:</td><td><%= f.text_field :Line,:size => "5" %></td>
+      <td>Ship:</td><td><%= f.text_field :Ship_Name,:size => "15" %></td>
+    </tr>
+    <tr>  
+      <td>ExpoCode:</td><td> <%= f.text_field :ExpoCode,:size => "12" %> </td>
+      <td>Dates:</td><td><%= f.text_field :Begin_Date, :size => '10' %>-<%= f.text_field :EndDate, :size => '10' %></td>
+    </tr>
+    <tr>
+      <td>Chief Scientist:</td><td><%= f.text_field :Chief_Scientist,:size => "16" %></td>
+      <td>Country:</td><td><%= f.text_field :Country,:size => "8" %></td>
+    </tr>
+    <tr>
+      <td>Aliases:</td><td><%= f.text_field :Alias,:size => "16" %></td><td></td><td><a href="/data_access?ExpoCode=<%= @cruise.ExpoCode %>">Data Page</a></td>
+    </tr>
+    <tr>
+      <td>Groups:</td><td colspan="3"><%= f.text_area :Group, :size => "30" %></td>
+    </tr>
+  </table>	
+  <% end %>
+<% end %>

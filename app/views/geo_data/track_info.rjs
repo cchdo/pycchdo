@@ -1,0 +1,4 @@
+  
+page.replace_html 'track_info', :partial => 'track_info'
+
+page << @map.add_overlay(@track)

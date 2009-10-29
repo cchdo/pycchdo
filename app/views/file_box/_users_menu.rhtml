@@ -1,0 +1,17 @@
+<% if @new == 1 %>
+<% form_remote_for(:file_box_user, {:url => {:action => :create_user}, :update => "file_box_users_menu"}) do |form| %>
+<% end %>
+<table>
+  <tr><td>Login</td><td>Group</td><td>Admin</td></tr>
+  <% for user in @users %>
+  <tr class="file_box user"><td><%= h(user.user) %></td><td><%= h(user.group) %></td><td><%= h(user.admin) %></td>
+  </tr>
+  <% end %>
+<% if @new == 1 %>
+  <tr><td><%= form.text_field :user, :size => 4 %></td><td><%= form.text_field :group , :size => 4 %></td><td><%= form.check_box :user %></td></tr>
+<% end %>
+</table>
+<% if @new == 1 %>
+<%= link_to_remote "Add User", {:url => {:action => "new_user"}, :update => "file_box_users_menu"} %>
+<%= submit_tag value="Update" %>
+<% end %>

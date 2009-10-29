@@ -1,0 +1,14 @@
+<script type="text/javascript">load_autocomplete_js();</script>
+<div id="entry_menu">
+  <h1>Data Entry menu</h1>
+  <ul>
+  <li><%= link_to_remote "Cruises", :update => "entry", :url => { :action => "cruise_entry" } %></li>
+  <li><%= link_to_remote "Events", :update => "entry", :url => { :action => "event_entry" } %></li>
+  <li><%= link_to_remote "Contacts", :update => "entry", :url => { :action => "contact_entry" } %></li>
+  <li><%= link_to_remote "Parameters", :update => "entry", :url => { :action => "parameter_entry" } %></li>
+  </ul>
+</div>
+<hr />
+<div id="entry">
+  <%= render :partial => "cruise_entry", :update => "entry" %>
+</div>

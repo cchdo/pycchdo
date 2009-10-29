@@ -1,0 +1,16 @@
+<map name="ir_map">
+<area alt="" coords="198,74,237,92" href="../tables/repeat/subs/ir01_table.html">
+<area alt="" coords="179,98,218,116" href="../tables/repeat/subs/ir03_table.html">
+<area alt="" coords="254,147,293,164" href="../tables/repeat/subs/ir04_table.html">
+<area alt="" coords="351,162,391,180" href="../tables/repeat/subs/ir06_table.html">
+<area alt="" coords="144,262,183,279" href="../tables/repeat/subs/iss01_table.html">
+<area alt="" coords="158,123,197,140" href="../tables/repeat/subs/iss02_table.html">
+<area alt="" coords="342,227,382,245" href="../tables/repeat/subs/iss03_table.html">
+<area alt="Go to the repeat Atlantic map" coords="37,323,125,340" href="ar_map.html">
+<area alt="Go to the repeat Southern map" coords="286,339,381,356" href="sr_map.html">
+<area alt="Go to the repeat Pacific map" coords="379,56,461,73" href="pr_map.html">
+</map>
+<br>
+<b>Click on any line label</b>
+<br>
+<img src="ir_map.gif" width="491" height="365" alt="" border="0" usemap="#ir_map">

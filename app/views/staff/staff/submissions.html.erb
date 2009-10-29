@@ -1,0 +1,50 @@
+<% if @user !~ /guest/ %>
+<h1>Recent Submissions</h1>
+<form id="radio_form">
+All <%= radio_button_tag 'submission_list' ,'all',{:checked => true} %>
+Unassigned <%= radio_button_tag 'submission_list', 'unassigned' %>
+<!-- Unassimilated <%= radio_button_tag 'submission_list',"unassimilated" %> -->
+</form>
+<%= observe_form 'radio_form', :update =>'submissions', :url => {:action =>'submission_list'} %>
+
+<div id="submissions">
+  <table>
+    <tr><th>Name</th><th>Institute</th><th>Country</th><th>email</th><th>Line</th><th>ExpoCode</th><th>Ship</th><th>Cruise Date</th><th>Date Submitted</th></tr>
+    <% for submission in @submissions %>
+    <tr style='border-bottom: 1px solid #000000;'>
+      <td><%= h(submission.name) %></td>
+      <td><%= h(submission.institute) %></td>
+      <td><%= h(submission.Country) %></td>
+      <td><%= h(submission.email) %></td>
+      <td><%= h(submission.Line) %></td>
+      <td><%= h(submission.ExpoCode) %></td>
+      <td><%= h(submission.Ship_Name) %></td>
+      <td><%= h(submission.cruise_date) %></td>
+      <td><%= h(submission.submission_date) %></td>
+      <% if submission.assigned == false %>
+        <td><%= link_to_remote "Assign", :update =>"assign_submission_#{submission.id}",:url => { :action => "assign_submission", :sub_id => submission.id} %></td>
+      <% end %>
+    </tr>
+    <tr>
+      <% base,filename = File.split(submission.file) %>
+      <td colspan="8"><a href="/submissions/<%= h(File.basename(base)) %>/<%= h(filename) %>"><%= h(filename) %></a></td>
+    </tr>
+    <tr>
+      <td colspan="9">
+      <div id="show_note_<%= h(submission.id) %>">
+        <%= link_to_remote "Show Notes", :update =>"show_note_#{submission.id}", :url => { :action => "show_note", :sub_id => submission.id} %>  
+      </div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="9">
+        <div id="assign_submission_<%= h(submission.id) %>"></div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="9"><hr /></td>
+    </tr>
+    <% end %>
+  </table>
+</div>
+<% end %>

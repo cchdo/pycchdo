@@ -1,0 +1,47 @@
+<td class='map'>
+  <% if large_maps[cruise] and small_maps[cruise] %>
+    <a href='http://cchdo.ucsd.edu<%= large_maps[cruise] %>' target='_blank'><img src='http://cchdo.ucsd.edu<%= small_maps[cruise] %>' /></a>
+  <% end %>
+</td>
+<td class='identity'>
+<table><tr><td>
+  <h1><span class='expocode'><%= h(cruise.ExpoCode) %></span></h1>
+  <table>
+    <tr><td>follows</td><td><a href='/search?line="<%= h(cruise.Line) %>"'><%= h(cruise.Line) %></a></td></tr>
+    <tr><td>from</td><td><a href="/search?date=<%= h(cruise.Begin_Date.year) %>"><%= h(cruise.Begin_Date) %></a> to <a href="/search?date=<%= h(cruise.EndDate.year) %>"><%= h(cruise.EndDate) %></a></td></tr>
+    <tr><td>chief scientist</td><td><%= cruise.Chief_Scientist %></td></tr>
+    <tr><td>aboard</td><td><a href="/search?query=<%= h(cruise.Ship_Name) %>"><%= h(cruise.Ship_Name) %></a> (<a href="/search?country=<%= h(cruise.Country) %>"><%= h(cruise.Country) %></a>)</td></tr>
+  </table>
+  <p><% unless cruise.Alias.blank? %>Also known as <%= cruise.Alias %>.<% end %></p>
+</td></tr>
+<tr>
+<td class='data_summary'>
+  <h1><% if @num_stations and @num_stations[cruise] %><%= h(@num_stations[cruise]) %><% else %>No<% end %> Stations</h1>
+  <% if @parameter_list_htmls %><p class='parameters'><%= @parameter_list_htmls[cruise] %></p><% end %>
+  <h1><a href="/data_history?ExpoCode=<%= h(cruise.ExpoCode) %>">Data history</a></h1>
+</td>
+</tr></table>
+</td>
+<td class='file_summary'>
+  <table class='files'>
+    <tr><th>Bottle</th><th>CTD</th><th>Documentation</th></tr>
+    <tr class='woce'>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-woce_bot", 'WOCE Bottle', @cruise_files[cruise]['Woce Bottle'] %></td>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-woce_ctd", 'WOCE CTD', @cruise_files[cruise]['Woce CTD (Zipped)'] %></td>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-text_doc", 'Text', @cruise_files[cruise]['Documentation'] %></td>
+    </tr>
+    <tr class='exchange'>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-exchange_bot", 'Exchange Bottle', @cruise_files[cruise]['Exchange Bottle'] %></td>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-exchange_ctd", 'Exchange CTD', @cruise_files[cruise]['Exchange CTD (Zipped)'] %></td>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-pdf_doc", 'PDF', @cruise_files[cruise]['PDF Documentation'] %></td>
+    </tr>
+    <tr class='netcdf'>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-netcdf_bot", 'NetCDF Bottle', @cruise_files[cruise]['NetCDF Bottle'] %></td>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-netcdf_ctd", 'NetCDF CTD', @cruise_files[cruise]['NetCDF CTD'] %></td>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-sum", 'Summary', @cruise_files[cruise]['Woce Sum'] %></td>
+    </tr>
+    <tr class='large_volume'>
+      <td><%= checkbox_for "#{cruise.ExpoCode}-large_volume", 'Large Volume', @cruise_files[cruise]['Large Volume file'] %></td>
+    </tr>
+  </table>
+</td>

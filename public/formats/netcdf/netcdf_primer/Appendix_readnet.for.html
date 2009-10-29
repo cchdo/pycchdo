@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+ 	
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+ 	 	
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+ 	
+  <meta name="AUTHOR" content="Nathan L">
+ 	
+  <meta name="CREATED" content="20020305;12350800">
+ 	
+  <meta name="CHANGEDBY" content="Nathan L">
+ 	
+  <meta name="CHANGED" content="20020305;12382000">
+</head>
+  <body>
+<p><b><font size="4">Appendix 1: Readnet.for created from cdf2fortran</font></b></p>
+ 
+<p>Sample file produced by the cdf2fortran utility with the netCDF file 'rcm00683.cdf'
+found in the WOCE CD ROM 2. Note that this fortran routine can be easily
+generalised to read all of the cm data records on this CD set.</p>
+ 
+<p><font face="Courier New"><font size="1">c-----------------------------------------------------------------------</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c readnet.f </font></font> </p>
+ 
+<p><font face="Courier New"><font size="1">c This file is a fortran template
+file designed to read the given</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c netCDF file into memory.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c History:</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Date Name Action</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c --------- ------------ --------------------------------------------</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c ?? ??? ?? cids Created.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c-----------------------------------------------------------------------</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Do not forget to include the
+-I path_to_netcdf_includes in your</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c compile statement</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Required includes.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c include 'netcdf.inc'</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">include '/usr/local/netcdf/include/netcdf.inc'</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Define Variables.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Variable ids run sequentially
+from 1 to nvars = 08</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">parameter (nvars = 8) ! number
+of variables</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">parameter (nrec= 36434) ! change
+this 'to generalize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">parameter (ndims = 1) ! number
+of dimensions</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">parameter (itime = 36434)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">integer*4 rcode ! error code</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">integer*4 recdim ! record dimension</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*8 date(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*8 time(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*4 speed(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*4 direction(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*4 u(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*4 v(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*4 temperature(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">real*4 pressure(nrec)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">integer*4 start(ndims) ! hyperslab
+starting index</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">integer*4 count(ndims) ! hyperslab
+count from start</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">integer vdims(ndims) ! max # of
+var dims</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">character*1024 strbuf ! string
+buffer for var</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">! and attr names</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Open netCDF file.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">ncid=ncopn('rcm00683.cdf',ncnowrit,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Get info on the record dimension
+for this file.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncinq(ncid,ndims,nvars,ngatts,recdim,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,recdim,strbuf,nrecs,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c nrecs now contains the # of
+records for this file</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for date variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 1,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 1,start,count,date,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for time variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 2,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 2,start,count,time,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for speed variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 3,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 3,start,count,speed,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for direction
+variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 4,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 4,start,count,direction,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for u variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 5,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 5,start,count,u,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for v variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 6,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 6,start,count,v,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for temperature
+variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 7,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 7,start,count,temperature,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Retrieve data for pressure variable.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvinq(ncid, 8,strbuf,nctype,nvdim,vdims,nvatts,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">do j=1,nvdim</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncdinq(ncid,vdims(j),strbuf,ndsize,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">lenstr=lenstr*ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">start(j)=1</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">count(j)=ndsize</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end do</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">call ncvgt(ncid, 8,start,count,pressure,rcode)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c ******************************************</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c Begin writing statements to
+use the data.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c ******************************************</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">c End Program.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">stop</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">end</font></font></p>
+ 
+</body>
+</html>

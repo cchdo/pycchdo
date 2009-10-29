@@ -1,0 +1,19 @@
+/*IE 7?,8 compatibility*/
+/*inform.symsysit.com/2008/10/css-horizontal-hover-menu-that-works-in-ie-7-no-java-or-hacks*/
+#picture { padding-top: 100px; z-index: 9;}
+#cchdo_menu {position:absolute; margin-left:-512px; top:84px; font-size:0; text-align:center; width: 100%;}
+.nav:first-child { margin-left: 120px;}
+.nav li{display:inline;}
+.nav li ul{padding-top:16px; }
+ul.nav { margin-top:5px;}
+ul.nav, .nav ul{margin:0; padding:0; cursor:default; list-style-type:none;}
+ul.nav>li{display:table-cell; padding:1px; width:120px; float:left;}
+ul.nav li>ul{display:none;}
+ul.nav li:hover>ul{display:block;}
+.nav ul li a{display:block; padding: 2px 4px 2px 4px;}
+.nav li a {color:#fff; padding-left:4px;}
+.nav ul li a{background-color:#A0A0A0; color:#000000; width:112px; margin-top:1px;}
+ul.nav li:hover {}
+.nav ul li a:hover {background-color:#D0D0D0; color:#FFFFFF;}
+ul.nav li:active, .nav ul li a:active {background-color:#A0A0A0; color:#FFFFFF;}
+.nav a {font:bold 12px Futura, Verdana, Tahoma, sans-serif; text-decoration:none;}

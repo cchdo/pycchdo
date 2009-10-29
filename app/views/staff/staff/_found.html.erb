@@ -1,0 +1,31 @@
+<% unless @best_result.blank? %>
+<div id="block"> 
+<% form_remote_tag :url => {:action => "search_assignments" },:update=>'results' do %>
+<table>
+  <tr>
+    <td><%= link_to_remote "ExpoCode", :update => "results",:url => { :action => "search_assignments", :query => @query, :Sort => "ExpoCode" } %></td>
+    <td><%= link_to_remote "Responsible", :update => "results",:url => { :action => "search_assignments", :query => @query, :Sort => "cchdo_contact" } %></td>
+    <td><%= link_to_remote "Contact", :update => "results",:url => { :action => "search_assignments", :query => @query, :Sort => "data_contact" } %></td>
+    <td><%= link_to_remote "Status", :update => "results",:url => { :action => "search_assignments", :query => @query, :Sort => "current_status" } %></td>
+    <td><%= link_to_remote "Priority", :update => "results",:url => { :action => "search_assignments", :query => @query, :Sort => "priority" } %></td>
+    <td><%= link_to_remote "Deadline", :update => "results",:url => { :action => "search_assignments", :query => @query, :Sort => "deadline" } %></td>
+  </tr>
+<% for row in @best_result %>
+  <% if row.ExpoCode %>
+  <tr>
+    <td><%= text_field_tag "ExpoCode_#{row.id}","#{row.ExpoCode}",:size=>12%></td>
+    <td><%= text_field_tag "cchdo_contact_#{row.id}","#{row.cchdo_contact}",:size=>12%></td>
+    <td><%= text_field_tag "data_contact_#{row.id}","#{row.data_contact}",:size=>12%></td>
+    <td><%= text_field_tag "current_status_#{row.id}","#{row.current_status}",:size=>12%></td>
+    <td><%= text_field_tag "priority_#{row.id}","#{row.priority}",:size=>12%></td>
+    <td><%= text_field_tag "deadline_#{row.id}","#{row.deadline}",:size=>12%></td>
+  </tr>
+  <% end %>  
+<% end %>
+</table>
+<%= submit_tag "Update Assignments" %>
+<% end %>
+</div>
+<% else %>
+<h2>No match found for <%= h(@query) %></h2>
+<% end %>

@@ -1,0 +1,61 @@
+
+<% form_remote_for :event, :url => { :action => :create_event},:update => "events" do |form| %>
+<%= error_messages_for(:event)%>
+<table>
+	<tr>
+		<td valign = "top">
+<table>
+	<tr valign = "top"><td>ExpoCode:</td><td> <%= form.text_field :ExpoCode , :size => "16"%>
+		<div class="auto_complete" id="expocode_auto_complete"></div>
+     <%= javascript_tag("new Autocompleter.Local('event_ExpoCode','expocode_auto_complete',expocodes,{fullSearch: true, frequency: 0, minChars:1});")%>
+		                  </td>
+   </tr>
+	<tr>
+	<td>Action:</td><td> <%= form.text_field :Action, :size => "8" %></td>
+    </tr>
+    <tr>
+	<td colspan="2">
+		<div id="name">    
+           <%= render :partial => "event_names", :update => "name" %>
+	</div id="name">
+	</td>
+	</tr>
+	<tr>
+		<td>Data Type:</td><td><%= form.text_field :Data_Type ,:size => "8"%>
+			<div class="auto_complete" id="data_type_auto_complete"></div>
+	     <%= javascript_tag("new Autocompleter.Local('event_Data_Type','data_type_auto_complete',parameters,{fullSearch: true, frequency: 0, minChars:1});")%>
+		</td>
+	</tr>
+	<tr>
+		<td>Date:
+		</td>
+		<td>
+	       <%= form.date_select :Date_Entered, :start_year => 1965, :end_year => 2010 %>	
+	    </td>
+	</tr>
+	<tr><td>Summary:</td><td><%= form.text_field :Summary,:size => "26" %>
+	</td></tr>
+	<tr><td>Note:</td><td><%= form.text_area :Note, :cols => "26", :rows => "5" %>
+	</td></tr>
+	<tr><td><%= submit_tag %></td><td></td></tr>
+	<tr><td></td><td></td></tr>
+	<tr><td></td><td></td></tr>
+
+</table>
+  </td>
+	<td>
+<%=  observe_field :event_ExpoCode,
+ 				   :frequency => 0.5,
+                   :update => "events",
+                   :url => {:action => 'display_events'},
+                   :with => "'ExpoCode=' + encodeURIComponent(value)"
+ %>
+
+
+<% end %>
+
+<div id="events">
+</div>
+</td>
+</tr>
+</table>

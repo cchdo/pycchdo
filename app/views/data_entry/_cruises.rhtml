@@ -1,0 +1,7 @@
+<table border="1px">
+   <tr><td><b>ExpoCode</b></td><td><b>Line</b></td><td><b>Chief Scientist</b></td><td><b>Ship</b></td><td><b>Dates</b></td></tr>
+<% for @cruise in @cruises do %>
+<tr><td><%= @cruise.ExpoCode %></td><td><%= @cruise.Line %></td><td><%= @cruise.Chief_Scientist %></td><td><%= @cruise.Ship_Name %></td><td><%= @cruise.Begin_Date %></td></tr>
+<% end %>
+</table>
+<b>Parameters</b>

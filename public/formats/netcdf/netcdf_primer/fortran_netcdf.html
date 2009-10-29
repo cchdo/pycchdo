@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+  	   
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+     	 	   
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+  	   
+  <meta name="AUTHOR" content="Nathan L">
+  	   
+  <meta name="CREATED" content="20020305;12255900">
+  	   
+  <meta name="CHANGEDBY" content="Nathan L">
+  	   
+  <meta name="CHANGED" content="20020305;12265100">
+</head>
+  <body>
+   
+<p><font size="4"><b>5.0 Using FORTRAN to read neCDF files</b></font></p>
+   
+<p>The simplest way to create the Fortran code you need to read a netCDF is
+to use the fortran programs cdf2fortran.f (at the above site or <a href="http://www-c4.ucsd.edu/%7Ecids/software/visual.html">
+ http://www-c4.ucsd.edu/~cids/software/visual.html</a>
+ ) or gennet.for (<a href="http://www.unidata.ucar.edu/packages/netcdf/contrib.html"><font size="2">
+ www.unidata.ucar.edu/packages/netcdf/contrib.html</font></a>
+  and <a href="http://www.coaps.fsu.edu/WOCE/html/wcdtools.htm">http://www.coaps.fsu.edu/WOCE/html/wcdtools.htm</a>
+ ). These programs read a netCDF file and create another fortran program
+with the required calls to the netCDF libraries. This machine generated program 
+only needs to be compiled (with the correct include file and netCDF libraries). 
+When executed this code fragment can then read the netCDF file and is ready 
+for the fortran code to be added to undertake the analysis required by the 
+user. The variable names reflect the internal structure of the netCDF file 
+and this machine generated code is quite readable by humans.  </p>
+   
+<p><b>5.1 Worked example of cdf2fortran</b></p>
+   
+<p>The cdf2fortran.f code has been tested on the samples of the netCDF files 
+for the WOCE Global Data V2. Retrieve cdf2fortran tar file and use the make 
+file to compile the code. You will have to check that the include directory 
+and the LIBS directory are correct for your particular installation of the 
+netCDF libraries. For Windows machines some extra work may be needed to get 
+these routines to compile.&nbsp; On Unix/Linux machines to compile cdf2fortran 
+just type</p>
+   
+<p><font size="1">&gt; make cdf2fortran </font> </p>
+   
+<p>To execute the cdf2fortran code</p>
+   
+<p><font size="1">&gt; cdf2fortran rcm00683.cdf</font></p>
+   
+<p><font size="1">Generated fortran program called readnet.f</font></p>
+   
+<p><font size="1">&gt;</font></p>
+   
+<p>Either edit readnet.f file and correct the "include 'netcdf.inc'" file 
+for your particular installation and compile</p>
+   
+<p><font size="1">&gt; f77 readnet.f </font> </p>
+   
+<p>or compile using the -I option to get the correct include file and the 
+-l option to get the correct library files  </p>
+   
+<p><font size="1">&gt; f77 -c readnet.f -I/usr/local/netcdf/include</font></p>
+   
+<p><font size="1">&gt; f77 -o readnet readnet.o -l/usr/local/netcdf/lib/libnetcdf.a</font></p>
+   
+<p>Sometimes there is a problem at compilation because the variable names 
+may have the same name as a parameter name (eg Dimension time(time)). &nbsp;Changing 
+the parameter name fixes this problem and now you should have a complete
+fortran code able to read your particular netCDF file. The result of compiling
+the above for a sample of the curent meter data on WOCE Global Data CD ROM2
+is shown in <a href="Appendix_readnet.for.html">Appendix 1</a>
+  but is equally applicable to the netcdf files in WOCE Global Data V3. </p>
+ 
+<p>Although this piece of code is quite long (compared to the examples shown 
+below) it is reliable and is quick to develop compared reading files that 
+are not self-describing (eg plain ascii files). The sample code fragment can
+be generalised to read the netCDF data for all of the different current meter
+data. The program gennet.for works in a very similar way and produces a slightly
+better documented fortran code. See <a href="Appendix_bug_gennet.html"> Appendix
+4</a>
+  for fixing a bug in the readnet.for programs created by gennet.for.</p>
+   
+<p><br>
+ <br>
+  </p>
+   
+</body>
+</html>

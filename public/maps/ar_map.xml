@@ -1,0 +1,29 @@
+<map name="ar_map">
+<area alt="" coords="160,187,199,204" href="../tables/repeat/subs/ar01_table.html">
+<area alt="" coords="251,271,290,288" href="../tables/repeat/subs/ar04_table.html">
+<area alt="" coords="244,94,283,111" href="../tables/repeat/subs/ar05_table.html">
+<area alt="" coords="338,160,377,177" href="../tables/repeat/subs/ar06_table.html">
+<area alt="" coords="203,72,251,89" href="../tables/repeat/subs/ar07_table.html">
+<area alt="" coords="277,57,322,74" href="../tables/repeat/subs/ar07_table.html">
+<area alt="" coords="195,448,234,465" href="../tables/repeat/subs/ar08_table.html">
+<area alt="" coords="424,405,463,422" href="../tables/repeat/subs/ar09_table.html">
+<area alt="" coords="269,209,308,226" href="../tables/repeat/subs/ar10_table.html">
+<area alt="" coords="278,162,317,179" href="../tables/repeat/subs/ar11_table.html">
+<area alt="" coords="359,101,398,118" href="../tables/repeat/subs/ar12_table.html">
+<area alt="" coords="224,112,263,129" href="../tables/repeat/subs/ar13_table.html">
+<area alt="" coords="255,405,294,422" href="../tables/repeat/subs/ar15_table.html">
+<area alt="" coords="343,141,382,158" href="../tables/repeat/subs/ar16_table.html">
+<area alt="" coords="289,29,328,46" href="../tables/repeat/subs/ar18_table.html">
+<area alt="" coords="304,101,343,118" href="../tables/repeat/subs/ar19_table.html">
+<area alt="" coords="221,164,260,181" href="../tables/repeat/subs/ar20_table.html">
+<area alt="" coords="195,134,234,151" href="../tables/repeat/subs/ar22_table.html">
+<area alt="" coords="324,72,363,89" href="../tables/repeat/subs/ar24_table.html">
+<area alt="" coords="228,54,267,71" href="../tables/repeat/subs/ar27_table.html">
+<area alt="go to repeat Southern map" coords="288,462,384,479" href="sr_map.html">
+<area alt="go to repeat Pacific map" coords="38,346,120,364" href="pr_map.html">
+<area alt="go to repeat Indian map" coords="448,452,526,470" href="ir_map.html">
+</map>
+
+<center><font color="#000295">Click on any line label</font>
+<br><br>
+<img src="ar_map.gif" width="563" height="490" alt="" border="0" usemap="#ar_map">

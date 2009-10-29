@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: / # Remove me when live
+Disallow: /file_box
+Disallow: /submissions
+Disallow: /argo_submissions
+Disallow: /cart

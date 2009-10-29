@@ -1,0 +1,768 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>CCHDO | CLIVAR & Carbon Hydrographic Data Office</title>
+<script language="JavaScript1.2" type="text/javascript" src="/javascripts/application.js"></script>
+<style type="text/css" media="screen">
+	@import url("/stylesheets/main.css");
+</style>
+</head>
+<body bgcolor="#ffffff" topmargin="0" leftmargin="0">
+<div id="Body_Container">
+<table border="0" cellpadding="0" cellspacing="0" width="750" align="center">
+  <tr>
+   <td colspan="6"><a href="index.html">
+	<img alt="CCHDO Home" src="/images/row1_col1.jpg" width="750" height="137" border="0"></td>
+  </tr>
+
+
+<!-- JavaScript Menu goes here -->
+  <tr>
+   <td><a href="/index.html" onmouseover="ShowMenu('Home_div', 'Home',11,31,'r2_c1');"><img name="r2_c1" src="/images/row2_col1.jpg" width="154" height="31" border="0" id="r2_c1" alt="" /></a></td>
+   <td><a  onmouseover="ShowMenu('Data_By_Ocean_div', 'Data_By_Ocean',-39,31,'r2_c3');"><img name="r2_c3" src="/images/row2_col3.jpg" width="128" height="31" border="0" id="r2_c3" alt="" /></a></td>
+   <td><a href="javascript:;"  onmouseover="ShowMenu('Search_Data_div', 'Search_Data',-64,31,'r2_c4');"><img name="r2_c4" src="/images/row2_col4.jpg" width="115" height="31" border="0" id="r2_c4" alt="" /></a></td>
+   <td><a href="/submit" onmouseover="ShowMenu('Submit_div', 'Submit',-64,31,'r2_c6');"><img name="r2_c6" src="/images/row2_col6.jpg" width="107" height="31" border="0" id="r2_c6" alt="" /></a></td>
+   <td><a href="/contact.html" onmouseover="ShowMenu('Contact_div', 'Contact',-64,31,'r2_c8');"><img name="r2_c8" src="/images/row2_col8.jpg" width="89" height="31" border="0" id="r2_c8" alt="" /></a></td>
+   <td><a href="javascript:;"  onmouseover="ShowMenu('Info_div', 'Info',-72,31,'r2_c9');"><img name="r2_c9" src="/images/row2_col9.jpg" width="157" height="31" border="0" id="r2_c9" alt="" /></a></td>
+  </tr>
+  <tr>
+   <td colspan="6"><img name="r3_c1" src="/images/row3_col1.jpg" width="750" height="22" border="0" id="r3_c1" alt="" /></td>
+  </tr>
+</table>
+<!-- End of JavaScript menu -->
+
+<!-- Table row for search 'n' date -->
+<table border="0" cellspacing="0" cellpadding="0" width="750"><form method="post" action="/search" enctype="multipart/form-data">
+<tr>
+   <td background="/images/row4_col1.jpg" width="32">&nbsp;</td>
+   <td bgcolor="#ffffff" class="thedate" align="left">
+		<script>document.write(theDays[theDate.getDay()]+", "+theMonths[theDate.getMonth()]+" "+theDate.getDate()+", "+theDate.getFullYear());</script></td>
+   <td align="right" bgcolor="#ffffff"><table cellpadding="0" cellspacing="0" height="27">
+   <tr><td align="right" valign="center" bgcolor="#ffffff">&nbsp;</td>
+   <td valign="top" align="right" background="/images/searchbar.jpg"><img alt="Main_r4_c4" border="0" id="main_r4_c4" src="/images/row4_col4.jpg" /></td>
+			    <td><input type="text" name="query" size="20" value=""/></td>
+			    <td align="left"><input type="image" src="/images/row4_col10.jpg" name="query" alt="SEARCH"/></td>
+			</tr>
+                 </table>
+        </td>
+   <td background="/images/row4_col11.jpg" width="32">&nbsp;</td>
+   </tr>
+</form>
+</table>
+<!-- End of table row for search 'n' date -->
+
+<table border="0" width="750" cellpadding="0" cellspacing="0">
+  <tr>
+   <td background="/images/row5_col1.jpg" width="32">&nbsp;</td>
+   <td bgcolor="#ffffff" width="686">
+<!-- Page content goes here -->
+<!-- BEGIN CONTENT -->
+
+  <!-- MAIN Table class="status_table" begins here -->
+
+
+
+
+
+    <Table class="status_table" BORDER=0  CELLSPACING=10 cellpadding=0>
+
+    <TR  VALIGN="bottom">
+
+
+
+    <TD  valign=bottom>
+
+
+
+    <b>Line/ExpoCode/Dates</B>
+
+
+
+    </TD>
+
+    <TD  valign=bottom>
+
+    <b>PI/
+
+    Ship/
+
+    Country</B>
+
+    </TD>
+
+    <TD  valign=bottom>
+
+
+
+    <b>SUM</B>
+
+    </TD>
+
+    <TD  valign=bottom class="small">
+
+    <b><u>
+
+    Bottle
+
+    </b></u><br>
+
+    <b>S / O<font class=tiny>2</font></B>
+
+    </TD>
+
+    <TD  valign=bottom class="small">
+
+    <u><b>
+
+    Bottle
+
+    </b></u><br>   
+
+    <b><i>
+
+    NUTs
+
+    </i></b></b>
+
+    </TD>
+
+    <TD  valign=bottom class="small">
+
+    <b><u>
+
+    Bottle
+
+    </b></u><br>
+
+    <b><i>
+
+    CFCs
+
+    </i></B>
+
+    </TD>
+
+    <TD  valign=bottom class="small">
+
+    <b><u>
+
+    Bottle
+
+    </b></u><br>
+
+    <b><i>
+
+    He/Tr
+
+    </i></b>
+
+    </TD>
+
+    <TD  valign=bottom class="small">
+
+    <b><u>
+
+    Bottle
+
+    </b></u><br>
+
+    <b><i>
+
+    C-14
+
+    </i></b>
+
+    </TD>
+
+    <TD><B>CTD</B></TD>
+
+    <TD><B>DOC</B></td>
+
+    </tr>
+
+    <tr><td colspan=10 height="1" bgcolor="#000295">&nbsp;</td></tr>
+
+<tr>
+
+	<td>
+
+<a href="/data_access?ExpoCode=35MF62JADE_1">IR06</a><br>
+		<i>35MF62JADE_1</i><br>
+
+		Jul 30 - Sep 09, 1989
+
+	</td>
+
+	<td>
+
+		Fieux/LODYC<br>
+
+		MARION DUFRESNE<br>
+
+		FRA
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Fieux</i>
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Coste</i>
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Poisson</i>
+
+	</td>
+
+	<td >
+
+		*<br>
+
+		<!-- <font class='small' color='#008000'><i>Fieux</i> -->
+
+	</td>
+
+	<td >
+
+		*<br>
+
+		<!-- <font class='small' color='#008000'><i>Fieux</i> -->
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class=small color='#008000'><i>Fieux</i>
+
+	</td>
+
+</tr>
+
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+
+<tr>
+
+	<td>
+
+<a href="/data_access?ExpoCode=35MF71JADE_1">IR06</a><br>
+		<i>35MF71JADE_1</i><br>
+
+		Feb 17 - Mar 23, 1992
+
+	</td>
+
+	<td>
+
+		Fieux/LODYC<br>
+
+		MARION DUFRESNE<br>
+
+		FRA
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Fieux</i>
+
+	</td>
+
+	<td >
+
+		*
+
+		<!-- PI<br>
+
+		<font class='small' color='#008000'><i>Fieux</i> -->
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Andrie</i>
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Jean-Baptiste</i>
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class=small color='#008000'><i>Jean-Baptiste</i>
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+</tr>
+
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+
+<tr>
+
+	<td>
+
+<a href="/data_access?ExpoCode=09FA9503_1">IR06</a><br>
+		<i>09FA9503_1</i><br>
+
+		Apr 01 - Apr 22, 1995
+
+	</td>
+
+	<td>
+
+		Wijffels/CSIRO<br>
+
+		FRANKLIN<br>
+
+		AUS
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Wijffels</i>
+
+	</td>
+
+	<td >
+
+		*
+
+	</td>
+
+	<td >
+
+		*
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+</tr>
+
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+
+<tr>
+
+	<td>
+
+<a href="/data_access?ExpoCode=09FA9508_1">IR06</a><br>
+		<i>09FA9508_1</i><br>
+
+		Sep 13 - Oct 14, 1995
+
+	</td>
+
+	<td>
+
+		Wijffels/CSIRO<br>
+
+		FRANKLIN<br>
+
+		GER
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		PI<br>
+
+		<font class='small' color='#008000'><i>Wijffels</i>
+
+	</td>
+
+	<td >
+
+		*
+
+	</td>
+
+	<td >
+
+		*
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+	<td >
+
+		WHPO
+
+	</td>
+
+</tr>
+
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+
+<tr>
+
+	<td>
+
+<a href="/data_access?ExpoCode=35MF200009">(TIP)</a><br>
+		<i>35MF200009</i><br>
+
+		Sep 10 - Oct 01, 2000
+
+	</td>
+
+	<td>
+
+		Fieux/LODYC<br>
+
+		Molcard/LODYC<br>
+
+		DUFRESNE<br>
+
+		FRA
+
+	</td>
+
+	<td >
+
+		<i>in<br>process</i>
+
+	</td>
+
+	<td >
+
+		PI
+
+	</td>
+
+	<td >
+
+		PI
+
+	</td>
+
+	<td >
+
+		PI
+
+	</td>
+
+	<td >
+
+		PI
+
+	</td>
+
+	<td >
+
+		PI
+
+	</td>
+
+	<td >
+
+		<i>in<br>process</i>
+
+	</td>
+
+	<td >
+
+		<i>in<br>process</i>
+
+	</td>
+
+</tr>
+
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+
+</Table class="status_table">
+
+
+
+  <HR>
+
+    <!-- This is the Legend -->
+
+    
+
+    <Table class="status_table" border=0 cellspacing=5 cellpadding=0 >
+
+    <tr>
+
+    <td  colspan=4>
+
+    <b><u>
+
+    <a name="legend"></a>LEGEND</b></u>
+
+    </td>
+
+    </tr>
+
+    <tr>
+
+    <td align="left" class="small"><b><u>?:</u></b>
+
+    </td>
+
+    <td class="small">Disposition unknown as of 2003/11/14
+
+    </td>
+
+    <td align="left" class="small"><b><u>RAW:</u></b>
+
+    </td>
+
+    <td class="small">Files in Non-WOCE format as
+
+    received from PI
+
+    </td>
+
+    </tr>
+
+    <tr>
+
+    <td align="left" class="small"><b><u>INC:</u></b>
+
+    </td>
+
+    <td class="small">Files are <b>INC</b>omplete
+
+    </td>
+
+    <td align="left" class="small"><b><u>PI:</u></b>
+
+    </td>
+
+    <td class="small">Data resides with PI
+
+    </td>
+
+    </tr>
+
+    <tr>
+
+    <td align="left" class="small"><b><u>NP:</u></b>
+
+    </td>
+
+    <td class="small"><b>N</b>on-<b>P</b>ublic
+
+    (<i>data available only by permission from PI</i>)
+
+    </td>
+
+    <td class="small">
+
+    </td>
+
+    </tr>
+
+    <tr>
+
+    <td align="left" class="small"><b><u>NO CRUISE:</u></b>
+
+    </td>
+
+    <td class="small">expedition not complete as of 2003/11/14
+
+    </td>
+
+    <td align="left" class="small"><b><u>WHPO:</u></b>
+
+    </td>
+
+    <td class="small">Data available from WHP Office
+
+    </td>
+
+    </tr>
+
+    </Table class="status_table">
+
+    
+
+<!-- End of page content -->
+   </td>
+   <td background="/images/row5_col11.jpg" width="32">&nbsp;</td>
+  </tr>
+  <tr>
+   <td colspan="3"><img name="r6_c1" src="/images/row6_col1.jpg" width="750" height="39" border="0" id="r6_c1" alt="" /></td>
+  </tr>
+</table>
+<div id="Home_div">
+	<div id="Home"  onmouseover="ResetTimeout();">
+		&nbsp;
+	</div>
+</div>
+<div id="Data_By_Ocean_div">
+	<div id="Data_By_Ocean"  onmouseover="ResetTimeout();">
+		<a href="javascript:;" id="Data_By_Ocean_Item_0" class="Data_By_Ocean_Menu_Style" onmouseover="OverMenuItem('Data_By_Ocean');">
+			DATA&nbsp;BY&nbsp;OCEAN:
+		</a>
+		<a href="/arctic.html" id="Data_By_Ocean_Item_1" class="Data_By_Ocean_Menu_Style2" onmouseover="OverMenuItem('Data_By_Ocean');">
+			Arctic&nbsp;Ocean
+		</a>
+		<a href="/atlantic.html" id="Data_By_Ocean_Item_2" class="Data_By_Ocean_Menu_Style2" onmouseover="OverMenuItem('Data_By_Ocean');">
+			Atlantic&nbsp;Ocean
+		</a>
+		<a href="/pacific.html" id="Data_By_Ocean_Item_3" class="Data_By_Ocean_Menu_Style2" onmouseover="OverMenuItem('Data_By_Ocean');">
+			Pacific&nbsp;Ocean
+		</a>
+		<a href="/indian.html" id="Data_By_Ocean_Item_4" class="Data_By_Ocean_Menu_Style2" onmouseover="OverMenuItem('Data_By_Ocean');">
+			Indian&nbsp;Ocean
+		</a>
+		<a href="/southern.html" id="Data_By_Ocean_Item_5" class="Data_By_Ocean_Menu_Style2" onmouseover="OverMenuItem('Data_By_Ocean');">
+			Southern&nbsp;Ocean
+		</a>
+	</div>
+</div>
+<div id="Search_Data_div">
+	<div id="Search_Data"  onmouseover="ResetTimeout();">
+		<a href="javascript:;" id="Search_Data_Item_0" class="Search_Data_Menu_Style" onmouseover="OverMenuItem('Search_Data');">
+			SEARCH&nbsp;DATA:
+		</a>
+		<a href="/search_cart" id="Search_Data_Item_1" class="Search_Data_Menu_Style2" onmouseover="OverMenuItem('Search_Data');">
+			Bulk Download
+		</a>
+		</a>
+		<a href="/data_access/" id="Search_Data_Item_2" class="Search_Data_Menu_Style2" onmouseover="OverMenuItem('Search_Data');">
+			Advanced&nbsp;Search
+		</a>
+		<a href="/map_search" id="Search_Data_Item_4" class="Search_Data_Menu_Style2" onmouseover="OverMenuItem('Search_Data');">
+			Cruise&nbsp;Maps
+		</a>
+	</div>
+</div>
+<div id="Submit_div">
+	<div id="Submit"  onmouseover="ResetTimeout();">
+		&nbsp;
+	</div>
+</div>
+<div id="Contact_div">
+	<div id="Contact"  onmouseover="ResetTimeout();">
+		&nbsp;
+	</div>
+</div>	
+<div id="Info_div">
+	<div id="Info"  onmouseover="ResetTimeout();">
+		<a href="javascript:;" id="Info_Item_0" class="Info_Menu_Style" onmouseover="OverMenuItem('Info');">
+			INFO:
+		</a>
+		<a href="/manuals.html" id="Info_Item_1" class="Info_Menu_Style2" onmouseover="OverMenuItem('Info');">
+			Manuals
+		</a>
+		<a href="/policies.html" id="Info_Item_2" class="Info_Menu_Style2" onmouseover="OverMenuItem('Info');">
+			Policies
+		</a>
+		<a href="/format.html" id="Info_Item_3" class="Info_Menu_Style2" onmouseover="OverMenuItem('Info');">
+			Format
+		</a>
+	</div>
+</div>
+</div>
+</body>
+</html>
+

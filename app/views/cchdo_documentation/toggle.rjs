@@ -1,0 +1,3 @@
+page[@toggle_div].toggle
+page[@toggle_arrow_up].toggle
+page[@toggle_arrow_down].toggle

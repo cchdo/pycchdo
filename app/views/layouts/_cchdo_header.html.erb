@@ -1,0 +1,48 @@
+<div id='cchdo_header'>
+  <a href='/'><img id='cchdo_logo' src="/images/logos/cchdo_logo.png" /></a>
+  <% if session[:cart] and not session[:cart].empty? %>
+    <div id='cart'>
+      <em id='cart_count'><%= h(session[:cart].size) %></em> data file<% unless session[:cart].size == 1 %>s<% end %> in your <a href='/cart/view'>cart</a>.
+    </div>
+  <% end %>
+  <div id='cchdo_search'>
+    <form method="post" action="/search" enctype="multipart/form-data">
+      <input class='search_box' type="text" name="query" size="20" value="<%= params[:query] %>"/>
+      <input class='search_button' type='image' src="/images/buttons/button_search.png" name="query" valign="middle" alt="SEARCH" />
+    </form>
+	<a href='/search/advanced' style='font-size: x-small;'>Advanced Search</a>
+  </div>
+</div>
+<div id='picture'>
+  <img id='banner' src='/images/banners/banner_1.jpg' />
+  <div id='cchdo_menu'>
+    <ul class='nav'> 
+    <li><h1><a href='/'>Home</a></h1></li>
+    <li><h1><a href="#">Data By Ocean</a></h1>
+      <ul>
+      <li><a href="/arctic.html">Arctic Ocean</a></li>
+      <li><a href="/atlantic.html">Atlantic Ocean</a></li>
+      <li><a href="/pacific.html">Pacific Ocean</a></li>
+      <li><a href="/indian.html">Indian Ocean</a></li>
+      <li><a href="/southern.html">Southern Ocean</a></li>
+      </ul>
+    </li>
+    <li><h1><a href="#">Search Data</a></h1>
+      <ul>
+      <li><a href="/search">Search</a></li>
+      <li><a href="/search/advanced">Advanced search</a></li>
+      <li><a href="/map_search">Interactive map</a></li>
+      </ul>
+    </li>
+    <li><h1><a href="/submit">Submit Data</a></h1></li>
+    <li><h1><a href="/contact.html">Contact</a></h1></li>
+    <li><h1><a href="#">Information</a></h1>
+      <ul>
+      <li><a href="/manuals.html">Manuals</a></li>
+      <li><a href="/policies.html">Policies</a></li>
+      <li><a href="/format.html">Format</a></li>
+      </ul>
+    </li>
+    </ul>
+  </div>
+</div>

@@ -1,0 +1,2 @@
+module ArgoHelper
+end

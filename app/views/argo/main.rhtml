@@ -1,0 +1,33 @@
+
+<table>
+<tr><td colspan="2"><br><h1>The CCHDO Secure File Repository</h1></td></tr>
+<tr><td valign="top">
+	<table width="380">
+	<tr><td colspan="3"><strong>Retrieve a file</strong><br>
+		<span class="footer">Retrieve and view a file from the file list below.</span></td></tr>
+	<tr><td class="heading_table">File</td><td class="heading_table">User</td><td class="heading_table">Note</td></tr>
+	<% if @files %>
+		<% for file in @files %>
+<tr>
+<td><a href="/argo/delete_file?File=<%= h(file.id) %>"><%= h(file.filename) %></a></td>
+<td><%= h(file.user) %></td>
+<td><%= h(file.note) %></td>
+</tr>
+<% end %>
+<% end %>
+</table>
+</td>
+<td valign="top">
+<strong>Submit Data</strong><br>
+<span class="footer">To submit a file, select the appropriate file with a brief note.</span><br><br>
+<% form_for(:argo_submission , :url =>{:action => 'save_file'},:html =>{:multipart => true}) do |form| %>
+    File:
+        <input type="file" name="file">
+        <br><br>
+        Notes:<br>
+    <%= form.text_area :note %>
+    <br>
+    <%= submit_tag %>
+<% end %>
+</td></tr></table>
+

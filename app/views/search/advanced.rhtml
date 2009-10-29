@@ -1,0 +1,55 @@
+<% curr_year = Date.today.year
+   year_range = (1970..curr_year) %>
+<div class='boxed'>
+  <h1>Advanced Search</h1>
+  <div class='box_content'>
+    <p><a href='/search'>Back to natural language search</a></p>
+    <% form_tag '/search/advanced' do %>
+      <table>
+        <tr>
+          <td>Line Number</td><td><%= text_field_tag 'Line', '', :size => 10 %></td>
+          <td>Country</td><td><%= text_field_tag 'Country', '', :size => 10 %></td>
+        </tr>
+        <tr>
+          <td>ExpoCode</td><td><%= text_field_tag 'ExpoCode', '', :size => 10 %></td>
+          <td>From</td>
+          <td>
+             <select name='month_start'><% (1..12).each do |month| %><option value='<%= h(month) %>'><%= h(month) %></option><% end %></select>
+             <select name='year_start'><% year_range.each do |year| %><option value='<%= h(year) %>'><%= h(year) %></option><% end %></select>
+          </td>
+          <td>to</td>
+          <td>
+             <select name='month_end'><% (1..12).each do |month| %><option value='<%= h(month) %>'><%= h(month) %></option><% end %></select> 
+             <select name='year_end'><% year_range.each do |year| %><option value='<%= h(year) %>' <% if year == curr_year %>selected='selected'<% end %>><%= h(year) %></option><% end %></select>
+           </td>
+        </tr>
+        <tr>
+          <td>Chief Scientist</td><td><%= text_field_tag 'Chief_Scientist', '', :size => 10 %></td>
+          <td>File type</td>
+          <td>
+            <select name='FileType'>
+            <option value='all'>All</option>
+            <option value='sum'>Summaries</option>
+            <option value='bottle'>Bottles</option>
+            <option value='ctd'>CTDs</option>
+            <option value='documentation'>Documentation</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td>Ship</td><td><%= text_field_tag 'Ship_Name', '', :size => 10 %></td>
+          <td>Modified since</td>
+          <td>
+            <select name='file_month_start'><% (1..12).each do |month| %><option value='<%= h(month) %>'><%= h(month) %></option><% end %></select>
+            <select name='file_year_start'><% year_range.each do |year| %><option value='<%= h(year) %>'><%= h(year) %></option><% end %></select>
+          </td>
+        </tr>
+        <tr>
+          <td colspan='4'><%= submit_tag 'Search' %></td>
+        </tr>
+      </table>
+    <% end %>
+  </div>
+  <div class='box_bottom'></div>
+</div>
+

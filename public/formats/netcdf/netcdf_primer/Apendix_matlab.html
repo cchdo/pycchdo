@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+ 	
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+ 	 	
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+ 	
+  <meta name="AUTHOR" content="Nathan L">
+ 	
+  <meta name="CREATED" content="20020305;12384000">
+ 	
+  <meta name="CHANGEDBY" content="Nathan L">
+ 	
+  <meta name="CHANGED" content="20020305;12400900">
+</head>
+  <body>
+ 
+<p><font size="4"><b>Appendix 2: Example matlab script for current meter data</b></font></p>
+ 
+<p>A matlab macro to read the netCDF file 'rcm01037.cdf' found in the WOCE
+CD ROM 2. This file is the equivalent of the Fortran code listed in Appendix
+1. Note that this macro routine can be easily generalised to read all of
+the current meter data records on this CD set.</p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% A simple Matlab script to read
+the RCM netcdf file.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% Author: Nathan Bindoff</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% Date: 28 March 2000</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% The script uses Jim Mansbridge's
+netcdf routines for matlab.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% Documetation and description
+of these routines can be found at </font></font> </p>
+ 
+<p><font face="Courier New"><font size="1">% http://www.marine.csiro.au/sw/matlab-netcdf.html.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% Read the current meter data
+</font></font> </p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">inqnc('rcm01037')</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">file='rcm01037'</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">date=getcdf(file,'time');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">time=getcdf(file,'time');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">speed=getcdf(file,'speed');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">direction=getcdf(file,'direction');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">u=getcdf(file,'u');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">v=getcdf(file,'v');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">temperature=getcdf(file,'temperature');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">pressure=getcdf(file,'pressure');</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% Example of contents of inqnc('rcm01037')</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% --- Global attributes ---</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%experiment_name: Deep Currents
+(PCM6)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%mooring_name: WHOI 947</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%pi_name: B.Owens/B.Warren</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%instrument_type: VACM</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%latitude: 40.6000</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%longitude: 147.3492</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%instrument_depth: 1999.0 m</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%seafloor_depth: 5280 m</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%sampling_interval: 30 min</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%earliest_start_time: 12-jun-1993
+12:15:00</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%latest_stop_time: 01-jul-1995
+12:45:00</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%null_value: -999.9 </font></font>
+ </p>
+ 
+<p><font face="Courier New"><font size="1">% </font></font> </p>
+ 
+<p><font face="Courier New"><font size="1">%The 1 dimensions are 1) time
+= 35954.</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">%time is unlimited in length</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% </font></font> </p>
+ 
+<p><font face="Courier New"><font size="1">%----- Get further information
+about the following variables -----</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% </font></font> </p>
+ 
+<p><font face="Courier New"><font size="1">% -1) None of them (no further
+information)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% 0) All of the variables</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% 1) date 2) time 3) speed</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">% 4) direction 5) u 6) v</font></font></p>
+ 
+<p><font size="1">% 7) temperature 8) pressure</font></p>
+ 
+</body>
+</html>

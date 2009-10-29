@@ -1,0 +1,17 @@
+<h1>The CCHDO Secure File Repository</h1>
+<h2>Delete files you uploaded</h2>
+<% if @files %>
+  <table width="100%">
+    <tr><th>File</th><th>User</th><th>Note</th></tr>
+  	<% @files.each do |file| %>
+    <tr>
+    <td><%= link_to h(file.filename), :controller => 'argo', :action => 'delete', :file => h(file.id) %></td>
+    <td><%= h(file.user) %></td>
+    <td><%= h(file.note) %></td>
+    </tr>
+    <% end %>
+  </table>
+<% else %>
+  <p>You have no uploaded files.</p>
+<% end %>
+<%= link_to 'Back', :controller => 'argo' %>

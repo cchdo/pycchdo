@@ -1,0 +1,68 @@
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+<title>CCHDO Manuals</title>
+<link rel="stylesheet" type="text/css" href="./style.css" />
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+</head>
+<body>
+    <table width="750" cellspacing="0" cellpadding="0" border="0">
+      <tr>
+	<td colspan="2" id="header01" align="top"><img src="http://132.239.23.87/hydro/images/search.gif" alt="search" />
+     <form method="post" action="http://132.239.23.87/hydro/cgi/public/open_search/open_search.cgi" enctype="multipart/form-data"> 
+
+<input  class="Search_Input" type="text"
+	  name="Search" size="40" value="" />
+</form>
+</td>
+      </tr>
+      <tr>
+	<td colspan="2" id="header02"><a href="http://132.239.23.87/hydro/index.html"><img src="http://132.239.23.87/hydro/images/cchdo_title03.gif" /></a></td>
+      </tr>
+      <tr>
+	<td colspan="2" id="nav">
+	  <ul id="navlist">
+	    <li class="topnav"><a href="#" id="who">Data By Ocean</a>
+	      <ul class="subnav">
+		<li><a href="http://132.239.23.87/hydro/northern.html">Northern</a></li>
+		<li><a href="http://132.239.23.87/hydro/atlantic.html">Atlantic</a></li>
+		<li><a href="http://132.239.23.87/hydro/pacific.html">Pacific</a></li>
+		<li><a href="http://132.239.23.87/hydro/indian.html">Indian</a></li>
+		<li><a href="http://132.239.23.87/hydro/southern.html">Southern</a></li>
+	      </ul>
+            </li>
+	    <li class="topnav"><a href="#" id="who">access data</a>
+	      <ul class="subnav">
+		<li><a href="http://132.239.23.87/hydro/cgi/public/open_search/open_search.cgi">Natural Language Search</a></li>
+		<li><a href="http://132.239.23.87/hydro/cgi/public/data_access/DBform.cgi">Search Data Files</a></li>
+		<li><a href="http://132.239.23.87/hydro/cgi/public/data_histories/DBform.cgi">Data Changes</a></li>
+		<li><a href="http://132.239.23.87/hydro/cgi/public/maps/gmap_basins.cgi?Basin=Indian">Cruise Maps</a></li>
+	      </ul>
+	    </li>
+	    <li class="topnav"><a href="http://132.239.23.87/hydro/cgi/public/submit/submit.cgi" id="who">submit data</a></li>
+	    <li class="topnav"><a href="#" id="who">more information</a>
+	      <ul class="subnav">
+		<li><a href="http://132.239.23.87/hydro/manuals.html">manuals</a></li>
+		<li><a href="http://132.239.23.87/hydro/policies.html">policies</a></li>
+		<li><a href="http://132.239.23.87/hydro/format.html">formats</a></li>
+	      </ul>
+	    </li>
+	    <li class="topnav"><a href="#" id="who">who we are</a>
+	      <ul class="subnav">
+		<li><a href="http://132.239.23.87/hydro/contact.html">contact us</a></li>
+		<li><a href="http://132.239.23.87/hydro/images.html">images</a></li>
+	      </ul>
+	    </li>
+	  </ul>
+	</td>
+      </tr>
+ </table>
+<br />
+<br />
+<table>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+<% if @submission %>
+<h1>File Submitted</h1>
+<table>
+  <tr><td>File:</td>		<td><%= h(@file_name) %></td></tr>
+  <tr><td>Status:</td>		<td><%= h(params[:submission][:public]) %></td></tr>
+  <tr><td>Action:</td>		<td><% if @submission and @submission.action %><%= h(@submission.action) %><% end %></td></tr>
+  <tr><td>ExpoCode:</td>	<td><%= h(params[:submission][:ExpoCode]) %></td></tr>
+  <tr><td>Line:</td>		<td><%= h(params[:submission][:Line]) %></td></tr>
+  <tr><td>Cruise Date:</td>	<td><%= h(@date) %></td></tr>
+  <tr><td>Name:</td>		<td><%= h(params[:submission][:name]) %></td></tr>
+  <tr><td>Institution:</td>	<td><%= h(params[:submission][:institute]) %></td></tr>
+  <tr><td>Country:</td>		<td><%= h(params[:submission][:Country]) %></td></tr>
+</table>
+<p>Response sent to <%= h(params[:submission][:email]) %></p>
+<% else %>
+<p class='warning'>There was an error with your submission. Please contact the administrator: fieldsjustin@gmail.com</p>
+<% end %>

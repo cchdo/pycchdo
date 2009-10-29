@@ -1,0 +1,24 @@
+
+<% form_remote_for :assignment,  :url => { :action => :create},:update => "results" do |form| %>
+<table>
+	<tr><td>Project/Line: </td><td> <%= form.text_field :project %></td></tr>
+	<tr><td>ExpoCode:</td><td> <%= form.text_field :ExpoCode %></td></tr>
+	<tr><td>Parameter:</td><td> <%= form.text_field :parameter %>
+		<div class="auto_complete" id="param_auto_complete"></div>
+      <%= javascript_tag("new Autocompleter.Local('assignment_parameter','param_auto_complete',parameters,{fullSearch: true, frequency: 0, minChars:1});")%>
+		</td></tr>
+	<tr><td>Assign to:</td><td> <%= form.text_field :cchdo_contact %></td></tr>
+	<tr><td>Data Contact:</td><td> <%= form.text_field :data_contact %>
+		<div class="auto_complete" id="data_contact_auto_complete"></div>
+      <%= javascript_tag("new Autocompleter.Local('assignment_data_contact','data_contact_auto_complete',pis,{fullSearch: true, frequency: 0, minChars:1});")%></td></tr>
+	<tr><td>Status:</td><td> <%= form.text_field :current_status %></td></tr>
+	<tr><td>Action:</td><td> <%= form.text_field :action %></td></tr>
+	<tr><td>Priority:</td><td> <%= form.select(:priority,1..10) %></td></tr>
+	<tr><td>Deadline:</td><td> <%= form.date_select :deadline %></td></tr>
+	<tr><td>Notes:</td><td> <%= form.text_area :notes , :rows => 10, :cols => 30%>
+		<%= hidden_field("assignment", 'manager',"value"=> "#{@user}") %>
+		
+		</td></tr>
+	<tr><td><%= submit_tag %></td><td></td></tr>
+</table>
+<% end %>

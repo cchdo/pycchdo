@@ -1,0 +1,2 @@
+class FileBoxUser < User
+end

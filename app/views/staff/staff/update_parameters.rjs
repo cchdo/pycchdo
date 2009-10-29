@@ -1,0 +1,22 @@
+parameter_field = document.getElementById('parameter');
+parameter = parameter_field.value;
+parameter_field.value ="";
+pi_field = document.getElementById('parameter_pi');
+pi = pi_field.value;
+pi_field.value="";
+el = document.getElementById('param_div');
+string = el.innerHTML;
+string += parameter+":<input readonly name="+parameter+" value="+pi+"><br />";
+el.innerHTML = string;
+alert(pi);
+status_field = document.getElementById('parameter_status');
+status = status_field.value;
+
+string = "<table><tr><td>Parameter</td><td>PI<\/td><td>Status</td></tr>";
+current_html = el.innerHTML;
+current_html.replace(/<table>/,"");
+current_html.replace(/<tr><td>Parameter<\/td><td>PI<\/td><td>Status<\/td><\/tr>/,"");
+current_html.replace(/<\/table>/,"");
+string += current_html;
+string += "<tr><td>" + parameter + "</td><td>" + ":<INPUT readonly name="+parameter+" value="+pi+"></td><td>" +"</td></tr></table>";
+el.innerHTML = string;

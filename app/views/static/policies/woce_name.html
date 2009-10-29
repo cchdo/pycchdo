@@ -1,0 +1,89 @@
+<p>
+	
+	Due to one of Bill Gates' lesser legacies, a very strict "8.3" file name format is required so that certain PC operating systems can see the files. It is easy to come up with sensible file name schemes, where the name of the file indicates the contents. But with nearly 600 WHP cruises, each with many data and documentation files, it is impossible to fit these names into 8.3. The scheme we have adopted is as follows (the example name "pr07wahy.txt" is used) :
+</p>
+<hr />
+<pre class="fixed">
+<font face="Courier New, Courier">
+   <b><u>pr07wahy.txt</b></u> (for BOT, SUM, HYD/SEA, CTDzip,  LVS, and CSLzip)
+   where:
+   "p":    the ocean basin
+
+                   "a"     =       Atlantic
+                   "i"     =       Indian
+                   "p"     =       Pacific
+                   "s"     =       Southern
+
+   "r":    denotes a "Repeat" hydrography cruise.  For
+           "onetime" cruises, this letter is omitted.
+
+   "07":   is the two-digit line designation
+
+   "w":    is an optional extra cruise designation (chosen
+           from w, e, c, n, s, , etc.). If there is no segment
+           designation for a particular cruise, then the
+           underscore character "_" is substituted
+           for consistency.
+
+                   Usually:
+
+                   "e"     =       East
+                   "n"     =       North
+                   "s"     =       South
+                   "w"     =       West
+
+                   (additionally, some lines carry miscellaneous
+                   letters to distiguish them from other
+                   cruises with the same line number)
+
+   "a":    is the "sequence" designator for repeat lines
+           (a=1, b=2, c=3, ..., z=26).  For onetime cruises,
+           this letter is omitted.
+
+           NOTE: the WHPO fully intends to change the
+           sequence designator to YYYYMM when the 8.3
+           filename convention is no longer a relevant issue.
+
+   "hy":   two character file contents descriptor
+
+                   "cs"    =       CSL data file
+                   "ct"    =       CTD archive file
+                   "do"    =       documentation file
+                   "hy"    =       hydro/bottle data
+                                   (this replaces all other
+                                   hyd/sea descriptors)
+                   "lv"    =       LVS (large volume sample)
+                   "su"    =       station summary file
+
+   ".txt": format of the file itself.
+
+                   ".asc"  =       PGP encrypted ASCII file
+                   ".dir"  =       a directory
+                   ".gif"  =       GIF image file
+                   ".htm"  =       HTML (ASCII) file
+                   ".jpg"  =       JPEG image file
+                   ".pdf"  =       PDF (portable doc. format)
+                   ".pgp"  =       PGP encrypted BINARY file
+                   ".tar"  =       TAR (Unix) archive file
+                   ".txt"  =       regular ASCII file
+                   ".zip"  =       ZIP archive file
+
+
+           -AND-
+
+   <b>pr07waXXXX.wct</b> (for individual CTD station files)
+
+   where:
+
+   all of the above applies for the "pr07wa" part of the name.
+
+   "XXXX": is the 4 digit station number
+
+   ".wct": indicates that this is an *individual
+   CTD station file</font>
+</pre>
+
+<hr size="1">
+You will notice right away that the CTD station filename is somewhat longer that the 8.3 standard. This is allowable since the CTD station file names are *inside* a ZIP archive of the CTD individual station files.
+<br><br>
+Questions/Comments: <a href="mailto:sdiggs(at)ucsd.edu">Steve Diggs</a> &#149; 858-534-1108<br><br>

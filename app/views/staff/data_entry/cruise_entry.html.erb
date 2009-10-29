@@ -1,0 +1,52 @@
+<% form_remote_for :cruise, :url => { :action => :create_cruise }, :update => "entry" do |form| %>
+<%= error_messages_for(:cruise)%>
+<table>
+	<tr><td>ExpoCode:<%= error_message_on(:cruise, :ExpoCode) %></td><td> <%= form.text_field :ExpoCode %>
+		<div class="auto_complete" id="expocode_auto_complete"></div>
+     <%= javascript_tag("new Autocompleter.Local('cruise_ExpoCode','expocode_auto_complete',expocodes,{fullSearch: true, frequency: 0, minChars:1});")%>
+		                  </td>
+	<td rowspan = 10 valign="top"><div id="param_div"></div></td></tr>
+	<tr><td>Line:<%= error_message_on(:cruise, :Line) %></td><td> <%= form.text_field :Line %></td></tr>
+	<tr><td>Country:<%= error_message_on(:cruise, :Country) %></td><td> <%= form.text_field :Country %>
+		<div class="auto_complete" id="Country_auto_complete"></div>
+     <%= javascript_tag("new Autocompleter.Local('cruise_Country','Country_auto_complete',countries,{fullSearch: true, frequency: 0, minChars:1});")%>
+	</td></tr>
+	
+	<tr><td>Chief Scientist:<%= error_message_on(:cruise, :Chief_Scientist) %></td><td> <%= form.text_field :Chief_Scientist %>
+		<div class="auto_complete" id="Chief_Scientist_auto_complete"></div>
+        <%= javascript_tag("new Autocompleter.Local('cruise_Chief_Scientist','Chief_Scientist_auto_complete',pis,{fullSearch: true, frequency: 0, minChars:1});")%>
+   </td></tr>
+	
+	<tr><td>Ship Name:</td><td> <%= form.text_field :Ship_Name %>
+			<div class="auto_complete" id="Ship_Name_auto_complete"></div>
+	        <%= javascript_tag("new Autocompleter.Local('cruise_Ship_Name','Ship_Name_auto_complete',ships,{fullSearch: true, frequency: 0, minChars:1});")%>
+	</td></tr>
+	
+	<tr><td>Begin Date:</td><td> <%= form.date_select :Begin_Date, :start_year => 1965, :end_year => 2010 %></td></tr>
+	<tr><td>End Date:</td><td> <%= form.date_select :EndDate,:start_year => 1965, :end_year => 2010 %></td></tr>
+	<tr><td>Alias:</td><td> <%= form.text_field :Alias %></td></tr>
+	<tr><td>Group:</td><td> <%= form.text_field :Group %></td></tr>
+	<tr><td valign="top">Parameters:</td><td><input type="text_field" id="parameter" name="parameter" size="9" />
+		<div class="auto_complete" id="parameters_auto_complete"></div>
+		<%= javascript_tag("new Autocompleter.Local('parameter','parameters_auto_complete',parameters,{fullSearch: true, frequency: 0, minChars:1});")%>
+        PI: <input type="text_field" id="parameter_pi" name="parameter_pi" />
+			<div class="auto_complete" id="param_pi_auto_complete"></div>
+	      <%= javascript_tag("new Autocompleter.Local('parameter_pi','param_pi_auto_complete',pis,{fullSearch: true, frequency: 0, minChars:1});")%>
+	   <br /><select id="parameter_status" name="parameter_status">
+	      <option>Proposed </option>
+	      <option>On_Line</option>
+	      <option>Submitted</option>
+	      <option>Not_Measured</option>
+	      <option>No_Information</option>
+	      <option>Reformatted</option>
+	   </select>
+	   <%= link_to_remote("Enter Parameter",:url=>{:controller=>'data_entry',:action =>'update_parameters'})%>
+	</td></tr>	
+	<tr><td><%= submit_tag %></td><td></td></tr>
+	<tr><td></td><td></td></tr>
+	<tr><td></td><td></td></tr>
+</table>
+<% end %>
+
+<div id="results">
+</div>

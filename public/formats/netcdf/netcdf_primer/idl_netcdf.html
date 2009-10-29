@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+ 	
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+ 	 	
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+ 	
+  <meta name="AUTHOR" content="Nathan L">
+ 	
+  <meta name="CREATED" content="20020305;12324200">
+ 	
+  <meta name="CHANGEDBY" content="Nathan L">
+ 	
+  <meta name="CHANGED" content="20020305;12332500">
+</head>
+  <body>
+ 
+<p><font size="4"><b>4.0 Using IDL to read netCDF files</b></font></p>
+ 
+<p>IDL can read netCDF files and specifically has a browser to do this (see
+page 137 of What's new in IDL 5.3). In addition IDL has specific routines
+for reading netCDF files. However, the simplest way to create the IDL code
+you need to read a netCDF file is to use the IDL programs cdf2idl (at the
+above site or <a href="http://www-c4.ucsd.edu/%7Ecids/software/visual.html">
+http://www-c4.ucsd.edu/~cids/software/visual.html</a>
+). The concept of this program is similar cdf2fortran.f, cdf2c.c, and cdf2asc.c
+programs and is provided by the same group (C4 Interactive Display System).
+This program reads a netCDF file and creates another IDL script which can
+read the netCDF file.  </p>
+ 
+<p><b>4.1 Example of using cdf2idl</b></p>
+ 
+<p>From within IDL all you need to do, to read the current meter data file
+shown for the cdf2fortran example is</p>
+ 
+<p><font size="1">IDL&gt; .run cdf2idl.pro</font></p>
+ 
+<p><font size="1">IDL&gt; cdf2idl, 'rcm00683.cdf'</font></p>
+ 
+<p><font size="1">IDL&gt; @script.idl</font></p>
+ 
+<p>At the completion of this script all of the current meter data are in
+memory ready to be analysed. A total of 3 lines of IDL code needed to read
+this data set. These three lines of code are so general that they will actually
+read any of the netCDF files from any of the WOCE Data Assembly Centres provided
+as part of the WOCE Global Data V3.0.</p>
+ 
+</body>
+</html>

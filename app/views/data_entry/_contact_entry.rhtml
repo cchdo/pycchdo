@@ -1,0 +1,20 @@
+<% form_remote_for :contact, :url => {:action => :create_contact}, 
+                   :autocomplete => "off", :update => "entry" do |form| %>
+<%= error_messages_for(:contact)%>
+<table>
+  <tr><td>First Name:</td><td><%= form.text_field :FirstName %></td></tr>
+  <tr><td>Last Name:</td><td><%= form.text_field :LastName %><%= link_to_remote "Edit previous entry", :url => {:action => :find_contact_entry, :LastName => "$('contact_LastName').value"}, :update => "entry" %><div class="auto_complete" id="LastName_auto_complete"></div><%= javascript_tag("new Autocompleter.Local('contact_LastName','LastName_auto_complete',contacts,{fullSearch: true, frequency: 0, minChars:1});") %></td></tr>
+  <tr><td>Institute:</td><td><%= form.text_field :Institute %></td></tr>	
+  <tr><td>Address:</td><td><%= form.text_area :Address %></td></tr>
+  <tr><td>Phone:</td><td><%= form.text_field :telephone %></td></tr>
+  <tr><td>fax:</td><td><%= form.text_field :fax %></td></tr>
+  <tr><td>email:</td><td><%= form.text_field :email %></td></tr>
+</table>
+<%= submit_tag %>
+<%=  observe_field :contact_LastName,
+                   :update => "entry",
+                   :on => 'blur',
+                   :url => {:action => 'find_contact_entry'},
+                   :with => "'LastName=' + encodeURIComponent(value)" %>
+<% end %>
+<div id="results"></div>

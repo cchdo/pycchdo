@@ -1,0 +1,25 @@
+<%= render :partial => 'menu'%>
+<h1>Applications and Referrers</h1>
+<h2>Applications</h2>
+<table>
+<% @applications.each_pair do |resource, parameter| %>
+   <tr><td><h3><%= h(resource) %></h3></td><td><% if parameter.size == 1 %><%= parameter.values.first %><% else %>with parameters<% end %></td></tr>
+   <% unless parameter.size == 1 %>
+      <% parameter.each_pair do |param, count| %>
+        <tr><td></td><td><%= h(param) %></td><td><%= h(count) %></td></tr>
+      <% end %>
+   <% end %>
+<% end %>
+</table>
+<h2>Referrers</h2>
+<table>
+<% @refs.each_pair do |resource, referrer| %>
+   <tr><td><h3><%= h(resource) %> referred to by</h3></td></tr>
+   <% referrer.each_pair do |ref, parameter| %>
+      <tr><td></td><td><h4><%= h(ref) %></h4></td></tr>
+      <% parameter.each_pair do |param, count| %>
+         <tr><td></td><td></td><td><h5><%= h(param) %></h5></td><td><%= h(count) %></td></tr>
+      <% end %>
+   <% end %>
+<% end %>
+</table>

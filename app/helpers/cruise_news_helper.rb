@@ -1,0 +1,2 @@
+module CruiseNewsHelper
+end

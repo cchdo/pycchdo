@@ -1,0 +1,31 @@
+#cruise_status {
+	height: 700px;
+}
+#cruise_list {
+	width: 200px;
+	height: 700px;
+	overflow: auto;
+}
+#cruise_history {
+	height: 700px;
+	width: 500px;
+	overflow: auto;
+}
+#cruise_list dt {
+	font-weight: bold;
+}
+
+#status_meta h2 {
+	border: none;
+	font-size: medium;
+}
+	
+.red_link a {
+	color: #FF0000;
+}
+.yellow_link a {
+	color: #FFAA00;
+}
+.green_link a {
+	color: #00AA00;
+}

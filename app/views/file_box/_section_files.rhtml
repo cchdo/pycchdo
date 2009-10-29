@@ -1,0 +1,17 @@
+<h1><%= h(@group) %></h1>
+<form target="iframe" action="save_file" enctype="multipart/form-data" method="post">
+  <input type="hidden" name="group" value="<%= h(@group) %>" />
+  <input type="file" name="incoming_file" />
+  <input type="submit" />
+</form>
+
+<iframe id='iframe' name="iframe" style="visibility: hidden;"></iframe>
+
+<div class="FileList">
+  <% for file in @files %>
+    <% if file.group =~ /#{@group}/ %>
+      <% trash,location = file.location.split('public') %>
+      <a href="<%= h(location) %>"><%= h(file.name) %></a><br>
+    <% end %>
+  <% end %>
+</div>

@@ -1,0 +1,26 @@
+production:
+  adapter: mysql
+  database: cchdo
+  username: cchdo_server
+  password: ((hd0hydr0d@t@
+  host: cchdo.ucsd.edu
+  encoding: utf8
+
+development:
+  adapter: mysql
+  database: cchdo
+  username: cchdo_server
+  password: ((hd0hydr0d@t@
+  host: cchdo.ucsd.edu
+  encoding: utf8
+
+# Warning: The database defined as 'test' will be erased and
+# re-generated from your development database when you run 'rake'.
+# DO NOT set this db to the same as development or production.
+test:
+  adapter: mysql
+  database: cchdo_test
+  username: cchdo_server
+  password: ((hd0hydr0d@t@
+  host: cchdo.ucsd.edu
+  encoding: utf8

@@ -1,0 +1,10 @@
+<h3>Submit Data</h3>
+<% form_for(:argo_submission , :url =>{:action => 'save_file'},:html =>{:multipart => true}) do |form| %>
+    File:
+	<input type="file" name="file">
+	<br><br>
+	Notes:<br>
+    <%= form.text_area :note %>
+    <br>
+    <%= submit_tag %>
+<% end %>

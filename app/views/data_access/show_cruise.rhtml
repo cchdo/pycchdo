@@ -1,0 +1,52 @@
+<% if @cruise %>
+  <div>
+    <h1 id="data_summary_header">Data Summary for <%= @cruise.ExpoCode %></h1>
+    <%= render :partial => "map_thumbnail", :locals => { :cruise => @cruise, :file_hash => @file_hash } %>
+    <%= render :partial => "basic_info", :locals => { :cruise => @cruise } %>
+  </div>
+
+    <a href="/data_history?ExpoCode=<%= @cruise.ExpoCode %>">Data history</a>
+  <% woce_files_p = @file_hash['woce_sum'] and @file_hash['woce_ctd'] and @file_hash['woce_bot'] and @file_hash['large_volume'] %>
+  <% exchange_files_p = @file_hash['exchange_ctd'] and @file_hash['exchange_bot'] %>
+  <% netcdf_files_p = @file_hash['netcdf_ctd'] and @file_hash['netcdf_bot'] %>
+  <% documentation_files_p = @file_hash['text_doc'] and @file_hash['pdf_doc'] %>
+  <div>
+    <% if woce_files_p and exchange_files_p and netcdf_files_p and documentation_files_p %>
+      <h1 class="data_file_list">Data files for <%= @cruise.ExpoCode %></h1>
+      <% if woce_files_p %>
+        <h2>WOCE</h2>
+           <ul>
+           <% if @file_hash['woce_sum'] %><li><a href="<%= @file_hash['woce_sum'] %>">SUM</a> - ASCII station/cast information</li><% end %>
+           <% if @file_hash['woce_ctd'] %><li><a href="<%= @file_hash['woce_ctd'] %>">CTD</a> - ASCII CTD data without station information</li><% end %>
+           <% if @file_hash['woce_bot'] %><li><a href="<%= @file_hash['woce_bot'] %>">BOT</a> - ASCII bottle data without station information</li><% end %>
+           <% if @file_hash['large_volume'] %><li><a href="<%= @file_hash['large_volume'] %>">Large Volume</a> - ASCII bottle data without station information</li><% end %>
+           </ul>
+      <% end %>
+      <% if exchange_files_p %>
+        <h2>Exchange</h2>
+           <ul>
+           <% if @file_hash['exchange_ctd'] %><li><a href="<%= @file_hash['exchange_ctd'] %>">CTD</a>  - ZIP archive of ASCII .csv CTD data with station information</li><% end %>
+           <% if @file_hash['exchange_bot'] %><li><a href="<%= @file_hash['exchange_bot'] %>">BOT</a> - ASCII .csv bottle data with station information</li><% end %>
+           </ul>
+      <% end %>
+      <% if netcdf_files_p %>
+        <h2>NetCDF</h2>
+           <ul>
+           <% if @file_hash['netcdf_ctd'] %><li><a href="<%= @file_hash['netcdf_ctd'] %>">CTD</a> - ZIP archive of binary CTD data with station information</li><% end %>
+           <% if @file_hash['netcdf_bot'] %><li><a href="<%= @file_hash['netcdf_bot'] %>">BOT</a> - Binary bottle data with station information</li><% end %>
+           </ul>
+      <% end %>
+      <% if documentation_files_p %>
+        <h2>Documentation</h2>
+           <ul>
+           <% if @file_hash['text_doc'] %><li><a href="<%= @file_hash['text_doc'] %>">Text</a>- ASCII cruise and data documentation</li><% end %>
+           <% if @file_hash['pdf_doc'] %><li><a href="<%= @file_hash['pdf_doc'] %>">PDF</a>- Portable Document Format cruise and data information</li><% end %>
+           </ul>
+      <% end %>
+    <% else %>
+      <h1 class="data_file_list">No data files for <%= @cruise.ExpoCode %></h1>
+    <% end %>
+  </div>
+<% else %>
+  <h1 class="error">There is no such cruise.</h1>
+<% end %>

@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+ 	
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+ 	 	
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+ 	
+  <meta name="AUTHOR" content="Nathan L">
+ 	
+  <meta name="CREATED" content="20020305;12410000">
+ 	
+  <meta name="CHANGEDBY" content="Nathan L">
+ 	
+  <meta name="CHANGED" content="20020305;12414900">
+</head>
+  <body>
+ 
+<p><font size="4"><b>Appendix 3: Example output from ncdump</b></font></p>
+ 
+<p>The attributes of the file rcm00683.cdf obtainded from ncdump -h. This
+is equivalent to the matlab inqnc command. It describes the global attributes,
+and each of the variables.</p>
+ 
+<p><font face="Courier New"><font size="1">netcdf rcm00683 {</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">dimensions:</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	time = UNLIMITED ; // (36434
+currently)</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">variables:</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	double date(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		date:long_name = "date (yr,
+mo, day)" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		date:units = "YYYYMMDD" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		date:valid_range = 19800101,
+20101231 ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	double time(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		time:long_name = "time of day"
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		time:units = "hhmmss.dd" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		time:valid_range = 0., 2359.59
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	float speed(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		speed:units = "m/sec" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		speed:valid_range = 0., 3. ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	float direction(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		direction:long_name = "true
+direction (toward)" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		direction:units = "degrees"
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		direction:valid_range = 0.,
+360. ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	float u(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		u:long_name = "eastward velocity
+component" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		u:units = "m/sec" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		u:valid_range = -3., 3. ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	float v(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		v:long_name = "northward velocity
+component" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		v:units = "m/sec" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		v:valid_range = -3., 3. ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	float temperature(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		temperature:long_name = "water
+temperature" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		temperature:units = "degrees
+C" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">	float pressure(time) ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		pressure:units = "decibars"
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">// global attributes:</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:experiment_name = "Deep Currents
+(PCM6)" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:mooring_name = "WHOI 942" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:pi_name = "B.Owens/B.Warren"
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:instrument_type = "VACM" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:latitude = " 36.4025" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:longitude = " 150.2307" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:instrument_depth = "2001.0
+m" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:seafloor_depth = " 5829 m"
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:sampling_interval = " 30 min"
+;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:earliest_start_time = "08-jun-1993
+12:15:00" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:latest_stop_time = "07-jul-1995
+12:45:00" ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">		:null_value = -999.9 ;</font></font></p>
+ 
+<p><font face="Courier New"><font size="1">}</font></font></p>
+ 
+</body>
+</html>

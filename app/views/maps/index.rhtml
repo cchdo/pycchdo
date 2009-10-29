@@ -1,0 +1,15 @@
+<p>
+<% BASIN_ORDER.each do |basin| %>
+   <a href="/maps?basin=<%= h(basin) %>"><%= h(basin) %></a> |
+<% end %>
+</p>
+
+<h1 id="Basin"><%= h(@basin) %></h1>
+<div id="map" style="width: 670px; height: 420px"></div>
+
+<p>
+<% @expos.each do |expo| %>
+  <% if date = expo.Begin_Date then year = date.year end %>
+  <a id="<%= h(expo.ExpoCode) %>" href="/search?ExpoCode=<%= h(expo.ExpoCode) %>"><%= h(expo.Line) %>(<%= h(year( %>)</a>
+<% end %>
+</p>

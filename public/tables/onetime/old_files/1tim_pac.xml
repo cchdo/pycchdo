@@ -1,0 +1,2763 @@
+<!-- BEGIN CONTENT -->
+                    <table border=0 cellpadding=2 cellspacing=0>
+                    <tr>
+                    <td  rowspan=2>
+                    Go directly to the<br>line by number
+                    </td>
+                    <td  rowspan=2 bgcolor="ffffff">&nbsp;</td>
+	<td>
+		<a href="#P01">P01</a>
+	</td>
+	<td>
+		<a href="#P02">P02</a>
+	</td>
+	<td>
+		<a href="#P03">P03</a>
+	</td>
+	<td>
+		<a href="#P04">P04</a>
+	</td>
+	<td>
+		<a href="#P06">P06</a>
+	</td>
+	<td>
+		<a href="#P08">P08</a>
+	</td>
+	<td>
+		<a href="#P09">P09</a>
+	</td>
+	<td>
+		<a href="#P10">P10</a>
+	</td>
+	<td>
+		<a href="#P11">P11</a>
+	</td>
+	<td>
+		<a href="#P13">P13</a>
+	</td>
+</tr>
+<tr>
+	<td>
+		<a href="#P14">P14</a>
+	</td>
+	<td>
+		<a href="#P15">P15</a>
+	</td>
+	<td>
+		<a href="#P16">P16</a>
+	</td>
+	<td>
+		<a href="#P17">P17</a>
+	</td>
+	<td>
+		<a href="#P18">P18</a>
+	</td>
+	<td>
+		<a href="#P19">P19</a>
+	</td>
+	<td>
+		<a href="#P21">P21</a>
+	</td>
+	<td>
+		<a href="#P24">P24</a>
+	</td>
+	<td>
+		<a href="#P31">P31</a>
+	</td>
+	<td>
+		<a href="#"></a>
+	</td>
+  <!-- MAIN Table begins here -->
+
+
+    <Table BORDER=0  CELLSPACING=10 cellpadding=0>
+    <TR ALIGN="center" VALIGN="bottom">
+
+    <TD Align=center valign=bottom>
+
+    <b>Line/ExpoCode/Dates</B>
+
+    </TD>
+    <TD Align=center valign=bottom>
+    <b>PI/
+    Ship/
+    Country</B>
+    </TD>
+    <TD Align=center valign=bottom>
+
+    <b>SUM</B>
+    </TD>
+    <TD Align=center valign=bottom class="small">
+    <b><u>
+    Bottle
+    </b></u><br>
+    <b>S / O<font class=tiny>2</font></B>
+    </TD>
+    <TD Align=center valign=bottom class="small">
+    <u><b>
+    Bottle
+    </b></u><br>   
+    <b><i>
+    NUTs
+    </i></b></b>
+    </TD>
+    <TD Align=center valign=bottom class="small">
+    <b><u>
+    Bottle
+    </b></u><br>
+    <b><i>
+    CFCs
+    </i></B>
+    </TD>
+    <TD Align=center valign=bottom class="small">
+    <b><u>
+    Bottle
+    </b></u><br>
+    <b><i>
+    He/Tr
+    </i></b>
+    </TD>
+    <TD Align=center valign=bottom class="small">
+    <b><u>
+    Bottle
+    </b></u><br>
+    <b><i>
+    C-14
+    </i></b>
+    </TD>
+    <TD><B>CTD</B></TD>
+    <TD><B>DOC</B></td>
+    </tr>
+    <tr><td colspan=10 height="1" bgcolor="#000295">&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P01"href="../../onetime/pacific/p01/p01/index.html">P01</a><br>
+		<i>31TTTPS47</i><br>
+		Aug 04 - Sep 07, 1985
+	</td>
+	<td>
+		Talley/SIO<br>
+		Thomas G. Thompson<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p01/p01w/index.html">P01W</a><br>
+		<i>90BM9316_1</i><br>
+		Aug 30 - Sep 21, 1993
+	</td>
+	<td>
+		Whitney/IOS BC<br>
+		A. NESMEYANOV<br>
+		CAN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Wong</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Wong</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p01/p01c_1999a/index.html">P01C</a><br>
+		<i>NO EXPOCODE</i><br>
+		 1999
+	</td>
+	<td>
+		UNKNOWN<br>
+		UNKNOWN<br>
+		UNK
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p01/p01e_1999aindex.html">P01E</a><br>
+		<i>NO EXPOCODE</i><br>
+		 1999
+	</td>
+	<td>
+		UNKNOWN<br>
+		UNKNOWN<br>
+		UNK
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p01/p01h_1999a/index.html">P01H</a><br>
+		<i>NO EXPOCODE</i><br>
+		 1999
+	</td>
+	<td>
+		UNKNOWN<br>
+		UNKNOWN<br>
+		UNK
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p01/p01w_1999a/index.html">P01W</a><br>
+		<i>NO EXPOCODE</i><br>
+		 1999
+	</td>
+	<td>
+		UNKNOWN<br>
+		UNKNOWN<br>
+		UNK
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P02"href="../../onetime/pacific/p02/p02c/index.html">P02C</a><br>
+		<i>49EWBO9401_1</i><br>
+		Jan 15 - Feb 04, 1994
+	</td>
+	<td>
+		Fukasawa/TU<br>
+		BOSEI MARU NO. 2<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p02/p02e/index.html">P02E</a><br>
+		<i>492SSY9310_1</i><br>
+		<i>492SSY9310_2</i><br>
+		Oct 14 - Nov 27, 1993
+	</td>
+	<td>
+		Bando_JODC / YORITAKA_JODC<br>
+		SHOYO<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p02/p02t/index.html">P02T</a><br>
+		<i>49K6KY9401_1</i><br>
+		Jan 07 - Feb 10, 1994
+	</td>
+	<td>
+		Okuda/NRIFS<br>
+		KAIYO-MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Ono</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p02/p02w/index.html">P02W</a><br>
+		<i>492SSY9411_1</i><br>
+		Nov 01 - Nov 14, 1994		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="../repeat/subs/pr27_table.html"> PR27</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Iwanaga/(HD)MSA<br>
+		SHOYO<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p02/p02_2004a/index.html">P02</a><br>
+		<i>318M200406</i><br>
+		 Jun 15 - Aug 27,2004
+	</td>
+	<td>
+		Robbins/Swift (USA)<br>
+		MELVILLE<br>
+		USA
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		*<br>
+	</td>
+	<td align=center>
+		*<br>
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+</tr>
+<!--
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p02/p02_2004b/index.html">P02</a><br>
+		<i>NO EXPOCODE</i><br>
+		 2004
+	</td>
+	<td>
+		UNKNOWN<br>
+		UNKNOWN<br>
+		UNK
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI<br>
+	</td>
+	<td align=center>
+		PI
+	</td>
+	<td align=center>
+		PI
+	</td>
+</tr>
+-->
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P03"href="../../onetime/pacific/p03/p03a/index.html">P03</a><br>
+		<i>31TTTPS24_1</i><br>
+		<i>31TTTPS24_2</i><br>
+		Mar 30 - Jun 03, 1985
+	</td>
+	<td>
+		Swift, Roemmich/SIO<br>
+		Thomas G. Thompson<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P04"href="../../onetime/pacific/p04/p04c/index.html">P04C</a><br>
+		<i>32MW893_2</i><br>
+		Mar 09 - Mar 24, 1989
+	</td>
+	<td>
+		Brady/WHOI<br>
+		MOANA WAVE<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p04/p04e/index.html">P04E</a><br>
+		<i>32MW893_3</i><br>
+		Apr 02 - May 19, 1989
+	</td>
+	<td>
+		Bryden/WHOI<br>
+		MOANA WAVE<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p04/p04w/index.html">P04W</a><br>
+		<i>32MW893_1</i><br>
+		Feb 06 - Mar 09, 1989
+	</td>
+	<td>
+		Toole/WHOI<br>
+		MOANA WAVE<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P06"href="../../onetime/pacific/p06/p06c/index.html">P06C</a><br>
+		<i>316N138_4</i><br>
+		May 30 - Jul 07, 1992
+	</td>
+	<td>
+		McCartney/WHOI<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p06/p06e/index.html">P06E</a><br>
+		<i>316N138_3</i><br>
+		May 02 - May 26, 1992
+	</td>
+	<td>
+		Bryden/JRC<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p06/p06e_2003a">P06E</a><br>
+		<i>49NZ200309_2</i><br>
+		Sep 09 - Oct 16, 2003
+	</td>
+	<td>
+		Watanabe/JAMSTEC<br>
+		MIRAI<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		  *
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p06/p06w/index.html">P06W</a><br>
+		<i>316N138_5</i><br>
+		Jul 13 - Jul 30, 1992
+	</td>
+	<td>
+		Toole/WHOI<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p06/p06w_2003a">P06W</a><br>
+		<i>49NZ200308_1</i><br>
+		Aug 03 - Sep 02, 2003
+	</td>
+	<td>
+		Fukasawa<br>
+		MIRAI<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P08"href="../../onetime/pacific/p08/p08n/p08n_a/index.html">P08N</a><br>
+		<i>49K6KY9606_1</i><br>
+		Jun 20 - Jul 15, 1996
+	</td>
+	<td>
+		Mizuno/FA<br>
+		KAIYO-MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*<br>
+		<font class='small' color='#008000'><i>Mizuno</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Mizuno</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p08/p08n/p08n_b/index.html">P08N</a><br>
+		<i>492SSY9607_1</i><br>
+		Jul 12 - Jul 30, 1996
+	</td>
+	<td>
+		Yoritaka/(HD)MS<br>
+		SHOYO<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Nokano</i>
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Yoritaka</i>
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p08/p08n/p08n_c/index.html">P08N</a><br>
+		<i>492SSY9610_1</i><br>
+		Oct 28 - Nov 02, 1996
+	</td>
+	<td>
+		Yoritaka/(HD)MS<br>
+		SHOYO<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Okano</i>
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Yoritaka</i>
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p08/p08s/index.html">P08S</a><br>
+		<i>49XK9605</i><br>
+		Jun 17 - Jul 02, 1996
+	</td>
+	<td>
+		Yoshioka/JAMSTEC<br>
+		KAIYO<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*<br>
+		<font class='small' color='#008000'><i>Saito</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P09"href="../../onetime/pacific/p09/index.html">P09</a><br>
+		<i>49RY9407_1</i><br>
+		<i>49RY9407_2</i><br>
+		Jul 07 - Aug 25, 1994
+	</td>
+	<td>
+		Kaneko/JMA<br>
+		RYOFU MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P10"href="../../onetime/pacific/p10/index.html">P10</a><br>
+		<i>3250TN026_1</i><br>
+		Oct 05 - Nov 10, 1993
+	</td>
+	<td>
+		Hall/WHOI<br>
+		Thomas G. Thompson<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P11"href="../../onetime/pacific/p11/p11a/index.html">P11A</a><br>
+		<i>09AR9391_2</i><br>
+		Apr 04 - May 09, 1993
+	</td>
+	<td>
+		Rintoul/CSIRO<br>
+		Aurora Australis<br>
+		AUS
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Tilbrook</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p11/p11s/index.html">P11S</a><br>
+		<i>09FA693</i><br>
+		Jun 24 - Jul 17, 1993
+	</td>
+	<td>
+		Church/CSIRO<br>
+		FRANKLIN<br>
+		AUS
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Rintoul<br>Church</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P13"href="../../onetime/pacific/p13/p13/index.html">P13</a><br>
+		<i>3220CGC92_1</i><br>
+		<i>3220CGC92_2</i><br>
+		Aug 04 - Oct 21, 1992
+	</td>
+	<td>
+		Bullister/PMEL<br>
+		JOHN V. VICKERS<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p13/p13c/p13ca/index.html">P13C</a><br>
+		<i>49HH915_1</i><br>
+		Aug 13 - Sep 01, 1991
+	</td>
+	<td>
+		Taira/ORI<br>
+		HAKUHO-MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p13/p13c/p13cb/index.html">P13C</a><br>
+		<i>49HH915_2</i><br>
+		Sep 17 - Oct 02, 1991
+	</td>
+	<td>
+		Taira/ORI<br>
+		HAKUHO-MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p13/p13j/index.html">P13J</a><br>
+		<i>49HH932_1</i><br>
+		May 13 - May 30, 1993
+	</td>
+	<td>
+		Taira/ORI<br>
+		HAKUHO-MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		*<br>
+		<font class='small' color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		*<br>
+		<font class=small color='#008000'><i>Watanabe</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a name="P14"href="../../onetime/pacific/p14/p14c/index.html">P14C</a><br>
+		<i>316N138_7</i><br>
+		Sep 01 - Sep 15, 1992
+	</td>
+	<td>
+		Roemmich/SIO<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p14/p14n/index.html">P14N</a><br>
+		<i>325023_1</i><br>
+		<i>325024_1</i><br>
+		Jul 05 - Sep 02, 1993
+	</td>
+	<td>
+		Roden/UW<br>
+		Thomas G. Thompson<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p14/p14s/index.html">P14S</a><br>
+		<i>31DSCG96_1</i><br>
+		<i>31DSCG96_2</i><br>
+		Jan 05 - Mar 10, 1996		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P15"> P15S</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Bullister/PMEL<br>
+		DISCOVERER<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Quay</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P15"href="../../onetime/pacific/p15/p15n/p15na/index.html">P15N</a><br>
+		<i>18DD9403_1</i><br>
+		Sep 06 - Oct 10, 1994		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="../repeat/subs/pr06_table.html"> PR06</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Garrett/IOS BC<br>
+		JOHN P. TULLY<br>
+		CAN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Wong</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p15/p15n/p15nb/index.html">P15N</a><br>
+		<i>18DD9403_2</i><br>
+		Oct 13 - Nov 10, 1994
+	</td>
+	<td>
+		Freeland/IOS BC<br>
+		JOHN P. TULLY<br>
+		CAN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Wong</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p14/p14s/index.html">P15S</a><br>
+		<i>31DSCG96_1</i><br>
+		Jan 05 - Mar 10, 1996		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P14"> P14S</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Bullister/PMEL<br>
+		DISCOVERER<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		PI<br>
+		<font class=small color='#008000'><i>Quay</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p15/p15s/p15sa/index.html">P15S</a><br>
+		<i>3175CG90_1</i><br>
+		Feb 22 - Apr 16, 1990		<br>
+	</td>
+	<td>
+		Wisegarver/PMEL<br>
+		MALCOLM BALDRIGE<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P16"href="../../onetime/pacific/p16/p16a/index.html">P16A</a><br>
+		<i>316N138_9</i><br>
+		Oct 06 - Nov 25, 1992		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P17"> P17A</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Reid/SIO<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p16/p16c/index.html">P16C</a><br>
+		<i>31WTTUNES_3</i><br>
+		Aug 31 - Oct 01, 1991
+	</td>
+	<td>
+		Talley/SIO<br>
+		T. WASHINGTON<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p16/p16n/index.html">P16N</a><br>
+		<i>31DSCGC91_1</i><br>
+		<i>31DSCGC91_2</i><br>
+		Feb 14 - Apr 08, 1991
+	</td>
+	<td>
+		Bullister/PMEL<br>
+		DISCOVERER<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p16/p16s/index.html">P16S</a><br>
+		<i>31WTTUNES_2</i><br>
+		Jul 16 - Aug 25, 1991		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P17"> P17S</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Swift/SIO<br>
+		T. WASHINGTON<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p16/p16s_2005a/index.html">P16S</a><br>
+		<i>33RR200501</i><br>
+		Jan 10 - Feb 20, 2005		<br>
+		<!-- <font color='#ff0000'><i>Also covered:</font></i>
+		<a href=""> XXX</a> -->
+		
+	</td>
+
+	</td>
+	<td>
+		Sloyan/WHOI<br>
+		REVELLE<br>
+		USA
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+	<td align=center>
+		CCHDO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p16/p16_1984a/index.html">P16</a><br>
+		<i>31WTMARAII</i><br>
+		May 04 - Jun 04, 1984		<br>
+	</td>
+
+	</td>
+	<td>
+		Talley/SIO<br>
+		T. WASHINGTON<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		 *
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		 *
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a name="P17"href="../../onetime/pacific/p16/p16a/index.html">P17A</a><br>
+		<i>316N138_9</i><br>
+		Oct 06 - Nov 25, 1992		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P16"> P16A</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Reid/SIO<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p17/p17c/index.html">P17C</a><br>
+		<i>31WTTUNES_1</i><br>
+		May 31 - Jul 11, 1991
+	</td>
+	<td>
+		Tsuchiya/SIO<br>
+		T. WASHINGTON<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p17/p17e/index.html">P17E</a><br>
+		<i>316N138_10</i><br>
+		Dec 04 - Jan 22, 1993		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P19"> P19S</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Swift/SIO<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p17/p17n/index.html">P17N</a><br>
+		<i>325021_1</i><br>
+		May 15 - Jun 26, 1993
+	</td>
+	<td>
+		Musgrave/UA<br>
+		Thomas G. Thompson<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p16/p16s/index.html">P17S</a><br>
+		<i>31WTTUNES_2</i><br>
+		Jul 16 - Aug 25, 1991		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P16"> P16S</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Swift/SIO<br>
+		T. WASHINGTON<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../co2clivar/pacific/p17n/p17n_2001a/index.html">P17N</a><br>
+		<i>49NZ200107_1</i><br>
+		Jul 25 - Aug 27, 2001		<br>
+	</td>
+
+	</td>
+	<td>
+		Fukasawa/JAMSTEC<br>
+		MIRAI<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		 *
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a name="P18"href="../../onetime/pacific/p18/index.html">P18</a><br>
+		<i>31DSCG94_1</i><br>
+		<i>31DSCG94_2</i><br>
+		<i> 31DSCG94_3</i><br>
+		Jan 26 - Apr 27, 1994
+	</td>
+	<td>
+		Taft, Johnson / Dennis Moore<br>
+		DISCOVERER<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P19"href="../../onetime/pacific/p19/p19a/index.html">P19A</a><br>
+		<i>74JC002_1</i><br>
+		Nov 01 - Dec 08, 1992
+	</td>
+	<td>
+		Owens/UN<br>
+		James Clark Ross<br>
+		UK
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p19/p19c/index.html">P19C</a><br>
+		<i>316N138_12</i><br>
+		Feb 22 - Apr 13, 1993
+	</td>
+	<td>
+		Talley/SIO<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p17/p17e/index.html">P19S</a><br>
+		<i>316N138_10</i><br>
+		Dec 04 - Jan 22, 1993		<br>
+		<font color='#ff0000'><i>Also covered:</font></i>
+		<a href="1tim_pac.html#P17"> P17E</a>
+		
+	</td>
+
+	</td>
+	<td>
+		Swift/SIO<br>
+		KNORR<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P21"href="../../onetime/pacific/p21/index.html">P21E</a><br>
+		<i>318MWESTW_4</i><br>
+		Mar 27 - May 15, 1994
+	</td>
+	<td>
+		McCartney/WHOI<br>
+		MELVILLE<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+        <!-- INTERIM STATUS BAR (every 5th blue bar) -->
+          <TR ALIGN="center">
+
+          <TD COLSPAN=2 height="1" class="legend" Align=center valign=bottom>&nbsp;</TD>
+
+          <TD height="1" class="legend" Align=center >
+          SUM
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          S / O<font class=tiny>2</font>
+          </TD>
+          <TD  height="1" class="legend" Align=center>
+          <i>NUTs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>CFCs</i>
+          </TD>
+          <TD height="1" class="legend" Align=center> 
+          <i>He/Tr</i>
+          </TD>
+          <TD height="1" class="legend" Align=center>
+          <i>C-14</i>
+          </TD>
+          <TD height="1" class="legend" align=center>
+          CTD
+          </TD>
+          <TD height="1" class="legend" align=center>
+          DOC
+          </TD>
+          </TR>
+<tr>
+	<td>
+		<a href="../../onetime/pacific/p21/index.html">P21W</a><br>
+		<i>318MWESTW_5</i><br>
+		May 19 - Jun 25, 1994
+	</td>
+	<td>
+		Bryden/JRC<br>
+		MELVILLE<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P24"href="../../onetime/pacific/p24/index.html">P24</a><br>
+		<i>49RY9511_2</i><br>
+		Nov 15 - Nov 30, 1995
+	</td>
+	<td>
+		Fujimura/JMA<br>
+		RYOFU MARU<br>
+		JPN
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		PI<br>
+		<font class='small' color='#008000'><i>Aoyama</i>
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+<tr>
+	<td>
+		<a name="P31"href="../../onetime/pacific/p31/index.html">P31</a><br>
+		<i>3250031_1</i><br>
+		Jan 25 - Feb 19, 1994
+	</td>
+	<td>
+		Roemmich/SIO<br>
+		Thomas G. Thompson<br>
+		USA
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		*
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+	<td align=center>
+		WHPO
+	</td>
+</tr>
+<tr><td colspan=10 height='1' class='legend'>&nbsp;</td></tr>
+</table>
+  <HR>
+    <!-- This is Legend -->
+    <table border=0 cellspacing=5 cellpadding=0 >
+    <tr>
+    <td align="center" colspan=4>
+    <b><u>
+    <a name="legend"></a>LEGEND</b></u>
+    </td>
+    </tr>
+    <tr>
+    <td align="left" class="small"><b><u>?:</u></b>
+    </td>
+    <td class="small">Disposition unknown as of 2003/11/14
+    </td>
+    <td align="left" class="small"><b><u>RAW:</u></b>
+    </td>
+    <td class="small">Files in Non-WOCE format as
+    received from PI
+    </td>
+    </tr>
+    <tr>
+    <td align="left" class="small"><b><u>INC:</u></b>
+    </td>
+    <td class="small">Files are <b>INC</b>omplete
+    </td>
+    <td align="left" class="small"><b><u>PI:</u></b>
+    </td>
+    <td class="small">Data resides with PI
+    </td>
+    </tr>
+    <tr>
+    <td align="left" class="small"><b><u>NP:</u></b>
+    </td>
+    <td class="small"><b>N</b>on-<b>P</b>ublic
+    (<i>data available only by permission from PI</i>)
+    </td>
+    <td class="small">
+    </td>
+    </tr>
+    <tr>
+    <td align="left" class="small"><b><u>NO CRUISE:</u></b>
+    </td>
+    <td class="small">expedition not complete as of 2003/11/14
+    </td>
+    <td align="left" class="small"><b><u>WHPO:</u></b>
+    </td>
+    <td class="small">Data available from WHP Office
+    </td>
+    </tr>
+    </table>
+<!-- END CONTENT -->

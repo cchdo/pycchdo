@@ -1,0 +1,23 @@
+run git-checkout HEAD . to update this repository when pushed to
+All developers for watershed should `git-clone' the repository on
+watershed.ucsd.edu by issuing the following command:
+
+git-clone <username>@watershed.ucsd.edu:/Users/Shared/cchdo_summer_of_code
+
+
+The developer may work with their copy of the repository. When they are
+finished with edits they want to preserve, they should `git-add' any changed 
+files. The changed files can be viewed by the command `git-status'.
+
+After a feature has been completed, the developer should `git-commit'. This
+will not change watershed's copy of the site.
+
+Before pushing the changes to watershed, the developer shall issue `git-pull'
+in order to prevent changes already pushed to watershed from conflicting with
+their own changes. After any collisions have been resolved a `git-push' will 
+take the developer's local committed changes and push them to watershed.
+
+However, `git-push' will not change watershed's shown files. Someone must go
+to watershed and issue `git-reset --hard HEAD' before the changes will appear
+live. Before that happens, the person should first check that there are no 
+new changes on watershed that will get overwritten by `git-reset'.

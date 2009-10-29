@@ -1,0 +1,67 @@
+<% if @new == 1%>
+<% form_remote_for(:file_box_section, { :url => { :action => :create_section}, :update => "file_box_sections_menu"}) do |form| %>
+<table>
+	<tr>
+		<td>
+			Section Name
+		</td>
+		<td>
+			Files
+		</td>
+	</tr>
+	<% for section in @sections %>
+	<tr>
+		<td class="file_box_user_cell" >
+			<%= section.name %>
+		</td>
+		<td class="file_box_user_cell">
+			<%= section.files %>
+		</td>
+	</tr>
+	<% end %>
+	<tr>
+		<td colspan="2">
+			 <%= form.text_field :name, :size => 8 %>
+		</td>
+	</tr>
+	<tr>
+		<td colspan="3">
+			<%= submit_tag value="Update"%>
+		</td>
+
+	<tr>
+		<td>
+			<%= link_to_remote "Add Section",{:url => {:action => "new_section"}, :update => "file_box_sections_menu"} %>
+		</td>
+	</tr>
+</table>
+</tr>
+<% end %>
+<% else %>
+<table>
+	<table>
+		<tr>
+			<td>
+				Section Name
+			</td>
+			<td>
+				Files
+			</td>
+		</tr>
+		<% for section in @sections %>
+		<tr>
+			<td class="file_box_user_cell" >
+				<%= section.name %>
+			</td>
+			<td class="file_box_user_cell">
+				<%= section.files %>
+			</td>
+		</tr>
+		<% end %>
+	<tr>
+		<td>
+			<%= link_to_remote "Add Section",{:url => {:action => "new_section"}, :update => "file_box_sections_menu"} %>
+		</td>
+	</tr>
+</table>
+<% end %>

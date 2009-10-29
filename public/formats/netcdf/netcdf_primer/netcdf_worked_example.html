@@ -1,0 +1,48 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <title>netcdf_worked_example</title>
+</head>
+  <body>
+ 
+<h4>The script to read the netcdf file </h4>
+ <br>
+ % <br>
+ % Read netcdf file sst05d19900108.nc. &nbsp;This netcdf file contains the 
+sea-surface temperature <br>
+ % field from the 8th January 1990 the begiining of the WOCE observation
+period. This data set is an <br>
+ % arbitrary example taken from the<br>
+ % WOCE Global Data V2 data set to illustrate the power of the netcdf command<br>
+ % developed by Chuck Denham<br>
+ % <br>
+ % <br>
+ % Load the data.<br>
+ sst1=netcdf('/u/bindoff/sst05d19900108.nc') <br>
+ % <br>
+ % display the contents of the variables <br>
+ % <br>
+ for i=1:8<br>
+ &nbsp;sst1{i} <br>
+ end<br>
+ %<br>
+ % Do a test plot of the data using the pcolor function<br>
+ % <br>
+ latitude=sst1{'latitude'}(1:end); <br>
+ longitude=sst1{'longitude'}(1:end); <br>
+ sst=sst1{'sea_surface_temperature'}(1:end,1:end); pause <br>
+ %<br>
+ &nbsp;pcolor(sst(1:10:end,1:10:end)/100) <br>
+ caxis([-2 32])<br>
+ &nbsp;shading flat<br>
+ &nbsp;%  <br>
+ 
+<h4>Output from the script above from Matlab</h4>
+ 
+<pre>&gt;&gt; sst_data<br> <br>sst1 =<br> <br>          NetCDF_File: '/u/bindoff/sst05d19900108.nc'<br>          nDimensions: 4<br>           nVariables: 8<br>    nGlobalAttributes: 6<br>      RecordDimension: ''<br>             nRecords: 0<br>           Permission: 'nowrite'<br>           DefineMode: 'data'<br>             FillMode: 'fill'<br>           MaxNameLen: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'woce_date'<br>            itsType: 'long'<br>      itsDimensions: 'time'<br>         itsLengths: 1<br>     itsOrientation: 1<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 6<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'woce_time_of_day'<br>            itsType: 'float'<br>      itsDimensions: 'time'<br>         itsLengths: 1<br>     itsOrientation: 1<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 5<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'julian_day_1990'<br>            itsType: 'short'<br>      itsDimensions: 'time'<br>         itsLengths: 1<br>     itsOrientation: 1<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 6<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'depth'<br>            itsType: 'float'<br>      itsDimensions: 'time'<br>         itsLengths: 1<br>     itsOrientation: 1<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 5<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'latitude'<br>            itsType: 'float'<br>      itsDimensions: 'latitude'<br>         itsLengths: 360<br>     itsOrientation: 1<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 6<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'longitude'<br>            itsType: 'float'<br>      itsDimensions: 'longitude'<br>         itsLengths: 720<br>     itsOrientation: 1<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 6<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'sea_surface_temperature'<br>            itsType: 'short'<br>      itsDimensions: 'latitude, longitude'<br>         itsLengths: [360 720]<br>     itsOrientation: [1 2]<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 8<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br> <br>ans =<br> <br>    NetCDF_Variable: 'bin_count'<br>            itsType: 'byte'<br>      itsDimensions: 'latitude, longitude'<br>         itsLengths: [360 720]<br>     itsOrientation: [1 2]<br>            itsVars: {}<br>         itsSrcsubs: {}<br>         itsDstsubs: {}<br>        nAttributes: 4<br>    itIsAutoscaling: 0<br>     itIsAutoNaNing: 0<br>       itIsUnsigned: 0<br>          itIsQuick: 0<br><br>&gt;&gt; whos<br>  Name            Size         Bytes  Class<br><br>  ans           360x720         3058  ncvar object<br>  i               1x1              8  double array<br>  latitude      360x1           2880  double array<br>  longitude     720x1           5760  double array<br>  sst           360x720      2073600  double array<br>  sst1            4-D           2290  netcdf object<br><br>Grand total is 260398 elements using 2087596 bytes<br><br>&gt;&gt; <br>&gt;&gt; diary off<br><br></pre>
+ 
+<h4>And the figure created by the script</h4>
+<pre><img src="pcolor.jpg" alt="Sea-surface temperature from the script at low resolution" width="1201" height="901"><img src="pcolor.png" alt="Figure created by script of sea-surface temperature" width="1201" height="901"></pre>
+   
+</body>
+</html>

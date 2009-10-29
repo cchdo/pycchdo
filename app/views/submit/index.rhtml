@@ -1,0 +1,70 @@
+<div class='boxed'>
+<h1>Submit Data</h1>
+<div class='box_content'>
+
+<p>Please <a href="/CCHDO_DataSubmitGuide.pdf">read the submission guide</a>.</p>
+
+<% form_for(:submission, :url => {:action => 'save_file'}, :html =>{:multipart => true}) do |form| %>
+<table style='width: 100%'>
+   <tr style='width: 50%;'>
+      <td id="contact_table" align="center" valign="top" cellspacing="5">
+         <h2>Contact Information (Required)</h2>
+         <table class="submit_table">
+            <tr><td>Name (Last, First)<%= error_message_on(:submission, :name) %></td><td><%= form.text_field :name ,:size => 15 %></td></tr>
+            <tr><td>Institution<%= error_message_on(:submission, :institute) %></td><td><%= form.text_field :institute,:size => 15 %></td></tr>
+            <tr><td>Country<%= error_message_on(:submission, :Country) %></td><td><%= form.text_field :Country ,:size => 15 %></td></tr>
+            <tr><td>Email<%= error_message_on(:submission, :email) %></td><td><%= form.text_field :email ,:size => 15 %></td></tr>
+            <% @public = ["Public", "Non Public"] %>
+            <tr><td colspan=2>Public<%= error_message_on(:submission, :public) %><%= form.radio_button :public ,"public" %>Non-Public<%= form.radio_button :public, "Non-Public" %></td></tr>
+         </table>
+      </td>
+      <td id="cruise_info_table" align="center" valign="top"  cellspacing="5">
+         <h2>Cruise Information (Requested)</h2>
+         <table class="submit_table">
+           <tr><td>ExpoCode or Cruise Name</td><td><%= form.text_field :ExpoCode %></td></tr>
+           <tr><td>WOCE Line<br> (if known)</td><td><%= form.text_field :Line %></td></tr>
+           <tr><td>Ship Name</td><td><%= form.text_field :Ship_Name %></td></tr>
+           <tr><td>Cruise Date</td><td><%= form.date_select :cruise_date ,:start_year=> 1970, :include_blank => true %></td></tr>
+         </table>
+      </td>
+   </tr>
+   <tr style='width: 50%;'>
+      <td id="action_table" align="center" valign="top" cellspacing="5">
+         <h2>Type of Submission (Requested)</h2>
+         <table class="submit_table">
+            <tr>
+               <td>
+                  Merge Data<%= check_box "actions","one",{},"Merge Data" %><br />
+                  Place Data Online<%= check_box "actions","two",{},"Place Online" %><br />
+                  Update Parameters<%= check_box "actions","three",{},"Updated Parameters" %>
+               </td>
+            </tr>
+            <tr>
+               <td>
+                  <h1 style='text-align: left; font-size: medium; font-weight: normal;'>Notes</h1>
+                  <%= form.text_area :notes ,:rows => "7", :cols =>"35"%></td>
+            </tr>
+         </table>
+      </td>
+      <td id="file_submit" align="center" valign="top" cellspacing="5">
+         <h2>Upload Hydrography File</h2>
+         <table class="submit_table">
+            <tr>
+               <td>
+               <% if @file_name %> 
+                 <em><%= h(@file_name) %></em>
+                 <input type="hidden" name="saved" value="<%= @file_name %>">
+               <% else %>
+                 <%= error_message_on(:submission, :file) %> <% if @file %> <%= @file %> <% end %> <%= form.file_field :file %><!--<input type="file" name="file">-->
+               <% end %>
+               </td>
+            </tr>
+         </table>
+      </td>
+   </tr>
+</table>
+<%= submit_tag 'Submit' %>
+<% end %>
+</div>
+<div class='box_bottom'></div>
+</div>

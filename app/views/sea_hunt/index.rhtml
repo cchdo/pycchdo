@@ -1,0 +1,10 @@
+<table border=1px>
+  <tr><td>Cruise</td><td>Institution</td><td>dates</td><td>Location</td><td>Status</td><td>Contact</td><td>Email</td><td>Phone</td><td>Notes</td></tr>
+  <% for cruise in @cruises %>
+  <tr>
+    <td><%= h(cruise.cruise_name) %></td><td><%= h(cruise.institution) %></td><td><%= h(cruise.dates) %></td><td><%= h(cruise.location) %></td>
+    <td><%= h(cruise.status) %></td><td><%= h(cruise["contact-1"]) %></td><td><%= h(cruise.email) %></td><td><%= h(cruise.phone) %></td>
+    <td><%= h(cruise.notes) %></td>
+  </tr>
+  <% end %>
+</table>

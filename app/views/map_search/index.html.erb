@@ -1,0 +1,95 @@
+<% content_for :title do -%> [Map Search]<% end -%>
+<% content_for :head do -%>
+  <%= stylesheet_link_tag 'map_search/map_search', 'map_search/slider', :cache => 'cache/map_search' -%>
+<% end -%>
+<% content_for :js do -%>
+  <%# Don't use javascript_include_tag for GMaps; GAPI autoload: maps=v2.x, visualization=v1, packages: table -%>
+  <%= javascript_include_tag "http://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.x%22%7D%2C%7B%22name%22%3A%22visualization%22%2C%22version%22%3A%221%22%2C%22packages%22%3A%5B%22table%22%5D%7D%5D%7D&key=#{getGAPIkey(request.env['HTTP_HOST'])}" -%>
+  <%= javascript_include_tag :defaults,
+                             'map_search/grat',
+                             'map_search/dragTool',
+                             'map_search/map_search',
+                             'map_search/slider',
+        :cache => 'cache/map_search' %>
+  <% if params[:autoload] -%><script type='text/javascript'>google.setOnLoadCallback(CM.load_with_submit);</script><% end -%>
+<% end -%>
+<noscript><h1 class='notice'><strong>JavaScript must be enabled in order for you to use Google Maps.</strong> It seems JavaScript is either disabled or not supported by your browser. To view Google Maps, enable JavaScript by changing your browser options, and then try again.</h1></noscript>
+<% form_remote_tag(:url => {:action => 'tracks'},
+     :loading => "CM.state('Searching <img src=\"/images/rotate.gif\" />')",
+     :complete => "CM.state('');CM.tracks_handler(request)",
+     :html => {:onsubmit => 'CM.submit()', :name => 'tool_details'}) do -%>
+<%= hidden_field_tag 'tool', 'none' %>
+<%= hidden_field_tag 'polygon', '' %>
+<div id="tool_details">
+  <div id="query_details" class="tool">
+    <%= text_field_tag 'query', 'Query' %>
+  </div>
+  <div id="rectangle_details" class="tool">
+    <% common_props = {:size => 10} -%>
+    <table>
+      <tr><td></td><td>Latitude</td><td>Longitude</td></tr>
+      <tr><td>Maximum</td><td><%= text_field_tag 'ne_lat', @ne_lat, common_props %></td><td><%= text_field_tag 'ne_lng', @ne_lng, common_props %></td></tr>
+      <tr><td>Minimum</td><td><%= text_field_tag 'sw_lat', @sw_lat, common_props %></td><td><%= text_field_tag 'sw_lng', @sw_lng, common_props %></td></tr>
+    </table>
+  </div>
+  <div id="circle_details" class="tool">
+    <% common_props = {:size => 10} -%>
+    <table>
+      <tr><td></td><td>Latitude</td><td>Longitude</td></tr>
+      <tr><td>Center</td><td><%= text_field_tag 'circle_center_lat', '0.0', common_props  %></td><td><%= text_field_tag 'circle_center_lng', '0.0', common_props %></td></tr>
+    </table>
+    <p><%= text_field_tag 'circle_radius', '300.0', common_props %> km radius</p>
+  </div>
+  <div id="polygon_details" class="tool">
+    <p>Define a polygon to search in by clicking vertices. Double-click or click the first vertex to close the polygon.</p>
+    <div id="polygon_status"></div>
+  </div>
+  <div id="import_details" class="tool">
+    <table>
+      <tr>
+        <td><p>Put a list of coordinates (latitude, longitude) here to search around.</p></td>
+        <td rowspan="2">
+          <%= text_area_tag :latlons, '', :cols => 20, :rows => 4 %>
+        </td>
+      </tr>
+      <tr><td><p>Radius of circle to search around coordinates: <%= text_field_tag :import_radius, '60', :size => 4 %></p></td></tr>
+    </table>
+  </div>
+  <div id="granularity" class="tool">
+    <div id="time_slider" class="slider"></div>
+    <div style='position: relative;'>
+      <% common_props = {:size => 4} -%>
+      <%= text_field_tag :min_time, '1975', {:id => "min_time_display", :style => 'float: left;'}.merge(common_props) %>
+      <%= text_field_tag :max_time, Date.today.year, {:id => "max_time_display", :style => 'float: right;'}.merge(common_props) %>
+    </div>
+    <p style='clear: both; text-align: center;'><%= text_field_tag 'max_coords', '50', :size => 4 %> stations shown / cruise</p>
+  </div>
+  <div id="search">
+    <%= submit_tag "Search" %>
+  </div>
+</div>
+<% end # of form %>
+<div id="tool_bar">
+  <img id="query_button" class="tool_button" src="/images/map_search/select_query_button_off.gif" title="Query Tool" />
+  <img id="rectangle_button" class="tool_button" src="/images/map_search/select_rectangle_button_off.gif" title="Rectangle Tool" />
+  <img id="circle_button" class="tool_button" src="/images/map_search/select_circle_button_off.gif" title="Circle Tool" />
+  <img id="polygon_button" class="tool_button" src="/images/map_search/select_polygon_button_off.gif" title="Polygon Tool" />
+  <img id="import_button" class="tool_button" src="/images/map_search/select_import_button_off.gif" title="Import Tool" />
+  <div id="status"></div>
+</div>
+
+<div id='map_space'>
+  <div id="map"></div>
+  <div id="map_pane">
+    <div id="pane_handle" style="cursor: pointer;"><img id='handle_img' /></div>
+    <div id="pane_content" style="display: none;">
+      <div id="info_table"></div>
+      <img id="pop_button" src="/images/map_search/popout.png" alt="Popout" title="Popout" />
+    </div>
+  </div>
+</div>
+<div id='instructions'>
+  <h2>Notes about the Google Earth plugin</h2>
+  <p>This map can be viewed as a globe with the <a href="http://code.google.com/apis/earth/">Google Earth plugin</a> if you are running Windows or Mac OS.</p>
+  <p><strong>Known issue: </strong>If the map type control disappears when switched to the Earth plugin you have an old version of the Google Earth plugin and should uninstall and reinstall the plugin.</p>
+</div>

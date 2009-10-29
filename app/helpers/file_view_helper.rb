@@ -1,0 +1,3 @@
+module FileViewHelper
+
+end

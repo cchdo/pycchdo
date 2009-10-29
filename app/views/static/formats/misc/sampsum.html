@@ -1,0 +1,414 @@
+This is an example of the first few lines of a station summary file from an Indian Ocean cruise, I08 South.  Explanations
+and descriptions are clickable from the header.
+<ul>
+	<li>To view a FORTRAN program to read a properly coded SUMfile, please <a href="readsum.f" target="_blank">click here</a>.
+	<li>To see the first few lines of a sample SUMfile, please <a href="testsum.txt" target="_blank">click here</a>.
+</ul>
+<hr size="1" width="95%"><p>
+<center><h3></h3></center>
+<a name="TOP"></a>
+
+</font>
+<pre>
+R/V KNORR CR. 145, LEG 5  WHP-ID     I08S, I09S                    <a href="../../policies/version.htm">19980206WHPOSIOSA</a>
+
+SHIP/CRS       WOCE               CAST         UTC           POSITION                UNC   COR ABOVE  WIRE   MAX  NO. OF                 
+<a href="#EXPOCODE">E</a>XPOCODE       <a href="#WOCE_SECT">S</a>ECT <a href="#STNNBR">S</a>TNNBR <a href="#CASTNO">C</a>ASTNO <a href="#CASTNO">T</a>YPE <a href="#DATE">D</a>ATE   <a href="#TIME">T</a>IME <a href="#CODE">C</a>ODE <a href="#POSITION">L</a>ATITUDE   <a href="#POSITION">L</a>ONGITUDE   <a href="#NAV">N</a>AV <a href="#DEPTH">D</a>EPTH DEPTH BOTTOM  OUT PRESS BOTTLES PARAMETERS COMMENTS   
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+<!-- <b><u>123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789*123456789</b></u>
+-->
+316N145_5      I08S      1      1  ROS 120294 1114   BE 31 29.33 S 110 13.50 E GPS  5115                                            
+316N145_5      I08S      1      1  ROS 120294 1300   BO 31 29.83 S 110 14.00 E GPS                          5214      25 1,2,7,8,   CTD 38  
+316N145_5      I08S      1      1  ROS 120294 1516   EN 31 30.33 S 110 13.33 E GPS                                       10,11            
+316N145_5      I08S      2      1  ROS 120394 1224   BE 31 13.33 S 106 17.00 E GPS  5160                                           
+316N145_5      I08S      2      1  ROS 120394 1436   BO 31 13.50 S 106 16.17 E GPS                          1509      36 1-8        CTD 09  
+316N145_5      I08S      2      1  ROS 120394 1712   EN 31 14.83 S 106 16.17 E GPS                                                  
+316N145_5      I08S      3      1  ROS 120494 1020   BE 30 57.17 S 102 44.67 E GPS  4840                                            
+316N145_5      I08S      3      1  ROS 120494 1154   BO 30 56.50 S 102 44.17 E GPS                          4888      36 1-8,       CTD 12  
+316N145_5      I08S      3      1  ROS 120494 1341   EN 30 57.17 S 102 43.33 E GPS                                       23,24           
+316N145_5      I08S      4      1  ROS 120594 0218   BE 30 18.00 S  95 00.00 E GPS  1945                                             
+316N145_5      I08S      4      1  ROS 120594 0313   BO 30 18.00 S  94 59.67 E GPS                          1937      36 1-12,      CTD 09  
+316N145_5      I08S      4      1  ROS 120594 0507   EN 30 17.83 S  94 59.33 E GPS                                       23,24            
+316N145_5      I08S      5      1  ROS 120694 1225   BE 31 18.00 S  95 00.00 E GPS  1465                                            
+316N145_5      I08S      5      1  ROS 120694 1300   BO 31 18.00 S  95 00.17 E GPS                          1479      25 1-8,12,    CTD 09  
+316N145_5      I08S      5      1  ROS 120594 1514   EN 31 17.67 S  94 59.67 E GPS                                       23,24,39         
+316N145_5      I08S      6      1  ROS 120694 2141   BE 32 00.50 S  95 00.33 E GPS  4150                                            
+</pre>
+<hr size="1" width="95%">
+
+<table width="90%" border=1>
+<tr>
+	<td align="left" valign="bottom">
+	<b>NAME</b>
+	</td>
+	<td align="left" valign="bottom">
+	<b>Justify</b>
+
+	</td>
+	<td align="left" valign="bottom">
+	<b>FORTRAN<br>Format</b>
+	</td>
+	<td align="left" valign="bottom">
+	<b>Description</b>
+	</td>
+
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="EXPOCODE"></a>
+	<b><u>EXPOCODE</u></b>
+	</td>
+	<td align="left" valign="top">
+	Left
+	</td>
+	<td align="left" valign="top">
+
+	<b>A14</b>
+	</td>
+	<td align="left" valign="bottom">
+	(<b>Includes Country Code, Ship Code, Expedition Designation/Leg</b>) Due to the number of cruises involved, a unique identifier
+	is required for all WOCE cruises.  To provide such identification, please use the following procedure to form the requisite
+	Mnemonic.
+	<br>
+	The first 4 characters are the US National Oceanographic Data
+	Center (NODC) country ship code.  The US NODC country codes
+	are defined in Table 3.6.  Note that the country code is 
+	associated with the country of origin for the ship.  That
+	may be different from the country actually conducting the 
+	cruise.  The US NODC ship code can normally be obtained
+	from OCEANIC.  If you cannot obtain the ship code from there,
+	the WHPO can provide the proper code for you. <br>
+	The country-ship code is followed by up to an 8 character
+	expedition name or cruise number and the leg (default = 1)
+	of the cruise is appended after the _ (underscore) symbol.  The
+	expedition name or cruise number is normally assigned by the ship
+	operator and their conventions should be used.  For example,
+	German cruises are designated by a number and leg while French
+	cruises are usually given a name.  Thus, a name should not be given
+	in the EXPOCODE for a German cruise.  Further, some countries 
+	designate their cruises by a number but that number is reset
+	to 1 every year.  In such cases the year should be included
+	with the cruise number, for example, the 9th cruise of the R/V 
+	<i>A. von Humboldt</i> in 1991 would be given cruise number 991 in the 
+	EXPOCODE to ensure uniqueness. <br>
+
+	An alias for the cruise may be fiven in the -.DOC file and will
+	be retained with the netadata for the cruise.  For formatting 
+	reasons, the expedition name is limited toeight (8) characters. 
+	Therefore, if necessary, the expedition name should be abbreviated to
+	8 characters for the EXPOCODE, but will be carried full length with 
+	the metadata.  The EXPOCODE is also used in the water sample (-.SEA)
+	and -.CTD files to tie these files to the -.SUM file in order to 
+	uniquely identify the cruise or expedition in those files.
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="WOCE_SECT"></a>
+	<u><b>SECT</b></u>
+	</td>
+
+	<td align="left" valign="top">
+	Left
+	</td>
+	<td align="left" valign="top">
+	<b>1X,A5</b>
+	</td>
+	<td align="left" valign="bottom">
+	The WHP Section designator.  Section designations were originally assigned in the WOCE Implementation Plan.  However, many sections
+	have been added or modified since then.   If you have a question about the section designation for the work that you are
+	doing, please contact the WHPO.
+	<br>
+
+	Many one-time sections are broken into segments that are often done by different invesigators on different ships.  To account for this the WHPO
+	frequently assigns suffixes to the section designator to distinguish
+	among these segments.  The same is true for some repeat sections as well.  If a suffix has been assigned to your segment (this information is available
+	from the WHPO or via OCEANIC) it would be appreciated if that identification is included in the WHP-ID.  Also, in order for sort routines in a database to work correctly it is necessary that all section numbers be the same length, which requires a leading zero for single digit sections.  That is, section P1 sould be written as P01, AR5, is AR05, and so on.<br>
+	If stations are taken on a cruise that are not associated with a WHP section then this field should be left blank in the -.SUM file.
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="STNNBR"></a>
+	<u><b>Station Numbers</u></b>
+
+	</td>
+	<td align="left" valign="top">
+	Right
+	</td>
+	<td align="left" valign="top">
+	<b>1X, A5</b>
+	</td>
+	<td align="left" valign="bottom">
+	Whenever possible the station numbering should be continuous for each section, i.e., station numbers should not be reset at the beginning of each leg of long WHP cruises carried out with multiple legs.  Repeat and time series cruises often use the same station number(s) on sequential cruises and that presents no difficulties as long as each cruise is given a unique EXPOCODE.  In order to guage the accuracy of the station position we ask that position, time, and the uncorrected depth be given in the -.SUM file for the beginning, bottom, and end of every hydrographic cast.  That allows an estimate of the ship drift during the station and whether or not the ship drifted across significant topography during the station.  
+        <p><a href="#TOP">Back to top of page</a>
+
+	</td>
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="CASTNO"></a>
+	<u><b>Cast Numbers and Type</u></b>
+	</td>
+	<td align="left" valign="top">
+	Right
+	</td>
+
+	<td align="left" valign="top">
+	<b>4X, I3, 2X, A3</b>
+	</td>
+	<td align="left" valign="bottom">
+Cast Numbers and Type (right justify)The cast numbers are
+sequential and preferably numbered from 1 to n at each
+station position. Every over-the-side operation or discrete
+sampling at a station is assigned a sequential cast number.
+The cast type is a three-character description, for
+example, ROSette water samples plus CTD (ROS), Large Volume
+Samples (LVS); CTD only (CTD) including fast fish CTD
+launches; etc. A complete list of cast types is given in
+Table3.5. If any other abbreviations for cast types are
+necessary an explanation and definition of such
+abbreviations must be included in the cruise report (.DOC
+file) and in the text file accompanying the CTD and water
+sample data file. <br>If a station is reoccupied during the
+same cruise, and the same station number is used, the cast
+numbers should increment upward from the last cast number
+at the same station. In no case should two records in the
+.SUM file contain the same STNNBR and CASTNO on the same
+cruise. 
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+<tr>
+
+	<td align="left" valign="top">
+	<a name="DATE"></a>
+	<u><b>Date</u></b>
+	</td>
+	<td align="left" valign="top">
+	Left
+	</td>
+	<td align="left" valign="top">
+	<b>1X, I6.6</b>
+
+	</td>
+	<td align="left" valign="bottom">
+	This field consists of the number of the month, day, and the last two digits of the year (MMDDYY).
+	The date should be zero filled, that is, 050793, not 5 793. Note that this system probably differs
+	from the system used in your country. We request the use of this method solely for the sake of
+	uniformity within a diverse community.  Should be zero padded. 
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="TIME"></a>
+	<u><b>Time</u></b>
+
+	</td>
+	<td align="left" valign="top">
+	Right
+	</td>
+	<td align="left" valign="top">
+	<b>1X, I4.4</b>
+	</td>
+	<td align="left" valign="bottom">
+	Time (UTC) must be recorded for each cast, together with the ship's position. Should be zero padded. 
+	<p><a href="#TOP">Back to top of page</a>
+
+	</td>
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="CODE"></a>
+	<u><b>Code</u></b>
+	</td>
+	<td align="left" valign="top">
+	Right
+	</td>
+
+	<td align="left" valign="top">
+	<b>3X, A2</b>
+	</td>
+	<td align="left" valign="bottom">
+	 <br>For most over
+	the side operations, and all hydrographic casts, the recorded time and position should indicate
+	the beginning (BE), bottom (BO or MR), and completion (EN) of the cast. Bottom depths should
+	also be recorded at each of these times. If additional time or position codes are used they
+	should be defined in the chief scientist's cruise report. 
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+<tr>
+
+	<td align="left" valign="top">
+	<a name="POSITION"></a>
+	<u><b>Position</u></b>
+		<i>LATITUDE, LONGITUDE</i>
+	</td>
+	<td align="left" valign="top">
+	Left
+	</td>
+
+	<td align="left" valign="top">
+	<b>Latitude: 1X, I2,1X, F5.2, 1X, A1<br>
+
+	Longitude: 1X, I3,1X, F5.2, 1X, A1</b>
+	</td>
+	<td align="left" valign="bottom">
+Position is to be recorded
+three (3) times during each hydrographic cast, at the
+beginning, bottom, and end, together with the time the
+position was taken, as described above, and the depth, as
+described below. Best available positioning technology
+should be employed and the technique used should be entered
+as illustrated in Table3.5. Codes for all known navigation
+methods are defined in Table2.3. Positions should be
+recorded as (D)DD MM.MM X, where X is N or S for latitude
+and E or W for longitude, for example, 2710.11S,
+11752.43E should be recorded as 27 10.11 S 117 52.43 E.
+Only ASCII characters recognized by FORTRAN-77 should be
+used in the file, for example, a  (degree) symbol is not
+recognized and should not be included. The ASCII character
+set is given in Appendix F.
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+
+</tr>
+<tr>
+	<td align="left" valign="top">
+	<a name="NAV"></a>
+	<u><b>Navigation</u></b>
+	</td>
+	<td align="left" valign="top">
+	Right
+	</td>
+	<td align="left" valign="top">
+
+	<b>1X, A3</b>
+	</td>
+	<td align="left" valign="bottom">
+	Source of cruise position for each station. Please use the navigational system codes listed below:<p>
+
+		<table border=1 align='center">
+		<tr>
+			<td colspan=2 align='center><u><b>Navigational System Codes</u></b>
+			</td>
+		</tr>
+
+		<tr>
+			<td align="left"><b>CIK</b>
+			</td>
+			<td align="left">GLONASS - Russian version of GPS
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>CN</b>
+
+			</td>
+			<td align="left">Celestial Navigation
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>DEC</b>
+			</td>
+			<td align="left">Decca
+			</td>
+
+		</tr>
+		<tr>
+			<td align="left"><b>DR</b>
+			</td>
+			<td align="left">Dead Reckoning (more accurate methods are preferred)
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>GPS</b>
+
+			</td>
+			<td align="left">Global Positioning System
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>INS</b>
+			</td>
+			<td align="left">Inertial navigation system
+			</td>
+
+		</tr>
+		<tr>
+			<td align="left"><b>LOR</b>
+			</td>
+			<td align="left">Loran
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>OM</b>
+
+			</td>
+			<td align="left">Omega
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>RDR</b>
+			</td>
+			<td align="left">Radar Fix
+			</td>
+
+		</tr>
+		<tr>
+			<td align="left"><b>TRS</b>
+			</td>
+			<td align="left">Transit satellite system
+			</td>
+		</tr>
+		<tr>
+			<td align="left"><b>UNK</b>
+
+			</td>
+			<td align="left">Unknown
+			</td>
+		</tr>
+		</table>
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+
+<tr>
+
+	<td align="left" valign="top">
+	<a name="DEPTH"></a>
+	<u><b>Uncorrected Bottom Depth</b></u>
+	</td>
+	<td align="left" valign="top">
+	Right
+	</td>
+	<td align="left" valign="top">
+	<b>1X, I5.5</b>
+
+	</td>
+	<td align="left" valign="bottom">
+The uncorrected acoustic sounding in meters
+assuming a sound velocity of 1,500m/s should be noted for
+each time and position recorded. For most casts the depth
+and position should be recorded at the beginning, bottom,
+and end of the cast. Corrections should be made only for
+the depth of the acoustic transducer beneath the ocean
+surface, or if the echo sounder assumed a sound velocity
+different than 1500 m/s. The WHPO will provide a corrected
+water depth for the station, based on Carter Tables, in the
+Data Reports and the .SUM file available from SAC. <br>If the
+depth reading is questionable, some estimate of uncertainty
+should be given in the bathymetry section of the cruise
+report (.DOC file). <br>The WHPO adds a corrected depth column
+adjacent to the uncorrected depth before sending the final
+.SUM file to the SAC.
+	<p><a href="#TOP">Back to top of page</a>
+	</td>
+</tr>
+
+	</table>
+</CENTER>

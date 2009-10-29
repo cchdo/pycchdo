@@ -1,0 +1,43 @@
+<%= render :partial => 'menu' %>
+<h1>Pages Visited</h1>
+<h2>Latest visits</h2>
+<div id='lastest_vists'>
+  Number of visits:
+  <% 50.step(250, 50) do |visits| %>
+    <a href='?visits=<%= h(visits) %>'><% if visits == @number_visits %><strong><% end %><%= h(visits) %><% if visits == @number_visits %></strong><% end %></a>
+  <% end %>
+
+  <p>Total visits: <%= h(@total_visits) %> Unique visitors: <%= h(@unique_visits) %></p>
+  <% unless @paths.empty? %>
+  <table id='paths' class='sortable_list' width='100%'>
+    <tr><th>Timestamp</th><th>Path</th><th>Referrer</th><th>Hostname</th><th>Browser</th><th>Platform</th></tr>
+    <% @paths.each do |row| %>
+        <tr<%= cycle('', " class='hl'") %>> 
+          <td width='10em'><%= h(row.created_at.strftime("%F %X")) %></td>
+          <td><%= get_path_image(row.resource, @ordered_resources) %> <%= h(row.resource) %></td>
+          <td><%= h(row.referer) %></td>
+          <td width='5em'><%= h(get_domain_name(row.remote_ip)) %></td>
+          <td width='3em'><%= h(row.browser) %>(<%= h(row.version) %>)</td>
+          <td width='3em'><%= h(row.platform) %></td>
+        </tr>
+    <% end %>
+  </table>
+  <% end %>
+</div>
+
+<div id='visit_legend'>
+  <h2>Legend</h2>
+  <% unless @orarr.empty? %>
+    <table id='pathlegend' class='sortable_list'>
+      <tr><th>Resource</th><th>Hit statistics</th></tr>
+      <% for resource in @orarr %>
+        <tr>
+          <% path = resource['resource'] %>
+          <% visits = resource['requests'] %>
+          <td><%= get_path_image(path, @ordered_resources) %> <a href='<%= h(path) %>'><%= h(path) %></a></td>
+          <td><%= h(visits) %></td>
+        </tr>
+      <% end %>
+    </table>
+  <% end %>
+</div>

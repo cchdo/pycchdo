@@ -17,13 +17,12 @@
     <h1>Current station</h1>
     <div id="station"></div>
   </div>
-  <div id="map" style="height: 400px; width: 100%;">Please wait...loading records</div>
   <div>
     <h1>Current observations</h1>
     <div id="observation"></div>
   </div>
+  <div id="map" style="height: 400px; width: 100%;">Please wait...loading records</div>
   <div id="chart"></div>
-  <div id="test"></div>
 <% end -%>
 <div class="box_bottom"></div>
 </div>
@@ -35,6 +34,9 @@
 <script type="text/javascript">
 google.load('maps', '2.x');
 google.load('visualization', '1', {packages: ['scatterchart', 'table', 'areachart', 'map']});
+function getKey(key) {
+  return key ? key.keyCode : event.keyCode;
+}
 Array.prototype.compare = function(testArr) {
   if (this.length != testArr.length) return false;
     for (var i = 0; i < testArr.length; i++) {
@@ -45,11 +47,12 @@ Array.prototype.compare = function(testArr) {
   }
   return true;
 }
-var data_table;
+var currentRow = -1;
+var currentStation = -1;
 function init() {
   var GV = google.visualization;
   var data = <%= @wire -%>;
-  data_table = new GV.DataTable(data, 0.6);
+  var data_table = new GV.DataTable(data, 0.6);
 
   function colno_to_label(datatable) {
     var hash = {};
@@ -80,12 +83,12 @@ function init() {
 
   var label_to_colno = invert_one_to_one(colno_to_label);
 
-  var view = new GV.DataView(data_table);
-  view.setColumns(getValuesFromKeys(label_to_colno, 'STNNBR', 'CTDPRS'));
+  var chartView = new GV.DataView(data_table);
+  chartView.setColumns(getValuesFromKeys(label_to_colno, 'STNNBR', 'CTDPRS'));
 
   var chart = new GV.ScatterChart($('#chart')[0]);
-  var chartOpts = {height: 400, width: 400, legend: 'none'};
-  chart.draw(view, chartOpts);
+  var chartOpts = {height: 400, width: 1050, legend: 'none', pointSize: 1};
+  chart.draw(chartView, chartOpts);
 
   var mapView = new GV.DataView(data_table);
   mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE'));
@@ -120,34 +123,62 @@ function init() {
 
   var stationView = new GV.DataView(data_table);
   stationView.setColumns(getValuesFromKeys(label_to_colno,
-    'SECT_ID', 'STNNBR', 'CASTNO', 'LATITUDE', 'LONGITUDE', 'DATE', 'TIME', 'DEPTH'));
-  stationView.setRows([]);
+    'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', 'LATITUDE', 'LONGITUDE', 'DATE', 'TIME', 'DEPTH'));
   var stationOpts = {allowHtml: true};
   var station = new GV.Table($('#station')[0]);
-  station.draw(stationView, stationOpts);
 
   var observationView = new GV.DataView(data_table);
-  observationView.setRows([]);
   var observation = new GV.Table($('#observation')[0]);
-  var observationOpts = {allowHtml: true, height: '200px', width: '100%'};
-  observation.draw(observationView, observationOpts);
+  var observationOpts = {allowHtml: true, width: '100%'};
+
+  function setRowVisible(row) {
+    row = Math.max(0, row);
+    row = Math.min(row, data_table.getNumberOfRows());
+    if (currentRow == row) {return;}
+    currentRow = row;
+    var stnnbrcol = label_to_colno['STNNBR'];
+    var stnnbr = data_table.getValue(row, stnnbrcol);
+
+    var dataRows = data_table.getFilteredRows([{column: stnnbrcol, value: stnnbr}]);
+    stationView.setRows([row]);
+    station.draw(stationView, stationOpts);
+    station.setSelection([{row: stationView.getViewRowIndex(row)}]);
+
+    observationView.setRows([row]);
+    observation.draw(observationView, observationOpts);
+    observation.setSelection([{row: observationView.getViewRowIndex(row)}]);
+
+    map.setSelection([{row: mapView.getViewRowIndex(dataRows[0])}]);
+
+    chart.setSelection([{row: chartView.getViewRowIndex(row), col: label_to_colno['CTDPRS']}]);
+
+    currentStation = stnnbr;
+  }
+
+  function setStationVisible(stnnbr) {
+    if (currentStation == stnnbr) {return;}
+    var stnnbrcol = label_to_colno['STNNBR'];
+    var dataRows = data_table.getFilteredRows([{column: stnnbrcol, value: stnnbr}]);
+    setRowVisible(dataRows[0]);
+  }
 
   GV.events.addListener(map, 'select', function() {
     var selection = this.getSelection();
-    if (selection.length > 0) {
-      var selectedrow = mapView.getTableRowIndex(selection[0].row);
-      var stnnbrcol = label_to_colno['STNNBR'];
-      var stnnbr = data_table.getValue(selectedrow, stnnbrcol);
-      var dataColumns = data_table.getFilteredRows([{column: stnnbrcol, value: stnnbr}]);
-      stationView.setRows([selectedrow]);
-      observationView.setRows(dataColumns);
-      station.draw(stationView, stationOpts);
-      observation.draw(observationView, observationOpts);
+    for (var i in selection) {
+      var selectedrow = mapView.getTableRowIndex(selection[i].row);
+      setRowVisible(selectedrow);
     }
   });
 
-  //var test = new GV.Table($('#test')[0]);
-  //test.draw(mapView, tableOpts);
+  setRowVisible(0);
+
+  $(document).keydown(function (e) {
+    switch (getKey(e)) {
+      case 37: setRowVisible(currentRow - 1); break;
+      case 39: setRowVisible(currentRow + 1); break;
+      default: break;
+    }
+  });
 }
 google.setOnLoadCallback(init);
 </script>

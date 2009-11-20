@@ -92,7 +92,7 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
   }
   /* Switch the column type if necessary.
      hack-technically shouldn't be able to do this according to api */
-  this.data_table_data.r[column].type = (typeof data[0]);
+  this.data_table_data.q[column].type = (typeof data[0]);
   var unmatched_orig_rows = 0;
   var matched_rows = 0;
   var unmatched_merge_rows = 0;

@@ -33,7 +33,7 @@
 <script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type="text/javascript">
 google.load('maps', '2.x');
-google.load('visualization', '1', {packages: ['scatterchart', 'table', 'areachart', 'map']});
+google.load('visualization', '1', {packages: ['scatterchart', 'table', 'map']});
 function getKey(key) {
   return key ? key.keyCode : event.keyCode;
 }
@@ -72,9 +72,9 @@ function init() {
     return newhash;
   }
 
-  function getValuesFromKeys(hash, keys) {
+  function getValuesFromKeys(hash) {
     var vals = [];
-    var keys = getValuesFromKeys.arguments;
+    var keys = arguments;
     for (var i=1; i<keys.length; i++) {
       vals.push(hash[keys[i]]);
     }
@@ -84,11 +84,21 @@ function init() {
   var label_to_colno = invert_one_to_one(colno_to_label);
 
   var chartView = new GV.DataView(data_table);
-  chartView.setColumns(getValuesFromKeys(label_to_colno, 'STNNBR', 'CTDPRS'));
+  //chartView.setColumns([label_to_colno['STNNBR'], {calc: function(dt,r) {
+  //  var val = -1.0*dt.getValue(r, label_to_colno['CTDPRS']);
+  //  return val;
+  //  }, type:'number',label:'Inverse CTDPRS'}]);
+  chartView.setColumns([label_to_colno['STNNBR'], label_to_colno['CTDPRS']]);
 
   var chart = new GV.ScatterChart($('#chart')[0]);
-  var chartOpts = {height: 400, width: 1050, legend: 'none', pointSize: 1};
+  var chartOpts = {height: 400, width: 1049, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
   chart.draw(chartView, chartOpts);
+
+  //var motionchartView = new GV.DataView(data_table);
+  //motionchartView.setColumns([label_to_colno['EXPOCODE'], label_to_colno['_DATETIME'], label_to_colno['CTDPRS'], label_to_colno['CTDSAL'], label_to_colno['CTDTMP']]);
+  //var motionchart = new GV.MotionChart($('#motionchart')[0]);
+  //var motionchartOpts = {width: '100%'};
+  //motionchart.draw(motionchartView, motionchartOpts);
 
   var mapView = new GV.DataView(data_table);
   mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE'));
@@ -123,7 +133,7 @@ function init() {
 
   var stationView = new GV.DataView(data_table);
   stationView.setColumns(getValuesFromKeys(label_to_colno,
-    'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', 'LATITUDE', 'LONGITUDE', 'DATE', 'TIME', 'DEPTH'));
+    'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', 'LATITUDE', 'LONGITUDE', '_DATETIME', 'DEPTH'));
   var stationOpts = {allowHtml: true};
   var station = new GV.Table($('#station')[0]);
 
@@ -170,7 +180,13 @@ function init() {
     }
   });
 
-  setRowVisible(0);
+  GV.events.addListener(chart, 'select', function() {
+    var selection = this.getSelection();
+    for (var i in selection) {
+      var selectedrow = chartView.getTableRowIndex(selection[i].row);
+      setRowVisible(selectedrow);
+    }
+  });
 
   $(document).keydown(function (e) {
     switch (getKey(e)) {
@@ -179,6 +195,8 @@ function init() {
       default: break;
     }
   });
+
+  setRowVisible(0);
 }
 google.setOnLoadCallback(init);
 </script>

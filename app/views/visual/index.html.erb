@@ -23,6 +23,7 @@
   </div>
   <div id="map" style="height: 400px; width: 100%;">Please wait...loading records</div>
   <div id="chart"></div>
+  <div id="seafloor"></div>
 <% end -%>
 <div class="box_bottom"></div>
 </div>
@@ -33,7 +34,7 @@
 <script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type="text/javascript">
 google.load('maps', '2.x');
-google.load('visualization', '1', {packages: ['scatterchart', 'table', 'map']});
+google.load('visualization', '1', {packages: ['scatterchart', 'areachart', 'table', 'map']});
 function getKey(key) {
   return key ? key.keyCode : event.keyCode;
 }
@@ -93,6 +94,26 @@ function init() {
   var chart = new GV.ScatterChart($('#chart')[0]);
   var chartOpts = {height: 400, width: 1049, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
   chart.draw(chartView, chartOpts);
+
+  var seafloorData = new GV.DataTable();
+  seafloorData.addColumn('string', 'STNNBR');
+  seafloorData.addColumn('number', 'Inverse CTDPRS');
+  var currStation = 0;
+  var maxDepth = -1;
+  for (var i=0; i<data_table.getNumberOfRows(); i++) {
+    var station = data_table.getValue(i, label_to_colno['STNNBR']);
+    if (!currStation || station != currStation) {
+      seafloorData.addRow([''+currStation, -maxDepth]);
+      currStation = station;
+      maxDepth = -1;
+    } else {
+      maxDepth = Math.max(maxDepth, data_table.getValue(i, label_to_colno['CTDPRS']));
+    }
+  }
+
+  var seafloor = new GV.AreaChart($('#seafloor')[0]);
+  var seafloorOpts = {height: 400, width: 1049, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
+  seafloor.draw(seafloorData, seafloorOpts);
 
   //var motionchartView = new GV.DataView(data_table);
   //motionchartView.setColumns([label_to_colno['EXPOCODE'], label_to_colno['_DATETIME'], label_to_colno['CTDPRS'], label_to_colno['CTDSAL'], label_to_colno['CTDTMP']]);
@@ -188,12 +209,54 @@ function init() {
     }
   });
 
+  function findPrevStationStartRow(dt, r) {
+    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
+    for (var i=r; i>0; i--) {
+      if (dt.getValue(i, label_to_colno['STNNBR']) != currStation) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  function findNextStationStartRow(dt, r) {
+    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
+    for (var i=r; i<dt.getNumberOfRows(); i++) {
+      if (dt.getValue(i, label_to_colno['STNNBR']) != currStation) {
+        return i;
+      }
+    }
+    return dt.getNumberOfRows()-1;
+  }
+
+  function findPrevCastStartRow(dt, r) {
+    if (r-1 < 0) { return r; }
+    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
+    if (dt.getValue(r-1, label_to_colno['STNNBR']) != currStation) {
+      return r;
+    }
+    return r-1;
+  }
+
+  function findNextCastStartRow(dt, r) {
+    if (r+1 == dt.getNumberOfRows()) { return r; }
+    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
+    if (dt.getValue(r+1, label_to_colno['STNNBR']) != currStation) {
+      return r;
+    }
+    return r+1;
+  }
+
   $(document).keydown(function (e) {
     switch (getKey(e)) {
-      case 37: setRowVisible(currentRow - 1); break;
-      case 39: setRowVisible(currentRow + 1); break;
-      default: break;
+      case 37: setRowVisible(findPrevStationStartRow(data_table, currentRow)); break;
+      case 38: setRowVisible(findPrevCastStartRow(data_table, currentRow)); break;
+      case 39: setRowVisible(findNextStationStartRow(data_table, currentRow)); break;
+      case 40: setRowVisible(findNextCastStartRow(data_table, currentRow)); break;
+      default: console.log(getKey(e)); break;
     }
+    e.cancelBubble = true;
+    if (e.stopPropagation) {e.stopPropagation();}
   });
 
   setRowVisible(0);

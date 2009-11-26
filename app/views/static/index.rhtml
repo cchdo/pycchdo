@@ -1,60 +1,10 @@
-<div id='left_column'>
-  <div id='home_intro' class='boxed'>
-    <h1>Welcome to the CCHDO</h1>
-    <div class='box_content'>
-      <img src='/images/home/rosette.png' alt='Rosette' title='A rosette used to collect hydrographic data.' />
-    <h2>Learn About CCHDO</h2>
-    <p>The CCHDO's primary mission is to be a repository and distribution center for CTD and Hydrographic data sets of the highest possible quality. These data are a product of WOCE, CLIVAR and numerous other oceanographic research programs &mdash; past, present and to come.  Whenever possible we provide these data in three widely-used formats: <a href='/format.html'>WOCE</a>, <a href='/format.html'>netCDF</a> and <a href='/format.html'>WHP-Exchange</a>, which we recommend for data submissions to the CCHDO.</p>
-    <p>The CCHDO also manages submission of non-public CTD data to be used only for calibration of profiles from the global Argo float program.</p>
-    <p>This site is funded by the <a href="http://nsf.gov/">National Science Foundation</a>.</p>
-    </div>
-    <div class='box_bottom'></div>
+<div class='boxed'>
+  <h1>Web Tools</h1>
+  <div class='box_content'>
+    <ul>
+      <li><%= link_to 'Bottle Comparer', :controller => 'btlcmp' -%></li>
+      <li><%= link_to 'Visual Tool', :controller => 'visual' -%></li>
+    </ul>
   </div>
-  <div class='boxed'>
-    <h1>How To Use This Website</h1>
-    <div class='box_content'>
-      <ul>
-      <li>If you are interested in submitting data please read the <a href="CCHDO_DataSubmitGuide.pdf">submission guide</a> or head straight to the <a href="submit">submission tool</a>.</li>
-      <li>View the <a href="parameter_descriptions">parameter descriptions</a> page to see information about the different sorts of data we archive.</li>
-      <li>Check out our <a href="site_guide.html">guide</a> for downloading data from the CCHDO.</li>
-      </ul>
-    </div>
-    <div class='box_bottom'></div>
-  </div>
-  <div class='boxed'>
-    <h1>Web Tools</h1>
-    <div class='box_content'>
-      <ul>
-        <li><%= link_to 'Bottle Comparer', :controller => 'btlcmp' -%></li>
-        <li><%= link_to 'Visual Tool', :controller => 'visual' -%></li>
-      </ul>
-    </div>
-    <div class='box_bottom'></div>
-  </div>
-</div>
-<div id='right_column'>
-  <div class='boxed'>
-    <h1>Recent Developments</h1>
-    <div class='box_content'>
-      <% if recent = Document.find(:all, :select => 'DISTINCT ExpoCode,FileType,FileName,LastModified', :conditions => ['FileType != "Directory"'], :order => 'LastModified DESC', :limit => 5)
-           expocode_map_hash = {}
-           recent.compact.collect {|file| file.ExpoCode}.uniq.each do |expocode|
-             expocode_map_hash[expocode] = Document.find(:first, :conditions => ["FileType='Small Plot' AND ExpoCode=?", expocode])
-           end %>
-        <h2>Updated Data Files</h2>
-		<table>   
-          <% recent.compact.each do |file| %>
-            <tr>
-            <td><% if expocode_map_hash[file.ExpoCode] %><a href='/search?query="<%= file.ExpoCode %>"'><img style="width: 50px; height: 50px" src="http://cchdo.ucsd.edu<%= expocode_map_hash[file.ExpoCode].FileName %>" /></a><% end %></td>
-            </td>
-			<td><span class='dev_heading'>Date:</span> <span class='dev_info'><%= file.LastModified %><br />
-			<span class='dev_heading'>ExpoCode:</span> <%= file.ExpoCode %><br />
-            <span class='dev_heading'>File:</span> <a href="http://cchdo.ucsd.edu<%= file.FileName %>"><%= file.FileType %></a></span>
-            </tr>
-          <% end %>
-        </table>
-      <% end %>
-    </div>
-    <div class='box_bottom'></div>
-  </div>
+  <div class='box_bottom'></div>
 </div>

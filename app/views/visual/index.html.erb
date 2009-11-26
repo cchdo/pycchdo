@@ -5,8 +5,7 @@
   <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
   <% form_tag '/visual', :multipart => true do -%>
   <table id="parameters" style="width: 100%;">
-    <tr><td><%= file_field_tag 'file' -%></td></tr>
-    <tr><td><%= submit_tag 'View' -%></td></tr>
+    <tr><td><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td></tr>
   </table>
   <% end -%>
   </td>
@@ -21,7 +20,7 @@
     <h1>Current observations</h1>
     <div id="observation"></div>
   </div>
-  <div id="map" style="height: 400px; width: 100%;">Please wait...loading records</div>
+  <div id="map" style="height: 400px; width: 50%;">Please wait...loading records</div>
   <div id="chart"></div>
   <div id="seafloor"></div>
 <% end -%>

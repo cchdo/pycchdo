@@ -91,8 +91,19 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
     this.data_table_data.addRows(data_length_diff);
   }
   /* Switch the column type if necessary.
-     hack-technically shouldn't be able to do this according to api */
-  this.data_table_data.q[column].type = (typeof data[0]);
+     HACK: technically shouldn't be able to do this according to API
+     HACK: find the column property of the data_table_data by scanning properties
+   */
+  var columns = this.data_table_data;
+  for (var i in this.data_table_data) {
+    var p = this.data_table_data[i];
+    if (p && typeof p == 'object') {
+      if (p[0].type) {
+        columns = p;
+      }
+    }
+  }
+  columns[column].type = (typeof data[0]);
   var unmatched_orig_rows = 0;
   var matched_rows = 0;
   var unmatched_merge_rows = 0;

@@ -1,3 +1,6 @@
+<% content_for :head do -%>
+  <%= stylesheet_link_tag 'overcast/jquery-ui-1.7.2.custom.css' -%>
+<% end -%>
 <div class="boxed">
 <h1>Visual <%= @filename -%></h1>
 <div class="box_content" style="padding: 0;">
@@ -11,7 +14,8 @@
   </td>
 </tr>
 </table>
-<% if @wire -%>
+<% if @wire and @wire != '{}' -%>
+  <div id="toolbox"></div>
   <div>
     <h1>Current station</h1>
     <div id="station"></div>
@@ -20,16 +24,17 @@
     <h1>Current observations</h1>
     <div id="observation"></div>
   </div>
-  <div id="map" style="height: 400px; width: 50%;">Please wait...loading records</div>
+  <div id="map" style="height: 400px; width: 50%;"></div>
   <div id="chart"></div>
   <div id="seafloor"></div>
 <% end -%>
 <div class="box_bottom"></div>
 </div>
 
-<% if @wire -%>
+<% if @wire and @wire != '{}' -%>
 <% content_for :js do -%>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js'></script>
+<script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js'></script>
 <script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type="text/javascript">
 google.load('maps', '2.x');
@@ -209,56 +214,92 @@ function init() {
   });
 
   function findPrevStationStartRow(dt, r) {
-    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
+    var stncol = label_to_colno['STNNBR'];
+    var currStation = dt.getValue(r, stncol);
     for (var i=r; i>0; i--) {
-      if (dt.getValue(i, label_to_colno['STNNBR']) != currStation) {
-        return i;
-      }
+      if (dt.getValue(i, stncol) != currStation) { return i; }
     }
     return 0;
   }
 
   function findNextStationStartRow(dt, r) {
-    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
+    var stncol = label_to_colno['STNNBR'];
+    var currStation = dt.getValue(r, stncol);
     for (var i=r; i<dt.getNumberOfRows(); i++) {
-      if (dt.getValue(i, label_to_colno['STNNBR']) != currStation) {
-        return i;
-      }
+      if (dt.getValue(i, stncol) != currStation) { return i; }
     }
     return dt.getNumberOfRows()-1;
   }
 
   function findPrevCastStartRow(dt, r) {
+    var stncol = label_to_colno['STNNBR'];
     if (r-1 < 0) { return r; }
-    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
-    if (dt.getValue(r-1, label_to_colno['STNNBR']) != currStation) {
-      return r;
-    }
+    var currStation = dt.getValue(r, stncol);
+    if (dt.getValue(r-1, stncol) != currStation) { return r; }
     return r-1;
   }
 
   function findNextCastStartRow(dt, r) {
+    var stncol = label_to_colno['STNNBR'];
     if (r+1 == dt.getNumberOfRows()) { return r; }
-    var currStation = dt.getValue(r, label_to_colno['STNNBR']);
-    if (dt.getValue(r+1, label_to_colno['STNNBR']) != currStation) {
-      return r;
-    }
+    var currStation = dt.getValue(r, stncol);
+    if (dt.getValue(r+1, stncol) != currStation) { return r; }
     return r+1;
   }
 
   $(document).keydown(function (e) {
     switch (getKey(e)) {
-      case 37: setRowVisible(findPrevStationStartRow(data_table, currentRow)); break;
-      case 38: setRowVisible(findPrevCastStartRow(data_table, currentRow)); break;
-      case 39: setRowVisible(findNextStationStartRow(data_table, currentRow)); break;
-      case 40: setRowVisible(findNextCastStartRow(data_table, currentRow)); break;
+      case 37: setRowVisible(findPrevStationStartRow(data_table, currentRow)); return false;
+      case 38: setRowVisible(findPrevCastStartRow(data_table, currentRow)); return false;
+      case 39: setRowVisible(findNextStationStartRow(data_table, currentRow)); return false;
+      case 40: setRowVisible(findNextCastStartRow(data_table, currentRow)); return false;
       default: console.log(getKey(e)); break;
     }
-    e.cancelBubble = true;
-    if (e.stopPropagation) {e.stopPropagation();}
   });
 
   setRowVisible(0);
+
+  function openPropertyPropertyWindow() {
+    var selectX = $('<select></select>')
+      .append($('<option></option>'));
+    for (var i=0;i<data_table.getNumberOfColumns();i++){
+      selectX.append($('<option>'+data_table.getColumnLabel(i)+'</option>'));
+    }
+    var selectY = selectX.clone();
+    var plotXYDiv = $('<div id="plot-xy"></div>').css('height', '200px');
+    var plotwindow = $('<div></div>')
+      .dialog({title: 'Property-Property', width: 500, minHeight: 500, show: 'slide'})
+      .append('<h1>Please choose two parameters to plot:</h1>')
+      .append($('<label>X</label>')).append(selectX)
+      .append($('<label>Y</label>')).append(selectY).append($('<br />'))
+      .append(plotXYDiv);
+    var plotXYView = new GV.DataView(data_table);
+    var plotXYChart = new GV.ScatterChart(plotXYDiv[0]);
+    var plotXYChartOpts = {height: 400, width: 450, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
+    $('select', plotwindow).change(function() {
+      var propx = selectX.val();
+      var propy = selectY.val();
+      if (propx != '' && propy != '') {
+        plotXYView.setColumns(getValuesFromKeys(label_to_colno, propx, propy));
+        plotXYChart.draw(plotXYView, plotXYChartOpts);
+      }
+    });
+  }
+
+  var plotbutton = $('<div>Property-Property</div>')
+    .css({'background-color': '#eee',
+       'border': '1px solid #aaa',
+       'cursor': 'pointer'})
+    .click(openPropertyPropertyWindow);
+  var toolbox = $('<div></div>')
+    .css({'width': '150px', 'height': '200px',
+      'position': 'absolute', 'left': '0', 'top': '0', 'z-index': '999',
+      'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
+      'background-color': '#ddd'})
+    .append($('<h1>Plots</h1>'))
+    .append(plotbutton)
+    .draggable({appendTo: 'body', containment: 'parent'});
+  $('body').append(toolbox);
 }
 google.setOnLoadCallback(init);
 </script>

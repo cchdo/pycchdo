@@ -25,7 +25,7 @@ class VisualController < ApplicationController
       begin
         tmpfilepath = get_tempfile_path(file)
         @wire = `/Users/myshen/work/libcchdo/bin/bottle_exchange_to_google_wire.py #{tmpfilepath}`
-        @wire = '{}' if @wire =~ /Database error/
+        @wire = '{cols:[],rows:[]}' if @wire =~ /Database error/
       rescue
         flash[:notice] = "Error parsing file: #{$!}"
       end

@@ -1,0 +1,411 @@
+<%# There shouldn't be a flash if the JS will run; no worries about adding an id -%>
+<% unless flash[:notice] -%><h1 id="statusbar" class="notice"></h1><% end -%>
+<div class="boxed">
+<h1>Bottle File Tool</h1>
+<div class="box_content" style="padding: 0;">
+<table id="columns" style="width: 100%;">
+  <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
+<% has_data = !(@filel.blank? or @filer.blank?) -%>
+<% form_tag '/bottle_file_tool', :multipart => true do -%>
+<table id="parameters" style="width: 100%;">
+  <tr><td class="left"><%= file_field_tag 'filel_prompt' -%></td><td><%= file_field_tag 'filer_prompt' -%></td></tr>
+  <tr><td colspan="2" class="center"><%= submit_tag 'Compare' -%> <label for="is_merge">with merge file on right</label><input id="is_merge" type="checkbox" name="merge_file" /></td></tr>
+  <% if has_data -%>
+    <tr>
+      <td class="left">
+        <% fnamelimit = 20 -%>
+        <h1><%= if @filel_name.length > fnamelimit then @filel_name[-fnamelimit..-1] else @filel_name end -%></h1>
+        <select id="lparams" class="params" size="<%= @filel.parameters.size -%>">
+          <% @filel.parameters.each do |param| -%><option><%= param -%></option><% end -%>
+        </select>
+      </td>
+      <td>
+        <h1><%= if @filer_name.length > fnamelimit then @filer_name[-fnamelimit..-1] else @filer_name end -%></h1>
+        <select id="rparams" class="params" size="<%= @filer.parameters.size -%>">
+          <% @filer.parameters.each do |param| -%><option><%= param -%></option><% end -%>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" class="center">
+        <p style="font-size: small; text-align: left;">Identifiers are from left file. Data on right is matched to them.</p>
+        <div id="googletable" style="height: 400px;"></div>
+      </td>
+    </tr>
+    <tr><td colspan="2" class="center"><input id="plot_button" type="button" value="Plot" /><input id="mismatch_button" type="button" value="Mismatch" /></td></tr>
+  <% end # if has_data -%>
+</table>
+<% end #form_tag -%>
+</td>
+<% if has_data -%>
+<td id="plots">
+  <div id="googleplot"></div><br />
+  <div id="gnuplot"></div>
+</td>
+<% end -%>
+</tr>
+</table>
+<div class="box_bottom"></div>
+</div>
+
+<% if has_data -%>
+<script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
+<script type="text/javascript">
+google.load('visualization', '1', {packages: ['scatterchart', 'table']});
+var $ = function(id) { return document.getElementById(id); };
+var CCHDO = CCHDO ? CCHDO : {};
+CCHDO.Btlcmp = function() {
+  this.statusbar = null;
+  this.lparams = null;
+  this.rparams = null;
+  this.l_values = null;
+  this.r_values = null;
+  this.plot_box = null;
+  this.ldata = <%= @filel_json -%>;
+  this.rdata = <%= @filer_json -%>;
+  this.controls = null;
+  this.LCOL = 4;
+  this.RCOL = 5;
+  this.ABSDIFFCOL = 6;
+  this.plot = null;
+  this.data_table = null;
+  this.data_table_data = null;
+  this.data_table_opts = {
+    allowHtml: true,
+    sort: 'enable',
+    page: 'enable',
+    pageSize: 500,
+    pagingSymbols: {prev: '&#9650', next: '&#9660'}
+  };
+};
+CCHDO.Btlcmp.prototype = function() {};  // prototype is a js keyword
+
+/* update_data_table_data:  Expects a column, variable name, and a data array.
+    
+ */
+CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
+  if (!data || !this.data_table_data) {
+    return;
+  }
+  this.data_table_data.setColumnLabel(column, label);
+  /* Ensure data table capacity for new data */
+  var data_length_diff = data.length - this.data_table_data.getNumberOfRows();
+  if (data_length_diff > 0) {
+    this.data_table_data.addRows(data_length_diff);
+  }
+  /* Switch the column type if necessary.
+     hack-technically shouldn't be able to do this according to api */
+  this.data_table_data.r[column].type = (typeof data[0]);
+  var unmatched_orig_rows = 0;
+  var matched_rows = 0;
+  var unmatched_merge_rows = 0;
+  var unmatched_values = [];
+  /* Insert all the data points, matching on a unique identifier */
+  if (column == this.LCOL) {
+    for (var i=0; i<data.length; i++) { /* Don't use JS iterator. It's mangled. */
+      this.data_table_data.setCell(i, column, data[i]);
+    }
+  } else if (column == this.RCOL) {
+    /* For all ids */
+    for (var i=0; i<this.ldata.STNNBR.length; i++) {
+      var id_stnn = this.ldata.STNNBR[i];
+      var id_cast = this.ldata.CASTNO[i];
+      var id_samp = this.ldata.SAMPNO[i];
+      var id_btln = this.ldata.BTLNBR[i];
+  
+      var value = -Infinity;
+      for (var j=0; j<this.rdata.STNNBR.length; j++) {
+        var stnnbr = this.rdata.STNNBR[j];
+        var castno = this.rdata.CASTNO[j];
+        var sampno = this.rdata.SAMPNO[j];
+        var btlnbr = this.rdata.BTLNBR[j];
+        if (id_cast == castno && id_stnn == stnnbr) {
+          if (sampno && id_samp == sampno) {
+            if (btlnbr) {
+              if (id_btln == btlnbr) {
+                value = data[j];
+              }
+              break;
+            }
+            value = data[j];
+            break;
+          }
+          if (btlnbr && id_btln == btlnbr) {
+            value = data[j];
+            break;
+          }
+        }
+      }
+      if (isFinite(value)) {
+        matched_rows++;
+      } else {
+        unmatched_orig_rows++;
+        unmatched_values << "Station:"+id_stnn+",Cast:"+id_cast+",SAMPNO:"+id_samp;
+      }
+      unmatched_merge_rows = this.rdata.STNNBR.length - this.ldata.STNNBR.length;
+      if (unmatched_merge_rows < 0) {
+        unmatched_merge_rows = 0;
+      }
+      this.data_table_data.setCell(i, column, value);
+    }
+  } /* if (column == this.LCOL) else if (column == this.RCOL)
+  
+  /* Calculate diff */
+  if (this.l_values === null || this.r_values === null) {
+    this.newStatus("Cannot compare with missing or uneven columns.");
+  } else {
+    if (this.data_table_data.getColumnType(this.LCOL) != 'number' || 
+        this.data_table_data.getColumnType(this.RCOL) != 'number') {
+      this.newStatus("Cannot compare non-numbers.");
+    } else {
+      /* Generate absdiff */
+      var absdiff_values = [];
+      var diff = false;
+      for (var i=0; i<this.data_table_data.getNumberOfRows(); i++) {
+        var delta = Math.abs(this.data_table_data.getValue(i, this.LCOL)-
+                             this.data_table_data.getValue(i, this.RCOL));
+        this.data_table_data.setCell(i, this.ABSDIFFCOL, delta);
+        if (delta !== 0 && isFinite(delta) && !isNaN(delta)) { diff = true; }
+      }
+      /* color absdiff according to complete matchness */
+      var merge_status = "";
+      if (column == this.RCOL) {
+        merge_status = "<br />Following are numbers of data rows in <br />"+
+                       " Original: "+this.ldata.STNNBR.length+
+                       " Merge: "+this.rdata.STNNBR.length+
+                       " Unmatched in original: "+unmatched_orig_rows+
+                       " Matched: "+matched_rows+
+                       " Unmatched in merge: "+unmatched_merge_rows;
+      }
+      if (diff) {
+        this.newStatus("The value columns differ."+merge_status);
+        this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #ff0000;">|&Delta;|</span>');
+      } else {
+        this.newStatus("The value columns are exactly the same!"+merge_status);
+        this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #00ff00;">|&Delta;|</span>');
+      }
+    }
+  }
+  this.redraw_data_table();
+}; // CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data)
+
+/* Prepare googleplot request */
+CCHDO.Btlcmp.prototype.googleplot = function() {
+  $('googleplot').style.height = '500px';
+  var data = this.data_table_data.clone();
+  data.removeColumn(this.ABSDIFFCOL);
+  data.removeColumns(0, this.LCOL);
+
+  var value = -999;
+  var toler = 1.0;
+  for (var i=data.getNumberOfRows()-1; i>=0; i--) {
+    var lval = data.getValue(i, 0);
+    var rval = data.getValue(i, 1);
+    if (!isFinite(lval) || !isFinite(rval)) {
+      data.removeRow(i);
+    } else if ((value-toler <= lval && lval <= value+toler) ||
+        (value-toler <= rval && rval <= value+toler)) {
+      data.removeRow(i);
+    } else {
+      data.setRowProperties(i, null);
+    }
+  }
+
+  if (this.plot) {
+    this.plot.draw(data, { title: data.getColumnLabel(0)+' vs '+data.getColumnLabel(1),
+                           titleX: data.getColumnLabel(0),
+                           titleY: data.getColumnLabel(1),
+                           legend: 'none'
+                         });
+  }
+};
+
+/* Send values to google and show a image link */
+CCHDO.Btlcmp.prototype.draw_plot = function() {
+  if (!this.l_values || !this.r_values) {
+    this.newStatus('Please select parameters to plot!');
+    return;
+  }
+  if (this.data_table_data.getColumnType(this.LCOL) != 'number' || 
+      this.data_table_data.getColumnType(this.RCOL) != 'number') {
+    this.newStatus("Cannot plot non-numbers!");
+    $('gnuplot').innerHTML = '';
+  } else {
+    this.googleplot();
+    var lnk = window.location+"/plot"+"?lparam="+this.lparams.value+
+      "&rparam="+this.rparams.value+"&l="+this.l_values.join(',')+"&r="+this.r_values.join(',');
+    $('gnuplot').innerHTML = "<a href=\""+lnk+"\">GNU plot version (png)</a>";
+  }
+};
+
+CCHDO.Btlcmp.prototype.draw_mismatch = function() {
+/* Function for showing data lines that don't match up  */	
+	var unmatched_orig_rows = 0;
+  var matched_rows = 0;
+  var unmatched_merge_rows = 0;
+  var unmatched_values = [];
+	
+	    /* Search for all matches for lines in the right file */
+	    for (var i=0; i<this.rdata.STNNBR.length; i++) {
+	      var id_stnn = this.rdata.STNNBR[i];
+	      var id_cast = this.rdata.CASTNO[i];
+	      var id_samp = this.rdata.SAMPNO[i];
+	      var id_btln = this.rdata.BTLNBR[i];
+	      var found_match = 0;
+
+	      var value = -Infinity;
+	      for (var j=0; j<this.ldata.STNNBR.length; j++) {
+	        var stnnbr = this.ldata.STNNBR[j];
+	        var castno = this.ldata.CASTNO[j];
+	        var sampno = this.ldata.SAMPNO[j];
+	        var btlnbr = this.ldata.BTLNBR[j];
+	        if (id_cast == castno && id_stnn == stnnbr) {
+	          if (sampno && id_samp == sampno) {
+	            if (btlnbr) {
+	              if (id_btln == btlnbr) {
+	                value = this.r_values[j];//data[j];
+	                found_match = 1;
+	              }
+	              break;
+	            }
+	            value = this.r_values[j];//data[j];
+	            found_match = 1;
+	            break;
+	          }// if (sampno && id_samp == sampno)
+	          if (btlnbr && id_btln == btlnbr) {
+	            value = this.r_values[j];//data[j];
+	            found_match = 1;
+	            break;
+	          }
+	          $('gnuplot').innerHTML 
+	        } // if (id_cast == castno && id_stnn == stnnbr) {
+	      }//for (var j=0; j<this.rdata.STNNBR.length; j++)
+	      if (found_match == 0) {
+		      unmatched_orig_rows++;
+		      $('gnuplot').innerHTML += "Station:"+id_stnn+"    CASTNO:"+id_cast+"SAMPNO:"+id_samp+"BTLNBR"+id_btln+"------"+value+"<br>";
+		    //$('gnuplot').innerHTML += "Value:"+value+"    val:"+this.r_values[j]+"Left val:"+this.l_values[j]+"<br>";
+		    
+     	  }
+	      if (isFinite(value)) { // If there is a matching line, but no data to merge
+	        matched_rows++;  
+	      } else {
+	        //unmatched_orig_rows++;
+
+	      }
+	      unmatched_merge_rows = this.rdata.STNNBR.length - this.ldata.STNNBR.length;
+	      if (unmatched_merge_rows < 0) {
+	        unmatched_merge_rows = 0;
+	      }
+	      //this.data_table_data.setCell(i, column, value);
+	    }
+	
+  if (!this.l_values || !this.r_values) {
+    this.newStatus('Please select parameters to plot!');
+    return;
+  }
+  if (this.data_table_data.getColumnType(this.LCOL) != 'number' || 
+      this.data_table_data.getColumnType(this.RCOL) != 'number') {
+    this.newStatus("Cannot plot non-numbers!");
+    $('gnuplot').innerHTML = '';
+  } else {
+    //this.googleplot();
+    //var lnk = window.location+"/plot"+"?lparam="+this.lparams.value+
+    //  "&rparam="+this.rparams.value+"&l="+this.l_values.join(',')+"&r="+this.r_values.join(',');
+    //$('gnuplot').innerHTML = "<a href=\""+lnk+"\">GNU plot version (png)</a>";
+   // $('gnuplot').innerHTML += "<p>"+this.l_values+"</p><br>unmatched_merge_rows = "+this.rdata.STNNBR.length+"<br> " + this.ldata.STNNBR.length +"<br>"+this.ldata.STNNBR+"<br><bold>"+(this.rdata.STNNBR.length - this.ldata.STNNBR.length) + " </bold><br>"+unmatched_orig_rows+"<br>Values:"+unmatched_values;
+  }
+};
+/* Redraw the table */
+CCHDO.Btlcmp.prototype.redraw_data_table = function() {
+  if (this.data_table) {
+    this.data_table.draw(this.data_table_data, this.data_table_opts);
+  }
+}; //Show mismatch info
+
+/* Scroll the google table */
+CCHDO.Btlcmp.prototype.copyscroll = function(obj, objs) {
+  function findScrollHeight(obj) {
+    return obj.scrollHeight-obj.offsetHeight;
+  }
+  obj.onscroll = function(scr) {
+    for (var i in objs) {
+      var src = scr.target;
+      var other = objs[i];
+      var percentscroll = 1.0*src.scrollTop/findScrollHeight(src);
+      other.scrollTop = Math.round(findScrollHeight(other) * percentscroll);
+      /* hack to redraw the contents - specifically for Webkit */
+      other.focus();
+      other.blur();
+    }
+  };
+};
+
+/* Show the user a message */
+CCHDO.Btlcmp.prototype.newStatus = function(str) {
+  if (this.statusbar) {
+    this.statusbar.innerHTML = str;
+    this.statusbar.style.display = 'block';
+  }
+};
+
+/* CCHDO.Btlcmp.prototype.init -  Everything starts here */
+CCHDO.Btlcmp.prototype.init = function() {
+  var self = this;
+  this.statusbar = $('statusbar');
+  this.lparams = $('lparams');
+  this.rparams = $('rparams');
+  this.controls = $('controls');
+
+  /* Hide the statusbar until we need it */
+  if (this.statusbar) {
+    this.statusbar.style.display = 'none';
+  }
+
+  $('plot_button').onclick = function() {self.draw_plot();};
+  $('mismatch_button').onclick = function() {self.draw_mismatch();};
+
+  this.copyscroll(this.lparams, [this.rparams]);
+  this.copyscroll(this.rparams, [this.lparams]);
+
+  this.lparams.onchange = function() {
+    var p = self.lparams.value;
+    if (p) {
+      self.l_values = self.ldata[p];
+      self.update_data_table_data(self.LCOL, p, self.l_values);
+    }
+  };
+
+  this.rparams.onchange = function() {
+    var p = self.rparams.value;
+    if (p) {
+      self.r_values = self.rdata[p];
+      self.update_data_table_data(self.RCOL, p, self.r_values);
+    }
+  };
+
+  var GV = google.visualization;
+  this.data_table_data = new GV.DataTable({
+    cols: [{label: 'Cast', type: 'number'}, {label: 'Station', type: 'number'},
+           {label: 'Sample', type: 'number'}, {label: 'Bottle', type: 'number'},
+           {label: '?', type: 'number'}, {label: '?', type: 'number'},
+           {label: '|&Delta;|', type: 'number'}]
+    <% if @filel -%>, rows: [<%= ldat = @filel.data
+      ldat['CASTNO'].zip(ldat['STNNBR'], ldat['SAMPNO'], ldat['BTLNBR']).collect {|id|
+        "{c:[#{id.map {|x| "{v: #{x or 0}}"}.join ','}]}" }.join ', ' -%>]
+    <% end -%>
+  }, 0.6);
+
+  this.data_table = new GV.Table($('googletable'));
+  this.plot = new GV.ScatterChart($('googleplot'));
+
+  /* Update the selections if already selected */
+  this.lparams.onchange();
+  this.rparams.onchange();
+  this.redraw_data_table();
+};  /*  CCHDO.Btlcmp.prototype.init = function()    */
+
+//CCHDO.btlcmp = new CCHDO.Btlcmp();
+/*  The following line begins all google related js functions */
+google.setOnLoadCallback(function() {CCHDO.btlcmp = new CCHDO.Btlcmp(); CCHDO.btlcmp.init()});
+</script>
+<% end -%>

@@ -1,7 +1,13 @@
 <% content_for :head do -%>
 <style type="text/css">
-#plots .fileinfo {
+.box_content {
+  padding: 0;
+}
+#plots .fileinfo, #columns, #parameters {
   width: 100%;
+}
+#plots .fileinfo {
+  background-color: #ddd;
 }
 </style>
 <% end -%>
@@ -9,12 +15,12 @@
 <% unless flash[:notice] -%><h1 id="statusbar" class="notice"></h1><% end -%>
 <div class="boxed">
 <h1>Bottle Comparer</h1>
-<div class="box_content" style="padding: 0;">
-<table id="columns" style="width: 100%;">
+<div class="box_content">
+<table id="columns">
   <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
 <% has_data = !(@filel.blank? or @filer.blank?) -%>
 <% form_tag '/btlcmp', :multipart => true do -%>
-<table id="parameters" style="width: 100%;">
+<table id="parameters">
   <tr><td class="left"><%= file_field_tag 'filel_prompt' -%></td><td><%= file_field_tag 'filer_prompt' -%></td></tr>
   <tr><td colspan="2" class="center"><%= submit_tag 'Compare' -%> <label for="is_merge">with merge file on right</label><input id="is_merge" type="checkbox" name="merge_file" /></td></tr>
   <% if has_data -%>
@@ -47,7 +53,7 @@
 <% if has_data -%>
 <td id="plots">
   <table class="fileinfo">
-    <tr><td>Left file</td><td>Right file</td></tr>
+    <tr><td class="left"></td><td class="right"></td><td class="diff"></td></tr>
   </table>
   <div id="googleplot"></div>
 </td>
@@ -80,13 +86,37 @@ CCHDO.Btlcmp = function() {
   this.data_table_data = null;
   this.data_table_opts = {
     allowHtml: true,
+    width: '100%',
     sort: 'enable',
     page: 'enable',
     pageSize: 500,
-    pagingSymbols: {prev: '&#9650', next: '&#9660'}
+    pagingSymbols: {prev: '&Delta;', next: '&nabla;'}
   };
+  this.init();
 };
 CCHDO.Btlcmp.prototype = function() {};
+CCHDO.Btlcmp.prototype.getIndexForIdentifier = function(file, stnn, cast, samp, btln) {
+  for (var j=0; j<file.STNNBR.length; j++) {
+    var stnnbr = file.STNNBR[j];
+    var castno = file.CASTNO[j];
+    var sampno = file.SAMPNO[j];
+    var btlnbr = file.BTLNBR[j];
+    if (cast == castno && stnn == stnnbr) {
+      if (sampno && samp == sampno) {
+        if (btlnbr) {
+          if (btln == btlnbr) {
+            return j;
+          }
+          return -1;
+        }
+        return j;
+      }
+      if (btlnbr && btln == btlnbr) {
+        return j;
+      }
+    }
+  }
+};
 CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
   if (!data || !this.data_table_data) {
     return;
@@ -117,52 +147,23 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
   var unmatched_orig_rows = 0;
   var matched_rows = 0;
   var unmatched_merge_rows = 0;
-  if (column == this.LCOL) {
-    for (var i=0; i<data.length; i++) { /* Don't use JS iterator. It's mangled. */
-      this.data_table_data.setCell(i, column, data[i]);
-    }
-  } else if (column == this.RCOL) {
-    /* For all ids */
-    for (var i=0; i<this.ldata.STNNBR.length; i++) {
-      var id_stnn = this.ldata.STNNBR[i];
-      var id_cast = this.ldata.CASTNO[i];
-      var id_samp = this.ldata.SAMPNO[i];
-      var id_btln = this.ldata.BTLNBR[i];
+  var datafile = (column == this.LCOL) ? this.ldata : this.rdata;
+
+  for (var i=0; i<this.data_table_data.getNumberOfRows(); i++) {
+    var id_cast = this.data_table_data.getValue(i, 0);
+    var id_stnn = this.data_table_data.getValue(i, 1);
+    var id_samp = this.data_table_data.getValue(i, 2);
+    var id_btln = this.data_table_data.getValue(i, 3);
   
-      var value = -Infinity;
-      for (var j=0; j<this.rdata.STNNBR.length; j++) {
-        var stnnbr = this.rdata.STNNBR[j];
-        var castno = this.rdata.CASTNO[j];
-        var sampno = this.rdata.SAMPNO[j];
-        var btlnbr = this.rdata.BTLNBR[j];
-        if (id_cast == castno && id_stnn == stnnbr) {
-          if (sampno && id_samp == sampno) {
-            if (btlnbr) {
-              if (id_btln == btlnbr) {
-                value = data[j];
-              }
-              break;
-            }
-            value = data[j];
-            break;
-          }
-          if (btlnbr && id_btln == btlnbr) {
-            value = data[j];
-            break;
-          }
-        }
-      }
-      if (isFinite(value)) {
-        matched_rows++;
-      } else {
-        unmatched_orig_rows++;
-      }
-      unmatched_merge_rows = this.rdata.STNNBR.length - this.ldata.STNNBR.length;
-      if (unmatched_merge_rows < 0) {
-        unmatched_merge_rows = 0;
-      }
-      this.data_table_data.setCell(i, column, value);
+    var index = this.getIndexForIdentifier(datafile, id_stnn, id_cast, id_samp, id_btln);
+    if (index > -1) {
+      this.data_table_data.setCell(i, column, data[index]);
+      matched_rows++;
+    } else {
+      this.data_table_data.setCell(i, column, null);
+      unmatched_orig_rows++;
     }
+    unmatched_merge_rows = Math.max(this.rdata.STNNBR.length - this.ldata.STNNBR.length, 0);
   }
   
   /* Calculate diff */
@@ -194,7 +195,7 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
         this.newStatus("The matched value columns differ."+merge_status);
         this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #ff0000;">|&Delta;|</span>');
       } else {
-        this.newStatus("The matched value columns identical."+merge_status);
+        this.newStatus("The matched value columns are identical."+merge_status);
         this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #00ff00;">|&Delta;|</span>');
       }
     }
@@ -269,55 +270,73 @@ CCHDO.Btlcmp.prototype.newStatus = function(str) {
 CCHDO.Btlcmp.prototype.init = function() {
   var self = this;
 
-  this.lparams = $('#lparams')[0];
-  this.rparams = $('#rparams')[0];
+  this.lparams = $('#lparams');
+  this.rparams = $('#rparams');
   this.controls = $('#controls')[0];
-
   $('#statusbar').hide();
-
   $('#plot_button').click(function() {self.draw_plot();});
 
-  this.copyscroll(this.lparams, [this.rparams]);
-  this.copyscroll(this.rparams, [this.lparams]);
+  this.copyscroll(this.lparams[0], [this.rparams[0]]);
+  this.copyscroll(this.rparams[0], [this.lparams[0]]);
 
-  this.lparams.onchange = function() {
-    var p = self.lparams.value;
+  this.lparams.change(function() {
+    var p = $(this).val();
     if (p) {
       self.l_values = self.ldata[p];
       self.update_data_table_data(self.LCOL, p, self.l_values);
     }
-  };
-
-  this.rparams.onchange = function() {
-    var p = self.rparams.value;
+  });
+  this.rparams.change(function() {
+    var p = $(this).val();
     if (p) {
       self.r_values = self.rdata[p];
       self.update_data_table_data(self.RCOL, p, self.r_values);
     }
-  };
+  });
 
   var GV = google.visualization;
+  this.data_table = new GV.Table($('#googletable')[0]);
+  this.plot = new GV.ScatterChart($('#googleplot')[0]);
+  <% ldat = @filel.data
+    l_ids = ldat['CASTNO'].zip(ldat['STNNBR'], ldat['SAMPNO'], ldat['BTLNBR'])
+    rdat = @filer.data
+    r_ids = rdat['CASTNO'].zip(rdat['STNNBR'], rdat['SAMPNO'], rdat['BTLNBR'])
+    ids = (l_ids+r_ids).uniq
+  -%>
   this.data_table_data = new GV.DataTable({
     cols: [{label: 'Cast', type: 'number'}, {label: 'Station', type: 'number'},
            {label: 'Sample', type: 'number'}, {label: 'Bottle', type: 'number'},
            {label: '?', type: 'number'}, {label: '?', type: 'number'},
            {label: '|&Delta;|', type: 'number'}]
-    <% if @filel -%>, rows: [<%= ldat = @filel.data
-      ldat['CASTNO'].zip(ldat['STNNBR'], ldat['SAMPNO'], ldat['BTLNBR']).collect {|id|
-        "{c:[#{id.map {|x| "{v: #{x or 0}}"}.join ','}]}" }.join ', ' -%>]
-    <% end -%>
+    <% if @filel -%>, rows: [<%= ids.collect {|id| "{c:[#{id.map {|x| "{v: #{x or 0}}"}.join ','}]}" }.join ', ' -%>]<% end -%>
   }, 0.6);
-
-  this.data_table = new GV.Table($('#googletable')[0]);
-  this.plot = new GV.ScatterChart($('#googleplot')[0]);
+  /* Populate the data_table_data with all identifiers between the original and merge file */
+  
+  /* Talk about the files */
+  $('.fileinfo .left').html('<h1><%= @filel_name -%></h1>'+
+    '<ul>'+
+    '<li><%= @filel.data.keys.length -%> parameters</li>'+
+    '<li><%= @filel.data[@filel.data.keys.first].length -%> data rows</li>'+
+    '</ul>');
+  $('.fileinfo .right').html('<h1><%= @filer_name -%></h1>'+
+    '<ul>'+
+    '<li><%= @filer.data.keys.length -%> parameters</li>'+
+    '<li><%= @filer.data[@filer.data.keys.first].length -%> data rows</li>'+
+    '</ul>');
+  $('.fileinfo .diff').html('<h1>Diff</h1>'+
+    '<ul>'+
+    '<li><%= ids.length-l_ids.length -%> new rows in merge file</li>'+
+    '<li><%= ids.length-r_ids.length -%> deleted rows in merge file</li>'+
+    '</ul>');
 
   /* Update the selections if already selected */
-  this.lparams.onchange();
-  this.rparams.onchange();
+  this.lparams.change();
+  this.rparams.change();
   this.redraw_data_table();
 };
 
-CCHDO.btlcmp = new CCHDO.Btlcmp();
-google.setOnLoadCallback(function() {CCHDO.btlcmp = new CCHDO.Btlcmp(); CCHDO.btlcmp.init()});
+google.setOnLoadCallback(function() {
+  CCHDO.btlcmp = new CCHDO.Btlcmp();
+});
 </script>
 <% end -%>

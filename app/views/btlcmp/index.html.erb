@@ -1,3 +1,10 @@
+<% content_for :head do -%>
+<style type="text/css">
+#plots .fileinfo {
+  width: 100%;
+}
+</style>
+<% end -%>
 <%# There shouldn't be a flash if the JS will run; no worries about adding an id -%>
 <% unless flash[:notice] -%><h1 id="statusbar" class="notice"></h1><% end -%>
 <div class="boxed">
@@ -39,8 +46,10 @@
 </td>
 <% if has_data -%>
 <td id="plots">
-  <div id="googleplot"></div><br />
-  <div id="gnuplot"></div>
+  <table class="fileinfo">
+    <tr><td>Left file</td><td>Right file</td></tr>
+  </table>
+  <div id="googleplot"></div>
 </td>
 <% end -%>
 </tr>
@@ -51,11 +60,10 @@
 <% if has_data -%>
 <script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type="text/javascript">
+google.load('jquery', '1.3.2');
 google.load('visualization', '1', {packages: ['scatterchart', 'table']});
-var $ = function(id) { return document.getElementById(id); };
 var CCHDO = CCHDO ? CCHDO : {};
 CCHDO.Btlcmp = function() {
-  this.statusbar = null;
   this.lparams = null;
   this.rparams = null;
   this.l_values = null;
@@ -104,11 +112,11 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
     }
   }
   columns[column].type = (typeof data[0]);
+
+  /* Insert all the data points, matching on a unique identifier */
   var unmatched_orig_rows = 0;
   var matched_rows = 0;
   var unmatched_merge_rows = 0;
-  
-  /* Insert all the data points, matching on a unique identifier */
   if (column == this.LCOL) {
     for (var i=0; i<data.length; i++) { /* Don't use JS iterator. It's mangled. */
       this.data_table_data.setCell(i, column, data[i]);
@@ -177,18 +185,16 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
       /* color absdiff according to complete matchness */
       var merge_status = "";
       if (column == this.RCOL) {
-        merge_status = "<br />Following are numbers of data rows in <br />"+
-                       " Original: "+this.ldata.STNNBR.length+
-                       " Merge: "+this.rdata.STNNBR.length+
-                       " Unmatched in original: "+unmatched_orig_rows+
-                       " Matched: "+matched_rows+
-                       " Unmatched in merge: "+unmatched_merge_rows;
+        merge_status = "<br />Data rows in"+
+                       " original: "+this.ldata.STNNBR.length+" ("+unmatched_orig_rows+" unmatched)"+
+                       " merge: "+this.rdata.STNNBR.length+" ("+unmatched_merge_rows+" unmatched)"+
+                       " Matched: "+matched_rows;
       }
       if (diff) {
-        this.newStatus("The value columns differ."+merge_status);
+        this.newStatus("The matched value columns differ."+merge_status);
         this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #ff0000;">|&Delta;|</span>');
       } else {
-        this.newStatus("The value columns are exactly the same!"+merge_status);
+        this.newStatus("The matched value columns identical."+merge_status);
         this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #00ff00;">|&Delta;|</span>');
       }
     }
@@ -196,7 +202,7 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
   this.redraw_data_table();
 };
 CCHDO.Btlcmp.prototype.googleplot = function() {
-  $('googleplot').style.height = '500px';
+  $('#googleplot').css('height', '500px');
   var data = this.data_table_data.clone();
   data.removeColumn(this.ABSDIFFCOL);
   data.removeColumns(0, this.LCOL);
@@ -232,12 +238,8 @@ CCHDO.Btlcmp.prototype.draw_plot = function() {
   if (this.data_table_data.getColumnType(this.LCOL) != 'number' || 
       this.data_table_data.getColumnType(this.RCOL) != 'number') {
     this.newStatus("Cannot plot non-numbers!");
-    $('gnuplot').innerHTML = '';
   } else {
     this.googleplot();
-    var lnk = window.location+"/plot"+"?lparam="+this.lparams.value+
-      "&rparam="+this.rparams.value+"&l="+this.l_values.join(',')+"&r="+this.r_values.join(',');
-    $('gnuplot').innerHTML = "<a href=\""+lnk+"\">GNU plot version (png)</a>";
   }
 };
 CCHDO.Btlcmp.prototype.redraw_data_table = function() {
@@ -262,25 +264,18 @@ CCHDO.Btlcmp.prototype.copyscroll = function(obj, objs) {
   };
 };
 CCHDO.Btlcmp.prototype.newStatus = function(str) {
-  if (this.statusbar) {
-    this.statusbar.innerHTML = str;
-    this.statusbar.style.display = 'block';
-  }
+  $('#statusbar').html(str).show();
 };
 CCHDO.Btlcmp.prototype.init = function() {
   var self = this;
 
-  this.statusbar = $('statusbar');
-  this.lparams = $('lparams');
-  this.rparams = $('rparams');
-  this.controls = $('controls');
+  this.lparams = $('#lparams')[0];
+  this.rparams = $('#rparams')[0];
+  this.controls = $('#controls')[0];
 
-  /* Hide the statusbar until we need it */
-  if (this.statusbar) {
-    this.statusbar.style.display = 'none';
-  }
+  $('#statusbar').hide();
 
-  $('plot_button').onclick = function() {self.draw_plot();};
+  $('#plot_button').click(function() {self.draw_plot();});
 
   this.copyscroll(this.lparams, [this.rparams]);
   this.copyscroll(this.rparams, [this.lparams]);
@@ -313,8 +308,8 @@ CCHDO.Btlcmp.prototype.init = function() {
     <% end -%>
   }, 0.6);
 
-  this.data_table = new GV.Table($('googletable'));
-  this.plot = new GV.ScatterChart($('googleplot'));
+  this.data_table = new GV.Table($('#googletable')[0]);
+  this.plot = new GV.ScatterChart($('#googleplot')[0]);
 
   /* Update the selections if already selected */
   this.lparams.onchange();

@@ -17,6 +17,20 @@ class ApplicationController < ActionController::Base
   }
 
   private
+  LIBCCHDOBIN = '/Users/myshen/work/libcchdo/bin'
+
+  # Rails uploads can give either StringIOs or UploadedTempFiles
+  # Turn StringIOs into tempfile and give the path to the tempfile
+  def get_tempfile_path(uploaded_file)
+    if uploaded_file.kind_of? ActionController::UploadedStringIO
+      temp = Tempfile.new 'visual_upload'
+      uploaded_file.each_line {|line| temp.write line }
+      temp.flush
+      return temp.path
+    else
+      return uploaded_file.path
+    end
+  end
 
   def check_authentication
     unless session[:user]

@@ -9,19 +9,6 @@ class BtlcmpController < ApplicationController
       @filer = nil
       flash[:notice] = "Please specify two files to compare; you gave me: #{filel_upload} and #{filer_upload}."
     else
-      # Rails uploads can give either StringIOs or UploadedTempFiles
-      # Turn StringIOs into tempfile and give the path to the tempfile
-      def get_tempfile_path(uploaded_file)
-        if uploaded_file.kind_of? ActionController::UploadedStringIO
-          temp = Tempfile.new 'btlcmp_upload'
-          uploaded_file.each_line {|line| temp.write line }
-          temp.flush
-          return temp.path
-        else
-          return uploaded_file.path
-        end
-      end
-  
       begin
         @filel_name = filel_upload.original_filename
         @filel = ExchangeBotFile.new(get_tempfile_path(filel_upload))

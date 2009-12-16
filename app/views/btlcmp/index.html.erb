@@ -3,11 +3,18 @@
 .box_content {
   padding: 0;
 }
+#plots {
+  vertical-align: top;
+  padding: 0;
+}
 #plots .fileinfo, #columns, #parameters {
   width: 100%;
 }
 #plots .fileinfo {
   background-color: #ddd;
+}
+#plots .fileinfo .left {
+  text-align: left;
 }
 </style>
 <% end -%>
@@ -26,16 +33,25 @@
   <% if has_data -%>
     <tr>
       <td class="left">
-        <% fnamelimit = 20 -%>
+        <% fnamelimit = 20
+          totalparams = (@filel.parameters+@filer.parameters).uniq
+          leftonlyparams = @filel.parameters-@filer.parameters
+          commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
+          rightonlyparams = @filer.parameters-@filel.parameters
+        -%>
         <h1><%= if @filel_name.length > fnamelimit then @filel_name[-fnamelimit..-1] else @filel_name end -%></h1>
-        <select id="lparams" class="params" size="<%= @filel.parameters.size -%>">
-          <% @filel.parameters.each do |param| -%><option><%= param -%></option><% end -%>
+        <select id="lparams" class="params" size="<%= totalparams.length -%>">
+          <% leftonlyparams.each do |param| -%><option><%= param -%></option><% end -%>
+          <% commonparams.each do |param| -%><option><%= param -%></option><% end -%>
+          <% (totalparams.length - @filel.parameters.length).times do -%><option></option><% end -%>
         </select>
       </td>
       <td>
         <h1><%= if @filer_name.length > fnamelimit then @filer_name[-fnamelimit..-1] else @filer_name end -%></h1>
-        <select id="rparams" class="params" size="<%= @filer.parameters.size -%>">
-          <% @filer.parameters.each do |param| -%><option><%= param -%></option><% end -%>
+        <select id="rparams" class="params" size="<%= totalparams.length -%>">
+          <% (totalparams.length - @filer.parameters.length).times do -%><option></option><% end -%>
+          <% commonparams.each do |param| -%><option><%= param -%></option><% end -%>
+          <% rightonlyparams.each do |param| -%><option><%= param -%></option><% end -%>
         </select>
       </td>
     </tr>
@@ -325,6 +341,7 @@ CCHDO.Btlcmp.prototype.init = function() {
     '</ul>');
   $('.fileinfo .diff').html('<h1>Diff</h1>'+
     '<ul>'+
+    '<li><%= commonparams.length -%> common parameters</li>'+
     '<li><%= ids.length-l_ids.length -%> new rows in merge file</li>'+
     '<li><%= ids.length-r_ids.length -%> deleted rows in merge file</li>'+
     '</ul>');

@@ -1,7 +1,7 @@
 <% content_for :head do -%>
 <style type="text/css">
 .box_content {
-  padding: 0;
+  padding: 0 !important;
 }
 #plots {
   vertical-align: top;
@@ -12,6 +12,9 @@
 }
 #plots .fileinfo {
   background-color: #ddd;
+}
+#plots .fileinfo td {
+  vertical-align: top;
 }
 #plots .fileinfo .left {
   text-align: left;
@@ -57,7 +60,6 @@
     </tr>
     <tr>
       <td colspan="2" class="center">
-        <p style="font-size: small; text-align: left;">Identifiers are from left file. Data on right is matched to them.</p>
         <div id="googletable" style="height: 400px;"></div>
       </td>
     </tr>
@@ -191,7 +193,6 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
       this.newStatus("Cannot compare non-numbers.");
     } else {
       /* Generate absdiff */
-      var absdiff_values = [];
       var diff = false;
       for (var i=0; i<this.data_table_data.getNumberOfRows(); i++) {
         var delta = Math.abs(this.data_table_data.getValue(i, this.LCOL)-
@@ -200,18 +201,11 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
         if (delta !== 0 && isFinite(delta) && !isNaN(delta)) { diff = true; }
       }
       /* color absdiff according to complete matchness */
-      var merge_status = "";
-      if (column == this.RCOL) {
-        merge_status = "<br />Data rows in"+
-                       " original: "+this.ldata.STNNBR.length+" ("+unmatched_orig_rows+" unmatched)"+
-                       " merge: "+this.rdata.STNNBR.length+" ("+unmatched_merge_rows+" unmatched)"+
-                       " Matched: "+matched_rows;
-      }
       if (diff) {
-        this.newStatus("The matched value columns differ."+merge_status);
+        this.newStatus("The matched value columns differ.");
         this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #ff0000;">|&Delta;|</span>');
       } else {
-        this.newStatus("The matched value columns are identical."+merge_status);
+        this.newStatus("The matched value columns are identical.");
         this.data_table_data.setColumnLabel(this.ABSDIFFCOL, '<span style="color: #00ff00;">|&Delta;|</span>');
       }
     }
@@ -318,6 +312,7 @@ CCHDO.Btlcmp.prototype.init = function() {
     rdat = @filer.data
     r_ids = rdat['CASTNO'].zip(rdat['STNNBR'], rdat['SAMPNO'], rdat['BTLNBR'])
     ids = (l_ids+r_ids).uniq
+    commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
   -%>
   this.data_table_data = new GV.DataTable({
     cols: [{label: 'Cast', type: 'number'}, {label: 'Station', type: 'number'},

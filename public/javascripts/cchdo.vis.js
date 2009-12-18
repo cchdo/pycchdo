@@ -114,6 +114,7 @@ CCHDO.vis.Plot = function(container) {
   this.container = container;
 };
 CCHDO.vis.Plot.prototype.draw = function(data, options) {
+  var self = this;
   var html = document.body.parentNode;
   setAttrs(html, {'xmlns': CCHDO.vis.ns.xhtml, 
                   'xmlns:svg': CCHDO.vis.ns.svg,
@@ -123,6 +124,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var height = defaultTo(options.height, getStyle(this.container, 'height'));
   var invertY = defaultTo(options.invertY, false);
   var pointColor = defaultTo(options.pointColor, '#05f');
+  var depthGraph = defaultTo(options.depthGraph, false);
 
   var padding = 3;
   var labelFont = 'Helvetica';
@@ -164,7 +166,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var plotoffsety = padding;
   var plotwidth = width-padding-plotoffsetx;
   var plotheight = height-3*padding-labelSize;
-  var ticksX = 5;
+  var ticksX = 12;
   var ticksY = 5;
   var gridThickness = '0.5';
   var gridColor = '#ccc';
@@ -231,11 +233,20 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   }
 
   /* Draw the points */
+
   var g_points = createSVG('g');
   svg.appendChild(g_points);
 
+  if (depthGraph) {
+    var g_depthGraph = createSVG('g');
+    var d = 'M0 '+gridheight+'L0 100 L';
+    d += gridwidth+' 100 L'+gridwidth+' 0';
+    d += 'L'+gridwidth+' '+gridheight+' Z';
+    g_depthGraph.appendChild(createSVG('path', {'d': d, 'fill': '#000'}));
+    g_points.appendChild(g_depthGraph);
+  }
+
   var g_labels = createSVG('g');
-  g_points.appendChild(g_labels);
 
   for (var i=0; i<data.getNumberOfRows(); i++) {
     var x = data.getValue(i, 0);
@@ -247,13 +258,16 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     var pt = createSVG('circle', {'cx': ptToGridX(x), 'cy': ptToGridY(y),
       'r': pointSize, 'fill': color,
       'stroke': borderColor, 'stroke-width': borderWidth,
-      'origPt': x+', '+y});
+      'ox': x, 'oy': y});
+    pt.onclick = function() {
+      google.visualization.events.trigger(self, 'select', {});
+    };
     pt.onmouseover = function() {
       this.setAttribute('stroke', "#f00");
-      var label = this.getAttribute('origPt');
+      var label = this.getAttribute('ox')+', '+this.getAttribute('oy');
 
       var rect = createSVG('rect', {'x': this.cx.baseVal.value, 'y': this.cy.baseVal.value, 
-          'width': label.length * labelSize/2, 'height': labelSize, fill: '#aaa'});
+        'width': label.length * labelSize/2, 'height': labelSize, fill: '#aaa'});
       var text = createSVG('text', {'text-anchor': 'start', 'font-family': labelFont, 'font-size': labelSize, 'dx': 0, 'dy': 0, 'fill': '#000'});
       text.textContent = label;
       rect.appendChild(text);
@@ -266,7 +280,13 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       }
     };
     g_points.appendChild(pt);
+    g_points.appendChild(g_labels);
   }
+};
+CCHDO.vis.Plot.prototype.getSelection = function() {
+  return [{row: null, column: null}];
+};
+CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
 };
 
 

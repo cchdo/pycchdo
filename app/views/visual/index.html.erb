@@ -97,7 +97,7 @@ function init() {
   chartView.setColumns([label_to_colno['STNNBR'], label_to_colno['CTDPRS']]);
 
   var chart = new CCHDO.vis.Plot($('#chart')[0]);
-  var chartOpts = {height: '400px', width: '1049px', invertY: true,
+  var chartOpts = {height: '400px', width: '1049px', invertY: true, depthGraph: true,
     pointColor: new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"})};
   chart.draw(chartView, chartOpts);
 

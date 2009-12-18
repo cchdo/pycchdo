@@ -173,10 +173,6 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var axisFontSize = 10;
   var stublength = 2;
 
-  /* Draw the grid */
-  var g_grid = createSVG('g');
-  svg.appendChild(g_grid);
-
   var labelwidthy = 3*axisFontSize+padding;
   var gridoffsetx = plotoffsetx + labelwidthy;
   var gridoffsety = plotoffsety;
@@ -186,24 +182,28 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var rangeX = data.getColumnRange(0);
   var rangeY = data.getColumnRange(1);
 
+  /* Draw the grid */
+  var g_grid = createSVG('g', {'transform': 'translate('+gridoffsetx+', '+gridoffsety+')'});
+  svg.appendChild(g_grid);
+
   function ptToGridX(x) {
     var ratio = (x-rangeX.min)/(rangeX.max-rangeX.min);
-    return gridoffsetx + ratio * gridwidth;
+    return ratio * gridwidth;
   }
   function ptToGridY(y) {
     var ratio = (y-rangeY.min)/(rangeY.max-rangeY.min);
     if (invertY) {
-      return gridoffsety + ratio * gridheight;
+      return ratio * gridheight;
     } else {
-      return gridoffsety + gridheight - ratio * gridheight;
+      return gridheight - ratio * gridheight;
     }
   }
   function gridToPtX(x) {
-    var ratio = (x-gridoffsetx)/gridwidth;
+    var ratio = (x)/gridwidth;
     return rangeX.min + ratio * (rangeX.max-rangeX.min);
   }
   function gridToPtY(y) {
-    var ratio = (y-gridoffsety)/gridheight;
+    var ratio = (y)/gridheight;
     if (invertY) {
       return rangeY.min + ratio * (rangeY.max-rangeY.min);
     } else {
@@ -216,18 +216,18 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       'x1': xs[0], 'y1': ys[0], 'x2': xs[1]+'', 'y2': ys[1]});
   }
 
-  for (var r=gridoffsetx; r<=gridoffsetx+gridwidth; r+=gridwidth/(ticksX-1)) {
-    g_grid.appendChild(makeLine([r, r], [gridoffsety+gridheight+stublength, gridoffsety]));
+  for (var r=0; r<=gridwidth+1; r+=gridwidth/(ticksX-1)) {
+    g_grid.appendChild(makeLine([r, r], [gridheight+stublength, 0]));
     var label = createSVG('text', {'text-anchor': 'middle', 'font-family': labelFont,
       'font-size': axisFontSize, 'x': r, 'y': plotoffsety+plotheight-padding});
     label.textContent = gridToPtX(r).toPrecision(5);
     g_grid.appendChild(label);
   }
 
-  for (var c=gridoffsety; c<=gridoffsety+gridheight; c+=gridheight/(ticksY-1)) {
-    g_grid.appendChild(makeLine([gridoffsetx-stublength, gridoffsetx+gridwidth], [c, c]));
+  for (var c=0; c<=gridheight; c+=gridheight/(ticksY-1)) {
+    g_grid.appendChild(makeLine([-stublength, gridwidth], [c, c]));
     var label = createSVG('text', {'text-anchor': 'end', 'font-family': labelFont,
-      'font-size': axisFontSize, 'x': gridoffsetx-stublength, 'y': c+axisFontSize/2});
+      'font-size': axisFontSize, 'x': -stublength, 'y': c+axisFontSize/2});
     label.textContent = gridToPtY(c).toPrecision(5);
     g_grid.appendChild(label);
   }
@@ -235,16 +235,16 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   /* Draw the points */
 
   var g_points = createSVG('g');
-  svg.appendChild(g_points);
+  g_grid.appendChild(g_points);
 
-  if (depthGraph) {
-    var g_depthGraph = createSVG('g');
-    var d = 'M0 '+gridheight+'L0 100 L';
-    d += gridwidth+' 100 L'+gridwidth+' 0';
-    d += 'L'+gridwidth+' '+gridheight+' Z';
-    g_depthGraph.appendChild(createSVG('path', {'d': d, 'fill': '#000'}));
-    g_points.appendChild(g_depthGraph);
-  }
+//if (depthGraph) {
+//  var g_depthGraph = createSVG('g');
+//  var d = 'M0 '+gridheight+'L0 100 L';
+//  d += gridwidth+' 100 L'+gridwidth+' 0';
+//  d += 'L'+gridwidth+' '+gridheight+' Z';
+//  g_depthGraph.appendChild(createSVG('path', {'d': d, 'fill': '#000'}));
+//  g_points.appendChild(g_depthGraph);
+//}
 
   var g_labels = createSVG('g');
 

@@ -187,10 +187,12 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   svg.appendChild(g_grid);
 
   function ptToGridX(x) {
+    if (rangeX.max == rangeX.min) { return 0; }
     var ratio = (x-rangeX.min)/(rangeX.max-rangeX.min);
     return ratio * gridwidth;
   }
   function ptToGridY(y) {
+    if (rangeY.max == rangeY.min) { return 0; }
     var ratio = (y-rangeY.min)/(rangeY.max-rangeY.min);
     if (invertY) {
       return ratio * gridheight;
@@ -232,21 +234,18 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     g_grid.appendChild(label);
   }
 
-  /* Draw the points */
+  /* Draw the plot */
+  var g_plot = createSVG('g');
+  g_grid.appendChild(g_plot);
 
+  var g_depthGraph = createSVG('g');
+  g_plot.appendChild(g_depthGraph);
   var g_points = createSVG('g');
-  g_grid.appendChild(g_points);
-
-//if (depthGraph) {
-//  var g_depthGraph = createSVG('g');
-//  var d = 'M0 '+gridheight+'L0 100 L';
-//  d += gridwidth+' 100 L'+gridwidth+' 0';
-//  d += 'L'+gridwidth+' '+gridheight+' Z';
-//  g_depthGraph.appendChild(createSVG('path', {'d': d, 'fill': '#000'}));
-//  g_points.appendChild(g_depthGraph);
-//}
-
+  g_plot.appendChild(g_points);
   var g_labels = createSVG('g');
+  g_plot.appendChild(g_labels);
+
+  var depths = {};
 
   for (var i=0; i<data.getNumberOfRows(); i++) {
     var x = data.getValue(i, 0);
@@ -280,7 +279,20 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       }
     };
     g_points.appendChild(pt);
-    g_points.appendChild(g_labels);
+
+    if (depths[x]) {
+      depths[x] = Math.max(y, depths[x]);
+    } else {
+      depths[x] = Math.max(y, 0);
+    }
+  }
+  if (depthGraph) {
+    var d = 'M0 '+gridheight;
+    for (var i in depths) {
+      d += ' L'+ptToGridX(i)+' '+ptToGridY(depths[i])+' ';
+    }
+    d += 'L'+gridwidth+' '+gridheight+' Z';
+    g_depthGraph.appendChild(createSVG('path', {'d': d, 'fill': '#000', 'opacity': '0.9'}));
   }
 };
 CCHDO.vis.Plot.prototype.getSelection = function() {

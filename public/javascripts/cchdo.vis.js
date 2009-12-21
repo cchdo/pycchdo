@@ -154,7 +154,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       attrs.transform = 'rotate(270 '+vertical.x+' '+vertical.y+')';
     }
     var l = createSVG('text', attrs);
-    l.textContent = label;
+    l.appendChild(document.createTextNode(label));
     return l;
   }
 
@@ -222,7 +222,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     g_grid.appendChild(makeLine([r, r], [gridheight+stublength, 0]));
     var label = createSVG('text', {'text-anchor': 'middle', 'font-family': labelFont,
       'font-size': axisFontSize, 'x': r, 'y': plotoffsety+plotheight-padding});
-    label.textContent = gridToPtX(r).toPrecision(5);
+    label.appendChild(document.createTextNode(gridToPtX(r).toPrecision(5)))
     g_grid.appendChild(label);
   }
 
@@ -230,7 +230,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     g_grid.appendChild(makeLine([-stublength, gridwidth], [c, c]));
     var label = createSVG('text', {'text-anchor': 'end', 'font-family': labelFont,
       'font-size': axisFontSize, 'x': -stublength, 'y': c+axisFontSize/2});
-    label.textContent = gridToPtY(c).toPrecision(5);
+    label.appendChild(document.createTextNode(gridToPtY(c).toPrecision(5)));
     g_grid.appendChild(label);
   }
 
@@ -265,12 +265,13 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       this.setAttribute('stroke', "#f00");
       var label = this.getAttribute('ox')+', '+this.getAttribute('oy');
 
-      var rect = createSVG('rect', {'x': this.cx.baseVal.value, 'y': this.cy.baseVal.value, 
-        'width': label.length * labelSize/2, 'height': labelSize, fill: '#aaa'});
-      var text = createSVG('text', {'text-anchor': 'start', 'font-family': labelFont, 'font-size': labelSize, 'dx': 0, 'dy': 0, 'fill': '#000'});
-      text.textContent = label;
-      rect.appendChild(text);
+      var rect = createSVG('rect', {'x': -((label.length+2)*labelSize/2)/2, 'y': -labelSize,
+        'width': (label.length+2)* labelSize/2, 'height': 2*labelSize, fill: '#ddd'});
       g_labels.appendChild(rect);
+      var text = createSVG('text', {'text-anchor': 'middle', 'dominant-baseline': 'mathematical', 'font-family': labelFont, 'font-size': labelSize, 'fill': 'black'});
+      text.appendChild(document.createTextNode(label));
+      g_labels.appendChild(text);
+      g_labels.setAttribute('transform', 'translate('+(this.cx.baseVal.value+((label.length+2)*labelSize/2)/2+parseFloat(this.r.baseVal.value))+','+(this.cy.baseVal.value+labelSize+parseFloat(this.r.baseVal.value))+')');
     };
     pt.onmouseout = function() {
       this.setAttribute('stroke', borderColor);

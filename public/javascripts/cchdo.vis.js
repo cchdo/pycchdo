@@ -125,6 +125,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var invertY = defaultTo(options.invertY, false);
   var pointColor = defaultTo(options.pointColor, '#05f');
   var depthGraph = defaultTo(options.depthGraph, false);
+  var gridColor = defaultTo(options.gridColor, '#ccc');
 
   var padding = 3;
   var labelFont = 'Helvetica';
@@ -169,7 +170,6 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var ticksX = 12;
   var ticksY = 5;
   var gridThickness = '0.5';
-  var gridColor = '#ccc';
   var axisFontSize = 10;
   var stublength = 2;
 

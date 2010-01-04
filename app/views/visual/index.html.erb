@@ -251,8 +251,9 @@ function init() {
       .append($('<label>Y</label>')).append(selectY).append($('<br />'))
       .append(plotXYDiv);
     var plotXYView = new GV.DataView(data_table);
-    var plotXYChart = new GV.ScatterChart(plotXYDiv[0]);
-    var plotXYChartOpts = {height: 400, width: 450, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
+    var plotXYChart = new CCHDO.vis.Plot(plotXYDiv[0]);
+    var plotXYChartOpts = {height: '400px', width: '450px', invertY: true, gridColor: '#000',
+      pointColor: new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"})};
     $('select', plotwindow).change(function() {
       var propx = selectX.val();
       var propy = selectY.val();
@@ -263,14 +264,14 @@ function init() {
     });
   }
 
-  var plotbutton = $('<div>Property-Property</div>')
+  var plotbutton = $('<input type="button" value="Property-Property" />')
     .css({'background-color': '#eee',
        'border': '1px solid #aaa',
        'cursor': 'pointer'})
     .click(openPropertyPropertyWindow);
   var toolbox = $('<div></div>')
-    .css({'width': '150px', 'height': '100px',
-      'position': 'absolute', 'left': '0', 'top': '0', 'z-index': '999',
+    .css({'width': '150px', 'height': '50px',
+      'position': 'absolute', 'left': '0', 'top': '5em', 'z-index': '999',
       'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
       'background-color': '#ddd'})
     .append($('<h1>Plots</h1>'))

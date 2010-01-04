@@ -257,7 +257,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     var pt = createSVG('circle', {'cx': ptToGridX(x), 'cy': ptToGridY(y),
       'r': pointSize, 'fill': color,
       'stroke': borderColor, 'stroke-width': borderWidth,
-      'ox': x, 'oy': y});
+      'ox': x, 'oy': y, 'row': i});
     pt.onclick = function() {
       google.visualization.events.trigger(self, 'select', {});
     };
@@ -281,11 +281,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     };
     g_points.appendChild(pt);
 
-    if (depths[x]) {
-      depths[x] = Math.max(y, depths[x]);
-    } else {
-      depths[x] = Math.max(y, 0);
-    }
+    depths[x] = depths[x] ? Math.max(y, depths[x]) : Math.max(y, 0);
   }
   if (depthGraph) {
     var d = 'M0 '+gridheight;
@@ -301,5 +297,3 @@ CCHDO.vis.Plot.prototype.getSelection = function() {
 };
 CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
 };
-
-

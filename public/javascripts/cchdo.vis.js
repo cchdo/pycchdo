@@ -134,6 +134,8 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var borderColor = '#05f';
   var borderWidth = '0.5';
 
+  while (this.container.childNodes.length > 0) { this.container.removeChild(this.container.childNodes[0]); }
+
   var svg = createSVG('svg', {'width': width, 'height': height});
   svg.style.border = '1px solid #eee'; //TODO remove
   this.container.appendChild(svg);

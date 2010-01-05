@@ -239,8 +239,11 @@ function init() {
   function openPropertyPropertyWindow() {
     var selectX = $('<select></select>')
       .append($('<option></option>'));
-    for (var i=0;i<data_table.getNumberOfColumns();i++){
-      selectX.append($('<option>'+data_table.getColumnLabel(i)+'</option>'));
+    var properties = [];
+    for (var i=0;i<data_table.getNumberOfColumns();i++){ properties.push(data_table.getColumnLabel(i)); }
+    properties = properties.sort();
+    for (var i=0; i < properties.length; i++) {
+      selectX.append($('<option>'+properties[i]+'</option>'));
     }
     var selectY = selectX.clone();
     var plotXYDiv = $('<div id="plot-xy"></div>').css('height', '200px');

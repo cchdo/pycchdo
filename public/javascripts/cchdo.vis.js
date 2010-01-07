@@ -231,9 +231,11 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   }
 
   /* Draw the plot */
+  var g_depthGraph = newSVG('g');// higher up so painted first
   var g_points = this.points = newSVG('g');
   this.g_tips = newSVG('g');
-  var g_plot = newSVG('g').appendTo(g_grid).append(g_points).append(this.g_tips);
+  var g_plot = newSVG('g').appendTo(g_grid)
+    .append(g_depthGraph).append(g_points).append(this.g_tips);
 
   var depths = {};
   for (var i=0; i<data.getNumberOfRows(); i++) {
@@ -262,7 +264,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     }
     d += 'L'+gridwidth+' '+gridheight+' Z';
     newSVG('path', {'d': d, 'fill': '#000', 'opacity': '0.9'})
-      .appendTo(newSVG('g').appendTo(g_plot));
+      .appendTo(g_depthGraph);
   }
 };
 CCHDO.vis.Plot.prototype.getPoint = function(row) { return this.points.childNodes[row]; };
@@ -298,7 +300,7 @@ CCHDO.vis.Plot.prototype.grep = function(row) {
 };
 CCHDO.vis.Plot.prototype.select = function(row) {
   if (this.grep(row) < 0) {
-    this.getPoint(row).attr({'stroke-width': '1'});
+    this.getPoint(row).attr({'stroke-width': '2'});
     this.selection.push({row: row, column: null});
   }
 };

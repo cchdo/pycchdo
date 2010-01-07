@@ -7,10 +7,17 @@ function getStyle(x,styleProp) {
   }
 }
 function createSVG(elem, attrs) { return document.createElementNS(CCHDO.vis.ns.svg, elem).attr(attrs); }
-function setAttrs(element, attrs) { for (var attr in attrs) { element.setAttribute(attr, attrs[attr]); } }
 Element.prototype.append = function(dom) { this.appendChild(dom); return this; };
 Element.prototype.appendTo = function(dom) { dom.appendChild(this); return this; };
-Element.prototype.attr = function(attrs) { setAttrs(this, attrs); return this; };
+Element.prototype.attr = function(name, value) {
+  var options = name;
+  if (typeof name === 'string') {
+    if (value === undefined) { return this.getAttribute(name); }
+    else { options = {}; options[name] = value; }
+  }
+  for (var name in options) { this.setAttribute(name, options[name]); }
+  return this;
+};
 
 var CCHDO = defaultTo(CCHDO, {});
 
@@ -109,13 +116,17 @@ CCHDO.vis.Gradient.prototype.getColorFor = function(value) {
  */
 CCHDO.vis.Plot = function(container) {
   this.container = container;
+  this.opts = {};
+  this.points = [];
+  this.selection = [];
+  this.g_tips = null;
 };
 CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var self = this;
   var html = document.body.parentNode;
-  setAttrs(html, {'xmlns': CCHDO.vis.ns.xhtml, 
-                  'xmlns:svg': CCHDO.vis.ns.svg,
-                  'xmlns:xlink': CCHDO.vis.ns.xlink});
+  html.attr({'xmlns': CCHDO.vis.ns.xhtml, 
+             'xmlns:svg': CCHDO.vis.ns.svg,
+             'xmlns:xlink': CCHDO.vis.ns.xlink});
 
   var width = defaultTo(options.width, getStyle(this.container, 'width'));
   var height = defaultTo(options.height, getStyle(this.container, 'height'));
@@ -125,11 +136,12 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var gridColor = defaultTo(options.gridColor, '#ccc');
 
   var padding = 3;
-  var labelFont = 'Helvetica';
-  var labelSize = 12;
+  var labelFont = this.opts.labelFont = 'Helvetica';
+  var labelSize = this.opts.labelSize = 12;
   var pointSize = 3;
-  var borderColor = '#05f';
+  var borderColor = this.opts.borderColor = '#05f';
   var borderWidth = '0.5';
+
 
   /* Clear the container before drawing */
   while (this.container.childNodes.length > 0) { this.container.removeChild(this.container.childNodes[0]); }
@@ -231,7 +243,9 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
 
   var g_depthGraph = createSVG('g').appendTo(g_plot);
   var g_points = createSVG('g').appendTo(g_plot);
-  var g_labels = createSVG('g').appendTo(g_plot);
+  this.g_tips = createSVG('g').appendTo(g_plot);
+
+  this.points = g_points;
 
   var depths = {};
 
@@ -249,22 +263,10 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     pt.onclick = function() {
       google.visualization.events.trigger(self, 'select', {});
     };
-    pt.onmouseover = function() {
-      this.setAttribute('stroke', "#f00");
-      var label = this.getAttribute('ox')+', '+this.getAttribute('oy');
-
-      var rect = createSVG('rect', {'x': -((label.length+2)*labelSize/2)/2, 'y': -labelSize,
-        'width': (label.length+2)* labelSize/2, 'height': 2*labelSize, fill: '#ddd'}).appendTo(g_labels);
-      var text = createSVG('text', {'text-anchor': 'middle', 'dominant-baseline': 'mathematical',
-        'font-family': labelFont, 'font-size': labelSize, 'fill': 'black'})
-        .append(document.createTextNode(label)).appendTo(g_labels);
-      g_labels.setAttribute('transform', 'translate('+(this.cx.baseVal.value+((label.length+2)*labelSize/2)/2+parseFloat(this.r.baseVal.value))+','+(this.cy.baseVal.value+labelSize+parseFloat(this.r.baseVal.value))+')');
-    };
+    pt.onmouseover = function() { self.showTip(this); };
     pt.onmouseout = function() {
-      this.setAttribute('stroke', borderColor);
-      while (g_labels.childNodes.length > 0) {
-        g_labels.removeChild(g_labels.childNodes[0]);
-      }
+      for (var i in this.selection) { if (this.selection[i] === this) { return; } }
+      self.clearTip(this);
     };
 
     depths[x] = depths[x] ? Math.max(y, depths[x]) : Math.max(y, 0);
@@ -278,8 +280,52 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     createSVG('path', {'d': d, 'fill': '#000', 'opacity': '0.9'}).appendTo(g_depthGraph);
   }
 };
-CCHDO.vis.Plot.prototype.getSelection = function() {
-  return [{row: null, column: null}];
+CCHDO.vis.Plot.prototype.getPoint = function(row) {
+  for (var i in this.points.childNodes) {
+    var pt = this.points.childNodes[i];
+    if (pt.row == row) { return pt; }
+  }
+  return null;
 };
+CCHDO.vis.Plot.prototype.clearTip = function(pt) { 
+  if (pt == null) {return;}
+  var borderColor = this.opts.borderColor;
+  pt.attr('stroke', borderColor);
+  for (var i in this.g_tips.childNodes) {
+    var child = this.g_tips.childNodes[i];
+    if (child === pt) {
+      this.g_tips.removeChild(this.g_tips.childNodes[0]);
+    }
+  }
+};
+CCHDO.vis.Plot.prototype.showTip = function(pt) {
+  if (pt == null) {return;}
+  var labelSize = this.opts.labelSize;
+  var labelFont = this.opts.labelFont;
+  var text = pt.attr('ox')+', '+pt.attr('oy');
+  var textlen = text.length+2;
+  pt.attr('stroke', '#f00');
+  this.g_tips
+    .append(createSVG('rect', {'x': -(textlen*labelSize/2)/2, 'y': -labelSize,
+      'width': textlen* labelSize/2, 'height': 2*labelSize, fill: '#ddd'}))
+    .append(createSVG('text', {'text-anchor': 'middle', 'dominant-baseline': 'mathematical',
+      'font-family': labelFont, 'font-size': labelSize, 'fill': 'black'})
+      .append(document.createTextNode(text)))
+    .attr('transform', 'translate('+(pt.cx.baseVal.value+(textlen*labelSize/2)/2+parseFloat(pt.r.baseVal.value))+
+      ','+(pt.cy.baseVal.value+labelSize+parseFloat(pt.r.baseVal.value))+')');
+};
+CCHDO.vis.Plot.prototype.getSelection = function() { return this.selection; };
+/* CCHDO.vis.Plot.setSelection
+ * As prescribed by the API except only rows may be selected and only one row may be selected at a time.
+ */
 CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
+  for (var i in this.selection) {
+    var selection = this.selection[i];
+    this.clearTip(this.getPoint(selection.row));
+  }
+  for (var i in selection_array) {
+    var selection = selection_array[i];
+    this.showTip(this.getPoint(selection.row));
+    this.selection.push(selection);
+  }
 };

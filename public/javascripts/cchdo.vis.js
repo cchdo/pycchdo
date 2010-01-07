@@ -248,8 +248,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       'stroke': borderColor, 'stroke-width': borderWidth,
       'ox': x, 'oy': y, 'row': i}).appendTo(g_points);
     pt.onclick = function() {
-      var row = this.attr('row');
-      if (self.grep(row) < 0) { self.select(row); } else { self.deselect(row); }
+      self.setSelection([{row: parseInt(this.attr('row'), 10), col: null}]);
       google.visualization.events.trigger(self, 'select', {});
     };
     pt.onmouseover = function() { self.showTip(this.attr('row')); };

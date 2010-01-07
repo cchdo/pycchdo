@@ -2,3 +2,5 @@
 config
 tmp
 log
+.*.swp
+.*.swo

@@ -1,8 +1,18 @@
+require 'net/http'
+class Tempfile
+  attr_accessor :original_filename
+end
 class VisualController < ApplicationController
   layout 'standard'
 
   def index
     file = params[:file]
+    if autoopen = params[:autoopen]
+      file = Tempfile.new('visual_autoopen')
+      file.write(Net::HTTP.get('cchdo.ucsd.edu', autoopen))
+      file.original_filename = autoopen
+      file.flush
+    end
     @filename = nil
     @wire = nil
     if file.blank?

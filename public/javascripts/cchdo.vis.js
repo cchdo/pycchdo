@@ -215,7 +215,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     return newSVG('line', {'stroke': gridColor, 'stroke-width': gridThickness,
       'x1': xs[0], 'y1': ys[0], 'x2': xs[1]+'', 'y2': ys[1]});
   }
-  function makeLabel(text, x, y, anchor) {
+  function makeTickLabel(text, x, y, anchor) {
     return newSVG('text', {'text-anchor': anchor, 'font-family': labelFont,
       'font-size': axisFontSize, 'x': x, 'y': y}).append(document.createTextNode(text));
   }
@@ -223,11 +223,11 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var g_grid = newSVG('g', {'transform': 'translate('+gridoffsetx+', '+gridoffsety+')'}).appendTo(svg);
   for (var r=0; r<=gridwidth+1; r+=gridwidth/(ticksX-1)) {
     g_grid.append(makeLine([r, r], [gridheight+stublength, 0]))
-      .append(makeLabel(gridToPtX(r).toPrecision(5), r, plotoffsety+plotheight-padding, 'middle'));
+      .append(makeTickLabel(gridToPtX(r).toPrecision(5), r, plotoffsety+plotheight-padding, 'middle'));
   }
   for (var c=0; c<=gridheight; c+=gridheight/(ticksY-1)) {
     g_grid.append(makeLine([-stublength, gridwidth], [c, c]))
-      .append(makeLabel(gridToPtY(c).toPrecision(5), -stublength, c+axisFontSize/2, 'end'));
+      .append(makeTickLabel(gridToPtY(c).toPrecision(5), -stublength, c+axisFontSize/2, 'end'));
   }
 
   /* Draw the plot */

@@ -6,7 +6,7 @@ function getStyle(x,styleProp) {
     return document.defaultView.getComputedStyle(x,null).getPropertyValue(styleProp);
   }
 }
-function createSVG(elem, attrs) { return document.createElementNS(CCHDO.vis.ns.svg, elem).attr(attrs); }
+function newSVG(elem, attrs) { return document.createElementNS(CCHDO.vis.ns.svg, elem).attr(attrs); }
 Element.prototype.append = function(dom) { this.appendChild(dom); return this; };
 Element.prototype.appendTo = function(dom) { dom.appendChild(this); return this; };
 Element.prototype.attr = function(name, value) {
@@ -131,6 +131,7 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var width = defaultTo(options.width, getStyle(this.container, 'width'));
   var height = defaultTo(options.height, getStyle(this.container, 'height'));
   var invertY = defaultTo(options.invertY, false);
+  var pointSize = defaultTo(options.pointSize, 2);
   var pointColor = defaultTo(options.pointColor, '#05f');
   var depthGraph = defaultTo(options.depthGraph, false);
   var gridColor = defaultTo(options.gridColor, '#ccc');
@@ -138,15 +139,14 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var padding = 3;
   var labelFont = this.opts.labelFont = 'Helvetica';
   var labelSize = this.opts.labelSize = 12;
-  var pointSize = 3;
   var borderColor = this.opts.borderColor = '#05f';
-  var borderWidth = '0.5';
+  var borderWidth = this.opts.borderWidth = '0.2';
 
 
   /* Clear the container before drawing */
   while (this.container.childNodes.length > 0) { this.container.removeChild(this.container.childNodes[0]); }
 
-  var svg = createSVG('svg', {'width': width, 'height': height}).appendTo(this.container);
+  var svg = newSVG('svg', {'width': width, 'height': height}).appendTo(this.container);
   svg.style.border = '1px solid #eee'; //TODO remove (this is for development to show boundaries)
 
   width = parseInt(width.slice(0, -2), 10);
@@ -155,20 +155,19 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   // TODO maybe have a loading sign?
 
   /* Draw the axis labels */
-  var g_label = createSVG('g').appendTo(svg);
 
   function makeLabel(x, y, label, vertical) {
     var attrs = {'text-anchor': 'middle', 'fill': 'black',
-      'font-family': labelFont, 'font-size': labelSize,
-      'x': x, 'y': y};
+      'font-family': labelFont, 'font-size': labelSize, 'x': x, 'y': y};
     if (vertical) {
       attrs.transform = 'rotate(270 '+vertical.x+' '+vertical.y+')';
     }
-    return createSVG('text', attrs).append(document.createTextNode(label));
+    return newSVG('text', attrs).append(document.createTextNode(label));
   }
-  makeLabel(width/2, height-padding, data.getColumnLabel(0)).appendTo(g_label);
-  makeLabel(padding+height/2, height-padding+labelSize,
-    data.getColumnLabel(1), {x: padding, y: height-padding}).appendTo(g_label);
+  var g_label = newSVG('g').appendTo(svg)
+    .append(makeLabel(width/2, height-padding, data.getColumnLabel(0)))
+    .append(makeLabel(padding+height/2, height-padding+labelSize,
+      data.getColumnLabel(1), {x: padding, y: height-padding}));
 
   var plotoffsetx = 2*padding+labelSize;
   var plotoffsety = padding;
@@ -190,7 +189,6 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var rangeY = data.getColumnRange(1);
 
   /* Draw the grid */
-  var g_grid = createSVG('g', {'transform': 'translate('+gridoffsetx+', '+gridoffsety+')'}).appendTo(svg);
 
   function ptToGridX(x) {
     if (rangeX.max == rangeX.min) { return 0; }
@@ -200,11 +198,8 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   function ptToGridY(y) {
     if (rangeY.max == rangeY.min) { return 0; }
     var ratio = (y-rangeY.min)/(rangeY.max-rangeY.min);
-    if (invertY) {
-      return ratio * gridheight;
-    } else {
-      return gridheight - ratio * gridheight;
-    }
+    if (invertY) { return ratio * gridheight;
+    } else { return gridheight - ratio * gridheight; }
   }
   function gridToPtX(x) {
     var ratio = (x)/gridwidth;
@@ -212,43 +207,35 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   }
   function gridToPtY(y) {
     var ratio = (y)/gridheight;
-    if (invertY) {
-      return rangeY.min + ratio * (rangeY.max-rangeY.min);
-    } else {
-      return rangeY.max - ratio * (rangeY.max-rangeY.min);
-    }
+    if (invertY) { return rangeY.min + ratio * (rangeY.max-rangeY.min);
+    } else { return rangeY.max - ratio * (rangeY.max-rangeY.min); }
   }
 
   function makeLine(xs, ys) {
-    return createSVG('line', {'stroke': gridColor, 'stroke-width': gridThickness,
+    return newSVG('line', {'stroke': gridColor, 'stroke-width': gridThickness,
       'x1': xs[0], 'y1': ys[0], 'x2': xs[1]+'', 'y2': ys[1]});
   }
-
-  for (var r=0; r<=gridwidth+1; r+=gridwidth/(ticksX-1)) {
-    makeLine([r, r], [gridheight+stublength, 0]).appendTo(g_grid);
-    var label = createSVG('text', {'text-anchor': 'middle', 'font-family': labelFont,
-      'font-size': axisFontSize, 'x': r, 'y': plotoffsety+plotheight-padding})
-      .append(document.createTextNode(gridToPtX(r).toPrecision(5))).appendTo(g_grid);
+  function makeLabel(text, x, y, anchor) {
+    return newSVG('text', {'text-anchor': anchor, 'font-family': labelFont,
+      'font-size': axisFontSize, 'x': x, 'y': y}).append(document.createTextNode(text));
   }
 
+  var g_grid = newSVG('g', {'transform': 'translate('+gridoffsetx+', '+gridoffsety+')'}).appendTo(svg);
+  for (var r=0; r<=gridwidth+1; r+=gridwidth/(ticksX-1)) {
+    g_grid.append(makeLine([r, r], [gridheight+stublength, 0]))
+      .append(makeLabel(gridToPtX(r).toPrecision(5), r, plotoffsety+plotheight-padding, 'middle'));
+  }
   for (var c=0; c<=gridheight; c+=gridheight/(ticksY-1)) {
-    g_grid.appendChild(makeLine([-stublength, gridwidth], [c, c]));
-    var label = createSVG('text', {'text-anchor': 'end', 'font-family': labelFont,
-      'font-size': axisFontSize, 'x': -stublength, 'y': c+axisFontSize/2})
-      .append(document.createTextNode(gridToPtY(c).toPrecision(5))).appendTo(g_grid);
+    g_grid.append(makeLine([-stublength, gridwidth], [c, c]))
+      .append(makeLabel(gridToPtY(c).toPrecision(5), -stublength, c+axisFontSize/2, 'end'));
   }
 
   /* Draw the plot */
-  var g_plot = createSVG('g').appendTo(g_grid);
-
-  var g_depthGraph = createSVG('g').appendTo(g_plot);
-  var g_points = createSVG('g').appendTo(g_plot);
-  this.g_tips = createSVG('g').appendTo(g_plot);
-
-  this.points = g_points;
+  var g_points = this.points = newSVG('g');
+  this.g_tips = newSVG('g');
+  var g_plot = newSVG('g').appendTo(g_grid).append(g_points).append(this.g_tips);
 
   var depths = {};
-
   for (var i=0; i<data.getNumberOfRows(); i++) {
     var x = data.getValue(i, 0);
     var y = data.getValue(i, 1);
@@ -256,20 +243,18 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
     if (color instanceof CCHDO.vis.Gradient) {
       color = pointColor.getColorFor(y);
     }
-    var pt = createSVG('circle', {'cx': ptToGridX(x), 'cy': ptToGridY(y),
+    var pt = newSVG('circle', {'cx': ptToGridX(x), 'cy': ptToGridY(y),
       'r': pointSize, 'fill': color,
       'stroke': borderColor, 'stroke-width': borderWidth,
       'ox': x, 'oy': y, 'row': i}).appendTo(g_points);
     pt.onclick = function() {
+      var row = this.attr('row');
+      if (self.grep(row) < 0) { self.select(row); } else { self.deselect(row); }
       google.visualization.events.trigger(self, 'select', {});
     };
-    pt.onmouseover = function() { self.showTip(this); };
-    pt.onmouseout = function() {
-      for (var i in this.selection) { if (this.selection[i] === this) { return; } }
-      self.clearTip(this);
-    };
-
-    depths[x] = depths[x] ? Math.max(y, depths[x]) : Math.max(y, 0);
+    pt.onmouseover = function() { self.showTip(this.attr('row')); };
+    pt.onmouseout = function() { self.clearTip(this.attr('row')); };
+    depths[x] = Math.max(y, defaultTo(depths[x], 0));
   }
   if (depthGraph) {
     var d = 'M0 '+gridheight;
@@ -277,55 +262,61 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
       d += ' L'+ptToGridX(i)+' '+ptToGridY(depths[i])+' ';
     }
     d += 'L'+gridwidth+' '+gridheight+' Z';
-    createSVG('path', {'d': d, 'fill': '#000', 'opacity': '0.9'}).appendTo(g_depthGraph);
+    newSVG('path', {'d': d, 'fill': '#000', 'opacity': '0.9'})
+      .appendTo(newSVG('g').appendTo(g_plot));
   }
 };
-CCHDO.vis.Plot.prototype.getPoint = function(row) {
-  for (var i in this.points.childNodes) {
-    var pt = this.points.childNodes[i];
-    if (pt.row == row) { return pt; }
-  }
-  return null;
-};
-CCHDO.vis.Plot.prototype.clearTip = function(pt) { 
-  if (pt == null) {return;}
-  var borderColor = this.opts.borderColor;
-  pt.attr('stroke', borderColor);
-  for (var i in this.g_tips.childNodes) {
-    var child = this.g_tips.childNodes[i];
-    if (child === pt) {
-      this.g_tips.removeChild(this.g_tips.childNodes[0]);
-    }
-  }
-};
-CCHDO.vis.Plot.prototype.showTip = function(pt) {
-  if (pt == null) {return;}
-  var labelSize = this.opts.labelSize;
-  var labelFont = this.opts.labelFont;
+CCHDO.vis.Plot.prototype.getPoint = function(row) { return this.points.childNodes[row]; };
+CCHDO.vis.Plot.prototype.showTip = function(row) {
+  var pt = this.getPoint(row);
+  var size = this.opts.labelSize;
+  var font = this.opts.labelFont;
   var text = pt.attr('ox')+', '+pt.attr('oy');
   var textlen = text.length+2;
   pt.attr('stroke', '#f00');
   this.g_tips
-    .append(createSVG('rect', {'x': -(textlen*labelSize/2)/2, 'y': -labelSize,
-      'width': textlen* labelSize/2, 'height': 2*labelSize, fill: '#ddd'}))
-    .append(createSVG('text', {'text-anchor': 'middle', 'dominant-baseline': 'mathematical',
-      'font-family': labelFont, 'font-size': labelSize, 'fill': 'black'})
+    .append(newSVG('rect', {'x': -(textlen*size/2)/2, 'y': -size,
+      'width': textlen*size/2, 'height': 2*size, fill: '#ddd'}))
+    .append(newSVG('text', {'text-anchor': 'middle', 'dominant-baseline': 'mathematical',
+      'font-family': font, 'font-size': size, 'fill': 'black'})
       .append(document.createTextNode(text)))
-    .attr('transform', 'translate('+(pt.cx.baseVal.value+(textlen*labelSize/2)/2+parseFloat(pt.r.baseVal.value))+
-      ','+(pt.cy.baseVal.value+labelSize+parseFloat(pt.r.baseVal.value))+')');
+    .attr('transform', 'translate('+(pt.cx.baseVal.value+(textlen*size/2)/2+parseFloat(pt.r.baseVal.value))+
+      ','+(pt.cy.baseVal.value+size+parseFloat(pt.r.baseVal.value))+')');
+};
+CCHDO.vis.Plot.prototype.clearTip = function(row) { 
+  var pt = this.getPoint(row);
+  var borderColor = this.opts.borderColor;
+  pt.attr('stroke', borderColor);
+  while (this.g_tips.childNodes.length) {
+    this.g_tips.removeChild(this.g_tips.childNodes[0]);
+  }
+};
+CCHDO.vis.Plot.prototype.grep = function(row) {
+  for (var i in this.selection) {
+    if (this.selection[i].row == row) { return i; }
+  }
+  return -1;
+};
+CCHDO.vis.Plot.prototype.select = function(row) {
+  if (this.grep(row) < 0) {
+    this.getPoint(row).attr({'stroke-width': '1'});
+    this.selection.push({row: row, column: null});
+  }
+};
+CCHDO.vis.Plot.prototype.deselect = function(row) {
+  var i = this.grep(row);
+  if (i > -1) {
+    this.getPoint(row).attr({'stroke-width': this.opts.borderWidth});
+    this.selection.splice(i, 1);
+  }
 };
 CCHDO.vis.Plot.prototype.getSelection = function() { return this.selection; };
 /* CCHDO.vis.Plot.setSelection
  * As prescribed by the API except only rows may be selected and only one row may be selected at a time.
  */
 CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
-  for (var i in this.selection) {
-    var selection = this.selection[i];
-    this.clearTip(this.getPoint(selection.row));
-  }
-  for (var i in selection_array) {
-    var selection = selection_array[i];
-    this.showTip(this.getPoint(selection.row));
-    this.selection.push(selection);
-  }
+  var rows = [];
+  for (var i in this.selection) { rows.push(this.selection[i].row); }
+  for (var i in rows) { this.deselect(rows[i]); }
+  for (var i in selection_array) { this.select(selection_array[i].row); }
 };

@@ -32,6 +32,7 @@
 <script type='text/javascript' src='http://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.x%22%7D%5D%7Dkey=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type='text/javascript' src='/javascripts/map_search/grat.js'></script>
 <script type='text/javascript' src='/javascripts/cchdo.vis.js'></script>
+<script type='text/javascript' src='/javascripts/vis.js'></script>
 <script type="text/javascript">
 google.load('visualization', '1', {packages: ['scatterchart', 'table', 'map']});
 function getKey(key) {
@@ -118,7 +119,7 @@ function init() {
   }
   uniquifyMapView(mapView);
 
-  var map = new CCHDO.vis.Map($('#map')[0]);
+  var map = new Vis.Map($('#map')[0]);
   var mapOpts = {
     mapType: G_SATELLITE_MAP,
     mapOpts: {mapTypes: [G_PHYSICAL_MAP, G_SATELLITE_MAP, G_SATELLITE_3D_MAP]},

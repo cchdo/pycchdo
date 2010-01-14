@@ -349,84 +349,84 @@ CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
  *    - setupMap: a hook function called with the drawn map
  *      (function(google.maps.Map2)) Defaults to none.
  */
-CCHDO.vis.Map = function(container) {
-  var self = this;
-  if (!google.maps) { alert('CCHDO.vis.Map requires the Google Maps API v2 to be loaded.'); return; }
-  var GM = google.maps;
-  if (!GM.BrowserIsCompatible()) { alert('CCHDO.vis.Map requires a browser compatible with Google Maps v2.'); return; }
-  window.onunload = GM.Unload;
-  this.container = container;
-  this.selection = [];
-  this.map = null;
-  this.markers = [];
-  function zIndexProcess(marker) {
-    if (self.selection.length > 0 && marker.dataRow == self.selection[0].row) { return 181; }
-    return Math.round(90-marker.getLatLng().lat());
-  };
-  this.markerStyleStation = {icon: new GM.Icon(G_DEFAULT_ICON), zIndexProcess: zIndexProcess};
-  this.markerStyleStationSelected = {icon: new GM.Icon(G_DEFAULT_ICON)};
-  this.markerStyleStationSelected.icon.image = 'http://www.google.com/uds/samples/places/temp_marker.png';
-};
-CCHDO.vis.Map.prototype.draw = function(data, options) {
-  var self = this;
-  var GM = google.maps;
-  this.data = data;
-  this.container.empty();
-  var latlngs = [];
-  var bounds = new GM.LatLngBounds();
-  for (var i=0; i<data.getNumberOfRows(); i++) {
-    var x = data.getValue(i, 0);
-    var y = data.getValue(i, 1);
-    var latlng = new GM.LatLng(x, y);
-    latlngs.push(latlng);
-    bounds.extend(latlng);
-    var marker = new GM.Marker(latlng, this.markerStyleStation);
-    marker.dataRow = i;
-    this.markers.push(marker);
-  }
-  var m = this.map = new GM.Map2(this.container, options.mapOpts || null);
-  m.setCenter(bounds.getCenter(), m.getCurrentMapType().getBoundsZoomLevel(bounds, m.getSize()));
-  m.setMapType(defaultTo(options.mapType, G_SATELLITE_MAP));
-  if (options.setupMap) { options.setupMap(m); }
-
-  for (var i=0; i<this.markers.length; i++) { m.addOverlay(this.markers[i]); }
-  if (options.polyline) {
-    var opts = options.polyline;
-    this.polyline = new GM.Polyline(latlngs, opts.color, opts.weight, opts.opacity, opts.opts);
-    m.addOverlay(this.polyline);
-  }
-  GM.Event.addListener(m, 'click', function(overlay, latlng, overlaylatlng) {
-    if (overlay != null && overlay instanceof GM.Marker) {
-      if (window.event.shiftKey) {
-        var selection = self.getSelection();
-        selection.push({row: overlay.dataRow});
-        self.setSelection(selection);
-      } else {
-        self.setSelection([{row: overlay.dataRow}]);
-      }
-      google.visualization.events.trigger(self, 'select', {});
-    }
-  });
-};
-CCHDO.vis.Map.prototype.select = function(row) {
-  var marker = this.markers[row];
-  marker.setImage(this.markerStyleStationSelected.icon.image);
-  var str = '<ul>';
-  str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
-  for (var i=2; i<this.data.getNumberOfColumns(); i++) {
-    str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+this.data.getValue(row, i)+'</li>';
-  }
-  str += '</ul>';
-  marker.openInfoWindowHtml(str);
-};
-CCHDO.vis.Map.prototype.deselect = function(row) {
-  var marker = this.markers[row];
-  marker.setImage(this.markerStyleStation.icon.image);
-  marker.closeInfoWindow();
-};
-CCHDO.vis.Map.prototype.getSelection = function() { return this.selection; };
-CCHDO.vis.Map.prototype.setSelection = function(selection_array) {
-  for (var i=0; i<this.selection.length; i++) { this.deselect(this.selection[i].row); }
-  for (var i=0; i<selection_array.length; i++) { this.select(selection_array[i].row); }
-  this.selection = selection_array;
-};
+//CCHDO.vis.Map = function(container) {
+//  var self = this;
+//  if (!google.maps) { alert('CCHDO.vis.Map requires the Google Maps API v2 to be loaded.'); return; }
+//  var GM = google.maps;
+//  if (!GM.BrowserIsCompatible()) { alert('CCHDO.vis.Map requires a browser compatible with Google Maps v2.'); return; }
+//  window.onunload = GM.Unload;
+//  this.container = container;
+//  this.selection = [];
+//  this.map = null;
+//  this.markers = [];
+//  function zIndexProcess(marker) {
+//    if (self.selection.length > 0 && marker.dataRow == self.selection[0].row) { return 181; }
+//    return Math.round(90-marker.getLatLng().lat());
+//  };
+//  this.markerStyleStation = {icon: new GM.Icon(G_DEFAULT_ICON), zIndexProcess: zIndexProcess};
+//  this.markerStyleStationSelected = {icon: new GM.Icon(G_DEFAULT_ICON)};
+//  this.markerStyleStationSelected.icon.image = 'http://www.google.com/uds/samples/places/temp_marker.png';
+//};
+//CCHDO.vis.Map.prototype.draw = function(data, options) {
+//  var self = this;
+//  var GM = google.maps;
+//  this.data = data;
+//  this.container.empty();
+//  var latlngs = [];
+//  var bounds = new GM.LatLngBounds();
+//  for (var i=0; i<data.getNumberOfRows(); i++) {
+//    var x = data.getValue(i, 0);
+//    var y = data.getValue(i, 1);
+//    var latlng = new GM.LatLng(x, y);
+//    latlngs.push(latlng);
+//    bounds.extend(latlng);
+//    var marker = new GM.Marker(latlng, this.markerStyleStation);
+//    marker.dataRow = i;
+//    this.markers.push(marker);
+//  }
+//  var m = this.map = new GM.Map2(this.container, options.mapOpts || null);
+//  m.setCenter(bounds.getCenter(), m.getCurrentMapType().getBoundsZoomLevel(bounds, m.getSize()));
+//  m.setMapType(defaultTo(options.mapType, G_SATELLITE_MAP));
+//  if (options.setupMap) { options.setupMap(m); }
+//
+//  for (var i=0; i<this.markers.length; i++) { m.addOverlay(this.markers[i]); }
+//  if (options.polyline) {
+//    var opts = options.polyline;
+//    this.polyline = new GM.Polyline(latlngs, opts.color, opts.weight, opts.opacity, opts.opts);
+//    m.addOverlay(this.polyline);
+//  }
+//  GM.Event.addListener(m, 'click', function(overlay, latlng, overlaylatlng) {
+//    if (overlay != null && overlay instanceof GM.Marker) {
+//      if (window.event.shiftKey) {
+//        var selection = self.getSelection();
+//        selection.push({row: overlay.dataRow});
+//        self.setSelection(selection);
+//      } else {
+//        self.setSelection([{row: overlay.dataRow}]);
+//      }
+//      google.visualization.events.trigger(self, 'select', {});
+//    }
+//  });
+//};
+//CCHDO.vis.Map.prototype.select = function(row) {
+//  var marker = this.markers[row];
+//  marker.setImage(this.markerStyleStationSelected.icon.image);
+//  var str = '<ul>';
+//  str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
+//  for (var i=2; i<this.data.getNumberOfColumns(); i++) {
+//    str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+this.data.getValue(row, i)+'</li>';
+//  }
+//  str += '</ul>';
+//  marker.openInfoWindowHtml(str);
+//};
+//CCHDO.vis.Map.prototype.deselect = function(row) {
+//  var marker = this.markers[row];
+//  marker.setImage(this.markerStyleStation.icon.image);
+//  marker.closeInfoWindow();
+//};
+//CCHDO.vis.Map.prototype.getSelection = function() { return this.selection; };
+//CCHDO.vis.Map.prototype.setSelection = function(selection_array) {
+//  for (var i=0; i<this.selection.length; i++) { this.deselect(this.selection[i].row); }
+//  for (var i=0; i<selection_array.length; i++) { this.select(selection_array[i].row); }
+//  this.selection = selection_array;
+//};

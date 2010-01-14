@@ -341,14 +341,9 @@ CCHDO.vis.Map = function(container) {
   this.selection = [];
   this.map = null;
   this.markers = [];
-  this.markerStyleStation = {icon: new GM.Icon(), clickable: false};
-  var s = this.markerStyleStation.icon;
-  s.image = '/images/map_search/station_icon.png';
-  s.iconSize = new GM.Size(32, 32);
-  s.shadowSize = new GM.Size(0, 0);
-  s.iconAnchor = new GM.Point(0, 32);
-  s.infoWindowAnchor = new GM.Point(0, 0);
-  s.imageMap = [0,0, 3,0, 3,3, 0,3];
+  this.markerStyleStation = {icon: new GM.Icon(G_DEFAULT_ICON)};
+  this.markerStyleStationSelected = {icon: new GM.Icon(G_DEFAULT_ICON)};
+  this.markerStyleStationSelected.icon.image = 'http://www.google.com/uds/samples/places/temp_marker.png';
 };
 CCHDO.vis.Map.prototype.draw = function(data, options) {
   var self = this;
@@ -362,8 +357,7 @@ CCHDO.vis.Map.prototype.draw = function(data, options) {
     var latlng = new GM.LatLng(x, y);
     latlngs.push(latlng);
     bounds.extend(latlng);
-    //var marker = new GM.Marker(latlng, this.markerStyleStation);
-    var marker = new GM.Marker(latlng);
+    var marker = new GM.Marker(latlng, this.markerStyleStation);
     marker.dataRow = i;
     this.markers.push(marker);
   }
@@ -390,9 +384,14 @@ CCHDO.vis.Map.prototype.draw = function(data, options) {
 };
 CCHDO.vis.Map.prototype.select = function(row) {
   var marker = this.markers[row];
+  marker.setImage(this.markerStyleStationSelected.icon.image);
   marker.openInfoWindowHtml(marker.getLatLng().toString());
 };
-CCHDO.vis.Map.prototype.deselect = function(row) { this.markers[row].closeInfoWindow(); };
+CCHDO.vis.Map.prototype.deselect = function(row) {
+  var marker = this.markers[row];
+  marker.setImage(this.markerStyleStation.icon.image);
+  marker.closeInfoWindow();
+};
 CCHDO.vis.Map.prototype.getSelection = function() { return this.selection; };
 CCHDO.vis.Map.prototype.setSelection = function(selection_array) {
   for (var i=0; i<this.selection.length; i++) { this.deselect(this.selection[i].row); }

@@ -337,12 +337,17 @@ CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
 /* CCHDO.vis.Map
  *
  * Map(container)
- *  - container is the HTML DOM element that will contain the map visualization.
+ *  - container is the HTML DOM element that will contain the map
+ *    visualization.
  * Map.draw(data, options)
  *  - data is a Google Visualization DataView or DataTable.
  *  - options (object)
- *    - width: the width of the chart. (Any valid HTML width) Defaults to the
- *        container width.
+ *    - mapOpts: options for google.maps.Map2 ({}) Defaults to null.
+ *    - polyline: options for a google.maps.Polyline connecting the markers
+ *      If defined, a polyline will be drawn connecting markers. ({}) Defaults
+ *      to null.
+ *    - setupMap: a hook function called with the drawn map
+ *      (function(google.maps.Map2)) Defaults to none.
  */
 CCHDO.vis.Map = function(container) {
   var self = this;
@@ -364,8 +369,8 @@ CCHDO.vis.Map = function(container) {
 };
 CCHDO.vis.Map.prototype.draw = function(data, options) {
   var self = this;
-  this.data = data;
   var GM = google.maps;
+  this.data = data;
   this.container.empty();
   var latlngs = [];
   var bounds = new GM.LatLngBounds();
@@ -379,13 +384,10 @@ CCHDO.vis.Map.prototype.draw = function(data, options) {
     marker.dataRow = i;
     this.markers.push(marker);
   }
-  var m = this.map = new GM.Map2(this.container, {mapTypes: [G_PHYSICAL_MAP, G_SATELLITE_MAP, G_SATELLITE_3D_MAP]});
+  var m = this.map = new GM.Map2(this.container, options.mapOpts || null);
   m.setCenter(bounds.getCenter(), m.getCurrentMapType().getBoundsZoomLevel(bounds, m.getSize()));
-  m.setUIToDefault();
-  if (options.continuousZoom) { m.enableContinuousZoom(); } else { m.disableContinuousZoom(); }
-  if (options.scrollWheelZoom) { m.enableScrollWheelZoom(); } else { m.disableScrollWheelZoom(); }
-  m.setMapType(defaultTo(options.mapType, G_PHYSICAL_MAP));
-  if (options.graticules) { m.addOverlay(new Grat()); }
+  m.setMapType(defaultTo(options.mapType, G_SATELLITE_MAP));
+  if (options.setupMap) { options.setupMap(m); }
 
   for (var i=0; i<this.markers.length; i++) { m.addOverlay(this.markers[i]); }
   if (options.polyline) {
@@ -395,7 +397,13 @@ CCHDO.vis.Map.prototype.draw = function(data, options) {
   }
   GM.Event.addListener(m, 'click', function(overlay, latlng, overlaylatlng) {
     if (overlay != null && overlay instanceof GM.Marker) {
-      self.setSelection([{row: overlay.dataRow}]);
+      if (window.event.shiftKey) {
+        var selection = self.getSelection();
+        selection.push({row: overlay.dataRow});
+        self.setSelection(selection);
+      } else {
+        self.setSelection([{row: overlay.dataRow}]);
+      }
       google.visualization.events.trigger(self, 'select', {});
     }
   });

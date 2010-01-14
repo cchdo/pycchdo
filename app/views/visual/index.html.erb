@@ -98,7 +98,8 @@ function init() {
   //motionchart.draw(motionchartView, motionchartOpts);
 
   var mapView = new GV.DataView(data_table);
-  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', '_DATETIME', 'DEPTH'));
+  //mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', '_DATETIME', 'DEPTH'));
+  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR'));
   function uniquifyMapView(view) {
     var dupRows = [];
     var currVals = [];
@@ -120,11 +121,14 @@ function init() {
   var map = new CCHDO.vis.Map($('#map')[0]);
   var mapOpts = {
     mapType: G_SATELLITE_MAP,
-    continuousZoom: true,
-    scrollWheelZoom: true,
-    showTip: true,
-    polyline: {color: '#0f0', weight: 3, opacity: 0.9, opts: {clickable: false, geodesic: true, mouseOutTolerance: 1}},
-    graticules: true
+    mapOpts: {mapTypes: [G_PHYSICAL_MAP, G_SATELLITE_MAP, G_SATELLITE_3D_MAP]},
+    setupMap: function(m) {
+      m.setUIToDefault();
+      m.enableContinuousZoom();
+      m.enableScrollWheelZoom();
+      m.addOverlay(new Grat());
+    },
+    polyline: {color: '#0f0', weight: 3, opacity: 0.9, opts: {clickable: false, geodesic: true, mouseOutTolerance: 1}}
   };
   map.draw(mapView, mapOpts);
 

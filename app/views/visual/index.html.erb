@@ -34,7 +34,7 @@
 <script type='text/javascript' src='/javascripts/cchdo.vis.js'></script>
 <script type='text/javascript' src='/javascripts/vis.js'></script>
 <script type="text/javascript">
-google.load('visualization', '1', {packages: ['scatterchart', 'table', 'map']});
+google.load('visualization', '1', {packages: ['scatterchart', 'table']});
 function getKey(key) {
   return key ? key.keyCode : event.keyCode;
 }
@@ -82,6 +82,17 @@ function init() {
     return vals;
   }
 
+  function difference(seta, setb) {
+    var diff = seta.slice();
+    $.each(setb, function() {
+      var index = $.inArray(Number(this), diff);
+      if (index > -1) {
+        diff.splice(index, 1);
+      }
+    });
+    return diff;
+  }
+
   var label_to_colno = invert_one_to_one(colno_to_label);
 
   var chartView = new GV.DataView(data_table);
@@ -92,15 +103,8 @@ function init() {
     pointColor: new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"})};
   chart.draw(chartView, chartOpts);
 
-  //var motionchartView = new GV.DataView(data_table);
-  //motionchartView.setColumns([label_to_colno['EXPOCODE'], label_to_colno['_DATETIME'], label_to_colno['CTDPRS'], label_to_colno['CTDSAL'], label_to_colno['CTDTMP']]);
-  //var motionchart = new GV.MotionChart($('#motionchart')[0]);
-  //var motionchartOpts = {width: '100%'};
-  //motionchart.draw(motionchartView, motionchartOpts);
-
   var mapView = new GV.DataView(data_table);
-  //mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', '_DATETIME', 'DEPTH'));
-  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR'));
+  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR', 'CASTNO'));
   function uniquifyMapView(view) {
     var dupRows = [];
     var currVals = [];
@@ -140,6 +144,9 @@ function init() {
   var station = new GV.Table($('#station')[0]);
 
   var observationView = new GV.DataView(data_table);
+  var colnos = []; $.each(label_to_colno, function() { colnos.push(Number(this)); });
+  observationView.setColumns(difference(colnos, getValuesFromKeys(label_to_colno,
+    'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', 'LATITUDE', 'LONGITUDE', '_DATETIME', 'DEPTH')));
   var observation = new GV.Table($('#observation')[0]);
   var observationOpts = {allowHtml: true, width: '100%'};
 

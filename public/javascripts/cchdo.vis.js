@@ -122,6 +122,18 @@ CCHDO.vis.Plot = function(container) {
   this.selection = [];
   this.g_tips = null;
 };
+/* This getColumnRange guards against -Infinity being chosen as the range min */
+CCHDO.vis.Plot.prototype.getColumnRange = function(data, col) {
+  var range = data.getColumnRange(col);
+  if (range.min == -Infinity) {
+    var val = range.min = range.max;
+    for (var i=0; i<data.getNumberOfRows(); i++) {
+      val = data.getValue(i, col);
+      if (val != -Infinity && val < range.min) { range.min = val; }
+    }
+  }
+  return range;
+};
 CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var self = this;
   var html = document.body.parentNode;
@@ -185,8 +197,8 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var gridwidth = plotwidth - labelwidthy;
   var gridheight = plotheight - axisFontSize - padding;
 
-  var rangeX = data.getColumnRange(0);
-  var rangeY = data.getColumnRange(1);
+  var rangeX = this.getColumnRange(data, 0);
+  var rangeY = this.getColumnRange(data, 1);
 
   /* Draw the grid */
 

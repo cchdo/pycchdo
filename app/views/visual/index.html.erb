@@ -104,7 +104,7 @@ function init() {
   chart.draw(chartView, chartOpts);
 
   var mapView = new GV.DataView(data_table);
-  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR', 'CASTNO'));
+  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'EXPOCODE', 'STNNBR', 'CASTNO', '_DATETIME', 'DEPTH'));
   function uniquifyMapView(view) {
     var dupRows = [];
     var currVals = [];
@@ -133,7 +133,17 @@ function init() {
       m.enableScrollWheelZoom();
       m.addOverlay(new Grat());
     },
-    polyline: {color: '#0f0', weight: 3, opacity: 0.9, opts: {clickable: false, geodesic: true, mouseOutTolerance: 1}}
+    polyline: {color: '#0f0', weight: 3, opacity: 0.9, opts: {clickable: false, geodesic: true, mouseOutTolerance: 1}},
+    infoWindowHook: function(row, marker, data) {
+      var str = '<ul style="margin-top: -0.5em; font-size: smaller; line-height: 1.2em;">';
+      str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
+      for (var i = this.geocoder ? 0 : 2; i<this.data.getNumberOfColumns(); i++) {
+        str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+
+               this.data.getValue(row, i)+'</li>';
+      }
+      str += '</ul>';
+      return str;
+    }
   };
   map.draw(mapView, mapOpts);
 

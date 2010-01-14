@@ -33,6 +33,8 @@ var Vis = defaultTo(Vis, {});
  *    - markerStyleSelectedImage: a URL to the image to use when the marker is 
  *      selected (URL) Defaults to
  *      http://www.google.com/uds/samples/places/temp_marker.png
+ *    - infoWindowHook: HTML string to put in info window
+ *      (function(row, marker, data)) Defaults to null.
  *    - setupMap: a hook function called with the drawn map
  *      (function(maps.Map2)) Defaults to none.
  */
@@ -105,6 +107,8 @@ Vis.Map.prototype.draw = function(data, options) {
   }
   this.markerStyleSelectedImage = defaultTo(options.markerStyleSelectedImage,
                                             this.defaultMarkerStyleSelectedImage);
+
+  this.infoWindowHook = defaultTo(options.infoWindowHook, null);
   
   /* Set up map */
   var m = this.map = new GM.Map2(this.container, options.mapOpts || null);
@@ -141,14 +145,18 @@ Vis.Map.prototype.draw = function(data, options) {
 Vis.Map.prototype.select = function(row) {
   var marker = this.markers[row];
   marker.setImage(this.markerStyleSelectedImage);
-  var str = '<ul>';
-  str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
-  for (var i = this.geocoder ? 0 : 2; i<this.data.getNumberOfColumns(); i++) {
-    str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+
-           this.data.getValue(row, i)+'</li>';
+  if (this.infoWindowHook) {
+    marker.openInfoWindowHtml(this.infoWindowHook(row, marker, this.data));
+  } else {
+    var str = '<ul>';
+    str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
+    for (var i = this.geocoder ? 0 : 2; i<this.data.getNumberOfColumns(); i++) {
+      str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+
+             this.data.getValue(row, i)+'</li>';
+    }
+    str += '</ul>';
+    marker.openInfoWindowHtml(str);
   }
-  str += '</ul>';
-  marker.openInfoWindowHtml(str);
 };
 Vis.Map.prototype.deselect = function(row) {
   var marker = this.markers[row];

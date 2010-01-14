@@ -364,6 +364,7 @@ CCHDO.vis.Map = function(container) {
 };
 CCHDO.vis.Map.prototype.draw = function(data, options) {
   var self = this;
+  this.data = data;
   var GM = google.maps;
   this.container.empty();
   var latlngs = [];
@@ -402,7 +403,13 @@ CCHDO.vis.Map.prototype.draw = function(data, options) {
 CCHDO.vis.Map.prototype.select = function(row) {
   var marker = this.markers[row];
   marker.setImage(this.markerStyleStationSelected.icon.image);
-  marker.openInfoWindowHtml(marker.getLatLng().toString());
+  var str = '<ul>';
+  str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
+  for (var i=2; i<this.data.getNumberOfColumns(); i++) {
+    str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+this.data.getValue(row, i)+'</li>';
+  }
+  str += '</ul>';
+  marker.openInfoWindowHtml(str);
 };
 CCHDO.vis.Map.prototype.deselect = function(row) {
   var marker = this.markers[row];

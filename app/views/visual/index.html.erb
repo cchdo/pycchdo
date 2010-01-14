@@ -98,7 +98,7 @@ function init() {
   //motionchart.draw(motionchartView, motionchartOpts);
 
   var mapView = new GV.DataView(data_table);
-  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE'));
+  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', '_DATETIME', 'DEPTH'));
   function uniquifyMapView(view) {
     var dupRows = [];
     var currVals = [];
@@ -291,8 +291,8 @@ function init() {
       'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
       'background-color': '#ddd'})
     .append($('<h1>Plots</h1>'))
-    .append(tablebutton)
     .append(plotbutton)
+    .append(tablebutton)
     .draggable({appendTo: 'body', containment: 'parent'});
   $('body').append(toolbox);
 }

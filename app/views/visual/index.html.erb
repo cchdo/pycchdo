@@ -34,10 +34,11 @@
 <% content_for :js do -%>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js'></script>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js'></script>
-<script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
+<%# GAPI autoload Maps 2.x -%>
+<script type='text/javascript' src='http://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.x%22%7D%5D%7Dkey=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
+<script type='text/javascript' src='/javascripts/map_search/grat.js'></script>
 <script type='text/javascript' src='/javascripts/cchdo.vis.js'></script>
 <script type="text/javascript">
-google.load('maps', '2.x');
 google.load('visualization', '1', {packages: ['scatterchart', 'table', 'map']});
 function getKey(key) {
   return key ? key.keyCode : event.keyCode;
@@ -121,15 +122,15 @@ function init() {
     view.hideRows(dupRows);
   }
   uniquifyMapView(mapView);
-  var map = new GV.Map($('#map')[0]);
+
+  var map = new CCHDO.vis.Map($('#map')[0]);
   var mapOpts = {
-    enableScrollWheel: true,
+    mapType: G_SATELLITE_MAP,
+    continuousZoom: true,
+    scrollWheelZoom: true,
     showTip: true,
-    showLine: true,
-    lineColor: '#00ff00',
-    lineWidth: 1,
-    mapType: 'satellite',
-    zoomLevel: 3
+    polyline: {color: '#0f0', weight: 3, opacity: 0.9, opts: {clickable: false, geodesic: true, mouseOutTolerance: 1}},
+    graticules: true
   };
   map.draw(mapView, mapOpts);
 

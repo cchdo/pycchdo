@@ -7,6 +7,7 @@ function getStyle(x,styleProp) {
   }
 }
 function newSVG(elem, attrs) { return document.createElementNS(CCHDO.vis.ns.svg, elem).attr(attrs); }
+Element.prototype.empty = function() { while (this.childNodes.length > 0) { this.removeChild(this.childNodes[0]); } return this; };
 Element.prototype.append = function(dom) { this.appendChild(dom); return this; };
 Element.prototype.appendTo = function(dom) { dom.appendChild(this); return this; };
 Element.prototype.attr = function(name, value) {
@@ -142,9 +143,8 @@ CCHDO.vis.Plot.prototype.draw = function(data, options) {
   var borderColor = this.opts.borderColor = '#05f';
   var borderWidth = this.opts.borderWidth = '0.2';
 
-
   /* Clear the container before drawing */
-  while (this.container.childNodes.length > 0) { this.container.removeChild(this.container.childNodes[0]); }
+  this.container.empty();
 
   var svg = newSVG('svg', {'width': width, 'height': height}).appendTo(this.container);
   svg.style.border = '1px solid #eee'; //TODO remove (this is for development to show boundaries)
@@ -320,4 +320,82 @@ CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
   for (var i in this.selection) { rows.push(this.selection[i].row); }
   for (var i in rows) { this.deselect(rows[i]); }
   for (var i in selection_array) { this.select(selection_array[i].row); }
+};
+
+/* CCHDO.vis.Map
+ *
+ * Map(container)
+ *  - container is the HTML DOM element that will contain the map visualization.
+ * Map.draw(data, options)
+ *  - data is a Google Visualization DataView or DataTable.
+ *  - options (object)
+ *    - width: the width of the chart. (Any valid HTML width) Defaults to the
+ *        container width.
+ */
+CCHDO.vis.Map = function(container) {
+  if (!google.maps) { alert('CCHDO.vis.Map requires the Google Maps API v2 to be loaded.'); return; }
+  var GM = google.maps;
+  if (!GM.BrowserIsCompatible()) { alert('CCHDO.vis.Map requires a browser compatible with Google Maps v2.'); return; }
+  window.onunload = GM.Unload;
+  this.container = container;
+  this.selection = [];
+  this.map = null;
+  this.markers = [];
+  this.markerStyleStation = {icon: new GM.Icon(), clickable: false};
+  var s = this.markerStyleStation.icon;
+  s.image = '/images/map_search/station_icon.png';
+  s.iconSize = new GM.Size(32, 32);
+  s.shadowSize = new GM.Size(0, 0);
+  s.iconAnchor = new GM.Point(0, 32);
+  s.infoWindowAnchor = new GM.Point(0, 0);
+  s.imageMap = [0,0, 3,0, 3,3, 0,3];
+};
+CCHDO.vis.Map.prototype.draw = function(data, options) {
+  var self = this;
+  var GM = google.maps;
+  this.container.empty();
+  var latlngs = [];
+  var bounds = new GM.LatLngBounds();
+  for (var i=0; i<data.getNumberOfRows(); i++) {
+    var x = data.getValue(i, 0);
+    var y = data.getValue(i, 1);
+    var latlng = new GM.LatLng(x, y);
+    latlngs.push(latlng);
+    bounds.extend(latlng);
+    //var marker = new GM.Marker(latlng, this.markerStyleStation);
+    var marker = new GM.Marker(latlng);
+    marker.dataRow = i;
+    this.markers.push(marker);
+  }
+  var m = this.map = new GM.Map2(this.container, {mapTypes: [G_PHYSICAL_MAP, G_SATELLITE_MAP, G_SATELLITE_3D_MAP]});
+  m.setCenter(bounds.getCenter(), m.getCurrentMapType().getBoundsZoomLevel(bounds, m.getSize()));
+  m.setUIToDefault();
+  if (options.continuousZoom) { m.enableContinuousZoom(); } else { m.disableContinuousZoom(); }
+  if (options.scrollWheelZoom) { m.enableScrollWheelZoom(); } else { m.disableScrollWheelZoom(); }
+  m.setMapType(defaultTo(options.mapType, G_PHYSICAL_MAP));
+  if (options.graticules) { m.addOverlay(new Grat()); }
+
+  for (var i=0; i<this.markers.length; i++) { m.addOverlay(this.markers[i]); }
+  if (options.polyline) {
+    var opts = options.polyline;
+    this.polyline = new GM.Polyline(latlngs, opts.color, opts.weight, opts.opacity, opts.opts);
+    m.addOverlay(this.polyline);
+  }
+  GM.Event.addListener(m, 'click', function(overlay, latlng, overlaylatlng) {
+    if (overlay != null && overlay instanceof GM.Marker) {
+      self.setSelection([{row: overlay.dataRow}]);
+      google.visualization.events.trigger(self, 'select', {});
+    }
+  });
+};
+CCHDO.vis.Map.prototype.select = function(row) {
+  var marker = this.markers[row];
+  marker.openInfoWindowHtml(marker.getLatLng().toString());
+};
+CCHDO.vis.Map.prototype.deselect = function(row) { this.markers[row].closeInfoWindow(); };
+CCHDO.vis.Map.prototype.getSelection = function() { return this.selection; };
+CCHDO.vis.Map.prototype.setSelection = function(selection_array) {
+  for (var i=0; i<this.selection.length; i++) { this.deselect(this.selection[i].row); }
+  for (var i=0; i<selection_array.length; i++) { this.select(selection_array[i].row); }
+  this.selection = selection_array;
 };

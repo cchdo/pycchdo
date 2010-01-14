@@ -268,17 +268,36 @@ function init() {
     });
   }
 
+  function openTableWindow() {
+    var width = $(window).width();
+    var height = $(window).height();
+    var tableDiv = $('<div></div>').css({'width': width, 'height': height});
+    var tableWindow = $('<div></div>')
+      .dialog({title: 'Table', width: width, height: height, show: 'slide'})
+      .append(tableDiv);
+    var tableView = new GV.DataView(data_table);
+    var tableTable = new GV.Table(tableDiv[0]);
+    var tableTableOpts = {width: '100%', height: '100%'};
+    tableTable.draw(tableView, tableTableOpts);
+  }
+
   var plotbutton = $('<input type="button" value="Property-Property" />')
     .css({'background-color': '#eee',
        'border': '1px solid #aaa',
        'cursor': 'pointer'})
     .click(openPropertyPropertyWindow);
+  var tablebutton = $('<input type="button" value="Table" />')
+    .css({'background-color': '#eee',
+       'border': '1px solid #aaa',
+       'cursor': 'pointer'})
+    .click(openTableWindow);
   var toolbox = $('<div></div>')
-    .css({'width': '150px', 'height': '50px',
+    .css({'width': '150px', 'height': '70px',
       'position': 'absolute', 'left': '0', 'top': '5em', 'z-index': '999',
       'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
       'background-color': '#ddd'})
     .append($('<h1>Plots</h1>'))
+    .append(tablebutton)
     .append(plotbutton)
     .draggable({appendTo: 'body', containment: 'parent'});
   $('body').append(toolbox);

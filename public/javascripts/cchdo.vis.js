@@ -10,13 +10,21 @@ function newSVG(elem, attrs) { return document.createElementNS(CCHDO.vis.ns.svg,
 Element.prototype.empty = function() { while (this.childNodes.length > 0) { this.removeChild(this.childNodes[0]); } return this; };
 Element.prototype.append = function(dom) { this.appendChild(dom); return this; };
 Element.prototype.appendTo = function(dom) { dom.appendChild(this); return this; };
-Element.prototype.attr = function(name, value) {
+Element.prototype.css = function(key, val) { return this.attr(key, val, true); };
+Element.prototype.text = function(text) { return this.append(document.createTextNode(text)); };
+Element.prototype.attr = function(name, value, css) {
   var options = name;
   if (typeof name === 'string') {
     if (value === undefined) { return this.getAttribute(name); }
     else { options = {}; options[name] = value; }
   }
-  for (var name in options) { this.setAttribute(name, options[name]); }
+  for (var name in options) {
+    if (css) {
+      this.style[name] = options[name];
+    } else {
+      this.setAttribute(name, options[name]);
+    }
+  }
   return this;
 };
 
@@ -300,9 +308,7 @@ CCHDO.vis.Plot.prototype.clearTip = function(row) {
   var pt = this.getPoint(row);
   var borderColor = this.opts.borderColor;
   pt.attr('stroke', borderColor);
-  while (this.g_tips.childNodes.length) {
-    this.g_tips.removeChild(this.g_tips.childNodes[0]);
-  }
+  this.g_tips.empty();
 };
 CCHDO.vis.Plot.prototype.grep = function(row) {
   for (var i in this.selection) {
@@ -334,99 +340,50 @@ CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
   for (var i in selection_array) { this.select(selection_array[i].row); }
 };
 
-/* CCHDO.vis.Map
- *
- * Map(container)
- *  - container is the HTML DOM element that will contain the map
- *    visualization.
- * Map.draw(data, options)
- *  - data is a Google Visualization DataView or DataTable.
- *  - options (object)
- *    - mapOpts: options for google.maps.Map2 ({}) Defaults to null.
- *    - polyline: options for a google.maps.Polyline connecting the markers
- *      If defined, a polyline will be drawn connecting markers. ({}) Defaults
- *      to null.
- *    - setupMap: a hook function called with the drawn map
- *      (function(google.maps.Map2)) Defaults to none.
+/*
+ * This does something weird with setSelection. Only row may be specified and
+ * it should be the actual value that the legend should show.
  */
-//CCHDO.vis.Map = function(container) {
-//  var self = this;
-//  if (!google.maps) { alert('CCHDO.vis.Map requires the Google Maps API v2 to be loaded.'); return; }
-//  var GM = google.maps;
-//  if (!GM.BrowserIsCompatible()) { alert('CCHDO.vis.Map requires a browser compatible with Google Maps v2.'); return; }
-//  window.onunload = GM.Unload;
-//  this.container = container;
-//  this.selection = [];
-//  this.map = null;
-//  this.markers = [];
-//  function zIndexProcess(marker) {
-//    if (self.selection.length > 0 && marker.dataRow == self.selection[0].row) { return 181; }
-//    return Math.round(90-marker.getLatLng().lat());
-//  };
-//  this.markerStyleStation = {icon: new GM.Icon(G_DEFAULT_ICON), zIndexProcess: zIndexProcess};
-//  this.markerStyleStationSelected = {icon: new GM.Icon(G_DEFAULT_ICON)};
-//  this.markerStyleStationSelected.icon.image = 'http://www.google.com/uds/samples/places/temp_marker.png';
-//};
-//CCHDO.vis.Map.prototype.draw = function(data, options) {
-//  var self = this;
-//  var GM = google.maps;
-//  this.data = data;
-//  this.container.empty();
-//  var latlngs = [];
-//  var bounds = new GM.LatLngBounds();
-//  for (var i=0; i<data.getNumberOfRows(); i++) {
-//    var x = data.getValue(i, 0);
-//    var y = data.getValue(i, 1);
-//    var latlng = new GM.LatLng(x, y);
-//    latlngs.push(latlng);
-//    bounds.extend(latlng);
-//    var marker = new GM.Marker(latlng, this.markerStyleStation);
-//    marker.dataRow = i;
-//    this.markers.push(marker);
-//  }
-//  var m = this.map = new GM.Map2(this.container, options.mapOpts || null);
-//  m.setCenter(bounds.getCenter(), m.getCurrentMapType().getBoundsZoomLevel(bounds, m.getSize()));
-//  m.setMapType(defaultTo(options.mapType, G_SATELLITE_MAP));
-//  if (options.setupMap) { options.setupMap(m); }
-//
-//  for (var i=0; i<this.markers.length; i++) { m.addOverlay(this.markers[i]); }
-//  if (options.polyline) {
-//    var opts = options.polyline;
-//    this.polyline = new GM.Polyline(latlngs, opts.color, opts.weight, opts.opacity, opts.opts);
-//    m.addOverlay(this.polyline);
-//  }
-//  GM.Event.addListener(m, 'click', function(overlay, latlng, overlaylatlng) {
-//    if (overlay != null && overlay instanceof GM.Marker) {
-//      if (window.event.shiftKey) {
-//        var selection = self.getSelection();
-//        selection.push({row: overlay.dataRow});
-//        self.setSelection(selection);
-//      } else {
-//        self.setSelection([{row: overlay.dataRow}]);
-//      }
-//      google.visualization.events.trigger(self, 'select', {});
-//    }
-//  });
-//};
-//CCHDO.vis.Map.prototype.select = function(row) {
-//  var marker = this.markers[row];
-//  marker.setImage(this.markerStyleStationSelected.icon.image);
-//  var str = '<ul>';
-//  str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
-//  for (var i=2; i<this.data.getNumberOfColumns(); i++) {
-//    str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+this.data.getValue(row, i)+'</li>';
-//  }
-//  str += '</ul>';
-//  marker.openInfoWindowHtml(str);
-//};
-//CCHDO.vis.Map.prototype.deselect = function(row) {
-//  var marker = this.markers[row];
-//  marker.setImage(this.markerStyleStation.icon.image);
-//  marker.closeInfoWindow();
-//};
-//CCHDO.vis.Map.prototype.getSelection = function() { return this.selection; };
-//CCHDO.vis.Map.prototype.setSelection = function(selection_array) {
-//  for (var i=0; i<this.selection.length; i++) { this.deselect(this.selection[i].row); }
-//  for (var i=0; i<selection_array.length; i++) { this.select(selection_array[i].row); }
-//  this.selection = selection_array;
-//};
+CCHDO.vis.Legend = function(container) {
+  this.container = container;
+  this.range = {min: 0, max: 0};
+  this.numGradations = 15;
+  this.pointer = document.createElement('div').text('>').appendTo(this.container)
+    .css({'position': 'absolute', 'top': 0, 'line-height': '1em',
+      'margin-top': '-0.5em', 'margin-left': '-0.6em'});
+};
+CCHDO.vis.Legend.prototype.draw = function(data, options) {
+  this.container.css({'height': '400px', 'position': 'relative'});
+  this.range = data.getColumnRange(0);
+  this.numGradations = defaultTo(options.numGradations, 15);
+  var width = defaultTo(options.colorWidth, '20px');
+  var gradient = defaultTo(options.gradient, new CCHDO.vis.Gradient({0: "#f00", 6000: "#00f"}, '#fff'));
+
+  var height = parseInt(getStyle(this.container, 'height').slice(0, -2),
+                        10)/this.numGradations;
+
+  var table = document.createElement('table').appendTo(this.container)
+    .css({'height': this.container.style.height, 'border-collapse': 'collapse'});
+  for (var i = this.range.min;
+       i < this.range.max;
+       i += (this.range.max-this.range.min)/this.numGradations) {
+    var color = gradient.getColorFor(i);
+    document.createElement('tr').appendTo(table)
+      .css('height', height+'px')
+      .append(document.createElement('td').css('padding', 0))
+      .append(document.createElement('td').css({'padding': 0, 'width': width, 'background-color': color}))
+      .append(document.createElement('td').css({'padding': '0 0 0 0.2em', 'vertical-align': 'top',
+                                                'font-size': (height-4)+'px',
+                                                'border-top': '1px solid '+color}).text(i.toPrecision(4)));
+  }
+  this.setSelection([{row: this.range.max}]);
+};
+/* Legend doesn't have a true data table to select on so we won't give the
+ * false impression it actually has a selection. */
+CCHDO.vis.Legend.prototype.getSelection = function() { return null; };
+CCHDO.vis.Legend.prototype.setSelection = function(selection_array) {
+  var val = selection_array[0].row;
+  var percent = 1.0*val/(this.range.max-this.range.min);
+  var px = percent * parseInt(getStyle(this.container, 'height').slice(0, -2), 10);
+  this.pointer.style.top = px+'px';
+};

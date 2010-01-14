@@ -333,6 +333,7 @@ CCHDO.vis.Plot.prototype.setSelection = function(selection_array) {
  *        container width.
  */
 CCHDO.vis.Map = function(container) {
+  var self = this;
   if (!google.maps) { alert('CCHDO.vis.Map requires the Google Maps API v2 to be loaded.'); return; }
   var GM = google.maps;
   if (!GM.BrowserIsCompatible()) { alert('CCHDO.vis.Map requires a browser compatible with Google Maps v2.'); return; }
@@ -341,7 +342,11 @@ CCHDO.vis.Map = function(container) {
   this.selection = [];
   this.map = null;
   this.markers = [];
-  this.markerStyleStation = {icon: new GM.Icon(G_DEFAULT_ICON)};
+  function zIndexProcess(marker) {
+    if (self.selection.length > 0 && marker.dataRow == self.selection[0].row) { return 181; }
+    return Math.round(90-marker.getLatLng().lat());
+  };
+  this.markerStyleStation = {icon: new GM.Icon(G_DEFAULT_ICON), zIndexProcess: zIndexProcess};
   this.markerStyleStationSelected = {icon: new GM.Icon(G_DEFAULT_ICON)};
   this.markerStyleStationSelected.icon.image = 'http://www.google.com/uds/samples/places/temp_marker.png';
 };

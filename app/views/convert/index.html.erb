@@ -1,0 +1,9 @@
+<h1>Convert file formats</h1>
+
+<p>Upload a NetCDF CTD to convert to OceanSites NetCDF.</p>
+
+<% form_tag '/convert/netcdf_to_oceansites_netcdf', :multipart => true do -%>
+  <%= file_field_tag 'file' -%>
+  <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= submit_tag 'Convert' -%>
+<% end -%>

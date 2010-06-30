@@ -16,19 +16,17 @@
 </table>
 <% if @wire and @wire != '{}' -%>
   <div id="toolbox"></div>
-  <div id="station"></div>
-  <div id="observation"></div>
-  <div id="map" style="height: 400px; width: 100%;"></div>
-  <table style="width: 100%">
-    <tr>
-      <td>
-        <div id="chart"></div>
-      </td>
-      <td>
-        <div id="legend"></div>
-      </td>
-    </tr>
-  </table>
+  <div>
+    <h1>Current station</h1>
+    <div id="station"></div>
+  </div>
+  <div>
+    <h1>Current observations</h1>
+    <div id="observation"></div>
+  </div>
+  <div id="map" style="height: 400px; width: 50%;"></div>
+  <div id="chart"></div>
+  <div id="seafloor"></div>
 <% end -%>
 <div class="box_bottom"></div>
 </div>
@@ -37,13 +35,10 @@
 <% content_for :js do -%>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js'></script>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js'></script>
-<%# GAPI autoload Maps 2.x -%>
-<script type='text/javascript' src='http://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.x%22%7D%5D%7Dkey=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
-<script type='text/javascript' src='/javascripts/map_search/grat.js'></script>
-<script type='text/javascript' src='/javascripts/cchdo.vis.js'></script>
-<script type='text/javascript' src='/javascripts/vis.js'></script>
+<script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type="text/javascript">
-google.load('visualization', '1', {packages: ['scatterchart', 'table']});
+google.load('maps', '2.x');
+google.load('visualization', '1', {packages: ['scatterchart', 'areachart', 'table', 'map']});
 function getKey(key) {
   return key ? key.keyCode : event.keyCode;
 }
@@ -91,40 +86,47 @@ function init() {
     return vals;
   }
 
-  function difference(seta, setb) {
-    var diff = seta.slice();
-    $.each(setb, function() {
-      var index = $.inArray(Number(this), diff);
-      if (index > -1) {
-        diff.splice(index, 1);
-      }
-    });
-    return diff;
-  }
-
   var label_to_colno = invert_one_to_one(colno_to_label);
 
   var chartView = new GV.DataView(data_table);
+  //chartView.setColumns([label_to_colno['STNNBR'], {calc: function(dt,r) {
+  //  var val = -1.0*dt.getValue(r, label_to_colno['CTDPRS']);
+  //  return val;
+  //  }, type:'number',label:'Inverse CTDPRS'}]);
   chartView.setColumns([label_to_colno['STNNBR'], label_to_colno['CTDPRS']]);
 
-  var gradient = new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"});
-
-  var chart = new CCHDO.vis.Plot($('#chart')[0]);
-  var chartOpts = {height: '400px', width: '1049px', invertY: true, depthGraph: true,
-    pointColor: gradient};
+  var chart = new GV.ScatterChart($('#chart')[0]);
+  var chartOpts = {height: 400, width: 1049, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
   chart.draw(chartView, chartOpts);
 
-  var legend = new CCHDO.vis.Legend($('#legend')[0]);
-  var legendView = new GV.DataView(data_table);
-  legendView.setColumns([label_to_colno['CTDPRS']]);
-  var legendOpts = {
-    numGradations: 15,
-    gradient: gradient
-  };
-  legend.draw(legendView, legendOpts);
+  var seafloorData = new GV.DataTable();
+  seafloorData.addColumn('string', 'STNNBR');
+  seafloorData.addColumn('number', 'Inverse CTDPRS');
+  var currStation = 0;
+  var maxDepth = -1;
+  for (var i=0; i<data_table.getNumberOfRows(); i++) {
+    var station = data_table.getValue(i, label_to_colno['STNNBR']);
+    if (!currStation || station != currStation) {
+      seafloorData.addRow([''+currStation, -maxDepth]);
+      currStation = station;
+      maxDepth = -1;
+    } else {
+      maxDepth = Math.max(maxDepth, data_table.getValue(i, label_to_colno['CTDPRS']));
+    }
+  }
+
+  var seafloor = new GV.AreaChart($('#seafloor')[0]);
+  var seafloorOpts = {height: 400, width: 1049, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
+  seafloor.draw(seafloorData, seafloorOpts);
+
+  //var motionchartView = new GV.DataView(data_table);
+  //motionchartView.setColumns([label_to_colno['EXPOCODE'], label_to_colno['_DATETIME'], label_to_colno['CTDPRS'], label_to_colno['CTDSAL'], label_to_colno['CTDTMP']]);
+  //var motionchart = new GV.MotionChart($('#motionchart')[0]);
+  //var motionchartOpts = {width: '100%'};
+  //motionchart.draw(motionchartView, motionchartOpts);
 
   var mapView = new GV.DataView(data_table);
-  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE', 'SECT_ID', 'EXPOCODE', 'STNNBR', 'CASTNO', '_DATETIME', 'DEPTH'));
+  mapView.setColumns(getValuesFromKeys(label_to_colno, 'LATITUDE', 'LONGITUDE'));
   function uniquifyMapView(view) {
     var dupRows = [];
     var currVals = [];
@@ -142,28 +144,15 @@ function init() {
     view.hideRows(dupRows);
   }
   uniquifyMapView(mapView);
-
-  var map = new Vis.Map($('#map')[0]);
+  var map = new GV.Map($('#map')[0]);
   var mapOpts = {
-    mapType: G_SATELLITE_MAP,
-    mapOpts: {mapTypes: [G_PHYSICAL_MAP, G_SATELLITE_MAP, G_SATELLITE_3D_MAP]},
-    setupMap: function(m) {
-      m.setUIToDefault();
-      m.enableContinuousZoom();
-      m.enableScrollWheelZoom();
-      m.addOverlay(new Grat());
-    },
-    polyline: {color: '#0f0', weight: 3, opacity: 0.9, opts: {clickable: false, geodesic: true, mouseOutTolerance: 1}},
-    infoWindowHook: function(row, marker, data) {
-      var str = '<ul style="margin-top: -0.5em; font-size: smaller; line-height: 1.2em;">';
-      str += '<li><strong>Lat, Lng</strong> '+marker.getLatLng().toString()+'</li>';
-      for (var i = this.geocoder ? 0 : 2; i<this.data.getNumberOfColumns(); i++) {
-        str += '<li><strong>'+this.data.getColumnLabel(i)+'</strong> '+
-               this.data.getValue(row, i)+'</li>';
-      }
-      str += '</ul>';
-      return str;
-    }
+    enableScrollWheel: true,
+    showTip: true,
+    showLine: true,
+    lineColor: '#00ff00',
+    lineWidth: 1,
+    mapType: 'satellite',
+    zoomLevel: 3
   };
   map.draw(mapView, mapOpts);
 
@@ -174,9 +163,6 @@ function init() {
   var station = new GV.Table($('#station')[0]);
 
   var observationView = new GV.DataView(data_table);
-  var colnos = []; $.each(label_to_colno, function() { colnos.push(Number(this)); });
-  observationView.setColumns(difference(colnos, getValuesFromKeys(label_to_colno,
-    'SECT_ID', 'STNNBR', 'CASTNO', 'SAMPNO', 'BTLNBR', 'LATITUDE', 'LONGITUDE', '_DATETIME', 'DEPTH')));
   var observation = new GV.Table($('#observation')[0]);
   var observationOpts = {allowHtml: true, width: '100%'};
 
@@ -200,8 +186,6 @@ function init() {
     map.setSelection([{row: mapView.getViewRowIndex(dataRows[0])}]);
 
     chart.setSelection([{row: chartView.getViewRowIndex(row), col: label_to_colno['CTDPRS']}]);
-
-    legend.setSelection([{row: data_table.getValue(row, label_to_colno['CTDPRS'])}]);
 
     currentStation = stnnbr;
   }
@@ -278,11 +262,8 @@ function init() {
   function openPropertyPropertyWindow() {
     var selectX = $('<select></select>')
       .append($('<option></option>'));
-    var properties = [];
-    for (var i=0;i<data_table.getNumberOfColumns();i++){ properties.push(data_table.getColumnLabel(i)); }
-    properties = properties.sort();
-    for (var i=0; i < properties.length; i++) {
-      selectX.append($('<option>'+properties[i]+'</option>'));
+    for (var i=0;i<data_table.getNumberOfColumns();i++){
+      selectX.append($('<option>'+data_table.getColumnLabel(i)+'</option>'));
     }
     var selectY = selectX.clone();
     var plotXYDiv = $('<div id="plot-xy"></div>').css('height', '200px');
@@ -293,9 +274,8 @@ function init() {
       .append($('<label>Y</label>')).append(selectY).append($('<br />'))
       .append(plotXYDiv);
     var plotXYView = new GV.DataView(data_table);
-    var plotXYChart = new CCHDO.vis.Plot(plotXYDiv[0]);
-    var plotXYChartOpts = {height: '400px', width: '450px', invertY: true, gridColor: '#000',
-      pointColor: new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"})};
+    var plotXYChart = new GV.ScatterChart(plotXYDiv[0]);
+    var plotXYChartOpts = {height: 400, width: 450, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
     $('select', plotwindow).change(function() {
       var propx = selectX.val();
       var propy = selectY.val();
@@ -306,37 +286,18 @@ function init() {
     });
   }
 
-  function openTableWindow() {
-    var width = $(window).width();
-    var height = $(window).height();
-    var tableDiv = $('<div></div>').css({'width': width, 'height': height});
-    var tableWindow = $('<div></div>')
-      .dialog({title: 'Table', width: width, height: height, show: 'slide'})
-      .append(tableDiv);
-    var tableView = new GV.DataView(data_table);
-    var tableTable = new GV.Table(tableDiv[0]);
-    var tableTableOpts = {width: '100%', height: '100%'};
-    tableTable.draw(tableView, tableTableOpts);
-  }
-
-  var plotbutton = $('<input type="button" value="Property-Property" />')
+  var plotbutton = $('<div>Property-Property</div>')
     .css({'background-color': '#eee',
        'border': '1px solid #aaa',
        'cursor': 'pointer'})
     .click(openPropertyPropertyWindow);
-  var tablebutton = $('<input type="button" value="Table" />')
-    .css({'background-color': '#eee',
-       'border': '1px solid #aaa',
-       'cursor': 'pointer'})
-    .click(openTableWindow);
   var toolbox = $('<div></div>')
-    .css({'width': '150px', 'height': '70px',
-      'position': 'absolute', 'left': '0', 'top': '5em', 'z-index': '999',
+    .css({'width': '150px', 'height': '200px',
+      'position': 'absolute', 'left': '0', 'top': '0', 'z-index': '999',
       'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
       'background-color': '#ddd'})
     .append($('<h1>Plots</h1>'))
     .append(plotbutton)
-    .append(tablebutton)
     .draggable({appendTo: 'body', containment: 'parent'});
   $('body').append(toolbox);
 }

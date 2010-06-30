@@ -21,19 +21,15 @@ class ApplicationController < ActionController::Base
 
   # Rails uploads can give either StringIOs or UploadedTempFiles
   # Turn StringIOs into tempfile and give the path to the tempfile
-  def get_tempfile(uploaded_file)
+  def get_tempfile_path(uploaded_file)
     if uploaded_file.kind_of? ActionController::UploadedStringIO
-      temp = Tempfile.new 'visual_upload'
+      temp = Tempfile.new 'webtools_upload'
       uploaded_file.each_line {|line| temp.write line }
       temp.flush
-      return temp
+      return temp.path
     else
-      return uploaded_file
+      return uploaded_file.path
     end
-  end
-
-  def get_tempfile_path(uploaded_file)
-    return get_tempfile(uploaded_file).path
   end
 
   def check_authentication

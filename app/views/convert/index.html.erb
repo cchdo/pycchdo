@@ -1,9 +1,26 @@
 <h1>Convert file formats</h1>
 
-<p>Upload a NetCDF CTD to convert to OceanSites NetCDF.</p>
+<p>Please be patient! It may take a few minutes for your conversion to complete, especially if you submit large files.</p>
 
-<% form_tag '/convert/netcdf_to_oceansites_netcdf', :multipart => true do -%>
+<h2>Convert a NetCDF CTD to OceanSites NetCDF.</h2>
+
+<% form_tag '/convert/ctd_netcdf_to_ctd_oceansites_netcdf', :multipart => true do -%>
   <%= file_field_tag 'file' -%>
   <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= submit_tag 'Convert' -%>
+<% end -%>
+
+<h2>Convert a NetCDF CTD Zip to OceanSites NetCDF Zip.</h2>
+
+<% form_tag '/convert/ctdzip_netcdf_to_ctdzip_oceansites_netcdf', :multipart => true do -%>
+  <%= file_field_tag 'file' -%>
+  <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= submit_tag 'Convert' -%>
+<% end -%>
+
+<h2>Convert a Bottle Exchange to KML.</h2>
+
+<% form_tag '/convert/bottle_exchange_to_kml', :multipart => true do -%>
+  <%= file_field_tag 'file' -%>
   <%= submit_tag 'Convert' -%>
 <% end -%>

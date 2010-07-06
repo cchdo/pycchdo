@@ -18,6 +18,14 @@
   <%= submit_tag 'Convert' -%>
 <% end -%>
 
+<h2>Convert a CTD Exchange to OceanSites NetCDF Zip.</h2>
+
+<% form_tag '/convert/ctd_exchange_to_ctdzip_oceansites_netcdf', :multipart => true do -%>
+  <%= file_field_tag 'file' -%>
+  <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= submit_tag 'Convert' -%>
+<% end -%>
+
 <h2>Convert a Bottle Exchange to KML.</h2>
 
 <% form_tag '/convert/bottle_exchange_to_kml', :multipart => true do -%>

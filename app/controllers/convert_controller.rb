@@ -19,6 +19,13 @@ class ConvertController < ApplicationController
                   timeseries, 'OS_.zip')
     end
 
+    def ctd_exchange_to_ctdzip_oceansites_netcdf
+        timeseries = params[:timeseries]
+        timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+        __convert('ctd_exchange_to_ctd_oceansites_netcdf.py',
+                  timeseries, 'OS_.nc')
+    end
+
     def bottle_exchange_to_kml
         __convert('bottle_exchange_to_kml.py', '', 'converted.kml')
     end

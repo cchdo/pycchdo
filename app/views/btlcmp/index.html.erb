@@ -1,7 +1,7 @@
 <% content_for :head do -%>
 <style type="text/css">
 .box_content {
-  padding: 0;
+  padding: 0 !important;
 }
 #plots {
   vertical-align: top;
@@ -12,6 +12,9 @@
 }
 #plots .fileinfo {
   background-color: #ddd;
+}
+#plots .fileinfo td {
+  vertical-align: top;
 }
 #plots .fileinfo .left {
   text-align: left;
@@ -318,6 +321,7 @@ CCHDO.Btlcmp.prototype.init = function() {
     rdat = @filer.data
     r_ids = rdat['CASTNO'].zip(rdat['STNNBR'], rdat['SAMPNO'], rdat['BTLNBR'])
     ids = (l_ids+r_ids).uniq
+    commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
   -%>
   this.data_table_data = new GV.DataTable({
     cols: [{label: 'Cast', type: 'number'}, {label: 'Station', type: 'number'},

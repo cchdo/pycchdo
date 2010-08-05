@@ -19,17 +19,27 @@ class ApplicationController < ActionController::Base
   private
   LIBCCHDOBIN = '/Users/myshen/work/libcchdo/bin'
 
+  # Modify make_tmpname to maintain file extensions.
+  class UploadedTempfile < Tempfile
+      def make_tmpname(basename, n)
+          sprintf('%d-%d%s', $$, n, basename)
+      end
+  end
+
   # Rails uploads can give either StringIOs or UploadedTempFiles
   # Turn StringIOs into tempfile and give the path to the tempfile
   def get_tempfile(uploaded_file)
-    if uploaded_file.kind_of? ActionController::UploadedStringIO
-      temp = Tempfile.new 'webtools_upload'
-      uploaded_file.each_line {|line| temp.write line }
-      temp.flush
-      return temp
-    else
-      return uploaded_file
-    end
+    filename = uploaded_file.original_filename || 'data'
+    basename = File.basename(filename)
+    temp = UploadedTempfile.new(basename)
+    temp.write(uploaded_file.read())
+    temp.flush()
+    uploaded_file.close()
+    temp
+  end
+
+  def get_tempfile_path(uploaded_file)
+      get_tempfile(uploaded_file).path
   end
 
   def get_tempfile_path(uploaded_file)

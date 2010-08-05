@@ -29,6 +29,13 @@
 <table id="columns">
   <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
 <% has_data = !(@filel.blank? or @filer.blank?) -%>
+<% if has_data
+  fnamelimit = 20
+  totalparams = (@filel.parameters+@filer.parameters).uniq
+  leftonlyparams = @filel.parameters-@filer.parameters
+  commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
+  rightonlyparams = @filer.parameters-@filel.parameters
+end -%>
 <% form_tag '/btlcmp', :multipart => true do -%>
 <table id="parameters">
   <tr><td class="left"><%= file_field_tag 'filel_prompt' -%></td><td><%= file_field_tag 'filer_prompt' -%></td></tr>
@@ -36,12 +43,6 @@
   <% if has_data -%>
     <tr>
       <td class="left">
-        <% fnamelimit = 20
-          totalparams = (@filel.parameters+@filer.parameters).uniq
-          leftonlyparams = @filel.parameters-@filer.parameters
-          commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
-          rightonlyparams = @filer.parameters-@filel.parameters
-        -%>
         <h1><%= if @filel_name.length > fnamelimit then @filel_name[-fnamelimit..-1] else @filel_name end -%></h1>
         <select id="lparams" class="params" size="<%= totalparams.length -%>">
           <% leftonlyparams.each do |param| -%><option><%= param -%></option><% end -%>

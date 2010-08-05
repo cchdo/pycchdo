@@ -2,19 +2,21 @@
   <%= stylesheet_link_tag 'overcast/jquery-ui-1.7.2.custom.css' -%>
 <% end -%>
 <div class="boxed">
-<h1>Visual <%= @filename -%></h1>
+<h1>Visual</h1>
 <div class="box_content" style="padding: 0;">
 <table id="columns" style="width: 100%;">
   <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
-  <% form_tag '/visual', :multipart => true do -%>
+  <% form_tag '/visual/any_to_google_wire', :multipart => true do -%>
   <table id="parameters" style="width: 100%;">
-    <tr><td><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td></tr>
+    <tr><td><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td>
+      <td id="status"></td>
+    </tr>
   </table>
   <% end -%>
   </td>
 </tr>
 </table>
-<% if @wire and @wire != '{}' -%>
+<div id="visual" style="display: none;">
   <div id="toolbox"></div>
   <div id="station"></div>
   <div id="observation"></div>
@@ -33,7 +35,6 @@
 <div class="box_bottom"></div>
 </div>
 
-<% if @wire and @wire != '{}' -%>
 <% content_for :js do -%>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js'></script>
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js'></script>
@@ -57,12 +58,81 @@ Array.prototype.compare = function(testArr) {
   }
   return true;
 }
-var currentRow = -1;
-var currentStation = -1;
 function init() {
+  try {
+    $('form').ajaxForm({
+      beforeSubmit: function () {
+        $('#status').html('<img src="/images/rotate.gif" />');
+      },
+      success: function (data) {
+        $('#status img').remove();
+        $('#visual').show();
+        if (data.error) {
+          $('#status').html(data.error);
+        } else {
+          load(data);
+        }
+      },
+      error: function () {
+        $('#status').html('An error occurred while loading the file.');
+      },
+      type: 'POST',
+      dataType: 'json',
+      iframe: true
+    });
+  } catch (e) {
+    console.log('you fail', e);
+  }
+}
+function load(data) {
+  var currentRow = -1;
+  var currentStation = -1;
+
   var GV = google.visualization;
-  var data = <%= @wire -%>;
   var data_table = new GV.DataTable(data, 0.6);
+
+  (function initToolBox() {
+    function openPropertyPropertyWindow() {
+      var selectX = $('<select></select>')
+        .append($('<option></option>'));
+      for (var i=0;i<data_table.getNumberOfColumns();i++){
+        selectX.append($('<option>'+data_table.getColumnLabel(i)+'</option>'));
+      }
+      var selectY = selectX.clone();
+      var plotXYDiv = $('<div id="plot-xy"></div>').css('height', '200px');
+      var plotwindow = $('<div></div>')
+        .dialog({title: 'Property-Property', width: 500, minHeight: 500, show: 'slide'})
+        .append('<h1>Please choose two parameters to plot:</h1>')
+        .append($('<label>X</label>')).append(selectX)
+        .append($('<label>Y</label>')).append(selectY).append($('<br />'))
+        .append(plotXYDiv);
+      var plotXYView = new GV.DataView(data_table);
+      var plotXYChart = new GV.ScatterChart(plotXYDiv[0]);
+      var plotXYChartOpts = {height: 400, width: 450, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
+      $('select', plotwindow).change(function() {
+        var propx = selectX.val();
+        var propy = selectY.val();
+        if (propx != '' && propy != '') {
+          plotXYView.setColumns(getValuesFromKeys(label_to_colno, propx, propy));
+          plotXYChart.draw(plotXYView, plotXYChartOpts);
+        }
+      });
+    }
+    var plotbutton = $('<div>Property-Property</div>')
+      .css({'background-color': '#eee',
+         'border': '1px solid #aaa',
+         'cursor': 'pointer'})
+      .click(openPropertyPropertyWindow);
+    var toolbox = $('<div></div>')
+      .css({'width': '150px', 'height': '200px',
+        'position': 'absolute', 'left': '0', 'top': '0', 'z-index': '999',
+        'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
+        'background-color': '#ddd'})
+      .append($('<h1>Plots</h1>'))
+      .append(plotbutton)
+      .draggable({appendTo: 'body', containment: 'parent'});
+    $('body').append(toolbox);
+  })();
 
   function colno_to_label(datatable) {
     var hash = {};
@@ -342,5 +412,4 @@ function init() {
 }
 google.setOnLoadCallback(init);
 </script>
-<% end -%>
 <% end -%>

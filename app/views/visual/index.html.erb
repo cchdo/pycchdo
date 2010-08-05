@@ -31,7 +31,6 @@
       </td>
     </tr>
   </table>
-<% end -%>
 <div class="box_bottom"></div>
 </div>
 
@@ -40,6 +39,7 @@
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js'></script>
 <%# GAPI autoload Maps 2.x -%>
 <script type='text/javascript' src='http://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.x%22%7D%5D%7Dkey=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
+<script type='text/javascript' src='/javascripts/jquery.form.js'></script>
 <script type='text/javascript' src='/javascripts/map_search/grat.js'></script>
 <script type='text/javascript' src='/javascripts/cchdo.vis.js'></script>
 <script type='text/javascript' src='/javascripts/vis.js'></script>

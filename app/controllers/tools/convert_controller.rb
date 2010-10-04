@@ -1,4 +1,4 @@
-class ConvertController < ApplicationController
+class Tools::ConvertController < ApplicationController
 
     $ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
 

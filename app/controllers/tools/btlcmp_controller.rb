@@ -1,4 +1,4 @@
-class BtlcmpController < ApplicationController
+class Tools::BtlcmpController < ApplicationController
   layout 'standard'
 
   def index

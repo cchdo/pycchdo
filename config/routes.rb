@@ -16,6 +16,13 @@ ActionController::Routing::Routes.draw do |map|
   map.connect '/staff/:controller/:action/:id'
   map.connect '/staff', :controller => '/staff/staff'
 
+  map.namespace :tools do |tools|
+    tools.btlcmp 'btlcmp', :controller => :btlcmp, :action => :index
+    tools.convert 'convert', :controller => :convert, :action => :index
+    tools.visual 'visual', :controller => :visual, :action => :index
+    tools.connect ':controller/:action/:id'
+  end
+
   # Allow downloading Web Service WSDL as a file with an extension
   # instead of a file named 'wsdl'
   map.connect ':controller/service.wsdl', :action => 'wsdl'

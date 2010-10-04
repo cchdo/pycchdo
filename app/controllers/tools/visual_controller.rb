@@ -4,7 +4,7 @@ class Tempfile
     attr_accessor :original_filename
 end
 
-class VisualController < ApplicationController
+class Tools::VisualController < ApplicationController
     layout 'standard'
 
     def index

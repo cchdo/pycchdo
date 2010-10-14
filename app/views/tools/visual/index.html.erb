@@ -8,9 +8,7 @@
   <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
   <% form_tag '/tools/tools/any_to_google_wire', :multipart => true do -%>
   <table id="parameters" style="width: 100%;">
-    <tr><td><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td>
-      <td id="status"></td>
-    </tr>
+    <tr><td style="width: 20em;"><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td><td id="status"></td></tr>
   </table>
   <% end -%>
   </td>

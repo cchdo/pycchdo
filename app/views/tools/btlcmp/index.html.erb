@@ -1,13 +1,23 @@
 <% content_for :head do -%>
 <style type="text/css">
+#controls {
+  width: 30%;
+  background-color: #ddd;
+}
 .box_content {
   padding: 0 !important;
+}
+#parameters .note {
+  font-size: small;
+  text-align: left;
 }
 #plots {
   vertical-align: top;
   padding: 0;
 }
-#plots .fileinfo, #columns, #parameters {
+#plots .fileinfo,
+#columns,
+#controls table {
   width: 100%;
 }
 #plots .fileinfo {
@@ -21,27 +31,31 @@
 }
 </style>
 <% end -%>
-<%# There shouldn't be a flash if the JS will run; no worries about adding an id -%>
-<% unless flash[:notice] -%><h1 id="statusbar" class="notice"></h1><% end -%>
+
+<% has_data = !(@filel.blank? or @filer.blank?) -%>
+
 <div class="boxed">
 <h1>Bottle Comparer</h1>
 <div class="box_content">
+
 <table id="columns">
-  <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
-<% has_data = !(@filel.blank? or @filer.blank?) -%>
+  <tr>
+    <td id="controls">
 <% if has_data
   fnamelimit = 20
-  totalparams = (@filel.parameters+@filer.parameters).uniq
-  leftonlyparams = @filel.parameters-@filer.parameters
-  commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
-  rightonlyparams = @filer.parameters-@filel.parameters
+  lp = @filel.parameters
+  rp = @filer.parameters
+  totalparams = (lp+rp).uniq
+  leftonlyparams = lp-rp
+  commonparams = lp.select {|x| rp.include? x }
+  rightonlyparams = rp-lp
 end -%>
 <% form_tag '/tools/btlcmp', :multipart => true do -%>
-<table id="parameters">
+<table>
   <tr><td class="left"><%= file_field_tag 'filel_prompt' -%></td><td><%= file_field_tag 'filer_prompt' -%></td></tr>
   <tr><td colspan="2" class="center"><%= submit_tag 'Compare' -%> <label for="is_merge">with merge file on right</label><input id="is_merge" type="checkbox" name="merge_file" /></td></tr>
   <% if has_data -%>
-    <tr>
+    <tr id="parameters">
       <td class="left">
         <h1><%= if @filel_name.length > fnamelimit then @filel_name[-fnamelimit..-1] else @filel_name end -%></h1>
         <select id="lparams" class="params" size="<%= totalparams.length -%>">
@@ -61,7 +75,7 @@ end -%>
     </tr>
     <tr>
       <td colspan="2" class="center">
-        <p style="font-size: small; text-align: left;">Identifiers are from left file. Data on right is matched to them.</p>
+        <p class="note">Identifiers are from left file. Data on right is matched to them.</p>
         <div id="googletable" style="height: 400px;"></div>
       </td>
     </tr>
@@ -70,33 +84,40 @@ end -%>
 </table>
 <% end -%>
 </td>
-<% if has_data -%>
 <td id="plots">
   <table class="fileinfo">
     <tr><td class="left"></td><td class="right"></td><td class="diff"></td></tr>
   </table>
   <div id="googleplot"></div>
 </td>
-<% end -%>
 </tr>
 </table>
+
+</div>
 <div class="box_bottom"></div>
 </div>
 
-<% if has_data -%>
+<% content_for :js do -%>
 <script type='text/javascript' src='http://www.google.com/jsapi?key=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
 <script type="text/javascript">
-google.load('jquery', '1.3.2');
+google.load('jquery', '1.4.2');
 google.load('visualization', '1', {packages: ['scatterchart', 'table']});
-var CCHDO = CCHDO ? CCHDO : {};
-CCHDO.Btlcmp = function() {
+</script>
+<script type="text/javascript">
+function defaultTo(x, d) { return x ? x : d; }
+
+var CCHDO = defaultTo(CCHDO, {});
+
+CCHDO.btlcmp = (function () {
+
+var _ = function () {
   this.lparams = null;
   this.rparams = null;
   this.l_values = null;
   this.r_values = null;
   this.plot_box = null;
-  this.ldata = <%= @filel_json -%>;
-  this.rdata = <%= @filer_json -%>;
+  this.ldata = null;
+  this.rdata = null;
   this.controls = null;
   this.LCOL = 4;
   this.RCOL = 5;
@@ -114,8 +135,8 @@ CCHDO.Btlcmp = function() {
   };
   this.init();
 };
-CCHDO.Btlcmp.prototype = function() {};
-CCHDO.Btlcmp.prototype.getIndexForIdentifier = function(file, stnn, cast, samp, btln) {
+_.prototype = function() {};
+_.prototype.getIndexForIdentifier = function(file, stnn, cast, samp, btln) {
   for (var j=0; j<file.STNNBR.length; j++) {
     var stnnbr = file.STNNBR[j];
     var castno = file.CASTNO[j];
@@ -137,7 +158,7 @@ CCHDO.Btlcmp.prototype.getIndexForIdentifier = function(file, stnn, cast, samp, 
     }
   }
 };
-CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
+_.prototype.update_data_table_data = function(column, label, data) {
   if (!data || !this.data_table_data) {
     return;
   }
@@ -222,7 +243,7 @@ CCHDO.Btlcmp.prototype.update_data_table_data = function(column, label, data) {
   }
   this.redraw_data_table();
 };
-CCHDO.Btlcmp.prototype.googleplot = function() {
+_.prototype.googleplot = function() {
   $('#googleplot').css('height', '500px');
   var data = this.data_table_data.clone();
   data.removeColumn(this.ABSDIFFCOL);
@@ -251,7 +272,7 @@ CCHDO.Btlcmp.prototype.googleplot = function() {
                          });
   }
 };
-CCHDO.Btlcmp.prototype.draw_plot = function() {
+_.prototype.draw_plot = function() {
   if (!this.l_values || !this.r_values) {
     this.newStatus('Please select parameters to plot!');
     return;
@@ -263,15 +284,16 @@ CCHDO.Btlcmp.prototype.draw_plot = function() {
     this.googleplot();
   }
 };
-CCHDO.Btlcmp.prototype.redraw_data_table = function() {
+_.prototype.redraw_data_table = function() {
   if (this.data_table) {
     this.data_table.draw(this.data_table_data, this.data_table_opts);
   }
 };
-CCHDO.Btlcmp.prototype.copyscroll = function(obj, objs) {
+_.prototype.copyscroll = function(obj, objs) {
   function findScrollHeight(obj) {
     return obj.scrollHeight-obj.offsetHeight;
   }
+  if (! obj || ! objs) { return; }
   obj.onscroll = function(scr) {
     for (var i in objs) {
       var src = scr.target;
@@ -284,10 +306,10 @@ CCHDO.Btlcmp.prototype.copyscroll = function(obj, objs) {
     }
   };
 };
-CCHDO.Btlcmp.prototype.newStatus = function(str) {
+_.prototype.newStatus = function(str) {
   $('#statusbar').html(str).show();
 };
-CCHDO.Btlcmp.prototype.init = function() {
+_.prototype.init = function() {
   var self = this;
 
   this.lparams = $('#lparams');
@@ -298,7 +320,10 @@ CCHDO.Btlcmp.prototype.init = function() {
 
   this.copyscroll(this.lparams[0], [this.rparams[0]]);
   this.copyscroll(this.rparams[0], [this.lparams[0]]);
+};
 
+<% if has_data -%>
+_.prototype.load = function () {
   this.lparams.change(function() {
     var p = $(this).val();
     if (p) {
@@ -356,9 +381,21 @@ CCHDO.Btlcmp.prototype.init = function() {
   this.rparams.change();
   this.redraw_data_table();
 };
+<% end -%>
+return new _();
+})();
+
+/* Hide initially hidden UI */
+$('#plots').hide();
 
 google.setOnLoadCallback(function() {
-  CCHDO.btlcmp = new CCHDO.Btlcmp();
+  $(':submit[value=Compare]').click(function () {
+    console.log('compare clicked!');
+    var ldata = null;
+    var rdata = null;
+    //CCHDO.btlcmp.load(ldata, rdata);
+    return false;
+  });
 });
 </script>
 <% end -%>

@@ -1,9 +1,6 @@
 # Everything here is available for all controllers.
-#require_dependency '/usr/local/cchdo/cchdo_hydro_lib.rb'
 require 'csv'
-#require 'gnuplot'
 require 'parsedate'
-#require 'zip/zip'
 
 class ApplicationController < ActionController::Base
   layout 'standard'
@@ -17,38 +14,6 @@ class ApplicationController < ActionController::Base
   }
 
   private
-
-  LIBCCHDOBIN = '/Users/myshen/Documents/libcchdo/bin'
-
-  # Modify make_tmpname to maintain file extensions.
-  class UploadedTempfile < Tempfile
-      def make_tmpname(basename, n)
-          sprintf('%d-%d%s', $$, n, basename)
-      end
-  end
-
-  # Rails uploads can give either StringIOs or UploadedTempFiles
-  # Turn StringIOs into tempfile and give the path to the tempfile
-  def get_tempfile(uploaded_file)
-      unless uploaded_file
-          return nil
-      end
-      filename = uploaded_file.original_filename || 'data'
-      basename = File.basename(filename)
-      temp = UploadedTempfile.new(basename)
-      temp.write(uploaded_file.read())
-      temp.flush()
-      uploaded_file.close()
-      temp
-  end
-
-  def get_tempfile_path(uploaded_file)
-      get_tempfile(uploaded_file).path
-  end
-
-  def get_tempfile_path(uploaded_file)
-    return get_tempfile(uploaded_file).path
-  end
 
   def check_authentication
     unless session[:user]

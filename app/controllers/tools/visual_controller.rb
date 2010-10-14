@@ -1,6 +1,6 @@
 require 'net/http'
 
-class Tools::VisualController < ApplicationController
+class Tools::VisualController < Tools::ToolsController
     layout 'standard'
 
     def index

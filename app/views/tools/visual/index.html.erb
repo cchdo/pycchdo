@@ -6,7 +6,7 @@
 <div class="box_content" style="padding: 0;">
 <table id="columns" style="width: 100%;">
   <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
-  <% form_tag '/visual/any_to_google_wire', :multipart => true do -%>
+  <% form_tag '/tools/tools/any_to_google_wire', :multipart => true do -%>
   <table id="parameters" style="width: 100%;">
     <tr><td><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td>
       <td id="status"></td>
@@ -31,6 +31,7 @@
       </td>
     </tr>
   </table>
+</div>
 <div class="box_bottom"></div>
 </div>
 
@@ -67,14 +68,17 @@ function init() {
       success: function (data) {
         $('#status img').remove();
         $('#visual').show();
-        if (data.error) {
+        if (!data) {
+          $('#status').html('No data received.');
+        } else if (data.error) {
           $('#status').html(data.error);
         } else {
           load(data);
         }
       },
-      error: function () {
+      error: function (xhr, textStatus, errorThrown) {
         $('#status').html('An error occurred while loading the file.');
+        console.log(xhr, textStatus, errorThrown);
       },
       type: 'POST',
       dataType: 'json',

@@ -36,7 +36,7 @@
   commonparams = @filel.parameters.select {|x| @filer.parameters.include? x }
   rightonlyparams = @filer.parameters-@filel.parameters
 end -%>
-<% form_tag '/btlcmp', :multipart => true do -%>
+<% form_tag '/tools/btlcmp', :multipart => true do -%>
 <table id="parameters">
   <tr><td class="left"><%= file_field_tag 'filel_prompt' -%></td><td><%= file_field_tag 'filer_prompt' -%></td></tr>
   <tr><td colspan="2" class="center"><%= submit_tag 'Compare' -%> <label for="is_merge">with merge file on right</label><input id="is_merge" type="checkbox" name="merge_file" /></td></tr>

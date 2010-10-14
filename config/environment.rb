@@ -55,7 +55,3 @@ end
 # Include your application configuration below
 
 SITE_NAME = 'cchdo.ucsd.edu'
-
-# Fixes something in Rails 2.3.2 that breaks SQL sanitization.
-require 'ar-extensions'
-

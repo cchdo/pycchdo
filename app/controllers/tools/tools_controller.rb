@@ -5,17 +5,21 @@ end
 class Tools::ToolsController < ApplicationController
   def any_to_google_wire
     begin
-      unless file = params[:file]
-        render :text => "<textarea>{\"error\": \"No file.\"}</textarea>",
-               :status => 500
+      file = params[:file]
+      unless file and (file.kind_of?(String) or file.kind_of?(Tempfile))
+        render_json_error("No file.")
         return
       end
       filename = file.original_filename || 'data'
       tmpfilepath = get_tempfile_path(file)
-      _any_to_google_wire(tmpfilepath)
+      wire = `#{LIBCCHDOBIN}/any_to_google_wire.py --json #{tmpfilepath}`
+      if wire.empty?
+        render_json_error("Failed to parse.")
+      else
+        render_json(wire)
+      end
     rescue Exception => e
-      render :text => "<textarea>{\"error\": \"#{e.to_s}\"}</textarea>",
-             :status => 500
+      render_json_error(e.to_s)
     end
   end
 
@@ -25,20 +29,13 @@ class Tools::ToolsController < ApplicationController
 
   private
 
-  def _any_to_google_wire(filepath)
-    begin
-      wire = `#{LIBCCHDOBIN}/any_to_google_wire.py --json #{filepath}`
-      if wire.include?('Database error') or wire.empty?
-        render :text => "<textarea>null</textarea>", :status => 500
-      else
-        render :text => "<textarea>#{wire}</textarea>"
-      end
-    rescue Exception => e
-      render :text => "<textarea>{\"error\": \"#{e.to_s}\"}</textarea>",
-             :status => 500
-    end
+  def render_json(json, status=200)
+    render :text => "<textarea>#{json}</textarea>", :status => status
   end
 
+  def render_json_error(error)
+    render_json("{\"error\": \"#{error}\"}", 500)
+  end
 
   # Modify make_tmpname to maintain file extensions.
   class UploadedTempfile < Tempfile

@@ -180,7 +180,7 @@ function sampbtln(samp, btln) {
 
 function getIdIndex(cache, id) {
   var cast = id[0], sta = id[1], samp = id[2], btln = id[3];
-  if (cache[sta][cast]) {
+  if (cache[sta] && cache[sta][cast]) {
     var samplepts = cache[sta][cast];
     if (samplepts[sampbtln(samp, btln)]) {
       return samplepts[sampbtln(samp, btln)];
@@ -264,14 +264,22 @@ _p.google_wire_to_datatable = function (gw) {
   dt.removeColumns(0, 2);
   return dt;
 };
+function get_value(dt, r, c, d) {
+  try {
+    return dt.getValue(r, c);
+  } catch (e) {
+    return d;
+  }
+}
 _p.get_df_id_i = function (df) {
   var h = {};
   var cis = findColumnIndices(df, ID_COLS);
   for (var i = 0; i < df.getNumberOfRows(); i += 1) {
-    var cast = df.getValue(i, cis[0]),
-        sta = df.getValue(i, cis[1]),
-        samp = df.getValue(i, cis[2]),
-        btln = df.getValue(i, cis[3]);
+    var cast = get_value(df, i, cis[0], '');
+    var sta = get_value(df, i, cis[1], '');
+    var samp = get_value(df, i, cis[2], '');
+    var btln = get_value(df, i, cis[3], '');
+
     h[sta] = defaultTo(h[sta], {});
     h[sta][cast] = defaultTo(h[sta][cast], {});
     h[sta][cast][sampbtln(samp, btln)] = i
@@ -328,9 +336,9 @@ _p.merge = function (column, label, data) {
       /* color absdiff according to complete matchness */
       var merge_status = [
         "<table class=\"merge_status\">",
-        "<tr><td>original: </td><td>", ldt.getNumberOfRows(), " rows (", unmatched_orig_rows, " unmatched)</td></tr>",
-        "<tr><td>merge: </td><td>", rdt.getNumberOfRows(), " rows (", unmatched_merge_rows, " unmatched)</td></tr>", 
-        "<tr><td>Matched: </td><td>", matched_rows, '</td></tr>',
+        "<tr><td>original: </td><td>", ldt.getNumberOfRows(), " ids (", unmatched_orig_rows, " unmatched)</td></tr>",
+        "<tr><td>merge: </td><td>", rdt.getNumberOfRows(), " ids (", unmatched_merge_rows, " unmatched)</td></tr>", 
+        "<tr><td>matched: </td><td>", matched_rows, ' ids</td></tr>',
         "</table>"
       ].join('');
       if (diff) {
@@ -395,6 +403,9 @@ _p.googleplot = function() {
   }
 };
 _p.draw_plot = function() {
+  if (dtd.getNumberOfRows() <= 0) {
+    return;
+  }
   this.newStatus('Plotting...');
   if (!this.l_values || !this.r_values) {
     this.newStatus('Please select parameters to plot!');
@@ -469,7 +480,7 @@ _p.update_files = function () {
   lid_cache = $(files[0]).data('id_cache');
   rdt = $(files[1]).data('data');
   rid_cache = $(files[1]).data('id_cache');
-  console.log('files', ldt, rdt);
+  console.log('files', ldt, lid_cache, rdt, rid_cache);
   if (!ldt || !rdt) {
     return;
   }
@@ -548,20 +559,23 @@ _p.update_files = function () {
     '<h1>', 'Left file', '</h1>', 
     '<ul>', 
     '<li>', ldt.getNumberOfColumns(), ' parameters</li>', 
-    '<li>', lp.length, ' data rows</li>', 
+    '<li>', ldt.getNumberOfRows(), ' data rows</li>', 
     '</ul>'].join(''));
   $('#fileinfo .right').html([
     '<h1>', 'Right file', '</h1>', 
     '<ul>',
     '<li>', rdt.getNumberOfColumns(), ' parameters</li>', 
-    '<li>', rp.length, ' data rows</li>', 
+    '<li>', rdt.getNumberOfRows(), ' data rows</li>', 
     '</ul>'].join(''));
+  var numnewids = rids.length - uniqids.length;
   $('#fileinfo .diff').html([
     '<h1>Diff</h1>',
     '<ul>',
     '<li>', common.length, ' common parameters</li>', 
-    '<li>', uniqids.length - lids.length, ' new rows in merge file</li>', 
-    '<li>', uniqids.length - rids.length, ' deleted rows in merge file</li>', 
+    '<li>', 'merge file has ', Math.abs(numnewids),
+      (numnewids >= 0 ? 
+        ' new ids</li>' :
+        ' fewer ids</li>'), 
     '</ul>'].join(''));
 
   dtd.removeRows(0, dtd.getNumberOfRows());
@@ -599,14 +613,14 @@ $(function () {
           file.css('background', '#fcc');
           file.data('data', null);
         } else {
-          file.css('background', '#cfc');
           file.data('data', CCHDO.btlcmp.google_wire_to_datatable(data));
           file.data('id_cache', CCHDO.btlcmp.get_df_id_i(file.data('data')));
+          file.css('background', '#cfc');
         }
         CCHDO.btlcmp.update_files();
       },
       error: function () {
-        console.log('error getting data for file', arguments);
+        console.log('Could not get data', arguments);
         file.css('background', '#fcc');
       },
       iframe: true

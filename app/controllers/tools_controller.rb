@@ -99,12 +99,12 @@ class ToolsController < ApplicationController
   LIBCCHDOBIN = '/Users/myshen/Documents/libcchdo/bin'
   $ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
 
-  def render_json(json, status=200)
+  def render_json(json, status=:ok)
     render :text => "<textarea>#{json}</textarea>", :status => status
   end
 
   def render_json_error(error)
-    render_json("{\"error\": \"#{error}\"}", 500)
+    render_json("{\"error\": \"#{error}\"}", :internal_server_error)
   end
 
   # Modify make_tmpname to maintain file extensions.

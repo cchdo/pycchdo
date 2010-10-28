@@ -9,6 +9,7 @@
 #columns,
 #parameters,
 #controls table { width: 100%; }
+#parameters, #plots, #datatable { display: none; }
 #fileinfo { background-color: #ddd; }
 #fileinfo h1 { font-weight: bold; }
 #fileinfo td { vertical-align: top; padding: 0.1em; }
@@ -218,7 +219,18 @@ function ensureColumnType(dtd, column, data) {
       }
     }
   }
-  columns[column].type = (typeof data[0]);
+
+  var type = null;
+  for (var i = 0; i < data.length; i += 1) {
+    if (!type) {
+      type = typeof data[i];
+      continue;
+    }
+    if (typeof data[i] != type && type == 'string') {
+      type = typeof data[i];
+    }
+  }
+  columns[column].type = type;
 }
 
 var LCOL = 4;
@@ -280,7 +292,11 @@ _p.merge = function (column, label, data) {
     if (index > -1) {
       var val = data[index];
       if (val == 'None') {
-        val = -Infinity;
+        if (dtd.getColumnType(column) == 'number') {
+          val = -Infinity;
+        } else {
+          val = null;
+        }
       }
       dtd.setCell(i, column, val);
       matched_rows++;
@@ -435,8 +451,8 @@ _p.init = function() {
   this.plot = new GV.ScatterChart($('#googleplot')[0]);
   dtd = new GV.DataTable({
     cols: [
-      {label: 'Cast', type: 'number'}, {label: 'Station', type: 'number'},
-      {label: 'Sample', type: 'number'}, {label: 'Bottle', type: 'number'},
+      {label: 'Cast', type: 'string'}, {label: 'Station', type: 'string'},
+      {label: 'Sample', type: 'string'}, {label: 'Bottle', type: 'string'},
       {label: '?', type: 'number'}, {label: '?', type: 'number'},
       {label: '|&Delta;|', type: 'number'}
     ]
@@ -445,8 +461,6 @@ _p.init = function() {
 
 _p.update_files = function () {
   var self = this;
-
-  $('#parameters,#plots,#datatable').show();
 
   /* Update files */
 
@@ -459,6 +473,8 @@ _p.update_files = function () {
   if (!ldt || !rdt) {
     return;
   }
+
+  $('#parameters,#plots,#datatable').show();
 
   var parameterDisplay = $('#parameters td');
 
@@ -493,7 +509,7 @@ _p.update_files = function () {
       }
     } else {
       selector = $('#rparams').empty();
-      for (var i = 0; i < totalparams.length - lp.length; i += 1) {
+      for (var i = 0; i < totalparams.length - rp.length; i += 1) {
         addOption(0, '');
       }
       $.each(common, addOption);
@@ -550,21 +566,19 @@ _p.update_files = function () {
 
   dtd.removeRows(0, dtd.getNumberOfRows());
 
+  function addId(i, x) {
+    dtd.addRow($.map(x, function (x) { return String(x); }).pad(dtd.getNumberOfColumns()));
+  }
+
   if (ldt) {
     /* Populate the dtd with all ids common to the original and merge file */
-    uniqids.each(function (i, x) {
-      dtd.addRow(x.pad(dtd.getNumberOfColumns()));
-    });
+    uniqids.each(addId);
     /* Now put in ids only in left file */
-    lids.difference(uniqids).each(function (i, x) {
-      dtd.addRow(x.pad(dtd.getNumberOfColumns()));
-    });
+    lids.difference(uniqids).each(addId);
   }
   /* Now put in ids only in right file */
   if (rdt) {
-    rids.difference(uniqids).each(function (i, x) {
-      dtd.addRow(x.pad(dtd.getNumberOfColumns()));
-    });
+    rids.difference(uniqids).each(addId);
   }
   
   this.redraw_data_table();
@@ -576,7 +590,7 @@ $(function () {
   $('#files input:file').each(function () {
     var file = $(this);
     file.parent().ajaxForm({
-      url: '/tools/tools/any_to_google_wire',
+      url: '/convert/any_to_google_wire',
       type: 'POST',
       dataType: 'json',
       success: function (data) {

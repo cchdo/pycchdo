@@ -22,24 +22,50 @@ class ToolsController < ApplicationController
   end
 
   def any_to_google_wire
+    file = params[:file]
+    unless file and (file.kind_of?(String) or file.kind_of?(Tempfile))
+      render_json_error("No file.")
+      return
+    end
+    #filename = file.original_filename || 'data'
     begin
-      file = params[:file]
-      unless file and (file.kind_of?(String) or file.kind_of?(Tempfile))
-        render_json_error("No file.")
-        return
-      end
-      filename = file.original_filename || 'data'
       tmpfilepath = get_tempfile_path(file)
-
-      stdin, wire, stderr = Open3.popen3(
-        "#{LIBCCHDOBIN}/any_to_google_wire.py --json #{tmpfilepath}")
-      if wire.empty?
-        render_json_error("Failed to parse: #{stderr}")
-      else
-        render_json(wire)
-      end
     rescue Exception => e
-      render_json_error(e.to_s)
+      render_json_error("Unable to get tempfile path: #{e.to_s}")
+      return
+    end
+
+    command = "#{LIBCCHDOBIN}/any_to_google_wire.py --json --type botex #{tmpfilepath}"
+
+    errors = ''
+    wire = ''
+    Open3.popen3(command) do |stdin, stdout, stderr|
+      read_wire = Thread.new do 
+        begin
+          while true
+            wire << stdout.readpartial(stdout.stat.blksize)
+          end
+        rescue EOFError
+        end
+      end
+      read_errors = Thread.new do
+        begin
+          while true
+            errors << stderr.readpartial(stderr.stat.blksize)
+          end
+        rescue EOFError
+        end
+      end
+      read_wire.join
+      read_errors.join
+    end
+
+    #errors = 'Unknown'
+    #wire = `#{LIBCCHDOBIN}/any_to_google_wire.py --json --type botex #{tmpfilepath}`
+    if wire.empty?
+      render_json_error("Failed to parse: #{errors}")
+    else
+      render_json(wire)
     end
   end
 

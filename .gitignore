@@ -1,6 +1,5 @@
 .DS_Store
-config
-tmp
-log
+tmp/**/*
+log/*.log
 .*.swp
 .*.swo

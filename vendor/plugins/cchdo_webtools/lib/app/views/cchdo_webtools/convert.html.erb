@@ -9,31 +9,31 @@ especially if you submit large files.
 
 <h2>Convert a NetCDF CTD to OceanSites NetCDF.</h2>
 
-<% form_tag converter_path('ctd_netcdf_to_ctd_oceansites_netcdf'), :multipart => true do -%>
+<%= form_tag converter_path('ctd_netcdf_to_ctd_oceansites_netcdf'), :multipart => true do -%>
   <%= file_field_tag 'file' -%>
-  <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= select_tag 'timeseries', options_for_select(@oceansites_timeseries) %>
   <%= submit_tag 'Convert' -%>
 <% end -%>
 
 <h2>Convert a NetCDF CTD Zip to OceanSites NetCDF Zip.</h2>
 
-<% form_tag converter_path('ctdzip_netcdf_to_ctdzip_oceansites_netcdf'), :multipart => true do -%>
+<%= form_tag converter_path('ctdzip_netcdf_to_ctdzip_oceansites_netcdf'), :multipart => true do -%>
   <%= file_field_tag 'file' -%>
-  <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= select_tag 'timeseries', options_for_select(@oceansites_timeseries) %>
   <%= submit_tag 'Convert' -%>
 <% end -%>
 
 <h2>Convert a CTD Exchange to OceanSites NetCDF Zip.</h2>
 
-<% form_tag converter_path('ctd_exchange_to_ctdzip_oceansites_netcdf'), :multipart => true do -%>
+<%= form_tag converter_path('ctd_exchange_to_ctdzip_oceansites_netcdf'), :multipart => true do -%>
   <%= file_field_tag 'file' -%>
-  <%= select_tag 'timeseries', $ALLOWED_OCEANSITES_TIMESERIES.map {|x| "<option value=\"#{x}\">#{x}</option>"}.join('') %>
+  <%= select_tag 'timeseries', options_for_select(@oceansites_timeseries) %>
   <%= submit_tag 'Convert' -%>
 <% end -%>
 
 <h2>Convert a Bottle Exchange to KML.</h2>
 
-<% form_tag converter_path('bottle_exchange_to_kml'), :multipart => true do -%>
+<%= form_tag converter_path('bottle_exchange_to_kml'), :multipart => true do -%>
   <%= file_field_tag 'file' -%>
   <%= submit_tag 'Convert' -%>
 <% end -%>

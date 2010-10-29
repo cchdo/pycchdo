@@ -4,7 +4,7 @@ end
 
 class CchdoWebtoolsController < ApplicationController
   require 'open3'
-  layout 'standard', :only => [:visual, :btlcmp, :convert]
+  layout :only => [:visual, :btlcmp, :convert]
 
   def visual
   end
@@ -13,6 +13,7 @@ class CchdoWebtoolsController < ApplicationController
   end
 
   def convert
+    @oceansites_timeseries = ALLOWED_OCEANSITES_TIMESERIES || []
   end
 
   def xss
@@ -75,21 +76,21 @@ class CchdoWebtoolsController < ApplicationController
 
   def ctd_netcdf_to_ctd_oceansites_netcdf
     timeseries = params[:timeseries]
-    timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+    timeseries = "" unless ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
     __convert('ctd_netcdf_to_ctd_oceansites_netcdf.py',
               timeseries, 'OS_.nc')
   end
 
   def ctdzip_netcdf_to_ctdzip_oceansites_netcdf
     timeseries = params[:timeseries]
-    timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+    timeseries = "" unless ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
     __convert('ctdzip_netcdf_to_ctdzip_oceansites_netcdf.py',
               timeseries, 'OS_.zip')
   end
 
   def ctd_exchange_to_ctdzip_oceansites_netcdf
     timeseries = params[:timeseries]
-    timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+    timeseries = "" unless ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
     __convert('ctd_exchange_to_ctd_oceansites_netcdf.py',
               timeseries, 'OS_.nc')
   end
@@ -98,10 +99,11 @@ class CchdoWebtoolsController < ApplicationController
     __convert('bottle_exchange_to_kml.py', '', 'converted.kml')
   end
 
+  ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
+
   private
 
   LIBCCHDOBIN = '/Users/myshen/Documents/libcchdo/bin'
-  $ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
 
   def render_json(json, status=:ok)
     render :text => "<textarea>#{json}</textarea>", :status => status

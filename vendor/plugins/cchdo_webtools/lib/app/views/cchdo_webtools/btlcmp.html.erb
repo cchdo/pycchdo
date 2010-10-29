@@ -1,14 +1,17 @@
 <% content_for :head do -%>
   <style type="text/css">
     .btlcmp .box_content { padding: 0 !important; }
+    .btlcmp .left { text-align: right; }
     .btlcmp #controls { width: 30%; background-color: #ddd; }
     .btlcmp #parameters .note { font-size: small; text-align: left; }
     .btlcmp #plots { vertical-align: top; padding: 0; }
     .btlcmp #statusbar { background: #fcc; }
+    .btlcmp .params { height: 15em; }
     .btlcmp #fileinfo,
     .btlcmp #columns,
     .btlcmp #parameters,
     .btlcmp #controls table { width: 100%; }
+    .btlcmp #columns { border-collapse: collapse; }
     .btlcmp #parameters, #plots, #datatable { display: none; }
     .btlcmp #fileinfo { background-color: #ddd; }
     .btlcmp #fileinfo h1 { font-weight: bold; }
@@ -28,10 +31,10 @@
       <table id="files">
         <tr>
           <td class="left">
-            <form><input id="lfile_prompt" type="file" name="file" /></form>
+            <%=form_tag do-%><input id="lfile_prompt" type="file" name="file" /><%end-%>
           </td>
           <td>
-            <form><input id="rfile_prompt" type="file" name="file" /></form>
+            <%=form_tag do-%><input id="rfile_prompt" type="file" name="file" /><%end-%>
           </td>
         </tr>
       </table>
@@ -561,13 +564,13 @@ _p.update_files = function () {
 
   /* Talk about the data */
   $('#fileinfo .left').html([
-    '<h1>', 'Left file', '</h1>', 
+    '<h2>', 'Left file', '</h2>', 
     '<ul>', 
     '<li>', lp.length, ' parameters</li>', 
     '<li>', ldt.getNumberOfRows(), ' data rows</li>', 
     '</ul>'].join(''));
   $('#fileinfo .right').html([
-    '<h1>', 'Right file', '</h1>', 
+    '<h2>', 'Right file', '</h2>', 
     '<ul>',
     '<li>', rp.length, ' parameters</li>', 
     '<li>', rdt.getNumberOfRows(), ' data rows</li>', 
@@ -615,7 +618,7 @@ _p.update_files = function () {
       (numnewids >= 0 ?  ' new ids</li>' : ' fewer ids</li>')].join('');
   }
   $('#fileinfo .diff').html([
-    '<h1>Diff</h1>',
+    '<h2>Diff</h2>',
     '<ul>',
     '<li>', common.length, ' common parameters</li>', 
     '<li>', mergeidstr, '</li>',

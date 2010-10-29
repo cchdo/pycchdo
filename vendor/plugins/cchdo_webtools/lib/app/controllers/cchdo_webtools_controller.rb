@@ -2,7 +2,7 @@ class Tempfile
   attr_accessor :original_filename
 end
 
-class ToolsController < ApplicationController
+class CchdoWebtoolsController < ApplicationController
   require 'open3'
   layout 'standard', :only => [:visual, :btlcmp, :convert]
 

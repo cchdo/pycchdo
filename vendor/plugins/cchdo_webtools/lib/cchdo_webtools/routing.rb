@@ -2,7 +2,8 @@ module CchdoWebtools #:nodoc:
   module Routing #:nodoc:
     module MapperExtensions
       def cchdo_webtools(options = {})
-        $stderr.puts options.inspect
+        options[:name_prefix] ||= ''
+        options[:namespace] ||= ''
         named_route(options[:name_prefix] + :btlcmp.to_s, options[:namespace][0..-2] + '/btlcmp', :controller => :cchdo_webtools, :action => :btlcmp)
         named_route(options[:name_prefix] + :visual.to_s, options[:namespace][0..-2] + '/visual', :controller => :cchdo_webtools, :action => :visual)
         named_route(options[:name_prefix] + :xss.to_s, options[:namespace][0..-2] + '/xss/:file', :controller => :cchdo_webtools, :action => :xss)

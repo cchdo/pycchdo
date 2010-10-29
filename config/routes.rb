@@ -16,9 +16,7 @@ ActionController::Routing::Routes.draw do |map|
   map.connect '/staff/:controller/:action/:id'
   map.connect '/staff', :controller => '/staff/staff'
 
-  map.namespace :tools do |tools|
-    tools.cchdo_webtools
-  end
+  map.cchdo_webtools
 
   # Allow downloading Web Service WSDL as a file with an extension
   # instead of a file named 'wsdl'

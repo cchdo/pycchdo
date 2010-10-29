@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Webtools</title>
+  <%= stylesheet_link_tag :all %>
+  <%= csrf_meta_tag %>
+  <%= yield :head if content_for?(:head) %>
+</head>
+<body>
+
+<%= yield %>
+
+<% if content_for?(:js) %>
+  <%= yield :js %>
+<% else %>
+  <%= javascript_include_tag :defaults %>
+<% end %>
+</body>
+</html>

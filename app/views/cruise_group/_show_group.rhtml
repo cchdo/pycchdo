@@ -1,7 +1,0 @@
-<% if @cruises %>
-  <% @cruises.each_index do |index| %>
-    <% cruise = @cruises[index] %>
-    <%= link_to_remote h(cruise.Line), {:update => "single_cruise_view", :url => {:action => 'show_cruise', :id => cruise.id}} %>
-    <% if index % 10 == 0 %><br /><% end %>
-  <% end %>
-<% end %>

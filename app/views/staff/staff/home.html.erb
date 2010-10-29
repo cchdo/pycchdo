@@ -1,7 +1,0 @@
-<h1>Staff Home for <%= h(@user) %></h1>
-<% if @user !~ /guest/ %>
-  <h2>Tasks for <%= h(@user) %></h2>
-  <div id="user_tasks">
-    <%= render :partial  => "user_tasks", :update =>"user_tasks" %>
-  </div>
-<% end %>

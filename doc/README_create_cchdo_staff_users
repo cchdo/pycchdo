@@ -1,8 +1,0 @@
-Ruby
-
-htpasswd
-
-script/console
-	User.create
-
-

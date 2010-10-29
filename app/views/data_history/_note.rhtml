@@ -1,8 +1,0 @@
-<div class='history note'>
-  <h1>Detailed Notes</h1>
-  <%= @note_entry.Note %>
-  <table>
-    <tr><th>Event Date</th><th>Person</th><th>Date Type</th><th>Summary</th></tr>
-    <tr><td class='date'><% if @note_entry %><%= h(@note_entry.Date_Entered) %><% end %></td><td class='name'><%= h(@note_entry.LastName) %>, <%= h(@note_entry.First_Name) %></td><td><%= h(@note_entry.Data_Type) %></td><td><%= h(@note_entry.Summary) %></td></tr>
-  </table>
-</div>

@@ -1,4 +1,0 @@
-
-page << @map.clear_overlays
-  page << @map.add_overlay(@polygon)
-

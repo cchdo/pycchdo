@@ -4,21 +4,27 @@ end
 
 class ToolsController < ApplicationController
   require 'open3'
-  layout 'standard', :except => :any_to_google_wire
+  layout 'standard', :only => [:visual, :btlcmp, :convert]
 
   def visual
-    # if autoload = params[:autoload]
-    #     file = Tempfile.new('visual_autoopen')
-    #     file.write(Net::HTTP.get('cchdo.ucsd.edu', autoopen))
-    #     file.original_filename = autoopen
-    #     file.flush
-    # end
   end
 
   def btlcmp
   end
 
   def convert
+  end
+
+  def xss
+    unless params[:file]
+      render :nothing => true, :status => :bad_request
+      return
+    end
+    file_name = params[:file]
+    file = Tempfile.new('xss')
+    file.write(Net::HTTP.get('cchdo.ucsd.edu', file_name))
+    file.flush
+    send_file(file, :filename => file_name, :disposition => :inline)
   end
 
   def any_to_google_wire
@@ -60,8 +66,6 @@ class ToolsController < ApplicationController
       read_errors.join
     end
 
-    #errors = 'Unknown'
-    #wire = `#{LIBCCHDOBIN}/any_to_google_wire.py --json --type botex #{tmpfilepath}`
     if wire.empty?
       render_json_error("Failed to parse: #{errors}")
     else
@@ -70,28 +74,28 @@ class ToolsController < ApplicationController
   end
 
   def ctd_netcdf_to_ctd_oceansites_netcdf
-      timeseries = params[:timeseries]
-      timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
-      __convert('ctd_netcdf_to_ctd_oceansites_netcdf.py',
-                timeseries, 'OS_.nc')
+    timeseries = params[:timeseries]
+    timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+    __convert('ctd_netcdf_to_ctd_oceansites_netcdf.py',
+              timeseries, 'OS_.nc')
   end
 
   def ctdzip_netcdf_to_ctdzip_oceansites_netcdf
-      timeseries = params[:timeseries]
-      timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
-      __convert('ctdzip_netcdf_to_ctdzip_oceansites_netcdf.py',
-                timeseries, 'OS_.zip')
+    timeseries = params[:timeseries]
+    timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+    __convert('ctdzip_netcdf_to_ctdzip_oceansites_netcdf.py',
+              timeseries, 'OS_.zip')
   end
 
   def ctd_exchange_to_ctdzip_oceansites_netcdf
-      timeseries = params[:timeseries]
-      timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
-      __convert('ctd_exchange_to_ctd_oceansites_netcdf.py',
-                timeseries, 'OS_.nc')
+    timeseries = params[:timeseries]
+    timeseries = "" unless $ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
+    __convert('ctd_exchange_to_ctd_oceansites_netcdf.py',
+              timeseries, 'OS_.nc')
   end
 
   def bottle_exchange_to_kml
-      __convert('bottle_exchange_to_kml.py', '', 'converted.kml')
+    __convert('bottle_exchange_to_kml.py', '', 'converted.kml')
   end
 
   private
@@ -134,25 +138,25 @@ class ToolsController < ApplicationController
   end
 
   def __convert(executable, args, filename)
-      if params[:file].blank?
-          flash[:notice] = 'Please give me a file to convert.'
-          render :action => :index
-      else
-          begin
-              tmpfilepath = get_tempfile_path(params[:file])
+    if params[:file].blank?
+      render :text => "Please give a file to convert.",
+             :status => :bad_request
+      return
+    end
+    begin
+      tmpfilepath = get_tempfile_path(params[:file])
 
-              cmd = "#{LIBCCHDOBIN}/#{executable} #{tmpfilepath} #{args}"
-              cmdio = IO.popen(cmd, 'rb')
-              file = Tempfile.new('convert')
-              file.write(cmdio.read)
-              file.flush()
+      cmd = "#{LIBCCHDOBIN}/#{executable} #{tmpfilepath} #{args}"
+      cmdio = IO.popen(cmd, 'rb')
+      file = Tempfile.new('convert')
+      file.write(cmdio.read)
+      file.flush()
 
-              send_file(file.path, :filename => filename)
-          rescue
-              logger.debug($!)
-              flash[:notice] = "Error converting file: #{$!.inspect}"
-              render :action => :index
-          end
-      end
+      send_file(file.path, :filename => filename)
+    rescue
+      logger.debug($!)
+      render :text => "Error converting file: #{$!.inspect}",
+             :status => :internal_server_error
+    end
   end
 end

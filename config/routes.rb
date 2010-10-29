@@ -19,6 +19,7 @@ ActionController::Routing::Routes.draw do |map|
   map.convert '/convert', :controller => :tools, :action => :convert
   map.btlcmp '/btlcmp', :controller => :tools, :action => :btlcmp
   map.visual '/visual', :controller => :tools, :action => :visual
+  map.mirror '/xss/:file', :controller => :tools, :action => :xss
   map.converter '/convert/:action', :controller => :tools, :method => :post
 
   # Allow downloading Web Service WSDL as a file with an extension

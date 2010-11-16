@@ -1,20 +1,26 @@
 <% content_for :head do -%>
   <%= stylesheet_link_tag 'overcast/jquery-ui-1.7.2.custom.css' -%>
+  <style type="text/css">
+    .box_content { padding: 0; }
+    #columns,
+    #parameters { width: 100%; }
+    #controls { width: 30%; background-color: #ddd; }
+  </style>
 <% end -%>
 <div class="boxed">
 <h1>Visual</h1>
-<div class="box_content" style="padding: 0;">
-<table id="columns" style="width: 100%;">
-  <tr><td id="controls" style="width: 30%; background-color: #dddddd;">
+<div class="box_content">
+<table id="columns">
+  <tr><td id="controls">
   <% form_tag '/convert/any_to_google_wire', :multipart => true do -%>
-  <table id="parameters" style="width: 100%;">
+  <table id="parameters">
     <tr><td style="width: 20em;"><%= file_field_tag 'file' -%></td><td><%= submit_tag 'View' -%></td><td id="status"></td></tr>
   </table>
   <% end -%>
   </td>
 </tr>
 </table>
-<div id="visual" style="display: none;">
+<div id="visual">
   <div id="toolbox"></div>
   <div id="station"></div>
   <div id="observation"></div>
@@ -38,10 +44,7 @@
 <script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js'></script>
 <%# GAPI autoload Maps 2.x -%>
 <script type='text/javascript' src='http://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.x%22%7D%5D%7Dkey=<%= getGAPIkey(request.env['HTTP_HOST']) -%>'></script>
-<script type='text/javascript' src='/javascripts/jquery.form.js'></script>
-<script type='text/javascript' src='/javascripts/map_search/grat.js'></script>
-<script type='text/javascript' src='/javascripts/cchdo.vis.js'></script>
-<script type='text/javascript' src='/javascripts/vis.js'></script>
+<%= javascript_include_tag('jquery.form', 'map_search/grat', 'cchdo.vis', 'vis') %>
 <script type="text/javascript">
 google.load('visualization', '1', {packages: ['scatterchart', 'table']});
 function getKey(key) {
@@ -57,23 +60,57 @@ Array.prototype.compare = function(testArr) {
   }
   return true;
 }
+/* http://snipplr.com/view/799/get-url-variables/ */
+function getUrlVars(){
+  var hashes = window.location.href.slice(
+    window.location.href.indexOf('?') + 1).split('&'),
+      hash;
+  var vars = {};
+  for (var i = 0; i < hashes.length; i += 1) {
+    hash = hashes[i].split('=');
+    vars[hash[0]] = hash[1];
+  }
+  return vars;
+}
 function init() {
+  var urlvars = getUrlVars();
+  function handleData(data) {
+    $('#status img').remove();
+    if (!data) {
+      $('#status').html('No data received.');
+    } else if (data.error) {
+      $('#status').html(data.error);
+    } else {
+      load(data);
+    }
+  }
+  if (urlvars['autoopen']) {
+    $.ajax({
+      url: $('form').attr('action'),
+      type: 'POST',
+      data: {
+        autoopen: decodeURIComponent(urlvars['autoopen']),
+        csrf_param: $('meta[name=csrf-param]').attr('content'),
+        csrf_token: $('meta[name=csrf-token]').attr('content')
+      },
+      dataType: 'json',
+      beforeSubmit: function () {
+        $('#status').html('Autoopening ' + urlvars['autoopen'] +
+                          '<img src="/images/rotate.gif" />');
+      },
+      success: handleData,
+      error: function (xhr, textStatus, errorThrown) {
+        $('#status').html('An error occurred while loading the file.');
+        console.log(xhr, textStatus, errorThrown);
+      }
+    });
+  }
   try {
     $('form').ajaxForm({
       beforeSubmit: function () {
         $('#status').html('<img src="/images/rotate.gif" />');
       },
-      success: function (data) {
-        $('#status img').remove();
-        $('#visual').show();
-        if (!data) {
-          $('#status').html('No data received.');
-        } else if (data.error) {
-          $('#status').html(data.error);
-        } else {
-          load(data);
-        }
-      },
+      success: handleData,
       error: function (xhr, textStatus, errorThrown) {
         $('#status').html('An error occurred while loading the file.');
         console.log(xhr, textStatus, errorThrown);
@@ -97,8 +134,11 @@ function load(data) {
     function openPropertyPropertyWindow() {
       var selectX = $('<select></select>')
         .append($('<option></option>'));
-      for (var i=0;i<data_table.getNumberOfColumns();i++){
-        selectX.append($('<option>'+data_table.getColumnLabel(i)+'</option>'));
+      var properties = [];
+      for (var i=0;i<data_table.getNumberOfColumns();i++){ properties.push(data_table.getColumnLabel(i)); }
+      properties = properties.sort();
+      for (var i=0; i < properties.length; i++) {
+        selectX.append($('<option>'+properties[i]+'</option>'));
       }
       var selectY = selectX.clone();
       var plotXYDiv = $('<div id="plot-xy"></div>').css('height', '200px');
@@ -109,8 +149,9 @@ function load(data) {
         .append($('<label>Y</label>')).append(selectY).append($('<br />'))
         .append(plotXYDiv);
       var plotXYView = new GV.DataView(data_table);
-      var plotXYChart = new GV.ScatterChart(plotXYDiv[0]);
-      var plotXYChartOpts = {height: 400, width: 450, legend: 'none', pointSize: 2, focusBorderColor: '#ff0000'};
+      var plotXYChart = new CCHDO.vis.Plot(plotXYDiv[0]);
+      var plotXYChartOpts = {height: '400px', width: '450px', invertY: true, gridColor: '#000',
+        pointColor: new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"})};
       $('select', plotwindow).change(function() {
         var propx = selectX.val();
         var propy = selectY.val();
@@ -120,20 +161,42 @@ function load(data) {
         }
       });
     }
-    var plotbutton = $('<div>Property-Property</div>')
+
+    function openTableWindow() {
+      var width = $(window).width();
+      var height = $(window).height();
+      var tableDiv = $('<div></div>').css({'width': width, 'height': height});
+      var tableWindow = $('<div></div>')
+        .dialog({title: 'Table', width: width, height: height, show: 'slide'})
+        .append(tableDiv);
+      var tableView = new GV.DataView(data_table);
+      var tableTable = new GV.Table(tableDiv[0]);
+      var tableTableOpts = {width: '100%', height: '100%'};
+      tableTable.draw(tableView, tableTableOpts);
+    }
+
+    var plotbutton = $('<input type="button" value="Property-Property" />')
       .css({'background-color': '#eee',
          'border': '1px solid #aaa',
          'cursor': 'pointer'})
       .click(openPropertyPropertyWindow);
+    var tablebutton = $('<input type="button" value="Data Table" />')
+      .css({'background-color': '#eee',
+         'border': '1px solid #aaa',
+         'cursor': 'pointer'})
+      .click(openTableWindow);
     var toolbox = $('<div></div>')
-      .css({'width': '150px', 'height': '200px',
-        'position': 'absolute', 'left': '0', 'top': '0', 'z-index': '999',
-        'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
-        'background-color': '#ddd'})
-      .append($('<h1>Plots</h1>'))
-      .append(plotbutton)
-      .draggable({appendTo: 'body', containment: 'parent'});
-    $('body').append(toolbox);
+      .append($('<h2>Plots</h2>'))
+      .append($('<ul></ul>')
+        .append($('<li></li>').append(plotbutton))
+        .append($('<li></li>').append(tablebutton))
+      )
+      .dialog({
+        beforeClose: function () { return false; },
+        minWidth: 100,
+        minHeight: 100,
+        position: ['right', 'top']
+      });
   })();
 
   function colno_to_label(datatable) {
@@ -346,71 +409,6 @@ function load(data) {
   });
 
   setRowVisible(0);
-
-  function openPropertyPropertyWindow() {
-    var selectX = $('<select></select>')
-      .append($('<option></option>'));
-    var properties = [];
-    for (var i=0;i<data_table.getNumberOfColumns();i++){ properties.push(data_table.getColumnLabel(i)); }
-    properties = properties.sort();
-    for (var i=0; i < properties.length; i++) {
-      selectX.append($('<option>'+properties[i]+'</option>'));
-    }
-    var selectY = selectX.clone();
-    var plotXYDiv = $('<div id="plot-xy"></div>').css('height', '200px');
-    var plotwindow = $('<div></div>')
-      .dialog({title: 'Property-Property', width: 500, minHeight: 500, show: 'slide'})
-      .append('<h1>Please choose two parameters to plot:</h1>')
-      .append($('<label>X</label>')).append(selectX)
-      .append($('<label>Y</label>')).append(selectY).append($('<br />'))
-      .append(plotXYDiv);
-    var plotXYView = new GV.DataView(data_table);
-    var plotXYChart = new CCHDO.vis.Plot(plotXYDiv[0]);
-    var plotXYChartOpts = {height: '400px', width: '450px', invertY: true, gridColor: '#000',
-      pointColor: new CCHDO.vis.Gradient({0: "#f00", 1000: "#fa0", 2000: "#fff", 3000: "#0f0", 6000: "#00f"})};
-    $('select', plotwindow).change(function() {
-      var propx = selectX.val();
-      var propy = selectY.val();
-      if (propx != '' && propy != '') {
-        plotXYView.setColumns(getValuesFromKeys(label_to_colno, propx, propy));
-        plotXYChart.draw(plotXYView, plotXYChartOpts);
-      }
-    });
-  }
-
-  function openTableWindow() {
-    var width = $(window).width();
-    var height = $(window).height();
-    var tableDiv = $('<div></div>').css({'width': width, 'height': height});
-    var tableWindow = $('<div></div>')
-      .dialog({title: 'Table', width: width, height: height, show: 'slide'})
-      .append(tableDiv);
-    var tableView = new GV.DataView(data_table);
-    var tableTable = new GV.Table(tableDiv[0]);
-    var tableTableOpts = {width: '100%', height: '100%'};
-    tableTable.draw(tableView, tableTableOpts);
-  }
-
-  var plotbutton = $('<input type="button" value="Property-Property" />')
-    .css({'background-color': '#eee',
-       'border': '1px solid #aaa',
-       'cursor': 'pointer'})
-    .click(openPropertyPropertyWindow);
-  var tablebutton = $('<input type="button" value="Table" />')
-    .css({'background-color': '#eee',
-       'border': '1px solid #aaa',
-       'cursor': 'pointer'})
-    .click(openTableWindow);
-  var toolbox = $('<div></div>')
-    .css({'width': '150px', 'height': '70px',
-      'position': 'absolute', 'left': '0', 'top': '5em', 'z-index': '999',
-      'border': '1px solid #aaa', 'border-top': '1em solid #aaa',
-      'background-color': '#ddd'})
-    .append($('<h1>Plots</h1>'))
-    .append(plotbutton)
-    .append(tablebutton)
-    .draggable({appendTo: 'body', containment: 'parent'});
-  $('body').append(toolbox);
 }
 google.setOnLoadCallback(init);
 </script>

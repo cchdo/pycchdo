@@ -1,7 +1,3 @@
-class Tempfile
-  attr_accessor :original_filename
-end
-
 class CchdoWebtoolsController < ApplicationController
   require 'open3'
   layout :only => [:visual, :btlcmp, :convert]
@@ -16,32 +12,18 @@ class CchdoWebtoolsController < ApplicationController
     @oceansites_timeseries = ALLOWED_OCEANSITES_TIMESERIES || []
   end
 
-  def xss
-    unless params[:file]
-      render :nothing => true, :status => :bad_request
-      return
-    end
-    file_name = params[:file]
-    file = Tempfile.new('xss')
-    file.write(Net::HTTP.get('cchdo.ucsd.edu', file_name))
-    file.flush
-    send_file(file, :filename => file_name, :disposition => :inline)
-  end
-
   def any_to_google_wire
-    file = params[:file]
-    unless file and (file.kind_of?(String) or file.kind_of?(Tempfile))
-      render_json_error("No file.")
-      return
-    end
-    #filename = file.original_filename || 'data'
     begin
-      tmpfilepath = get_tempfile_path(file)
+      raise unless tmpfile = _get_tempfile_of_file_to_convert()
+      tmpfilepath = tmpfile.path
+    rescue ArgumentError => e
+      render_json_error("No file.", :bad_request) and return
     rescue Exception => e
       render_json_error("Unable to get tempfile path: #{e.to_s}")
       return
     end
 
+    logger.debug(tmpfilepath)
     command = "#{LIBCCHDOBIN}/any_to_google_wire.py --json --type botex #{tmpfilepath}"
 
     errors = ''
@@ -99,44 +81,66 @@ class CchdoWebtoolsController < ApplicationController
     __convert('bottle_exchange_to_kml.py', '', 'converted.kml')
   end
 
+ private
+ 
   ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
-
-  private
 
   LIBCCHDOBIN = '/Users/myshen/Documents/libcchdo/bin'
 
   def render_json(json, status=:ok)
-    render :text => "<textarea>#{json}</textarea>", :status => status
+    if request.xhr?
+      render :text => json, :status => status
+    else
+      render :text => "<textarea>#{json}</textarea>", :status => status
+    end
   end
 
-  def render_json_error(error)
-    render_json("{\"error\": \"#{error}\"}", :internal_server_error)
+  def render_json_error(error, errorCode=:internal_server_error)
+    render_json("{\"error\": \"#{error}\"}", errorCode)
   end
 
   # Modify make_tmpname to maintain file extensions.
   class UploadedTempfile < Tempfile
+    attr_accessor :original_filename
+
     def make_tmpname(basename, n)
       sprintf('%d-%d%s', $$, n, basename)
     end
   end
 
+  def _get_tempfile_of_file_to_convert
+    if autoopen = params[:autoopen]
+      logger.debug(autoopen)
+      response = StringIO.new(Net::HTTP.get('cchdo.ucsd.edu', autoopen))
+      logger.debug(response.string)
+      get_tempfile(response, autoopen)
+    else
+      file = params[:file]
+      raise ArgumentError unless file and
+                                 (file.kind_of?(StringIO) or
+                                  file.kind_of?(Tempfile))
+      get_tempfile(file)
+    end
+  end
+
   # Rails uploads can give either StringIOs or UploadedTempFiles
   # Turn StringIOs into tempfile and give the path to the tempfile
-  def get_tempfile(uploaded_file)
+  def get_tempfile(uploaded_file, filename=nil)
     unless uploaded_file
       return nil
     end
-    filename = uploaded_file.original_filename || 'data'
-    basename = File.basename(filename)
-    temp = UploadedTempfile.new(basename)
+    unless filename
+      begin
+        filename = uploaded_file.original_filename
+      rescue
+        filename = 'data'
+      end
+    end
+    temp = UploadedTempfile.new(File.basename(filename))
     temp.write(uploaded_file.read())
     temp.flush()
     uploaded_file.close()
     temp
-  end
-
-  def get_tempfile_path(uploaded_file)
-    get_tempfile(uploaded_file).path
   end
 
   def __convert(executable, args, filename)
@@ -146,7 +150,7 @@ class CchdoWebtoolsController < ApplicationController
       return
     end
     begin
-      tmpfilepath = get_tempfile_path(params[:file])
+      tmpfilepath = get_tempfile(params[:file]).path
 
       cmd = "#{LIBCCHDOBIN}/#{executable} #{tmpfilepath} #{args}"
       cmdio = IO.popen(cmd, 'rb')

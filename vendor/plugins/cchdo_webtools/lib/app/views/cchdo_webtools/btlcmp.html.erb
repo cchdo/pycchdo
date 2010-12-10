@@ -20,6 +20,7 @@
     .btlcmp #dataplot { width: 100%; }
     .btlcmp .merge_status { padding: 0.1em; }
     .btlcmp .google-visualization-table-th { white-space: nowrap; }
+    .btlcmp #file_errors h1 { color: #f33; font-size: 1.1em; font-weight: bold; pointer: cursor; }
   </style>
 <% end -%>
 <div class="boxed btlcmp">
@@ -67,6 +68,12 @@
 </table>
 </div>
 <div id="statusbar"></div>
+<div id="file_errors">
+  <h1></h1>
+  <table>
+    <tr><td></td><td></td></tr>
+  </table>
+</div>
 <div class="box_bottom"></div>
 </div>
 <% content_for :js do -%>
@@ -644,6 +651,16 @@ return new _();
 })();
 
 $(function () {
+  $('#file_errors').children().hide();
+  $('#file_errors h1').html('File parse warnings').click(function () {
+    var t = $('#file_errors table');
+    if (t.hasClass('open')) {
+      t.hide('fast');
+    } else {
+      t.show('fast');
+    }
+    t.toggleClass('open');
+  });
   $('#files input:file').each(function () {
     var file = $(this);
     file.parent().ajaxForm({
@@ -662,11 +679,25 @@ $(function () {
           file.css('background', '#fcc');
           file.data('data', null);
         } else {
-          var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(data);
+          var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(data.data);
           file.data('data', dtc[0]);
           file.data('id_cache', dtc[1]);
           file.data('changed', true);
           file.css('background', '#cfc');
+
+          var errors = null;
+          if (file.attr('id') == 'lfile_prompt') {
+            errors = $($('#file_errors td')[0]);
+          } else {
+            errors = $($('#file_errors td')[1]);
+          }
+          errors.empty();
+          for (var i = 0; i < data.errors.length; i += 1) {
+            errors.append(['<p>', data.errors[i], '</p>'].join(''));
+          }
+          if (data.errors.length > 0) {
+            $('#file_errors h1').show('fast');
+          }
         }
         CCHDO.btlcmp.update_files();
       },

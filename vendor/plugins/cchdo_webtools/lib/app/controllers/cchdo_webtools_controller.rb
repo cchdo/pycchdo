@@ -23,7 +23,6 @@ class CchdoWebtoolsController < ApplicationController
       return
     end
 
-    logger.debug(tmpfilepath)
     command = "#{LIBCCHDOBIN}/any_to_google_wire.py --json --type botex #{tmpfilepath}"
 
     errors = ''
@@ -52,7 +51,16 @@ class CchdoWebtoolsController < ApplicationController
     if wire.empty?
       render_json_error("Failed to parse: #{errors}")
     else
-      render_json(wire)
+      error_list = errors.split(/$/).map {|x| "\"#{x.strip().gsub(/[^\w\s[:punct:]]/, '?')}\""}
+      error_list = error_list.select {|x| x =~ /(ERROR|WARNING|INFO):/}
+      error_list = error_list.map {|x|
+        if x =~ /.*\w+:(\s\?\[0m|)(.*)$/
+          "\"#{$2}"
+        else
+          x
+        end
+      }
+      render_json("{\"data\": #{wire}, \"errors\": [#{error_list.join(', ')}]}")
     end
   end
 

@@ -85,7 +85,7 @@
 <script type="text/javascript" src='https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js'></script>
 <script type='text/javascript' src='/javascripts/jquery.form.js'></script>
 <script type="text/javascript">
-if (!console) { window.console = {log: document.write}; }
+if (!window.console) { window.console = {log: function () { this._logs.push(arguments); }, _logs: []}; }
 function defaultTo(x, d) { return x ? x : d; }
 // Author:  Jacek Becela
 // Source:  http://gist.github.com/399624
@@ -514,6 +514,8 @@ function copyscroll(obj, objs) {
     $.each(objs, function (i) {
       $(this).val(obj.val()).change();
     });
+    // Sync scrolling
+    obj.scroll();
     $('#parameters').trigger('redraw');
   });
 };
@@ -533,7 +535,7 @@ function update_dtd(column, label, data) {
   if (!data || !dtd) {
     return;
   }
-  newStatus("Loading data for", ((column === LCOL) ? "left" : "right"),
+  newStatus("Loading", label, "for", ((column === LCOL) ? "left" : "right"),
             "column. Please wait...");
   
   dtd.setColumnLabel(column, label);
@@ -541,34 +543,34 @@ function update_dtd(column, label, data) {
 
   merge(column, label, data);
 };
-function resize() {
-  draw_plot();
-};
+resize = draw_plot;
 
 var _ = function () {
   var self = this;
   $('#parameters,#plots,#datatable').hide();
 
   function redraw() {
-    $(this).data('bg', $(this).css('background')).css('background', '#ffa');
-    draw_plot();
-    absdiff();
-    redraw_data_table();
-    $(this).css('background', $(this).data('bg'));
-    newStatus();
+    var self = $(this);
+    self.data('bg', self.css('background')).css('background', '#ffa');
+    // Let bg color change
+    setTimeout(function () {
+      draw_plot();
+      absdiff();
+      redraw_data_table();
+      newStatus();
+      self.css('background', self.data('bg'));
+    }, 0);
   }
 
   $('#lparams').change(function () {
     var p = $(this).val();
     if (p) {
-      console.log('lparam changed to', p);
       update_dtd.call(self, LCOL, p, get_col(ldt, p));
     }
   });
   $('#rparams').change(function () {
     var p = $(this).val();
     if (p) {
-      console.log('rparam changed to', p);
       update_dtd.call(self, RCOL, p, get_col(rdt, p));
     }
   });
@@ -784,14 +786,14 @@ $(function () {
       $(this).parent().submit();
     });
   });
-/*/
-  $.get(window.location.protocol + '//' + window.location.host + '/' +
-        'btlcmp_test_data_0.json',
+});
+function test() {
+  $.get([window.location.protocol, '//', window.location.host, '/',
+         'btlcmp_test_data_0.json'].join(''), 
     function (data) {
       var data2 = $.extend(true, {}, data);
-      var r = 1, c = 12;
+      var x = true, r = 1, c = 12;
       data2.rows[r].c[c].v = 10;
-      var x = true;
       $('#files :file').each(function () {
         var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(x ? data : data2);
         x = !x;
@@ -803,7 +805,7 @@ $(function () {
 
       $('#lparams').val('CTDPRS').change().click();
     });
-//*/
-});
+}
+//**/test();
 </script>
 <% end -%>

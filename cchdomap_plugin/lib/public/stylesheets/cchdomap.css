@@ -1,0 +1,65 @@
+.transientpop {
+  background: black;
+  color: white;
+  padding: 0.5em 1em 0.5em 1em;
+  font-size: 1.5em;
+  border-radius: 0.5em;
+  -moz-border-radius: 0.5em;
+  -webkit-border-radius: 0.5em;
+}
+
+#map_space {
+  width: 100%;
+  min-width: 770px;
+  position: relative;
+  vertical-align: top;
+}
+#map_space, #map {
+  height: 700px; /* inheritance doesn't work for google maps */
+}
+#map_pane, #pane_handle, #info_table {
+  height: 100%;
+}
+#map, #map_pane, #pane_handle { position: absolute; }
+
+#info_table {
+  clear: both;
+	font-size: small;
+	position: relative;
+	overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.clickable { cursor: pointer; }
+
+#toolbar { text-align: center; background: #eee;}
+#toolbar img { cursor: pointer; }
+
+#pane_handle { background-color: #ddd; cursor: pointer; }
+#pane_handle:hover { background-color: #aaa; }
+
+#pop_button {
+  float: right;
+  text-align: right;
+  z-index: 100;
+  color: #697676;
+}
+#pop_button:hover { background-color: #eee; }
+
+.maxstations input[type=text] { width: 3em; }
+
+/* Timeslider */
+#timerange table { width: 100%; }
+#timerange td.slider { padding: 0 1em 0 1em; }
+#timerange td.year { width: 4em; }
+#timerange input[type=text] {
+  float: left;
+	text-align: center;
+	color: #000;
+  width: 4em;
+}
+
+/* Hide html templates */
+.templates { display: none; }
+.knownissues { margin-top: 2em; font-size: small; }
+.knownissues strong { font-weight: bold; }

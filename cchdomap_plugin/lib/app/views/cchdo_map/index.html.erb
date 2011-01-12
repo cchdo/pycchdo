@@ -1,0 +1,108 @@
+<% content_for :fullwidth do -%> class="fullwidth"<% end -%>
+<% content_for :head do -%>
+  <%= stylesheet_link_tag 'cchdomap/cchdomap', 'cchdomap/overcast/jquery-ui-1.7.2.custom' -%>
+<% end -%>
+<% content_for :js do -%>
+  <script type="text/javascript" src="http://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRQ2hKz1kmatI6zzSpvs0TxD-5XTXhTXFn-gJCQZ6u8VhrflBawLzigdOQ"></script><%# cchdo:3000 %>
+  <script type="text/javascript">
+    //google.load('maps', '3', {other_params: 'sensor=false'});
+    google.load('maps', '2');
+    google.load('earth', '1');
+    google.load('visualization', '1', {'packages': ['table']});
+    google.load('jquery', '1.4.4');
+  </script>
+  <script type="text/javascript" src="http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js"></script>
+  <%= javascript_include_tag 'jquery.form', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js',
+        'cchdomap/cchdo.map', 'cchdomap/cchdo.map.graticule' -%>
+  <% if params[:autoload] -%>
+    <script type="text/javascript">
+      <% if params[:expocodes] -%>
+        CM._autoload_cruises = "<%= params[:expocodes] -%>";
+      <% else -%>
+        CM._autosubmit = true;
+      <% end -%>
+    </script>
+  <% end -%>
+<% end -%>
+
+<noscript>
+  <p>
+    <strong>
+      JavaScript must be enabled in order for you to use the interactive map.
+    </strong>
+    JavaScript is either disabled or not supported by your browser. 
+    Please enable JavaScript by changing your browser options and try again.
+  </p>
+</noscript>
+
+<div id="map_space">
+  <div id="map"></div>
+  <div id="map_pane">
+    <div id="pane_handle"><img id='handle_img' /></div>
+    <div id="pane_content" style="display: none;">
+      <div id="pop_button">Pop out connected window
+        <img src="/images/cchdomap/popout.png" alt="Popout" title="Popout" />
+      </div>
+      <div id="info_table"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toolbar">
+  <img class="toggle draw" src="/images/cchdomap/draw_off.png" title="Draw" />
+  <img class="toggle search" src="/images/cchdomap/search_off.png" title="Search" />
+  <img class="toggle settings" src="/images/cchdomap/settings_off.png" title="Settings" />
+  <img class="toggle layers" src="/images/cchdomap/layers_off.png" title="Layers" />
+  <img class="toggle gearth" src="/images/cchdomap/gearth.gif" title="Google Earth" />
+</div>
+
+<div class="templates">
+  <div id="settings">
+    <label for="gridon">Grid</label>
+    <input type="checkbox" id="gridon" checked="true" />
+    <label for="atmosphereon">Atmosphere</label>
+    <input type="checkbox" id="atmosphereon" checked="true" />
+    <p class="maxstations">
+      <%= text_field_tag 'max_coords', @DEFAULT[:max_coords] -%>
+      stations shown / cruise
+    </p>
+  </div>
+
+  <div id="timerange">
+    <table>
+      <tr>
+        <td class="year"><%= text_field_tag :min_time, @DEFAULT[:min_time] -%></td>
+        <td class="slider"><div id="timeslider"></div></td>
+        <td class="year"><%= text_field_tag :max_time, @DEFAULT[:max_time] -%></td>
+      </tr>
+    </table>
+  </div>
+
+  <div id="layers">
+    <form>
+      <h1>Import layers for comparison</h1>
+      <input id="kml" name="kml" type="file" />
+      <br />
+      <input name="commit" type="submit" value="Import" />
+      <input id="filetype_kml" name="filetype" type="radio" value="KML" checked="checked" />
+      <label for="filetype">KML/KMZ</label>
+      <input id="filetype_nav" name="filetype" type="radio" value="NAV" /><label for="filetype">NAV</label>
+      <label for="navcolor">color</label>
+      <input id="navcolor" name="navcolor" size="7" type="text" value="" />
+    </form>
+    <div id="imported_files"></div>
+  </div>
+
+  <div id='gearth'>
+    <p>
+      This map can be viewed as a globe with the
+      <a href="http://earth.google.com/plugin">Google Earth plugin</a>
+      if you are running Windows or Mac OS by switching the map type to Earth.
+    </p>
+    <p class="knownissues">
+      <strong>Known issue: </strong>If the map type control disappears when 
+      switched to the Earth plugin you have an old version of the Google Earth
+      plugin and should upgrade immediately.
+    </p>
+  </div>
+</div>

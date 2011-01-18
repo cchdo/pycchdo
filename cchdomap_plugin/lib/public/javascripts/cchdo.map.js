@@ -6,9 +6,9 @@
 //                 bubbling, google earth)
 // google.visualization [table]
 
+function defaultTo(x, d) { return x ? x : d; };
 var GM = google.maps;
 var listenTo = GM.Event.addListener;
-function defaultTo(x, d) { return x ? x : d; };
 
 var CCHDO = defaultTo(CCHDO, {});
 var CM = CCHDO.MAP = {
@@ -46,10 +46,10 @@ CM.TIPS = {
     '"Search."'].join('')
 };
 
-CM.host = function () {
+CM.host = (function () {
   var loc = window.location;
   return [loc.protocol, '//', loc.host].join('');
-};
+})();
 
 CM.GE = function (func) {
   CM.map.getEarthInstance(function (ge) {
@@ -1201,7 +1201,7 @@ CM.initTimeSlider = function () {
   });
 };
 
-CM.gridOn = function () { $('#gridon').is(':checked'); };
+CM.gridOn = function () { return $('#gridon').is(':checked'); };
 
 CM.setGrid = function(on) {
   CM.GE(function (ge) {
@@ -1250,7 +1250,6 @@ CM.initDialogs = function () {
       }
     })
     .addClass('clickable');
-
   }
 
   // Search dialog
@@ -1388,9 +1387,9 @@ CM.load = function () {
   CM.initDialogs();
 
   // Set the grid to the checkbox setting and bind it to the grid checkbox
-  $('#gridon').click(function () { CM.setGrid(CM.gridOn()); });
+  $('#gridon').change(function () { CM.setGrid(CM.gridOn()); });
 
-  $('#atmosphereon').click(function () {
+  $('#atmosphereon').change(function () {
     var checked = $(this).is(':checked');
     CM.GE(function (ge) {
       ge.getOptions().setAtmosphereVisibility(checked);
@@ -1406,10 +1405,6 @@ CM.load = function () {
         CM.tracks_handler(response);
       }
     });
-  }
-
-  if (CM._autosubmit) {
-    CM.submit(); // I don't think this exists anymore TODO
   }
 };
 google.setOnLoadCallback(CM.load);

@@ -6,10 +6,10 @@
   <script type="text/javascript" src="http://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRQ2hKz1kmatI6zzSpvs0TxD-5XTXhTXFn-gJCQZ6u8VhrflBawLzigdOQ"></script><%# cchdo:3000 %>
   <script type="text/javascript">
     //google.load('maps', '3', {other_params: 'sensor=false'});
-    google.load('maps', '2');
-    google.load('earth', '1');
-    google.load('visualization', '1', {'packages': ['table']});
     google.load('jquery', '1.4.4');
+    google.load('maps', '2');
+    google.load('visualization', '1', {'packages': ['table']});
+    google.load('earth', '1');
   </script>
   <script type="text/javascript" src="http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js"></script>
   <%= javascript_include_tag 'jquery.form', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js',
@@ -56,7 +56,7 @@
   <img class="toggle gearth" src="/images/cchdomap/gearth.gif" title="Google Earth" />
 </div>
 
-<div class="templates">
+<div class="templates" style="display: none;">
   <div id="settings">
     <label for="gridon">Grid</label>
     <input type="checkbox" id="gridon" checked="true" />
@@ -79,8 +79,8 @@
   </div>
 
   <div id="layers">
+    <p>Import layers for comparison</p>
     <form>
-      <h1>Import layers for comparison</h1>
       <input id="kml" name="kml" type="file" />
       <br />
       <input name="commit" type="submit" value="Import" />

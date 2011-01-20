@@ -2,8 +2,8 @@
 // Free for any use
 function Graticule(map, sexagesimal) {
   this.sex_ = sexagesimal || false; // default is decimal intervals
-  this.divs_ = []; // array for line and label divs
-  this.showing_ = true;
+  this._divs = new google.maps.MVCArray(); // array for line and label divs
+  this._showing = true;
 
   this.setMap(map);
 }
@@ -17,7 +17,7 @@ Graticule.prototype.latLngToPixel = function(lat, lng) {
 };
 Graticule.prototype.addDiv = function(div) {
   this.mapPane().insertBefore(div, null);
-  this.divs_.push(div);
+  this._divs.push(div);
 };
 Graticule.prototype.decToSex = function(d) {
   var degs = Math.floor(d); 
@@ -27,6 +27,7 @@ Graticule.prototype.decToSex = function(d) {
 };
 Graticule.prototype.makeLabel = function(x, y, text) {
   var d = document.createElement("DIV");
+  d.className = 'graticule-label';
   var s = d.style;
   s.position = "absolute";
   s.left = x.toString() + "px";
@@ -38,13 +39,13 @@ Graticule.prototype.makeLabel = function(x, y, text) {
   return d;
 };
 Graticule.prototype.remove = function () {
-  try {
-    var pane = this.mapPane();
-    for (var i = 0; i < this.divs_.length; i += 1) {
-      pane.removeChild(this.divs_[i]);
+  var pane = this.mapPane();
+  this._divs.forEach(function (x) {
+    try {
+      pane.removeChild(x);
+    } catch(e) {
     }
-  } catch(e) {
-  }
+  });
 };
 Graticule.prototype.onAdd = function () {
   var self = this;
@@ -61,17 +62,17 @@ Graticule.prototype.onRemove = function() {
   }
 };
 Graticule.prototype.show = function () {
-  this.showing_ = true;
+  this._showing = true;
   this.draw();
 };
 Graticule.prototype.hide = function() {
-  this.showing_ = false;
+  this._showing = false;
   this.draw();
 };
 
 Graticule.prototype._bestTextColor = function () {
   var type = this.getMap().getMapTypeId();
-  const GMM = google.maps.MapTypeId;
+  var GMM = google.maps.MapTypeId;
   if (type == GMM.HYBRID) {
     return '#fff';
   } else if (type == GMM.ROADMAP) {
@@ -87,7 +88,7 @@ Graticule.prototype._bestTextColor = function () {
 // Redraw the graticule based on the current projection and zoom level
 Graticule.prototype.draw = function() {
   this.remove(); //clear old
-  if (!this.showing_) {
+  if (!this._showing) {
     return;
   }
   //this.color_ = this.getMap().getCurrentMapType().getTextColor(); //best color for writing on the map
@@ -132,7 +133,7 @@ Graticule.prototype.draw = function() {
   var latDecs = this.gridPrecision(dLat);
   var lonDecs = this.gridPrecision(dLng);
   
-  this.divs_ = new Array();
+  this._divs = new google.maps.MVCArray();
 
   //min and max x and y pixel values for graticule lines
   var pbl = this.latLngToPixel(b,l);

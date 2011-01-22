@@ -12,8 +12,9 @@ function EMapOverlay(map) {
   });
 
   /* Set up graticules if defined */
-  if (Graticule) {
-  	this.set('overlay_graticules', new Graticule());
+  if (window.Graticule) {
+  	this.set('overlay_graticules', new Graticule(map));
+  	this.get('overlay_graticules').hide();
   }
 
   /* Hijack MVCObject's set command to notify when any MVCObject sets its "map" property. */
@@ -116,10 +117,14 @@ EMapOverlay.prototype._initEarth = function (ge) {
   google.maps.event.addListener(this, 'graticules_changed', function () {
     if (self.get('graticules')) {
       ge.getOptions().setGridVisibility(true);
-      self.get('overlay_graticules').setMap(self.getMap());
+      if (self.get('overlay_graticules')) {
+        self.get('overlay_graticules').show();
+      }
     } else {
       ge.getOptions().setGridVisibility(false);
-      self.get('overlay_graticules').setMap(null);
+      if (self.get('overlay_graticules')) {
+        self.get('overlay_graticules').hide();
+      }
     }
   });
 
@@ -196,11 +201,15 @@ EMapOverlay.prototype.onAdd = function () {
   earthDiv.style.height = "100%";
   this.get('map').getDiv().childNodes[0].appendChild(earthDiv);
   this.set('container_earth', earthDiv);
-  google.earth.createInstance(earthDiv, function (ge) {
-  	self._initEarth(ge);
-  }, function (errorCode) {
-    console.log('Unable to initialize Google Earth plugin:', errorCode);
-  });
+  if (google.earth) {
+    google.earth.createInstance(earthDiv, function (ge) {
+      self._initEarth(ge);
+    }, function (errorCode) {
+      console.log('Unable to initialize Google Earth plugin:', errorCode);
+    });
+  } else {
+    console.log('Why did you include this library?');
+  }
 };
 EMapOverlay.prototype.onRemove = function () {
   this.get('map').getDiv().childNodes[0].removeChild(this.get('container_earth'));

@@ -1,0 +1,28 @@
+#!/usr/bin/env python2.6
+from __future__ import with_statement
+import os; activate_this=os.path.join(os.path.dirname(__file__), 'activate_this.py'); execfile(activate_this, dict(__file__=activate_this)); del os, activate_this
+
+import sys
+
+import libcchdo as L
+import libcchdo.model.datafile
+import libcchdo.model.convert.datafile_to_datafilecollection as df2dfc
+import libcchdo.formats.bottle.exchange as botex
+import libcchdo.formats.bottle.zip.netcdf as botzipnc
+
+
+def main(argv):
+    if len(argv) < 2:
+        print 'Usage: %s <bottle exchange zip>' % argv[0]
+        return 1
+    
+    incoming = L.model.datafile.DataFile()
+    with open(argv[1], 'r') as in_file:
+        botex.read(incoming, in_file)
+
+    botzipnc.write(df2dfc.split_bottle(incoming), sys.stdout)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

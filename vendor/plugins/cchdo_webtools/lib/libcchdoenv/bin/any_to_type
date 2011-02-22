@@ -1,0 +1,69 @@
+#!/usr/bin/env python2.6
+from __future__ import with_statement
+import os; activate_this=os.path.join(os.path.dirname(__file__), 'activate_this.py'); execfile(activate_this, dict(__file__=activate_this)); del os, activate_this
+
+
+import getopt
+import sys
+
+import libcchdo as L
+import libcchdo.fns
+
+
+def main(argv):
+    opts, args = getopt.getopt(argv[1:], 't:i:jh',
+                               ['type=', 'input-type=', 'json', 'help'])
+    usage = ("Usage: %s <any recognized CCHDO file>\n"
+             "\t-t|--type\tValid output types:\n"
+             "\t\t\t * str (default)\n"
+             "\t\t\t * dict\n"
+             "\t\t\t * google_wire\n"
+             "\t\t\t * nav\n"
+             "\t-i|--input-type\tforce the input file to be read as the "
+                 "specified type\n"
+             "\t-j|--json\tonly applies to output type google_wire. Forces "
+                 "the google_wire output to be valid JSON.\n"
+             "\t-h|--help\tprint out help and exit"
+            ) % argv[0]
+
+    if len(args) != 1:
+        print >> sys.stderr, "Please specify one input file."
+        print >> sys.stderr, usage
+        return 1
+
+    flag_json = False
+    input_file_type = None
+    output_file_type = 'str'
+
+    for o, a in opts:
+        if o in ('-t', '--type'):
+            output_file_type = a
+        elif o in ('-i', '--input-type'):
+            input_file_type = a
+        elif o in ('-j', '--json'):
+            flag_json = True
+        elif o in ('-h', '--help'):
+            print >> sys.stderr, usage
+            return 1
+        else:
+            assert False, "unhandled option"
+    
+    with open(args[0], 'r') as in_file:
+        file = L.fns.read_arbitrary(in_file, input_file_type)
+
+        if output_file_type == 'nav':
+            from libcchdo.formats.common import nav
+            nav.write(file, sys.stdout)
+        elif output_file_type == 'google_wire':
+            from libcchdo.formats import google_wire
+            google_wire.write(file, sys.stdout, json=flag_json)
+        elif output_file_type == 'dict':
+            print file.to_dict()
+        else:
+            print file
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

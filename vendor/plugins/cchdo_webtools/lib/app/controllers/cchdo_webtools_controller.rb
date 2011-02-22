@@ -23,7 +23,7 @@ class CchdoWebtoolsController < ApplicationController
       return
     end
 
-    command = "#{LIBCCHDOBIN}/any_to_google_wire.py --json --type botex #{tmpfilepath}"
+    command = "#{LIBCCHDOBIN}/any_to_type --input-type botex --type google_wire --json #{tmpfilepath}"
 
     errors = ''
     wire = ''
@@ -49,7 +49,7 @@ class CchdoWebtoolsController < ApplicationController
     end
 
     if wire.empty?
-      render_json_error("Failed to parse: #{errors}")
+      render_json_error("Failed to parse: #{errors.gsub('"', '\"').gsub(/\n/, '\n')}")
     else
       error_list = errors.split(/$/).map {|x| "\"#{x.strip().gsub(/[^\w\s[:punct:]]/, '?')}\""}
       error_list = error_list.select {|x| x =~ /(ERROR|WARNING|INFO):/}
@@ -67,33 +67,33 @@ class CchdoWebtoolsController < ApplicationController
   def ctd_netcdf_to_ctd_oceansites_netcdf
     timeseries = params[:timeseries]
     timeseries = "" unless ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
-    __convert('ctd_netcdf_to_ctd_oceansites_netcdf.py',
+    __convert('ctd_netcdf_to_ctd_oceansites_netcdf',
               timeseries, 'OS_.nc')
   end
 
   def ctdzip_netcdf_to_ctdzip_oceansites_netcdf
     timeseries = params[:timeseries]
     timeseries = "" unless ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
-    __convert('ctdzip_netcdf_to_ctdzip_oceansites_netcdf.py',
+    __convert('ctdzip_netcdf_to_ctdzip_oceansites_netcdf',
               timeseries, 'OS_.zip')
   end
 
   def ctd_exchange_to_ctdzip_oceansites_netcdf
     timeseries = params[:timeseries]
     timeseries = "" unless ALLOWED_OCEANSITES_TIMESERIES.include?(timeseries)
-    __convert('ctd_exchange_to_ctd_oceansites_netcdf.py',
+    __convert('ctd_exchange_to_ctd_oceansites_netcdf',
               timeseries, 'OS_.nc')
   end
 
   def bottle_exchange_to_kml
-    __convert('bottle_exchange_to_kml.py', '', 'converted.kml')
+    __convert('bottle_exchange_to_kml', '', 'converted.kml')
   end
 
  private
  
   ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
 
-  LIBCCHDOBIN = '/Users/myshen/Documents/libcchdo/bin'
+  LIBCCHDOBIN = File.join(File.dirname(__FILE__), '..', '..', 'libcchdoenv', 'bin')
 
   def render_json(json, status=:ok)
     if request.xhr?

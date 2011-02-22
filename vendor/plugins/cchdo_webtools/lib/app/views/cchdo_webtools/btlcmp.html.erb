@@ -6,7 +6,6 @@
     .btlcmp #parameters .note { font-size: small; text-align: left; }
     .btlcmp #plots { vertical-align: top; padding: 0; }
     .btlcmp #statusbar { background: #fcc; }
-    .btlcmp .params { height: 13.9em; }
     .btlcmp #fileinfo,
     .btlcmp #columns,
     .btlcmp #parameters,
@@ -24,7 +23,12 @@
     .btlcmp #dataplot { width: 100%; }
     .btlcmp .merge_status { padding: 0.1em; }
     .btlcmp .google-visualization-table-th { white-space: nowrap; }
-    .btlcmp #file_errors h1 { color: #f33; font-size: 1.1em; font-weight: bold; pointer: cursor; }
+    .btlcmp #file_errors { background: #ddd; }
+    .btlcmp #file_errors h1,
+    .btlcmp #file_errors table { display: none; width: inherit; }
+    .btlcmp #file_errors th { text-align: left; }
+    .btlcmp #file_errors td { width: 50%; vertical-align: top; padding: 0.5em; }
+    .btlcmp #file_errors h1 { color: #f33; font-size: 1.1em; padding: 0.5em; font-weight: bold; cursor: pointer; }
   </style>
 <% end -%>
 <div class="boxed btlcmp">
@@ -73,8 +77,9 @@
 </div>
 <div id="statusbar"></div>
 <div id="file_errors">
-  <h1></h1>
+  <h1>Warnings</h1>
   <table>
+    <tr><th>Left file</th><th>Right file</th></tr>
     <tr><td></td><td></td></tr>
   </table>
 </div>
@@ -160,6 +165,7 @@ var data_table_opts = {
 
 var ldt = null, rdt = null, dtd = null;
 var lid_cache = null, rid_cache = null;
+var lmerge = null, rmerge = null;
 
 /* ID */
 function ID(c, sta, samp, btln) {
@@ -175,15 +181,18 @@ function ID(c, sta, samp, btln) {
     this.btln = c[3];
   }
 }
+ID.prototype.valueExists = function (v) {
+  return v && v != "None";
+};
 ID.prototype.equal = function (o) {
   if (this && o && this.cast == o.cast && this.sta == o.sta) {
-    if (this.samp && o.samp && this.samp == o.samp) {
-      if (this.btln && o.btln) {
+    if (this.valueExists(this.samp) && this.valueExists(o.samp) && this.samp == o.samp) {
+      if (this.valueExists(this.btln) && this.valueExists(o.btln)) {
         return this.btln == o.btln;
       }
       return true;
     }
-    if (this.btln && o.btln && this.btln == o.btln) {
+    if (this.valueExists(this.btln) && this.valueExists(o.btln) && this.btln == o.btln) {
       return true;
     }
   }
@@ -379,13 +388,9 @@ function absdiff() {
 function anydiff(p) {
   var lcol = get_col(ldt, p),
       rcol = get_col(rdt, p);
-  var id_cis = findColumnIndices(dtd, ID_COLNAMES);
   for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
-    var id = new ID(getColumnsValues(dtd, i, id_cis));
-    var lid = getIdIndex(lid_cache, id);
-    var rid = getIdIndex(rid_cache, id);
-    var lval = lcol[lid];
-    var rval = rcol[rid];
+    var lval = lcol[lmerge[i]];
+    var rval = rcol[rmerge[i]];
     if (lval != rval) {
       return true;
     }
@@ -393,16 +398,41 @@ function anydiff(p) {
   return false;
 }
 
-function merge(column, label, data) {
-  /* Insert all the data points, matching on ids */
-  var unmatched_orig_ids = 0,
-      matched_ids = 0,
-      unmatched_merge_ids = 0;
-  var id_cache = (column === LCOL) ? lid_cache : rid_cache;
+function mergeIDs() {
+  var lunmatched_ids = 0,
+      lmatched_ids = 0;
+  var runmatched_ids = 0,
+      rmatched_ids = 0;
+  lmerge = [];
+  rmerge = [];
   var id_cis = findColumnIndices(dtd, ID_COLNAMES);
   for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
     var id = new ID(getColumnsValues(dtd, i, id_cis));
-    var j = getIdIndex(id_cache, id);
+    var j = getIdIndex(lid_cache, id);
+    lmerge.push(j);
+    if (j > -1) {
+      lmatched_ids++;
+    } else {
+      lunmatched_ids++;
+    }
+    j = getIdIndex(rid_cache, id);
+    rmerge.push(j);
+    if (j > -1) {
+      rmatched_ids++;
+    } else {
+      runmatched_ids++;
+    }
+  }
+  return [lmatched_ids, lunmatched_ids,
+          rmatched_ids, runmatched_ids];
+};
+
+function merge(column, label, data) {
+  /* Insert all the data points, matching on ids */
+  var merge = (column === LCOL) ? lmerge : rmerge;
+  var id_cis = findColumnIndices(dtd, ID_COLNAMES);
+  for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
+    var j = merge[i];
     if (j > -1) {
       var val = data[j];
       if (val == 'None') {
@@ -413,29 +443,34 @@ function merge(column, label, data) {
         }
       }
       dtd.setCell(i, column, val);
-      matched_ids++;
     } else {
       if (dtd.getColumnType(column) == 'number') {
         dtd.setCell(i, column, -Infinity);
       } else {
         dtd.setCell(i, column, null);
       }
-      unmatched_orig_ids++;
     }
   }
-  unmatched_merge_ids = Math.max(rdt.getNumberOfRows() -
-                                 ldt.getNumberOfRows(), 0);
-  var merge_status = [
-    "<tr><td>original: </td><td>", ldt.getNumberOfRows(), " ids (",
-    unmatched_orig_ids, " unmatched)</td></tr>",
-    "<tr><td>merge: </td><td>", rdt.getNumberOfRows(), " ids (",
-    unmatched_merge_ids, " unmatched)</td></tr>", 
-    "<tr><td>matched: </td><td>", matched_ids, ' ids</td></tr>'
-  ].join('');
-  $('#fileinfo .merge .merge_status').html(merge_status);
 };
 function redraw_data_table() {
   data_table.draw(dtd, data_table_opts);
+
+  google.visualization.events.addListener(data_table, 'ready', function () {
+    var table = $('table.google-visualization-table-table:eq(0)');
+    var div = table.parent();
+    var page = 0;
+    div.scroll(function () {
+      if ($(this).scrollTop() >= table.height() - $(this).height()) {
+        page++;
+        google.visualization.events.trigger(data_table, 'page', {page: page});
+        console.log('page', page);
+      } else if ($(this).scrollTop() == 0) {
+        page--;
+        google.visualization.events.trigger(data_table, 'page', {page: page});
+        console.log('page', page);
+      }
+    });
+  });
 };
 function draw_plot() {
   if (dtd.getNumberOfRows() <= 0) {
@@ -514,8 +549,6 @@ function copyscroll(obj, objs) {
     $.each(objs, function (i) {
       $(this).val(obj.val()).change();
     });
-    // Sync scrolling
-    obj.scroll();
     $('#parameters').trigger('redraw');
   });
 };
@@ -549,19 +582,6 @@ var _ = function () {
   var self = this;
   $('#parameters,#plots,#datatable').hide();
 
-  function redraw() {
-    var self = $(this);
-    self.data('bg', self.css('background')).css('background', '#ffa');
-    // Let bg color change
-    setTimeout(function () {
-      draw_plot();
-      absdiff();
-      redraw_data_table();
-      newStatus();
-      self.css('background', self.data('bg'));
-    }, 0);
-  }
-
   $('#lparams').change(function () {
     var p = $(this).val();
     if (p) {
@@ -578,7 +598,20 @@ var _ = function () {
   copyscroll($('#lparams'), [$('#rparams')]);
   copyscroll($('#rparams'), [$('#lparams')]);
 
-  $('#parameters').bind('redraw', redraw);
+  $('#parameters').bind('redraw', function () {
+    var self = $(this);
+    // Sync scrolling
+    self.find('select:eq(0)').scroll();
+    self.data('bg', self.css('background')).css('background', '#ffa');
+    // Let bg color change
+    setTimeout(function () {
+      draw_plot();
+      absdiff();
+      redraw_data_table();
+      newStatus();
+      self.css('background', self.data('bg'));
+    }, 0);
+  });
 
   data_table = new GV.Table($('#datatable')[0]);
   dataplot = new GV.ScatterChart($('#dataplot')[0]);
@@ -604,12 +637,17 @@ _p.update_files = function () {
   lid_cache = lf.data('id_cache');
   rdt = rf.data('data');
   rid_cache = rf.data('id_cache');
-  console.log(ldt, lid_cache, lf.data('changed'), rdt, rid_cache, rf.data('changed'));
   if (!ldt || !rdt) {
     return;
   }
+  console.log(ldt, lid_cache, lf.data('changed'), rdt, rid_cache, rf.data('changed'));
 
   $('#parameters,#plots,#datatable').show();
+
+  /* Clear previous state */
+  $('#fileinfo .merge p').empty();
+  dtd.setColumnLabel(LCOL, '?');
+  dtd.setColumnLabel(RCOL, '?');
 
   /* Create parameter selection UI */
   var lp = new Array(ldt.getNumberOfColumns()),
@@ -625,67 +663,9 @@ _p.update_files = function () {
   var lop = lp.difference(rp), rop = rp.difference(lp);
   var common = totalparams.difference(lop).difference(rop);
 
-  /* Talk about the data */
-  $('#fileinfo .left').html([
-    '<h2>', 'Left file', '</h2>', 
-    '<ul>', 
-    '<li>', lp.length, ' parameters</li>', 
-    '<li>', ldt.getNumberOfRows(), ' data rows</li>', 
-    '</ul>'].join(''));
-  $('#fileinfo .right').html([
-    '<h2>', 'Right file', '</h2>', 
-    '<ul>',
-    '<li>', rp.length, ' parameters</li>', 
-    '<li>', rdt.getNumberOfRows(), ' data rows</li>', 
-    '</ul>'].join(''));
-
-  function parametersDisplay(isLeft) {
-    var selector = null;
-    function addOption(i, p) {
-      selector.append($(['<option value="', p, '">', p, '</option>'].join('')));
-    }
-    if (isLeft) {
-      selector = $('#lparams').empty();
-      $.each(lop, addOption);
-      $.each(common, addOption);
-      for (var i = 0; i < totalparams.length - lp.length; i += 1) {
-        addOption(0, '');
-      }
-    } else {
-      selector = $('#rparams').empty();
-      for (var i = 0; i < totalparams.length - rp.length; i += 1) {
-        addOption(0, '');
-      }
-      $.each(common, addOption);
-      $.each(rop, addOption);
-    }
-    selector.attr('size', totalparams.length).val(null);
-    return selector;
-  }
-  if (lf.data('changed')) {
-    parametersDisplay(true);
-  }
-  if (rf.data('changed')) {
-    parametersDisplay(false);
-  }
-
   /* Collect id information */
   var lids = getIds(ldt), rids = getIds(rdt);
   var uniqids = lids.concat(rids).unique();
-
-  /* Talk more about the data */
-  var numnewids = rids.length - uniqids.length;
-  var mergeidstr = 'No id difference';
-  if (numnewids != 0) {
-    mergeidstr = ['merge file has ', Math.abs(numnewids),
-      (numnewids >= 0 ? ' new ids' : ' fewer ids')].join('');
-  }
-  $('#fileinfo .diff').html([
-    '<h2>Diff</h2>',
-    '<ul>',
-    '<li>', common.length, ' common parameters</li>', 
-    '<li>', mergeidstr, '</li>',
-    '</ul>'].join(''));
 
   /* Put ids in dtd */
   dtd.removeRows(0, dtd.getNumberOfRows());
@@ -701,8 +681,74 @@ _p.update_files = function () {
     rids.difference(uniqids).each(addId);
   }
 
-  /* color parameters based on absdiff */
-  for (var k = 0 ; k <= common.length; k += 1) {
+  /* Perform ID merge */
+  var merge_info = mergeIDs();
+  var lmatched_ids = merge_info[0],
+      lunmatched_ids = merge_info[1],
+      rmatched_ids = merge_info[2],
+      runmatched_ids = merge_info[3];
+
+  /* Talk about the data */
+  $('#fileinfo .left').html([
+    '<h2>', 'Left file', '</h2>', 
+    '<ul>', 
+    '<li>', lp.length, ' parameters</li>', 
+    '<li>', ldt.getNumberOfRows(), ' data rows</li>', 
+    '<li>', lids.length, ' ids (', lunmatched_ids, ' unmatched)',
+    '</ul>'].join(''));
+  $('#fileinfo .right').html([
+    '<h2>', 'Right file', '</h2>', 
+    '<ul>',
+    '<li>', rp.length, ' parameters</li>', 
+    '<li>', rdt.getNumberOfRows(), ' data rows</li>', 
+    '<li>', rids.length, ' ids (', runmatched_ids, ' unmatched)',
+    '</ul>'].join(''));
+
+  function parametersDisplay(isLeft) {
+    var selector = null;
+    function addOption(i, p) {
+      selector.append($(['<option value="', p, '">', p, '</option>'].join('')));
+    }
+    if (isLeft) {
+      selector = $('#lparams').empty().val(null);
+      $.each(lop, addOption);
+      $.each(common, addOption);
+      for (var i = 0; i < totalparams.length - lp.length; i += 1) {
+        addOption(0, '');
+      }
+    } else {
+      selector = $('#rparams').empty().val(null);
+      for (var i = 0; i < totalparams.length - rp.length; i += 1) {
+        addOption(0, '');
+      }
+      $.each(common, addOption);
+      $.each(rop, addOption);
+    }
+    selector.attr('size', Math.min(10, totalparams.length)).val(null);
+    return selector;
+  }
+  if (lf.data('changed')) {
+    parametersDisplay(true);
+  }
+  if (rf.data('changed')) {
+    parametersDisplay(false);
+  }
+
+  var numnewids = rids.length - uniqids.length;
+  var mergeidstr = 'No id difference';
+  if (numnewids != 0) {
+    mergeidstr = ['right file has ', Math.abs(numnewids),
+      (numnewids >= 0 ? ' new ids' : ' fewer ids')].join('');
+  }
+  $('#fileinfo .diff').html([
+    '<h2>Diff</h2>',
+    '<ul>',
+    '<li>', common.length, ' common parameters</li>', 
+    '<li>', mergeidstr, '</li>',
+    '</ul>'].join(''));
+
+  /* Color parameters based on absdiff */
+  for (var k = 0; k < common.length; k += 1) {
     var param = common[k];
     var selector = $(['#parameters [value=', param, ']'].join(''));
     if (anydiff(param)) {
@@ -713,23 +759,30 @@ _p.update_files = function () {
   }
   
   redraw_data_table();
+  draw_plot();
+  $('.params').scrollTop(0);
 };
 return new _();
 })();
 
 $(function () {
-  $('#file_errors').children().hide();
-  $('#file_errors h1').html('File parse warnings').click(function () {
+  $('#file_errors h1').click(function () {
     var t = $('#file_errors table');
     if (t.hasClass('open')) {
-      t.hide('fast');
+      t.hide();
     } else {
-      t.show('fast');
+      t.show();
     }
     t.toggleClass('open');
   });
   $('#files input:file').each(function () {
     var file = $(this);
+    var errors = null;
+    if (file.attr('id') == 'lfile_prompt') {
+      errors = $($('#file_errors td')[0]);
+    } else {
+      errors = $($('#file_errors td')[1]);
+    }
     file.parent().ajaxForm({
       url: '/convert/any_to_google_wire',
       type: 'POST',
@@ -741,10 +794,13 @@ $(function () {
         file.data('xhr', xhr);
       },
       success: function (data) {
+        errors.empty();
         if (data.error) {
-          console.log(data.error);
           file.css('background', '#fcc');
           file.data('data', null);
+          console.log(data.error);
+          errors.append(['<p>', data.error, '</p>'].join(''));
+          $('#file_errors h1').show('fast');
         } else {
           var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(data.data);
           file.data('data', dtc[0]);
@@ -752,24 +808,25 @@ $(function () {
           file.data('changed', true);
           file.css('background', '#cfc');
 
-          var errors = null;
-          if (file.attr('id') == 'lfile_prompt') {
-            errors = $($('#file_errors td')[0]);
-          } else {
-            errors = $($('#file_errors td')[1]);
-          }
-          errors.empty();
-          for (var i = 0; i < data.errors.length; i += 1) {
-            errors.append(['<p>', data.errors[i], '</p>'].join(''));
-          }
-          if (data.errors.length > 0) {
-            $('#file_errors h1').show('fast');
-          }
+          /* Breathe so everything redraws */
+          setTimeout(function () {
+            for (var i = 0; i < data.errors.length; i += 1) {
+              errors.append(['<p>', data.errors[i], '</p>'].join(''));
+            }
+            if (data.errors.length > 0) {
+              $('#file_errors h1').show('fast');
+            } else {
+              errors.append('<p>No warnings.</p>');
+            }
+          }, 0);
         }
         CCHDO.btlcmp.update_files();
       },
-      error: function () {
-        console.log('Could not get data', arguments);
+      error: function (xhr) {
+        errors.empty();
+        errors.append('<p>Corrupt response from server.</p>');
+        $('#file_errors h1').show('fast');
+        console.log('Could not get data:', xhr.responseText);
         file.css('background', '#fcc');
       },
       iframe: true
@@ -787,25 +844,43 @@ $(function () {
     });
   });
 });
-function test() {
-  $.get([window.location.protocol, '//', window.location.host, '/',
-         'btlcmp_test_data_0.json'].join(''), 
-    function (data) {
-      var data2 = $.extend(true, {}, data);
-      var x = true, r = 1, c = 12;
-      data2.rows[r].c[c].v = 10;
-      $('#files :file').each(function () {
-        var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(x ? data : data2);
-        x = !x;
-        $(this).data('data', dtc[0]);
-        $(this).data('id_cache', dtc[1]);
-        $(this).data('changed', true);
-      });
-      CCHDO.btlcmp.update_files();
+var test = (function () {
+  var origin = [window.location.protocol, '//', window.location.host].join('');
+  var ldata = null, rdata = null;
 
-      $('#lparams').val('CTDPRS').change().click();
+  $(document).ajaxSuccess(function () {
+    if (!(ldata && rdata)) { return; }
+    var x = true;
+    $('#files :file').each(function () {
+      var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(x ? ldata : rdata);
+      x = !x;
+      $(this).data('data', dtc[0]);
+      $(this).data('id_cache', dtc[1]);
+      $(this).data('changed', true);
     });
-}
-//**/test();
+    CCHDO.btlcmp.update_files();
+
+    $('#lparams').val('CTDPRS').change().click();
+  });
+  return function (left, right) {
+    if (!left) {
+      left = 'btlcmp_test_data_0l.json';
+    }
+    if (!right) {
+      right = 'btlcmp_test_data_0r.json';
+    }
+
+    $.get([origin, '/', left].join(''), 
+      function (data) {
+        ldata = data;
+      }, 'json');
+    $.get([origin, '/', right].join(''), 
+      function (data) {
+        rdata = data;
+      }, 'json');
+  }
+})();
+//test();
+//test('btlcmp_test_data_1l.json', 'btlcmp_test_data_1r.json');
 </script>
 <% end -%>

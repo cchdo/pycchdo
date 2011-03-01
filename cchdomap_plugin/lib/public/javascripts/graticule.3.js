@@ -152,6 +152,7 @@ var Graticule = (function () {
     s.color = 'inherit';
     s.width = '3em';
     s.fontSize = '0.6em';
+    s.whiteSpace = 'nowrap';
     d.innerHTML = text;
     return d;
   };
@@ -174,10 +175,19 @@ var Graticule = (function () {
   var span = 50000;
   function meridian(px) {
     return createLine(px, -span, 1, 2 * span);
-  };
+  }
   function parallel(py) {
     return createLine(-span, py, 2 * span, 1);
-  };
+  }
+  function eqE(a, b, e) {
+    if (!e) {
+      e = Math.pow(10, -6);
+    }
+    if (Math.abs(a - b) < e) {
+      return true;
+    }
+    return false;
+  }
 
   // Redraw the graticule based on the current projection and zoom level
   _.prototype.draw = function () {
@@ -229,7 +239,7 @@ var Graticule = (function () {
       var px = latLngToPixel(this, b, lo).x;
       this.addDiv(meridian(px));
 
-      var atcross = (lo == crosslng);
+      var atcross = eqE(lo, crosslng);
       this.addDiv(makeLabel(
         px + (atcross ? 17 : 3), y - (atcross ? 3 : 0),
         (this.sex_ ? this.decToSex(lo) : lo.toFixed(gridPrecision(dLng)))));
@@ -245,7 +255,7 @@ var Graticule = (function () {
       this.addDiv(parallel(py));
 
       this.addDiv(makeLabel(
-        x, py + ((b == crosslat) ? 7 : 2),
+        x, py + (eqE(b, crosslat) ? 7 : 2),
         (this.sex_ ? this.decToSex(b) : b.toFixed(gridPrecision(dLat)))));
     }
   };

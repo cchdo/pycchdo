@@ -10,9 +10,7 @@ var Graticule = (function () {
 
     this.show();
 
-    if (map) {
-      this.setMap(map);
-    }
+    this.setMap(map);
   }
   _.prototype = new google.maps.OverlayView();
   _.prototype.addDiv = function(div) {

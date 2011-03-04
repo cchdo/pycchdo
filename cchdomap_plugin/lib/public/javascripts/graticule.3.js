@@ -221,6 +221,7 @@ var Graticule = (function () {
     b = Math.floor(b / dLat) * dLat;
     t = Math.ceil(t / dLat) * dLat;
     r = Math.ceil(r / dLng) * dLng;
+    if (r == l) l += dLng;
     if (r < l) r += 360.0;
 
     // lngs

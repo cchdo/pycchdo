@@ -25,6 +25,11 @@
 //
 // EarthMapType will add itself to the Map's registered MapTypeIds as "Earth".
 //
+// WARNING: Don't try to bind two EarthMapTypes to one map. There's currently
+// only one linker per map.
+//
+// TODO Hide functions inside closures that don't need to be accessible by others.
+//
 var EarthMapType = (function () {
   function origin() {
     var uriparts = [window.location.protocol, '//', window.location.host];
@@ -60,6 +65,8 @@ var EarthMapType = (function () {
     return wrapped;
   }
 
+  // TODO This iframe shim does not expand when the map menu changes. It needs
+  // to expand because the menus usually have drop downs.
   function makeIframeShim() {
     var shim = document.createElement('IFRAME');
     shim.src = 'javascript:false';
@@ -82,8 +89,6 @@ var EarthMapType = (function () {
   // The Linker is based off of how google.maps.Map,
   // google.maps.StreetViewPanorama, and google.maps.Marker collaborate to
   // allow markers to be duplicated in both Map and StreetView.
-  //
-  // Linker is a singleton.
   var Linker = (function () {
     function Linker() {
       this.map = {};
@@ -92,7 +97,7 @@ var EarthMapType = (function () {
       this.id_name = ['__', this.name, '_id'].join('');
     }
     Linker.prototype.getId = function (obj) {
-      if (obj[this.id_name] === null) {
+      if (obj[this.id_name] === null || obj[this.id_name] == undefined) {
         obj[this.id_name] = this.next_id;
         this.next_id += 1;
       }
@@ -133,13 +138,14 @@ var EarthMapType = (function () {
       }
     };
 
-    return new Linker();
+    return Linker;
   })();
 
   // Maps google.maps.Map overlays into their corresponding representations in
   // google.earth
   function MapToEarth(earth) {
     var self = this;
+    this.bindTo('linker', earth);
     this.bindTo('earth_plugin', earth);
     this.rTzRatio = 0.6;
 
@@ -148,8 +154,9 @@ var EarthMapType = (function () {
 
     // Extend map_change events to change linker to reflect the same state.
     function linkMapChanges() {
-      this._map && this._map[Linker.name].remove(this);
-      (this._map = this.get('map')) && this._map[Linker.name].add(this);
+      this._map && this._map[self.get('linker').name].remove(this);
+      (this._map = this.get('map')) &&
+         this._map[self.get('linker').name].add(this);
     }
     google.maps.MarkerImage = wrapFn(
       google.maps.MarkerImage,
@@ -177,14 +184,14 @@ var EarthMapType = (function () {
     function remove(x) {
       self.remove(x);
     }
-    Linker.forEach(insert);
-    google.maps.event.addListener(Linker, 'insert', insert);
-    google.maps.event.addListener(Linker, 'remove', remove);
+    this.get('linker').forEach(insert);
+    google.maps.event.addListener(this.get('linker'), 'insert', insert);
+    google.maps.event.addListener(this.get('linker'), 'remove', remove);
   }
   MapToEarth.prototype = new google.maps.MVCObject();
   MapToEarth.prototype.insert = function (x) {
     var self = this;
-    if (Linker.likelyNotUserMarker(x)) {
+    if (this.get('linker').likelyNotUserMarker(x)) {
       return;
     }
 
@@ -194,7 +201,8 @@ var EarthMapType = (function () {
       }
       var ge = self.get('earth_plugin');
       ge.getFeatures().appendChild(placemark);
-      self.map_earth[Linker.getId(mapobj)] = [placemark, listeners];
+      self.map_earth[self.get('linker').getId(mapobj)] =
+        [placemark, listeners];
       self.earth_map[placemark] = mapobj;
     }
 
@@ -216,7 +224,7 @@ var EarthMapType = (function () {
   };
   MapToEarth.prototype.remove = function (x) {
     var ge = this.get('earth_plugin');
-    var k = Linker.getId(x);
+    var k = this.get('linker').getId(x);
     var earthobj = this.map_earth[k];
     var placemark = earthobj[0];
     var listeners = earthobj[1];
@@ -601,10 +609,12 @@ var EarthMapType = (function () {
     var map = this.getMap();
     this._map = map;
 
+    this.set('linker', new Linker());
+
     map.mapTypes.set(this.name, this);
 
-    map[Linker.name] = Linker;
-    this[Linker.name] = Linker;
+    map[this.get('linker').name] = this.get('linker');
+    this[this.get('linker').name] = this.get('linker');
 
     this.set('maptypeid_listener',
              google.maps.event.addListener(map, 'maptypeid_changed',

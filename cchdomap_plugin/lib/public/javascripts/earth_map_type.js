@@ -1,13 +1,30 @@
 // EarthMapType masquerades as a base MapType but it is actually an overlay.
-// This is necessary because it hacks the DOM structure of the map to insert
-// its own plugin container to take up the whole space allowed for the map.
+// It uses Overlay information to create a plugin container that matches the 
+// DOM size for the map.
 //
-// EarthMapType is a singleton.
+// This class extends OverlayView.
+//
+// Constructor
+// =========
+//
+// EarthMapType(map?:google.maps.Map) | A Google Earth plugin instance that is
+//                                      linked to the given map.
+//
+// Events
+// ======
+//
+// initialized | None | This event is fired when the earth container and plugin
+//                      is loaded and linked to the given map. Wait for this if
+//                      you want to do anything with the earth
+//                      plugin/graticules.
 //
 // Usage
 // =====
 //
-// new EarthMapType(map);
+//    var Earth = new EarthMapType(map);
+//
+// EarthMapType will add itself to the Map's registered MapTypeIds as "Earth".
+//
 var EarthMapType = (function () {
   function origin() {
     var uriparts = [window.location.protocol, '//', window.location.host];
@@ -27,8 +44,8 @@ var EarthMapType = (function () {
     return [curleft, curtop];
   }
 
-  function extendFn(fn, extensionfn, opts) {
-    function extended() {
+  function wrapFn(fn, extensionfn, opts) {
+    function wrapped() {
       if (opts && opts.extendBefore) {
         extensionfn.apply(this, arguments);
       }
@@ -38,9 +55,9 @@ var EarthMapType = (function () {
       }
     };
     if (opts && opts.prototype) {
-      extended.prototype = new fn();
+      wrapped.prototype = new fn();
     }
-    return extended;
+    return wrapped;
   }
 
   function makeIframeShim() {
@@ -75,13 +92,15 @@ var EarthMapType = (function () {
       this.id_name = ['__', this.name, '_id'].join('');
     }
     Linker.prototype.getId = function (obj) {
-      if (!obj[this.id_name]) {
+      if (obj[this.id_name] === null) {
         obj[this.id_name] = this.next_id;
         this.next_id += 1;
       }
       return obj[this.id_name];
     };
-    // XXX HACK Guess that marker is an API marker.
+    // XXX HACK Hypothesize that marker is an API marker.
+    // Perhaps there is a way to find out when the Map is initializing and
+    // ignore setMaps during that time?
     Linker.prototype.likelyNotUserMarker = function (obj) {
       // This seems to be an API marker for street view or cursor
       return obj instanceof google.maps.Marker && !obj.get('clickable') &&
@@ -132,19 +151,25 @@ var EarthMapType = (function () {
       this._map && this._map[Linker.name].remove(this);
       (this._map = this.get('map')) && this._map[Linker.name].add(this);
     }
-    google.maps.MarkerImage = extendFn(
+    google.maps.MarkerImage = wrapFn(
       google.maps.MarkerImage,
       function (url, size, origin, anchor, scaledSize) {
         this.url = url;
         this.origin = origin;
       }, {prototype: true});
-    google.maps.Marker.prototype.map_changed = extendFn(
+    google.maps.Marker.prototype.map_changed = wrapFn(
       google.maps.Marker.prototype.map_changed, linkMapChanges);
-    google.maps.Polyline.prototype.map_changed = extendFn(
+    google.maps.Polyline.prototype.map_changed = wrapFn(
       google.maps.Polyline.prototype.map_changed, linkMapChanges);
-    google.maps.Polygon.prototype.map_changed = extendFn(
+    google.maps.Polygon.prototype.map_changed = wrapFn(
       google.maps.Polygon.prototype.map_changed, linkMapChanges);
-    // TODO Circle, Rectangle, etc Overlays
+    google.maps.Circle.prototype.map_changed = wrapFn(
+      google.maps.Circle.prototype.map_changed, linkMapChanges);
+    google.maps.Rectangle.prototype.map_changed = wrapFn(
+      google.maps.Rectangle.prototype.map_changed, linkMapChanges);
+    google.maps.KmlLayer.prototype.map_changed = wrapFn(
+      google.maps.KmlLayer.prototype.map_changed, linkMapChanges);
+    // TODO other Overlays
 
     function insert(x) {
       self.insert(x);
@@ -172,12 +197,19 @@ var EarthMapType = (function () {
       self.map_earth[Linker.getId(mapobj)] = [placemark, listeners];
       self.earth_map[placemark] = mapobj;
     }
+
     if (x instanceof google.maps.Marker) {
       this.createMarker(x, doInsert);
     } else if (x instanceof google.maps.Polyline) {
       this.createPolyline(x, doInsert);
     } else if (x instanceof google.maps.Polygon) {
       this.createPolygon(x, doInsert);
+    } else if (x instanceof google.maps.KmlLayer) {
+      this.createKmlLayer(x, doInsert);
+    } else if (x instanceof google.maps.Circle) {
+      this.createCircle(x, doInsert);
+    } else if (x instanceof google.maps.Rectangle) {
+      this.createRectangle(x, doInsert);
     } else {
       console.log('unrecognized', x);
     }
@@ -216,13 +248,26 @@ var EarthMapType = (function () {
     var r = hex.slice(0, 2);
     var g = hex.slice(2, 4);
     var b = hex.slice(4, 6);
-    var a = (parseInt('ff', 16) * alpha).toString(16);
+    var a = Math.floor(parseInt('ff', 16) * alpha).toString(16);
     if (a.length < 2) {
       a = '0' + a;
     }
     return ['#', a, b, g, r].join('');
   };
-  // TODO change these creators to all use MVC.
+  // http://code.google.com/apis/earth/documentation/geometries.html#circles
+  MapToEarth.prototype.makeCircleLinearRingfunction = function (ge, centerLat, centerLng, radius) {
+    var ring = ge.createLinearRing('');
+    var steps = 25;
+    var pi2 = Math.PI * 2;
+    for (var i = 0; i < steps; i++) {
+      var lat = centerLat + radius * Math.cos(i / steps * pi2);
+      var lng = centerLng + radius * Math.sin(i / steps * pi2);
+      ring.getCoordinates().pushLatLngAlt(lat, lng, 0);
+    }
+    return ring;
+  }
+  // TODO This is a BIG TODO. Change these creators to all use KVO so they stay
+  // up to date.
   MapToEarth.prototype.createMarker = function (marker, doInsert) {
     var ge = this.get('earth_plugin');
 
@@ -383,6 +428,61 @@ var EarthMapType = (function () {
 
     doInsert(polygon, placemark, listeners);
   };
+  MapToEarth.prototype.createKmlLayer = function (kmllayer, doInsert) {
+    var ge = this.get('earth_plugin');
+    if (!kmllayer.kmlobj) {
+      google.earth.fetchKml(ge, kmllayer.url, function (kmlobj) {
+        if (kmlobj) {
+          kmllayer.kmlobj = kmlobj;
+          doInsert(kmllayer, kmllayer.kmlobj);
+        }
+      });
+    } else {
+      doInsert(kmllayer, kmllayer.kmlobj);
+    }
+  };
+  MapToEarth.prototype.createCircle = function (circle, doInsert) {
+    var ge = this.get('earth_plugin');
+    var center = circle.getCenter();
+
+    var polyc = ge.createPlacemark('');
+    polyc.setGeometry(ge.createPolygon(''));
+    polyc.getGeometry().setOuterBoundary(this.makeCircleLinearRing(
+      ge, center.lat(), center.lng(), circle.getRadius() / Math.pow(10, 5)));
+    var style = ge.createStyle('');
+    style.getLineStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
+      circle.get('strokeColor') || '000000', circle.get('strokeOpacity') || 1));
+    style.getLineStyle().setWidth(circle.get('strokeWeight') || 2);
+    style.getPolyStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
+      circle.get('strokeColor') || '000000', circle.get('strokeOpacity') || 0.5));
+    polyc.setStyleSelector(style);
+    doInsert(circle, polyc);
+  };
+  MapToEarth.prototype.createRectangle = function (rect, doInsert) {
+    var ge = this.get('earth_plugin');
+
+    var bounds = rect.getBounds();
+    var sw = bounds.getSouthWest();
+    var ne = bounds.getNorthEast();
+
+    var polyr = ge.createPlacemark('');
+    polyr.setGeometry(ge.createPolygon(''));
+    var rectRing = ge.createLinearRing('');
+    rectRing.getCoordinates().pushLatLngAlt(sw.lat(), sw.lng(), 0);
+    rectRing.getCoordinates().pushLatLngAlt(ne.lat(), sw.lng(), 0);
+    rectRing.getCoordinates().pushLatLngAlt(ne.lat(), ne.lng(), 0);
+    rectRing.getCoordinates().pushLatLngAlt(sw.lat(), ne.lng(), 0);
+    rectRing.getCoordinates().pushLatLngAlt(sw.lat(), sw.lng(), 0);
+    polyr.getGeometry().setOuterBoundary(rectRing);
+    var style = ge.createStyle('');
+    style.getLineStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
+      rect.get('strokeColor') || '000000', rect.get('strokeOpacity') || 1));
+    style.getLineStyle().setWidth(rect.get('strokeWeight') || 2);
+    style.getPolyStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
+      rect.get('strokeColor') || '000000', rect.get('strokeOpacity') || 0.5));
+    polyr.setStyleSelector(style);
+    doInsert(rect, polyr);
+  };
 
   function EarthMapType(map) {
     this.setMap(map);
@@ -410,7 +510,8 @@ var EarthMapType = (function () {
         return setTimeout(arguments.callee, retryDelay);
       }
       if (retry <= 0) {
-        console.log('ERROR: No earth plugin object was found in a reasonable time frame.');
+        console.log(['ERROR: No earth plugin object was found in a ',
+                     'reasonable time frame.'].join(''));
         return;
       }
       fn(earth);
@@ -421,16 +522,16 @@ var EarthMapType = (function () {
     this.set('earth_plugin', ge);
     this.mapper = new MapToEarth(this);
     ge.getWindow().setVisibility(true);
-    //ge.getOptions().setOverviewMapVisibility(true);
-    //ge.getOptions().setStatusBarVisibility(true);
     this.get('container_earth').childNodes[0].style.zIndex = 1001;
     this.get('container_earth').style.visibility = 'hidden';
+    
+    // Attempt to prevent plugin from locking up focus.
     google.earth.addEventListener(ge.getWindow(), 'mouseout', function () {
       // TODO Mac OS X blur doesn't work
       ge.getWindow().blur();
     });
 
-    /* Unify certain options for map and earth */
+    // Unify certain options for map and earth
     google.maps.event.addListener(this, 'atmosphere_changed', function () {
       if (self.get('atmosphere')) {
         ge.getOptions().setAtmosphereVisibility(true);
@@ -452,7 +553,7 @@ var EarthMapType = (function () {
       }
     });
 
-    /* Duplicate earth mouse events on map */
+    // Duplicate earth mouse events on map
     var win = ge.getWindow();
     var mousedown = false;
     function kmlme_to_me(kme) {
@@ -516,7 +617,7 @@ var EarthMapType = (function () {
       }
     }));
 
-    /* Set up graticules if defined */
+    // Set up graticules if defined
     if (window.Graticule) {
       this.set('overlay_graticules', new Graticule(map));
       this.get('overlay_graticules').hide();
@@ -571,10 +672,10 @@ var EarthMapType = (function () {
     setIframeShim(shim, shimmed);
     shimmed.style.zIndex = shim.style.zIndex + 1;
 
-    /* Save and translate map state */
+    // Save and translate map state
     var map_state = {};
 
-    /* Prevent scrolling on map so plugin gets scrolling events */
+    // Prevent scrolling on map so plugin gets scrolling events
     map_state.scrollwheel = map.get('scrollwheel');
     map.set('scrollwheel', false);
 
@@ -585,6 +686,8 @@ var EarthMapType = (function () {
       maps_earth_zoom_control_style[google.maps.ZoomControlStyle.SMALL] = 
         ge.NAVIGATION_CONTROL_SMALL;
       ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
+      ge.getNavigationControl().setStreetViewEnabled(
+        map.get('streetViewControl') || map.get('streetViewControl') == null);
       var screenxy = ge.getNavigationControl().getScreenXY();
       screenxy.setXUnits(ge.UNITS_PIXELS);
       ge.getNavigationControl().setControlType(

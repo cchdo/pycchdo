@@ -38,15 +38,11 @@ var EarthMapType = (function () {
   }
 
   function position(obj) {
-    var curleft = 0,
-        curtop = 0;
-    if (obj.offsetParent) {
-      do {
-        curleft += obj.offsetLeft;
-        curtop += obj.offsetTop;
-      } while (obj = obj.offsetParent);
+    if (!obj) {
+      return [0, 0];
     }
-    return [curleft, curtop];
+    var ppos = position(obj.offsetParent);
+    return [obj.offsetLeft + ppos[0], obj.offsetTop + ppos[1]];
   }
 
   function wrapFn(fn, extensionfn, opts) {
@@ -65,8 +61,6 @@ var EarthMapType = (function () {
     return wrapped;
   }
 
-  // TODO This iframe shim does not expand when the map menu changes. It needs
-  // to expand because the menus usually have drop downs.
   function makeIframeShim() {
     var shim = document.createElement('IFRAME');
     shim.src = 'javascript:false';
@@ -75,13 +69,15 @@ var EarthMapType = (function () {
     return shim;
   }
 
+  var magicShimOffset = -7;
+
   function setIframeShim(shim, shimmed) {
     var pos = position(shimmed);
     shim.style.visibility = 'visible';
     shim.style.width = shimmed.offsetWidth + 'px';
     shim.style.height = shimmed.offsetHeight + 'px';
-    shim.style.left = pos[0] + 'px';
-    shim.style.top = pos[1] + 'px';
+    shim.style.left = pos[0] + magicShimOffset + 'px';
+    shim.style.top = pos[1] + magicShimOffset + 'px';
     shimmed.parentNode.appendChild(shim);
     shimmed.style.zIndex = shim.style.zIndex + 1;
   }
@@ -188,6 +184,13 @@ var EarthMapType = (function () {
     google.maps.event.addListener(this.get('linker'), 'insert', insert);
     google.maps.event.addListener(this.get('linker'), 'remove', remove);
   }
+
+  function addMVCFollower(listeners, obj, eventName, callback) {
+    listeners.push(google.maps.event.addListener(
+                     obj, eventName, callback));
+    callback();
+  }
+
   MapToEarth.prototype = new google.maps.MVCObject();
   MapToEarth.prototype.insert = function (x) {
     var self = this;
@@ -263,7 +266,7 @@ var EarthMapType = (function () {
     return ['#', a, b, g, r].join('');
   };
   // http://code.google.com/apis/earth/documentation/geometries.html#circles
-  MapToEarth.prototype.makeCircleLinearRingfunction = function (ge, centerLat, centerLng, radius) {
+  MapToEarth.prototype.makeCircleLinearRing = function (ge, centerLat, centerLng, radius) {
     var ring = ge.createLinearRing('');
     var steps = 25;
     var pi2 = Math.PI * 2;
@@ -274,76 +277,95 @@ var EarthMapType = (function () {
     }
     return ring;
   }
-  // TODO This is a BIG TODO. Change these creators to all use KVO so they stay
-  // up to date.
+  // TODO This is a BIG TODO. These creators are not complete.
   MapToEarth.prototype.createMarker = function (marker, doInsert) {
     var ge = this.get('earth_plugin');
-
-    var listeners = [];
+    var listeners = new google.maps.MVCArray();
 
     var placemark = ge.createPlacemark('');
     var point = ge.createPoint('');
 
-    function positionChanged() {
+    addMVCFollower(listeners, marker, 'position_changed', function () {
       var latlng = marker.getPosition();
-      point.setLatLng(latlng.lat(), latlng.lng());
-      placemark.setGeometry(point);
-    }
-    google.maps.event.addListener(marker, 'position_changed', positionChanged);
-    if (marker.getPosition()) {
-      positionChanged();
-    }
-
-    if (marker.getIcon()) {
-      var url = marker.getIcon().url;
-      var absurl = url;
-      if (absurl[0] == '/') {
-        absurl = origin() + absurl;
+      if (latlng) {
+        point.setLatLng(latlng.lat(), latlng.lng());
+        placemark.setGeometry(point);
       }
-      var mapImg = new Image();
-      mapImg.src = absurl;
-      mapImg.onload = function () {
-        var mapHeight = mapImg.height;
-        var icoWidth = marker.getIcon().size.width,
-            icoHeight = marker.getIcon().size.height;
-        // TODO plugin seems to ignores gx so there's currently no way to do
-        // sprites.
-        var iconStyle = ge.parseKml([
-          '<Style>',
-            '<IconStyle>',
-              '<Icon>',
-                //'<gx:x>', marker.getIcon().origin.x, '</gx:x>',
-                //'<gx:y>', mapHeight - marker.getIcon().origin.y -
-                //          icoHeight, '</gx:y>',
-                //'<gx:w>', icoWidth, '</gx:w>',
-                //'<gx:h>', icoHeight / 3, '</gx:h>',
-              '</Icon>',
-            '</IconStyle>',
-          '</Style>'
-        ].join(''));
-        var anchor = marker.getIcon().anchor;
-        iconStyle.getIconStyle().getHotSpot().set(
-          anchor.x, ge.UNITS_PIXELS, icoHeight - anchor.y, ge.UNITS_PIXELS);
-        iconStyle.getIconStyle().getIcon().setHref(absurl);
-        iconStyle.getIconStyle().setScale(
-          Math.min(icoWidth, icoHeight) / 32.0);
-        placemark.setStyleSelector(iconStyle);
-      };
-    } else {
-      var style = ge.createStyle('');
-      var icon = ge.createIcon('');
-      icon.setHref(
-        'http://maps.google.com/mapfiles/kml/paddle/red-circle.png');
-      style.getIconStyle().getHotSpot().set(32, ge.UNITS_PIXELS,
-                                            1, ge.UNITS_PIXELS);
-      style.getIconStyle().setIcon(icon);
-      style.getIconStyle().setScale(1);
-      placemark.setStyleSelector(style);
+    });
+
+    function iconChanged() {
+      if (marker.getIcon()) {
+        var url = marker.getIcon().url;
+        var absurl = url;
+        if (absurl[0] == '/') {
+          absurl = origin() + absurl;
+        }
+        var mapImg = new Image();
+        mapImg.src = absurl;
+        mapImg.onload = function () {
+          var mapHeight = mapImg.height;
+          var icoWidth = marker.getIcon().size.width,
+              icoHeight = marker.getIcon().size.height;
+          // TODO plugin seems to ignores gx so there's currently no way to do
+          // sprites.
+          var iconStyle = ge.parseKml([
+            '<Style>',
+              '<IconStyle>',
+                '<Icon>',
+                  //'<gx:x>', marker.getIcon().origin.x, '</gx:x>',
+                  //'<gx:y>', mapHeight - marker.getIcon().origin.y -
+                  //          icoHeight, '</gx:y>',
+                  //'<gx:w>', icoWidth, '</gx:w>',
+                  //'<gx:h>', icoHeight / 3, '</gx:h>',
+                '</Icon>',
+              '</IconStyle>',
+            '</Style>'
+          ].join(''));
+          var anchor = marker.getIcon().anchor;
+          iconStyle.getIconStyle().getHotSpot().set(
+            anchor.x, ge.UNITS_PIXELS, icoHeight - anchor.y, ge.UNITS_PIXELS);
+          iconStyle.getIconStyle().getIcon().setHref(absurl);
+          iconStyle.getIconStyle().setScale(
+            Math.min(icoWidth, icoHeight) / 32.0);
+          placemark.setStyleSelector(iconStyle);
+        };
+      } else {
+        var style = ge.createStyle('');
+        var icon = ge.createIcon('');
+        icon.setHref(
+          'http://maps.google.com/mapfiles/kml/paddle/red-circle.png');
+        style.getIconStyle().getHotSpot().set(32, ge.UNITS_PIXELS,
+                                              1, ge.UNITS_PIXELS);
+        style.getIconStyle().setIcon(icon);
+        style.getIconStyle().setScale(1);
+        placemark.setStyleSelector(style);
+      }
     }
-    doInsert(marker, placemark);
+    addMVCFollower(listeners, marker, 'icon_changed', iconChanged);
+
+    addMVCFollower(listeners, marker, 'title_changed', function () {
+      var title = marker.getTitle();
+      if (title) {
+        placemark.setName(title);
+      } else {
+        placemark.setName('');
+      }
+    });
+
+    addMVCFollower(listeners, marker, 'visible_changed', function () {
+      if (marker.getVisible() === false) {
+        placemark.setVisibility(false);
+      } else {
+        placemark.setVisibility(true);
+      }
+    });
+
+    // TODO Follow other attributes of markers.
+
+    doInsert(marker, placemark, listeners);
   };
   MapToEarth.prototype.makePathListener = function (placemark, latlngs,
-                                                           coordinates) {
+                                                    coordinates) {
     var listeners = new google.maps.MVCArray();
     listeners.push(google.maps.event.addListener(latlngs,
                                                  'insert_at', function (i) {
@@ -397,25 +419,31 @@ var EarthMapType = (function () {
     return listeners;
   };
   MapToEarth.prototype.createPolyline = function (polyline, doInsert) {
+    var self = this;
     var ge = this.get('earth_plugin');
     var placemark = ge.createPlacemark('');
     var linestring = ge.createLineString('');
     var latlngs = polyline.getPath();
     var coordinates = linestring.getCoordinates();
     linestring.setTessellate(true);
+
     var listeners = this.makePathListener(placemark, latlngs, coordinates);
     placemark.setGeometry(linestring);
 
     var line_style = ge.createStyle('');
-    var pstyle = polyline.get('style');
-    line_style.getLineStyle().setWidth(pstyle.strokeWeight || 2);
-    line_style.getLineStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
     placemark.setStyleSelector(line_style);
+
+    addMVCFollower(listeners, polyline, 'style_changed', function () {
+      var pstyle = polyline.get('style');
+      line_style.getLineStyle().setWidth(pstyle.strokeWeight || 2);
+      line_style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
+    });
 
     doInsert(polyline, placemark, listeners);
   };
   MapToEarth.prototype.createPolygon = function (polygon, doInsert) {
+    var self = this;
     var ge = this.get('earth_plugin');
     var placemark = ge.createPlacemark('');
     var poly = ge.createPolygon('');
@@ -427,12 +455,15 @@ var EarthMapType = (function () {
     placemark.setGeometry(poly);
 
     var poly_style = ge.createStyle('');
-    var pstyle = polygon.get('style');
-    poly_style.getPolyStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      pstyle.fillColor || '000000', pstyle.fillOpacity || 0.5));
-    poly_style.getLineStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
     placemark.setStyleSelector(poly_style);
+
+    addMVCFollower(listeners, polygon, 'style_changed', function () {
+      var pstyle = polygon.get('style');
+      poly_style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
+      poly_style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        pstyle.fillColor || '000000', pstyle.fillOpacity || 0.5));
+    });
 
     doInsert(polygon, placemark, listeners);
   };
@@ -450,45 +481,79 @@ var EarthMapType = (function () {
     }
   };
   MapToEarth.prototype.createCircle = function (circle, doInsert) {
+    var self = this;
     var ge = this.get('earth_plugin');
-    var center = circle.getCenter();
+    var listeners = new google.maps.MVCArray();
 
     var polyc = ge.createPlacemark('');
     polyc.setGeometry(ge.createPolygon(''));
-    polyc.getGeometry().setOuterBoundary(this.makeCircleLinearRing(
-      ge, center.lat(), center.lng(), circle.getRadius() / Math.pow(10, 5)));
+
+    function centerOrRadiusChanged() {
+      var center = circle.getCenter();
+      polyc.getGeometry().setOuterBoundary(self.makeCircleLinearRing(
+        ge, center.lat(), center.lng(), circle.getRadius() / Math.pow(10, 5)));
+    }
+    addMVCFollower(listeners, circle, 'center_changed', centerOrRadiusChanged);
+    addMVCFollower(listeners, circle, 'radius_changed', centerOrRadiusChanged);
+    centerOrRadiusChanged();
+
     var style = ge.createStyle('');
-    style.getLineStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      circle.get('strokeColor') || '000000', circle.get('strokeOpacity') || 1));
-    style.getLineStyle().setWidth(circle.get('strokeWeight') || 2);
-    style.getPolyStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      circle.get('strokeColor') || '000000', circle.get('strokeOpacity') || 0.5));
     polyc.setStyleSelector(style);
+
+    function styleChanged() {
+      style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        circle.get('strokeColor') || '000000', circle.get('strokeOpacity') || 1));
+      style.getLineStyle().setWidth(circle.get('strokeWeight') || 2);
+      style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        circle.get('fillColor') || '000000', circle.get('fillOpacity') || 0.5));
+    };
+    addMVCFollower(listeners, circle, 'fillcolor_changed', styleChanged);
+    addMVCFollower(listeners, circle, 'fillopacity_changed', styleChanged);
+    addMVCFollower(listeners, circle, 'strokecolor_changed', styleChanged);
+    addMVCFollower(listeners, circle, 'strokeopacity_changed', styleChanged);
+    addMVCFollower(listeners, circle, 'strokeweight_changed', styleChanged);
+
     doInsert(circle, polyc);
   };
   MapToEarth.prototype.createRectangle = function (rect, doInsert) {
+    var self = this;
     var ge = this.get('earth_plugin');
-
-    var bounds = rect.getBounds();
-    var sw = bounds.getSouthWest();
-    var ne = bounds.getNorthEast();
+    var listeners = new google.maps.MVCArray();
 
     var polyr = ge.createPlacemark('');
     polyr.setGeometry(ge.createPolygon(''));
     var rectRing = ge.createLinearRing('');
-    rectRing.getCoordinates().pushLatLngAlt(sw.lat(), sw.lng(), 0);
-    rectRing.getCoordinates().pushLatLngAlt(ne.lat(), sw.lng(), 0);
-    rectRing.getCoordinates().pushLatLngAlt(ne.lat(), ne.lng(), 0);
-    rectRing.getCoordinates().pushLatLngAlt(sw.lat(), ne.lng(), 0);
-    rectRing.getCoordinates().pushLatLngAlt(sw.lat(), sw.lng(), 0);
+    var coords = rectRing.getCoordinates();
     polyr.getGeometry().setOuterBoundary(rectRing);
+
+    addMVCFollower(listeners, rect, 'bounds_changed', function () {
+      var bounds = rect.getBounds();
+      var sw = bounds.getSouthWest();
+      var ne = bounds.getNorthEast();
+
+      coords.clear();
+      coords.pushLatLngAlt(sw.lat(), sw.lng(), 0);
+      coords.pushLatLngAlt(ne.lat(), sw.lng(), 0);
+      coords.pushLatLngAlt(ne.lat(), ne.lng(), 0);
+      coords.pushLatLngAlt(sw.lat(), ne.lng(), 0);
+      coords.pushLatLngAlt(sw.lat(), sw.lng(), 0);
+    });
+
     var style = ge.createStyle('');
-    style.getLineStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      rect.get('strokeColor') || '000000', rect.get('strokeOpacity') || 1));
-    style.getLineStyle().setWidth(rect.get('strokeWeight') || 2);
-    style.getPolyStyle().getColor().set(this.hexColorAndAlphaToEarthColor(
-      rect.get('strokeColor') || '000000', rect.get('strokeOpacity') || 0.5));
     polyr.setStyleSelector(style);
+    function styleChanged() {
+      style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        rect.get('strokeColor') || '000000', rect.get('strokeOpacity') || 1));
+      style.getLineStyle().setWidth(rect.get('strokeWeight') || 2);
+      style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
+        rect.get('fillColor') || '000000', rect.get('fillOpacity') || 0.5));
+    };
+    addMVCFollower(listeners, rect, 'fillcolor_changed', styleChanged);
+    addMVCFollower(listeners, rect, 'fillopacity_changed', styleChanged);
+    addMVCFollower(listeners, rect, 'strokecolor_changed', styleChanged);
+    addMVCFollower(listeners, rect, 'strokeopacity_changed', styleChanged);
+    addMVCFollower(listeners, rect, 'strokeweight_changed', styleChanged);
+
     doInsert(rect, polyr);
   };
 
@@ -660,6 +725,7 @@ var EarthMapType = (function () {
     google.maps.event.removeListener(this.get('maptypeid_listener'));
     this.getDiv().removeChild(this.get('container_earth'));
     this._map = null;
+    this.get('shim').parentNode.removeChild(this.get('shim'));
   };
   EarthMapType.prototype.draw = function () {
   };
@@ -678,9 +744,26 @@ var EarthMapType = (function () {
     }
 
     var shim = this.get('shim');
-    var shimmed = this.get('map').getDiv().firstChild.lastChild;
-    setIframeShim(shim, shimmed);
-    shimmed.style.zIndex = shim.style.zIndex + 1;
+    var possible = this.get('map').getDiv().firstChild.children;
+    var shimmed = null;
+    // XXX HACK attempt to find the div for the map menu.
+    for (var i = possible.length - 1; i >= 0; i -= 1) {
+      if (possible[i].className.indexOf('gmnoprint') > -1) {
+        shimmed = possible[i];
+        break;
+      }
+    }
+    if (shimmed) {
+      shimmed.onmousedown = function () {
+        setIframeShim(shim, shimmed);
+      };
+      shimmed.onmousemove = function () {
+        var menu_timeout = 1500;
+        setTimeout(shimmed.onmousedown, menu_timeout);
+      }
+      setIframeShim(shim, shimmed);
+      shimmed.style.zIndex = Number(shim.style.zIndex) + 1;
+    }
 
     // Save and translate map state
     var map_state = {};

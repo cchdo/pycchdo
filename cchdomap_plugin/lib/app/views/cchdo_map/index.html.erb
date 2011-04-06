@@ -5,15 +5,15 @@
 <% content_for :js do -%>
   <script type="text/javascript" src="http://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRQ2hKz1kmatI6zzSpvs0TxD-5XTXhTXFn-gJCQZ6u8VhrflBawLzigdOQ"></script><%# cchdo:3000 %>
   <script type="text/javascript">
-    //google.load('maps', '3', {other_params: 'sensor=false'});
     google.load('jquery', '1.4.4');
-    google.load('maps', '2');
+    //google.load('maps', '2');
+    google.load('maps', '3', {other_params: 'sensor=false'});
     google.load('visualization', '1', {'packages': ['table']});
     google.load('earth', '1');
   </script>
   <script type="text/javascript" src="http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js"></script>
   <%= javascript_include_tag 'jquery.form', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js',
-        'cchdomap/cchdo.map', 'cchdomap/cchdo.map.graticule' -%>
+        'cchdomap/cchdo.map', 'cchdomap/cchdo_map_type', 'cchdomap/earth_map_type', 'cchdomap/graticule.3' -%>
   <% if params[:autoload] -%>
     <script type="text/javascript">
       <% if params[:expocodes] -%>

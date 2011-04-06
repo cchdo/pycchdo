@@ -5,7 +5,7 @@
 // This class extends OverlayView.
 //
 // Constructor
-// =========
+// ===========
 //
 // EarthMapType(map?:google.maps.Map) | A Google Earth plugin instance that is
 //                                      linked to the given map.
@@ -30,7 +30,23 @@
 //
 // TODO Hide functions inside closures that don't need to be accessible by others.
 //
+// This work is licensed under the Creative Commons Attribution 3.0 Unported
+// License. To view a copy of this license, visit
+// http://creativecommons.org/licenses/by/3.0/ or send a letter to Creative
+// Commons, 171 Second Street, Suite 300, San Francisco, California, 94105,
+// USA.
+//
+// Matthew Shen 2011
+//
 var EarthMapType = (function () {
+  function LOG() {
+    if (console && console.log) {
+      console.log(arguments);
+    } else {
+      alert(arguments);
+    }
+  }
+
   function origin() {
     var uriparts = [window.location.protocol, '//', window.location.host];
     uriparts = uriparts.concat(arguments.length > 0 ? arguments : []);
@@ -99,14 +115,6 @@ var EarthMapType = (function () {
       }
       return obj[this.id_name];
     };
-    // XXX HACK Hypothesize that marker is an API marker.
-    // Perhaps there is a way to find out when the Map is initializing and
-    // ignore setMaps during that time?
-    Linker.prototype.likelyNotUserMarker = function (obj) {
-      // This seems to be an API marker for street view or cursor
-      return obj instanceof google.maps.Marker && !obj.get('clickable') &&
-             obj.get('draggable') && !obj.get('raiseOnDrag');
-    };
     Linker.prototype.add = function (obj) {
       var k = this.getId(obj);
       if (!this.map[k]) {
@@ -160,6 +168,8 @@ var EarthMapType = (function () {
         this.url = url;
         this.origin = origin;
       }, {prototype: true});
+    // TODO Watch out. If you set the map as a property in the constructor some
+    // of the overlay mappers don't work yet. Set the map after constructing.
     google.maps.Marker.prototype.map_changed = wrapFn(
       google.maps.Marker.prototype.map_changed, linkMapChanges);
     google.maps.Polyline.prototype.map_changed = wrapFn(
@@ -194,9 +204,6 @@ var EarthMapType = (function () {
   MapToEarth.prototype = new google.maps.MVCObject();
   MapToEarth.prototype.insert = function (x) {
     var self = this;
-    if (this.get('linker').likelyNotUserMarker(x)) {
-      return;
-    }
 
     function doInsert(mapobj, placemark, listeners) {
       if (!placemark) {
@@ -222,7 +229,7 @@ var EarthMapType = (function () {
     } else if (x instanceof google.maps.Rectangle) {
       this.createRectangle(x, doInsert);
     } else {
-      console.log('unrecognized', x);
+      LOG('unrecognized', x);
     }
   };
   MapToEarth.prototype.remove = function (x) {
@@ -583,8 +590,8 @@ var EarthMapType = (function () {
         return setTimeout(arguments.callee, retryDelay);
       }
       if (retry <= 0) {
-        console.log(['ERROR: No earth plugin object was found in a ',
-                     'reasonable time frame.'].join(''));
+        LOG(['ERROR: No earth plugin object was found in a ',
+               'reasonable time frame.'].join(''));
         return;
       }
       fn(earth);
@@ -617,6 +624,7 @@ var EarthMapType = (function () {
         ge.getOptions().setGridVisibility(true);
         if (self.get('overlay_graticules')) {
           self.get('overlay_graticules').show();
+          self.get('overlay_graticules').draw();
         }
       } else {
         ge.getOptions().setGridVisibility(false);
@@ -714,10 +722,10 @@ var EarthMapType = (function () {
       google.earth.createInstance(earthDiv, function (ge) {
         self._initEarth(ge);
       }, function (errorCode) {
-        console.log('Unable to initialize Google Earth plugin:', errorCode);
+        LOG('Unable to initialize Google Earth plugin:', errorCode);
       });
     } else {
-      console.log('Why did you include this library?');
+      LOG('Why did you include this library?');
     }
   };
   EarthMapType.prototype.onRemove = function () {
@@ -744,13 +752,25 @@ var EarthMapType = (function () {
     }
 
     var shim = this.get('shim');
+    // XXX HACK attempt to find the map panes
     var possible = this.get('map').getDiv().firstChild.children;
     var shimmed = null;
     // XXX HACK attempt to find the div for the map menu.
-    for (var i = possible.length - 1; i >= 0; i -= 1) {
-      if (possible[i].className.indexOf('gmnoprint') > -1) {
-        shimmed = possible[i];
-        break;
+    for (var i = 0; i < possible.length; i += 1) {
+      var e = possible[i];
+      if (e.className.indexOf('gmnoprint') > -1) {
+        var children = e.children;
+        var found = false;
+        for (var j = 0; j < children.length; j += 1) {
+          if (children[j].title.indexOf('Change map style') > -1) {
+            found = true;
+            break;
+          }
+        }
+        if (found) {
+          shimmed = e;
+          break;
+        }
       }
     }
     if (shimmed) {
@@ -780,11 +800,13 @@ var EarthMapType = (function () {
         ge.NAVIGATION_CONTROL_SMALL;
       ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
       ge.getNavigationControl().setStreetViewEnabled(
-        map.get('streetViewControl') || map.get('streetViewControl') == null);
+        map.get('streetViewControl') !== false);
       var screenxy = ge.getNavigationControl().getScreenXY();
       screenxy.setXUnits(ge.UNITS_PIXELS);
       ge.getNavigationControl().setControlType(
         maps_earth_zoom_control_style[google.maps.ZoomControlStyle.LARGE]);
+      // TODO figure out some way to get Maps default settings without hard
+      // coding. This doesn't work.
       if (map.get('zoomControl') == true) {
         var opts = map.get('zoomControlOptions');
         if (opts) {
@@ -794,6 +816,8 @@ var EarthMapType = (function () {
         }
       }
     }
+    map_state.zoomControl = map.get('zoomControl');
+    map.set('zoomControl', false);
 
     if (this.get('previousMapTypeId') == google.maps.MapTypeId.HYBRID ||
         this.get('previousMapTypeId') == google.maps.MapTypeId.ROADMAP ||
@@ -817,6 +841,8 @@ var EarthMapType = (function () {
     lookat.set(center.lat(), center.lng(), 0, ge.ALTITUDE_CLAMP_TO_GROUND,
                0, 0, this.mapper.zoomToRange(this.get('map').getZoom()));
     this._flyToAtSpeed(ge, lookat);
+    lookat.setTilt(30);
+    this._flyToAtSpeed(ge, lookat, 1);
   };
   EarthMapType.prototype.hide = function () {
     var ge = this.get('earth_plugin');
@@ -843,6 +869,7 @@ var EarthMapType = (function () {
     function afterTransition() {
       var map_state = self.get('map_state');
       map.set('scrollwheel', map_state.scrollwheel);
+      map.set('zoomControl', map_state.zoomControl);
       if (transition) {
         google.earth.removeEventListener(
           ge.getView(), 'viewchangeend', arguments.callee);

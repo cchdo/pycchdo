@@ -1,7 +1,16 @@
 // Graticule for google.maps v3
+//
 // Adapted from Bill Chadwick 2006 http://www.bdcc.co.uk/Gmaps/BdccGmapBits.htm
-// by Matthew Shen 2011
-// Free for any use
+// which is free for any use.
+//
+// This work is licensed under the Creative Commons Attribution 3.0 Unported
+// License. To view a copy of this license, visit
+// http://creativecommons.org/licenses/by/3.0/ or send a letter to Creative
+// Commons, 171 Second Street, Suite 300, San Francisco, California, 94105,
+// USA.
+//
+// Matthew Shen 2011
+//
 var Graticule = (function () {
   function _(map, sexagesimal) {
     // default to decimal intervals
@@ -208,53 +217,53 @@ var Graticule = (function () {
         b = sw.lat(),
         r = ne.lng(),
         t = ne.lat();
-    if (l == r) { l = -180.0; r = 180.0; }
-    if (t == b) { b = -90.0; t = 90.0; }
 
+    var span = l < r ? r - l : (180 - l + 180 + r);
+    
     // grid interval in degrees
     var mins = mins_list(this);
     var dLat = gridInterval(t - b, mins);
-    var dLng = gridInterval(r > l ? r - l : ((180 - l) + (r + 180)), mins);
+    var dLng = gridInterval(span, mins);
 
     // round iteration limits to the computed grid interval
     l = Math.floor(l / dLng) * dLng;
     b = Math.floor(b / dLat) * dLat;
     t = Math.ceil(t / dLat) * dLat;
     r = Math.ceil(r / dLng) * dLng;
-    if (r == l) l += dLng;
-    if (r < l) r += 360.0;
+
+    // labels on second row/col to avoid peripheral controls
+    var crosslat = b + 2 * dLat;
+    var crosslng = l + 2 * dLng;
 
     // lngs
-    var crosslng = l + 2 * dLng;
-    // labels on second column to avoid peripheral controls
-    var y = latLngToPixel(this, b + 2 * dLat, l).y + 2;
-
-    // lo<r to skip printing 180/-180
-    for (var lo = l; lo < r; lo += dLng) {
-      if (lo > 180.0) {
-        r -= 360.0;
-        lo -= 360.0;
+    var numLngs = span / dLng + 1;
+    var y = latLngToPixel(this, crosslat, l).y + 2;
+    for (var i = 0; i < numLngs; i += 1) {
+      var lo = l + dLng * i;
+      if (eqE(lo, -180)) {
+        continue;
       }
+      var atcross = i == 2;
       var px = latLngToPixel(this, b, lo).x;
       this.addDiv(meridian(px));
 
-      var atcross = eqE(lo, crosslng);
+      if (lo > 180) {
+        lo -= 360;
+      }
+
       this.addDiv(makeLabel(
-        px + (atcross ? 17 : 3), y - (atcross ? 3 : 0),
+        px + (atcross ? 19 : 3), y - (atcross ? 2 : 0),
         (this.sex_ ? this.decToSex(lo) : lo.toFixed(gridPrecision(dLng)))));
     }
 
     // lats
-    var crosslat = b + 2 * dLat;
-    // labels on second row to avoid controls
-    var x = latLngToPixel(this, b, l + 2 * dLng).x + 3;
-
+    var x = latLngToPixel(this, b, crosslng).x + 3;
     for(; b <= t; b += dLat){
       var py = latLngToPixel(this, b, l).y;
       this.addDiv(parallel(py));
 
       this.addDiv(makeLabel(
-        x, py + (eqE(b, crosslat) ? 7 : 2),
+        x, py + (eqE(b, crosslat) ? 9 : 1),
         (this.sex_ ? this.decToSex(b) : b.toFixed(gridPrecision(dLat)))));
     }
   };

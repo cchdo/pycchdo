@@ -441,7 +441,7 @@ var EarthMapType = (function () {
     placemark.setStyleSelector(line_style);
 
     addMVCFollower(listeners, polyline, 'style_changed', function () {
-      var pstyle = polyline.get('style');
+      var pstyle = polyline.get('style') || {};
       line_style.getLineStyle().setWidth(pstyle.strokeWeight || 2);
       line_style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
         pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
@@ -465,7 +465,7 @@ var EarthMapType = (function () {
     placemark.setStyleSelector(poly_style);
 
     addMVCFollower(listeners, polygon, 'style_changed', function () {
-      var pstyle = polygon.get('style');
+      var pstyle = polygon.get('style') || {};
       poly_style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
         pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
       poly_style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
@@ -599,39 +599,21 @@ var EarthMapType = (function () {
   };
   EarthMapType.prototype._initEarth = function (ge) {
     var self = this;
-    this.set('earth_plugin', ge);
-    this.mapper = new MapToEarth(this);
-    ge.getWindow().setVisibility(true);
     this.get('container_earth').childNodes[0].style.zIndex = 1001;
     this.get('container_earth').style.visibility = 'hidden';
+
+    if (!ge) {
+      return;
+    }
+
+    this.mapper = new MapToEarth(this);
+    this.set('earth_plugin', ge);
+    ge.getWindow().setVisibility(true);
     
     // Attempt to prevent plugin from locking up focus.
     google.earth.addEventListener(ge.getWindow(), 'mouseout', function () {
       // TODO Mac OS X blur doesn't work
       ge.getWindow().blur();
-    });
-
-    // Unify certain options for map and earth
-    google.maps.event.addListener(this, 'atmosphere_changed', function () {
-      if (self.get('atmosphere')) {
-        ge.getOptions().setAtmosphereVisibility(true);
-      } else {
-        ge.getOptions().setAtmosphereVisibility(false);
-      }
-    });
-    google.maps.event.addListener(this, 'graticules_changed', function () {
-      if (self.get('graticules')) {
-        ge.getOptions().setGridVisibility(true);
-        if (self.get('overlay_graticules')) {
-          self.get('overlay_graticules').show();
-          self.get('overlay_graticules').draw();
-        }
-      } else {
-        ge.getOptions().setGridVisibility(false);
-        if (self.get('overlay_graticules')) {
-          self.get('overlay_graticules').hide();
-        }
-      }
     });
 
     // Duplicate earth mouse events on map
@@ -706,6 +688,36 @@ var EarthMapType = (function () {
       this.get('overlay_graticules').hide();
     }
 
+    // Unify certain options for map and earth
+    google.maps.event.addListener(this, 'atmosphere_changed', function () {
+      if (!self.get('earth_plugin')) {
+        return;
+      }
+      if (self.get('atmosphere')) {
+        self.get('earth_plugin').getOptions().setAtmosphereVisibility(true);
+      } else {
+        self.get('earth_plugin').getOptions().setAtmosphereVisibility(false);
+      }
+    });
+    google.maps.event.addListener(this, 'graticules_changed', function () {
+      if (self.get('graticules')) {
+        if (self.get('earth_plugin')) {
+          self.get('earth_plugin').getOptions().setGridVisibility(true);
+        }
+        if (self.get('overlay_graticules')) {
+          self.get('overlay_graticules').show();
+          self.get('overlay_graticules').draw();
+        }
+      } else {
+        if (self.get('earth_plugin')) {
+          self.get('earth_plugin').getOptions().setGridVisibility(false);
+        }
+        if (self.get('overlay_graticules')) {
+          self.get('overlay_graticules').hide();
+        }
+      }
+    });
+
     var earthDiv = document.createElement('DIV');
     earthDiv.id = 'CONTAINER_EARTH';
     earthDiv.style.width = "100%";
@@ -723,6 +735,8 @@ var EarthMapType = (function () {
         self._initEarth(ge);
       }, function (errorCode) {
         LOG('Unable to initialize Google Earth plugin:', errorCode);
+        self._initEarth(null);
+        google.maps.event.trigger(self, 'unableToLoadPlugin');
       });
     } else {
       LOG('Why did you include this library?');
@@ -746,10 +760,6 @@ var EarthMapType = (function () {
   EarthMapType.prototype.show = function () {
     var ge = this.get('earth_plugin');
     var map = this.get('map');
-
-    if (!ge) {
-      return;
-    }
 
     var shim = this.get('shim');
     // XXX HACK attempt to find the map panes
@@ -785,51 +795,54 @@ var EarthMapType = (function () {
       shimmed.style.zIndex = Number(shim.style.zIndex) + 1;
     }
 
-    // Save and translate map state
-    var map_state = {};
+    if (ge) {
+      // Save and translate map state
+      var map_state = {};
 
-    // Prevent scrolling on map so plugin gets scrolling events
-    map_state.scrollwheel = map.get('scrollwheel');
-    map.set('scrollwheel', false);
+      // Prevent scrolling on map so plugin gets scrolling events
+      map_state.scrollwheel = map.get('scrollwheel');
+      map.set('scrollwheel', false);
 
-    if (map.get('zoomControl') != false) {
-      var maps_earth_zoom_control_style = {};
-      maps_earth_zoom_control_style[google.maps.ZoomControlStyle.LARGE] = 
-        ge.NAVIGATION_CONTROL_LARGE;
-      maps_earth_zoom_control_style[google.maps.ZoomControlStyle.SMALL] = 
-        ge.NAVIGATION_CONTROL_SMALL;
-      ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
-      ge.getNavigationControl().setStreetViewEnabled(
-        map.get('streetViewControl') !== false);
-      var screenxy = ge.getNavigationControl().getScreenXY();
-      screenxy.setXUnits(ge.UNITS_PIXELS);
-      ge.getNavigationControl().setControlType(
-        maps_earth_zoom_control_style[google.maps.ZoomControlStyle.LARGE]);
-      // TODO figure out some way to get Maps default settings without hard
-      // coding. This doesn't work.
-      if (map.get('zoomControl') == true) {
-        var opts = map.get('zoomControlOptions');
-        if (opts) {
-          ge.getNavigationControl().setControlType(
-            maps_earth_zoom_control_style[opts.style]);
-          // TODO also set position
+      if (map.get('zoomControl') != false) {
+        var maps_earth_zoom_control_style = {};
+        maps_earth_zoom_control_style[google.maps.ZoomControlStyle.LARGE] = 
+          ge.NAVIGATION_CONTROL_LARGE;
+        maps_earth_zoom_control_style[google.maps.ZoomControlStyle.SMALL] = 
+          ge.NAVIGATION_CONTROL_SMALL;
+        ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
+        ge.getNavigationControl().setStreetViewEnabled(
+          map.get('streetViewControl') !== false);
+        var screenxy = ge.getNavigationControl().getScreenXY();
+        screenxy.setXUnits(ge.UNITS_PIXELS);
+        ge.getNavigationControl().setControlType(
+          maps_earth_zoom_control_style[google.maps.ZoomControlStyle.LARGE]);
+        // TODO figure out some way to get Maps default settings without hard
+        // coding. This doesn't work.
+        if (map.get('zoomControl') == true) {
+          var opts = map.get('zoomControlOptions');
+          if (opts) {
+            ge.getNavigationControl().setControlType(
+              maps_earth_zoom_control_style[opts.style]);
+            // TODO also set position
+          }
         }
       }
-    }
-    map_state.zoomControl = map.get('zoomControl');
-    map.set('zoomControl', false);
+      map_state.zoomControl = map.get('zoomControl');
+      map.set('zoomControl', false);
 
-    if (this.get('previousMapTypeId') == google.maps.MapTypeId.HYBRID ||
-        this.get('previousMapTypeId') == google.maps.MapTypeId.ROADMAP ||
-        this.get('previousMapTypeId') == google.maps.MapTypeId.TERRAIN) {
-      ge.getLayerRoot().enableLayerById(ge.LAYER_ROADS, true);
-      ge.getLayerRoot().enableLayerById(ge.LAYER_BORDERS, true);
-    } else {
-      ge.getLayerRoot().enableLayerById(ge.LAYER_ROADS, false);
-      ge.getLayerRoot().enableLayerById(ge.LAYER_BORDERS, false);
+      if (this.get('previousMapTypeId') == google.maps.MapTypeId.HYBRID ||
+          this.get('previousMapTypeId') == google.maps.MapTypeId.ROADMAP ||
+          this.get('previousMapTypeId') == google.maps.MapTypeId.TERRAIN) {
+        ge.getLayerRoot().enableLayerById(ge.LAYER_ROADS, true);
+        ge.getLayerRoot().enableLayerById(ge.LAYER_BORDERS, true);
+      } else {
+        ge.getLayerRoot().enableLayerById(ge.LAYER_ROADS, false);
+        ge.getLayerRoot().enableLayerById(ge.LAYER_BORDERS, false);
+      }
+
+      this.jumpToCenter(ge);
     }
 
-    this.jumpToCenter(ge);
     this.get('container_earth').style.visibility = 'inherit';
 
     this.set('map_state', map_state);
@@ -846,14 +859,22 @@ var EarthMapType = (function () {
   };
   EarthMapType.prototype.hide = function () {
     var ge = this.get('earth_plugin');
-
-    if (!ge) {
-      return;
-    }
+    var self = this;
 
     if (this.get('shim')) {
       this.get('shim').style.visibility = 'hidden';
     }
+
+    function domwork() {
+      self.get('container_earth').style.visibility = 'hidden';
+      self.set('showing', false);
+    }
+
+    if (!ge) {
+      domwork();
+      return;
+    }
+
     var lookat = ge.getView().copyAsLookAt(ge.ALTITUDE_CLAMP_TO_GROUND);
     var zoom = this.mapper.rangeToZoom(lookat.getRange());
     var range = this.mapper.zoomToRange(zoom);
@@ -864,7 +885,6 @@ var EarthMapType = (function () {
       lookat.getLatitude(), lookat.getLongitude()));
 
     var transition = false;
-    var self = this;
 
     function afterTransition() {
       var map_state = self.get('map_state');
@@ -874,8 +894,7 @@ var EarthMapType = (function () {
         google.earth.removeEventListener(
           ge.getView(), 'viewchangeend', arguments.callee);
       }
-      self.get('container_earth').style.visibility = 'hidden';
-      self.set('showing', false);
+      domwork();
     }
 
     if (lookat.getHeading() != 0 || lookat.getTilt() != 0 ||

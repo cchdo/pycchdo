@@ -10,17 +10,9 @@
 
 #map_space {
   width: 100%;
-  min-width: 770px;
   position: relative;
-  vertical-align: top;
 }
-#map_space, #map {
-  height: 700px; /* inheritance doesn't work for google maps */
-}
-#map_pane, #pane_handle, #info_table {
-  height: 100%;
-}
-#map, #map_pane, #pane_handle { position: absolute; }
+#map { position: absolute; }
 
 #info_table {
   clear: both;
@@ -29,14 +21,6 @@
 	overflow-x: auto;
   overflow-y: hidden;
 }
-
-.clickable { cursor: pointer; }
-
-#toolbar { text-align: center; background: #eee;}
-#toolbar img { cursor: pointer; }
-
-#pane_handle { background-color: #ddd; cursor: pointer; }
-#pane_handle:hover { background-color: #aaa; }
 
 #pop_button {
   float: right;
@@ -59,7 +43,16 @@
   width: 4em;
 }
 
-/* Hide html templates */
-.templates { display: none; }
-.knownissues { margin-top: 2em; font-size: small; }
-.knownissues strong { font-weight: bold; }
+
+.unselectable {
+  cursor: default;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+.clickable { cursor: pointer; }
+.clickable.disabled { cursor: auto; }
+

@@ -30,17 +30,15 @@ class SearchMapsController < ApplicationController
       # Returns: JSON
       #     {cruise_id: track_id, ...}
 
-      # Hold on to IDs for mapping generation later.
       ids = []
-
-      if params[:shapes]
+      if shapes = params[:shapes]
           polygons = []
           filters = []
 
-          params[:shapes].each_pair do |i, shape|
-              special = shape[:shape]
-              coords = [shape[:v].split('_').map {|c|
-                  c.split(',').map {|x| x.to_f}}]
+          shapes.each do |shape|
+              special, vs = shape.split(':')
+              coords = [vs.split('_').map {|c| c.split(',').map {|x| x.to_f}}]
+
               if special == 'polygon'
                   polygon = Polygon.from_coordinates(coords)
                   polygons.push(polygon)
@@ -75,72 +73,77 @@ class SearchMapsController < ApplicationController
       elsif params[:ids]
           ids = params[:ids].map {|id| Cruise.find(id) }
       elsif params[:q]
-          find_cruises(params[:q])
-          ids = @cruises
+          ids = find_cruises(params[:q])[0]
       end
 
       # Build JSON response with id: track
       id_track = {}
-      max_coords = (params[:max_coords] || $DEFAULT[:max_coords]).to_i
-      ids.select {|i| i.respond_to? 'track' and i.track}.each do |c|
-        id_track[c.id] = c.id
+      ids.each do |c|
+        id_track[c.id] = nil
+        if c.respond_to?('track') and c.track
+          id_track[c.id] = c.id
+        end
       end
 
-      render :json => id_track
+      response = {
+        "id_t" => id_track,
+        "i" => _info(id_track.keys),
+        "t" => _track(id_track.keys)
+      }
+
+      render :json => response
   end
 
-  def track
-      # Params:
-      #     - ids: ids of cruises
-      #     - max_coords: a maximum number of coordinates in the track to
-      #         return. The coordinates will be thinned out but the first and
-      #         last will remain. Refer to pareDown() to see how this is done.
-      # Returns: JSON
-      #     {id: [[x, y], ...], ...}
-      if ids = params[:ids]
-          max_coords = params[:max_coords] || $DEFAULT[:max_coords].to_i()
-          tracks = ids.inject({}) do |h, k|
-              c = Cruise.find(k)
-              h[k] = pareDown(c.track, max_coords).map {|p| [p.x, p.y]}
-              h
-          end
-          render :json => tracks
-          return
-      end
+  private
 
-      render :json => nil
+  def _max_coords
+    params[:max_coords] || $DEFAULT[:max_coords].to_i()
   end
 
-  def info
-      # Params:
-      #     - ids: ids of cruises
-      # Returns: JSON
-      #     {id: {info map}, ...}
-      unless params[:ids]
-          render :json => {}
-          return
-      end
+  def _track(ids)
+    max_coords = _max_coords()
+    ids.inject({}) do |h, k|
+        c = Cruise.find(k)
+        if t = c.track
+          h[k] = pareDown(t, max_coords).map {|p| [p.x, p.y]}
+        end
+        h
+    end
+  end
 
+  def _info(ids)
       infos = {}
-      params[:ids].each do |id|
+      ids.each do |id|
           if c = Cruise.find(id)
+              # CCHDO
               infos[id] = {
-                  :name => (c.aliases && c.aliases.first &&
-                            c.aliases.first.alias) || '',
-                  :programs => c.programs.map {|p| p.name.strip}.join(', '),
-                  :ship => (c.ship && c.ship.full_name.strip) || '',
-                  :country => (c.country && c.country.name.strip) || '',
-                  :cruise_dates => c.cruise_dates || '',
-                  :contacts => c.contacts.map {|c| c.fullname}.join(', '),
-                  #:institutions => c.institutions.map {|c| c.name}.join(', '),
+                :name => c.ExpoCode || '',
+                :programs => c.Line || '',
+                :contacts => c.Chief_Scientist || '',
+                :ship => c.Ship_Name || '',
+                :cruise_dates => [c.Begin_Date, c.EndDate].join('/') || '',
               }
+
+              # SEAHUNT
+              #infos[id] = {
+              #    :name => (c.aliases && c.aliases.first &&
+              #              c.aliases.first.alias) || '',
+              #    :programs => c.programs.map {|p| p.name.strip}.join(', '),
+              #    :ship => (c.ship && c.ship.full_name.strip) || '',
+              #    :country => (c.country && c.country.name.strip) || '',
+              #    :cruise_dates => c.cruise_dates || '',
+              #    :contacts => c.contacts.map {|c| c.fullname}.join(', '),
+              #    #:institutions => c.institutions.map {|c| c.name}.join(', '),
+              #}
           end
       end
-      render :json => infos
+      infos
   end
+
+  public
 
   def layer
-      # Provides a mirror for KML files that need to be loaded from a web site.
+      # Provides a mirror for KML/NAV files that need to be loaded from a web site.
       # Returns: text
       #     path to the mirrored file
       dirname = 'map_mirror'
@@ -154,9 +157,15 @@ class SearchMapsController < ApplicationController
       end
       filename = File.join(dir, now.to_s)
       f = File.new(filename, 'w')
-      params[:kml].each_line {|line| f.write line }
+      input = params[:file]
+      input.each_line {|line| f.write line }
       f.flush.close
-      render :text => File.join(dirname, File.basename(filename))
+      json = "<textarea>" +
+        "{\"url\":\"" + 
+        File.join(dirname, File.basename(filename)) + 
+        "\"}" +
+        "</textarea>"
+      render :text => json
   end
 
   private
@@ -166,16 +175,27 @@ class SearchMapsController < ApplicationController
       # Bump the year forward because we want searches up to Jan 1 00:00 year + 1
       max_time = (max_time || $DEFAULT[:max_time]) + 1
       return Cruise.find_by_sql([[
-          "SELECT DISTINCT id,track FROM cruises WHERE ",
-          "realdate_start > '?' AND realdate_start < '?' AND ",
+          # CCHDO
+          "SELECT DISTINCT cruises.id,cruises.ExpoCode,Track as track FROM cruises JOIN track_lines ",
+          "ON cruises.ExpoCode = track_lines.ExpoCode WHERE ",
+          "EndDate > '?' AND Begin_Date < '?' AND ",
+
+          # SEAHUNT
+          #"SELECT DISTINCT id,track FROM cruises WHERE ",
+          #"realdate_start > '?' AND realdate_start < '?' AND ",
+
           # MySQL
-          # "Intersects(GeomFromText(",
-          # "\"LINESTRING#{selection.text_representation}\"),track)"
-          "Intersects(track,", "GeomFromText(\"#{selection.as_wkt}\"))"
+           "Intersects(GeomFromText(",
+           "\"LINESTRING#{selection.text_representation}\"),track)"
+          # PostgresQL
+          #"Intersects(track,", "GeomFromText(\"#{selection.as_wkt}\"))"
       ].join(''), min_time, max_time])
   end
 
   def pareDown(coords, max=50)
+      #     - max: a maximum number of coordinates in the track to
+      #         return. The coordinates will be thinned out but the first and
+      #         last will remain.
       step_size = [coords.length / [max, 1].max, 1].max
       pared = []
       (0...coords.length).step(step_size) {|index| pared << coords[index]}

@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <style>
 body { height: 256px; background: #000; padding: 0; margin: 0; }
+body { background: transparent; }
 #map { height: 100%; width: 100%; }
-#map { height: 100%; top: 20px; left: 20px; width: 80%; }
 </style>
+
+<link rel="stylesheet" href="/stylesheets/cchdomap/tipTip.css" />
 
 <div id="map"></div>
 <button id="start">Draw [n]</button>
@@ -14,65 +16,13 @@ body { height: 256px; background: #000; padding: 0; margin: 0; }
 <!-- dimes.ucsd.edu:8200 -->
 <script src="https://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRT7NFPYQoGJ7jU_HZH5c99Vip7REBTXco2ruU-sf4ym1vUKQ7DmOK-EeA"></script>
 <script>
-google.load('earth', '1');
+//google.load('earth', '1');
+google.load('jquery', '1.5.1');
+//google.load('jqueryui', '1.8.0');
 </script>
 <script src="graticule.3.js"></script>
 <script src="earth_map_type.js"></script>
 <script src="dshape.js"></script>
-
-<script>
-// new EMapControl(Map, EarthMapType)
-var EMapControl = (function () {
-  function EmapControl(map, overlay, opts) {
-    var self = this;
-
-    if (!opts) {
-      opts = {};
-    }
-
-    if (!opts.position) {
-      opts.position = google.maps.ControlPosition.RIGHT_TOP;
-    }
-
-    var controlDiv = document.createElement('DIV');
-    controlDiv.id = 'EMAPCONTROL';
-    this.set('container', controlDiv);
-    controlDiv.style.zIndex = 1002;
-    map.controls[opts.position].push(controlDiv);
-
-    var controlUI = document.createElement('DIV');
-    controlUI.selectable = 'false';
-    controlDiv.appendChild(controlUI);
-
-    var controlText = document.createElement('DIV');
-    controlText.style.background = 
-      "url('/images/cchdomap/emap_controls.png') repeat-y 0 100%";
-    controlText.style.height = '30px';
-    controlText.style.width = '40px';
-    controlText.style.cursor = 'pointer';
-    controlUI.appendChild(controlText);
-
-    google.maps.event.addListener(map, 'emap_type_changed', function () {
-    	if (map.get('emap_type') == 'map') {
-        controlText.style.backgroundPosition = '0 100%';
-      } else {
-        self.get('container').style.zIndex = 
-          overlay.get('container_earth').childNodes[0].style.zIndex + 1;
-        controlText.style.backgroundPosition = '0 0';
-      }
-    });
-    google.maps.event.addDomListener(controlUI, 'click', function () {
-      if (map.getMapTypeId() != 'Earth') {
-        overlay.show();
-      } else {
-        overlay.hide();
-      }
-    });
-  }
-  EmapControl.prototype = new google.maps.MVCObject();
-  return EmapControl;
-})();
-</script>
 <script>
 var GM = google.maps;
 
@@ -81,7 +31,7 @@ window.onresize = (function () {
 })();
 
 window.onload = function () {
-  EARTH = true;
+  EARTH = false;
   alpha = 32.870100, beta = -117.25152, gamma = 0.00003;
   biograde = new GM.LatLng(alpha, beta);
   biograde1 = new GM.LatLng(alpha - gamma, beta - gamma);

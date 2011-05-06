@@ -100,10 +100,12 @@ function midPoint(s, e) {
  *                                         radius:Number)
  * http://code.google.com/apis/earth/documentation/geometries.html#circles
  */
-function makeCirclePolygon(center, radius) {
+function makeCirclePolygon(center, radius, steps) {
+  if (!steps) {
+    steps = 25;
+  }
   var poly = new google.maps.Polygon();
   var ring = poly.getPath();
-  var steps = 25;
   var pi2 = Math.PI * 2;
   for (var i = 0; i < steps; i++) {
     var lat = center.lat() + radius * Math.cos(i / steps * pi2);
@@ -158,16 +160,9 @@ function listenSingleDoubleClick(obj, singleClick, doubleClick, timeout, dom) {
 //   draw_updated
 //   draw_canceled
 //   draw_ended
+//   shape_changed - fired after the shape has been deterined and its shape changes
 function DShape(opts) {
   var self = this;
-
-  google.maps.event.addListener(this, 'editable_changed', function () {
-    if (self.get('editable')) {
-      self.makeEditable_();
-    } else {
-      self.makeNoneditable_();
-    }
-  });
 
   var handles = {
     solids: new google.maps.MVCArray(),
@@ -185,14 +180,20 @@ function DShape(opts) {
     }
 
     overlay.bindTo('map', self);
+    overlay.bindTo('editable', self);
 
     // TODO explode presets on double click
+    // XXX HACK timer to ignore double trigger on click. Don't know where that's coming from.
+    var lastClick = null;
     google.maps.event.addListener(overlay, 'click', function () {
-      self.set('editable', !self.get('editable'));
+      var clickTime = new Date();
+      if (lastClick === null || clickTime - lastClick > 1000) {
+        self.set('editable', !self.get('editable'));
+      }
+      lastClick = clickTime;
     });
 
     function drawChanged() {
-      google.maps.event.trigger(self, 'draw_updated');
     }
 
     function makeSolid(ll) {
@@ -291,26 +292,17 @@ function DShape(opts) {
       });
     }
 
-    google.maps.event.addListener(overlay, 'shape_changed', function () {
-      if (overlay instanceof google.maps.Polyline) {
-        google.maps.event.trigger(overlay, 'path_changed');
-      } else if (overlay instanceof google.maps.Polygon) {
-        google.maps.event.trigger(overlay, 'paths_changed');
-      } else if (overlay instanceof google.maps.Circle) {
-        google.maps.event.trigger(overlay, 'center_changed');
-        google.maps.event.trigger(overlay, 'radius_changed');
-      } else if (overlay instanceof google.maps.Rectangle) {
-        google.maps.event.trigger(overlay, 'bounds_changed');
-      } else {
-        // TODO
-      }
-      google.maps.event.trigger(self, 'shape_changed');
-    });
-
-    google.maps.event.addListener(overlay, 'shape_changed', function () {
-      if (!self.get('editable')) {
+    google.maps.event.addListener(overlay, 'editable_changed', function () {
+      if (!overlay.get('editable')) {
+        function rmHandle(mkr) {
+          mkr.unbind('map');
+          mkr.setMap(null);
+        }
+        self.get('handles').solids.forEach(rmHandle);
+        self.get('handles').gases.forEach(rmHandle);
         return;
       }
+
       if (overlay instanceof google.maps.Polyline) {
         // The polyline has n solid and n - 1 gas.
         var lastLL = null;
@@ -412,9 +404,9 @@ function DShape(opts) {
             c.bindTo('map', self);
           }
         }
-        // XXX The google.maps circle distorts according to the projection but incorrectly.
+        // TODO The google.maps circle distorts according to the projection but incorrectly.
         var r = handles.solids.getAt(1);
-        var poly = makeCirclePolygon(overlay.getCenter(), overlay.getRadius() / Math.pow(10, 5));
+        var poly = self.getCirclePolygon();
         var pts = poly.getPath();
         pts.forEach(function (x, i) {
           if (i == pts.getLength() - 1) {
@@ -471,6 +463,25 @@ function DShape(opts) {
       } else {
         // TODO
       }
+    });
+
+    google.maps.event.addListener(overlay, 'shape_changed', function () {
+      if (overlay instanceof google.maps.Polyline) {
+        google.maps.event.trigger(overlay, 'path_changed');
+      } else if (overlay instanceof google.maps.Polygon) {
+        google.maps.event.trigger(overlay, 'paths_changed');
+      } else if (overlay instanceof google.maps.Circle) {
+        google.maps.event.trigger(overlay, 'center_changed');
+        google.maps.event.trigger(overlay, 'radius_changed');
+      } else if (overlay instanceof google.maps.Rectangle) {
+        google.maps.event.trigger(overlay, 'bounds_changed');
+      } else {
+        // TODO
+      }
+
+      google.maps.event.trigger(overlay, 'editable_changed');
+
+      google.maps.event.trigger(self, 'shape_changed');
     });
     overlay.set('initialized', true);
   });
@@ -673,7 +684,7 @@ DShape.prototype.drawPolygon = function (ll, firstReset, lastReset) {
   listeners.extend(listenSingleDoubleClick(self.getMap().getDiv(), newVertex, lastVertex, null, true));
   listeners.push(google.maps.event.addDomListener(document, 'keydown', keyPress));
 
-  listeners.push(google.maps.event.addListenerOnce(self, 'draw_canceled', function () {
+  listeners.push(google.maps.event.addListenerOnce(self, '_draw_canceled', function () {
     closePoly();
     var overlay = self.get('overlay');
     if (overlay) {
@@ -691,6 +702,7 @@ DShape.prototype.drawPresets = function (start, end, firstReset, lastReset) {
   function bindPreset(p) {
     p.bindTo('map', self);
     p.bindTo('strokeColor', self);
+    p.bindTo('strokeOpacity', self);
     p.bindTo('strokeWeight', self);
     p.bindTo('fillColor', self);
     p.bindTo('fillOpacity', self);
@@ -762,6 +774,7 @@ DShape.prototype.drawPresets = function (start, end, firstReset, lastReset) {
       };
     }
 
+    // Delay a little to prevent flicker
     setTimeout(function () {
       var lighters = new google.maps.MVCArray();
       lighters.push(google.maps.event.addListener(circle, 'mousemove', highlighter(circle)));
@@ -800,11 +813,10 @@ DShape.prototype.drawPresets = function (start, end, firstReset, lastReset) {
       if (circle.getRadius() == 0) {
         google.maps.event.trigger(rect, 'click');
       }
-
     }, 100);
   });
 
-  var cancelEar = google.maps.event.addListenerOnce(self, 'draw_canceled', function () {
+  var cancelEar = google.maps.event.addListenerOnce(self, '_draw_canceled', function () {
     circle.unbind('map');
     circle.setMap(null);
     rect.unbind('map');
@@ -869,26 +881,26 @@ DShape.prototype.start = function () {
     });
   });
 
-  google.maps.event.addListenerOnce(self, 'draw_canceled', function () {
-    google.maps.event.removeListener(dragStartEar);
-    resetMapAfterFirstAction();
-    resetMapAfterLastAction();
-  });
-
-  var keyEar = google.maps.event.addDomListenerOnce(document, 'keydown', function (event) {
+  var keyEar = google.maps.event.addDomListener(document, 'keydown', function (event) {
     if (event.keyCode == 27) {
+      google.maps.event.removeListener(keyEar);
+      google.maps.event.trigger(self, '_draw_canceled');
+      google.maps.event.removeListener(dragStartEar);
+      resetMapAfterFirstAction();
+      resetMapAfterLastAction();
       google.maps.event.trigger(self, 'draw_canceled');
     }
   });
+
+  google.maps.event.addListenerOnce(self, 'draw_ended', function () {
+    google.maps.event.removeListener(keyEar);
+  });
 };
-DShape.prototype.makeEditable_ = function () {
-  google.maps.event.trigger(this.get('overlay'), 'shape_changed');
-};
-DShape.prototype.makeNoneditable_ = function () {
-  function rmHandle(mkr) {
-    mkr.unbind('map');
-    mkr.setMap(null);
+DShape.prototype.getCirclePolygon = function () {
+  var overlay = this.get('overlay');
+  if (!overlay instanceof google.maps.Circle) {
+    return null;
   }
-  this.get('handles').solids.forEach(rmHandle);
-  this.get('handles').gases.forEach(rmHandle);
+  return makeCirclePolygon(overlay.getCenter(),
+                           overlay.getRadius() / Math.pow(10, 5), 8);
 };

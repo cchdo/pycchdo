@@ -272,6 +272,23 @@ var EarthMapType = (function () {
     }
     return ['#', a, b, g, r].join('');
   };
+  MapToEarth.prototype.copyEvent = function(geobj, geevent, mapobj, mapevent) {
+    if (!mapevent) {
+      mapevent = geevent;
+    }
+    google.earth.addEventListener(geobj, geevent, function () {
+      google.maps.event.trigger(mapobj, mapevent);
+    });
+  };
+  MapToEarth.prototype.copyMouseEvents = function(geobj, mapobj) {
+    this.copyEvent(geobj, 'click', mapobj);
+    this.copyEvent(geobj, 'dblclick', mapobj);
+    this.copyEvent(geobj, 'mouseover', mapobj);
+    this.copyEvent(geobj, 'mousedown', mapobj);
+    this.copyEvent(geobj, 'mouseup', mapobj);
+    this.copyEvent(geobj, 'mouseout', mapobj);
+    this.copyEvent(geobj, 'mousemove', mapobj);
+  };
   // http://code.google.com/apis/earth/documentation/geometries.html#circles
   MapToEarth.prototype.makeCircleLinearRing = function (ge, centerLat, centerLng, radius) {
     var ring = ge.createLinearRing('');
@@ -369,6 +386,8 @@ var EarthMapType = (function () {
 
     // TODO Follow other attributes of markers.
 
+    this.copyMouseEvents(placemark, marker);
+
     doInsert(marker, placemark, listeners);
   };
   MapToEarth.prototype.makePathListener = function (placemark, latlngs,
@@ -440,12 +459,20 @@ var EarthMapType = (function () {
     var line_style = ge.createStyle('');
     placemark.setStyleSelector(line_style);
 
-    addMVCFollower(listeners, polyline, 'style_changed', function () {
-      var pstyle = polyline.get('style') || {};
-      line_style.getLineStyle().setWidth(pstyle.strokeWeight || 2);
-      line_style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
-        pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
+    function changeStrokeColorOpacity() {
+      var color = polyline.get('strokeColor') || '000000';
+      var opacity = polyline.get('strokeOpacity') || 1;
+      line_style.getLineStyle().getColor().set(
+        self.hexColorAndAlphaToEarthColor(color, opacity));
+    }
+    addMVCFollower(listeners, polyline, 'strokecolor_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, polyline, 'strokeopacity_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, polyline, 'strokeweight_changed', function () {
+      var weight = polyline.get('strokeWeight') || 2;
+      line_style.getLineStyle().setWidth(weight);
     });
+
+    this.copyMouseEvents(placemark, polyline);
 
     doInsert(polyline, placemark, listeners);
   };
@@ -464,13 +491,26 @@ var EarthMapType = (function () {
     var poly_style = ge.createStyle('');
     placemark.setStyleSelector(poly_style);
 
-    addMVCFollower(listeners, polygon, 'style_changed', function () {
-      var pstyle = polygon.get('style') || {};
-      poly_style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
-        pstyle.strokeColor || '000000', pstyle.strokeOpacity || 1));
+    function changeStrokeColorOpacity() {
+      var color = polygon.get('strokeColor') || '000000';
+      var opacity = polygon.get('strokeOpacity') || 1;
+      poly_style.getLineStyle().getColor().set(
+        self.hexColorAndAlphaToEarthColor(color, opacity));
+    }
+    function changeFillStyle() {
       poly_style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
-        pstyle.fillColor || '000000', pstyle.fillOpacity || 0.5));
+        polygon.get('fillColor') || '000000', polygon.get('fillOpacity') || 0.5));
+    }
+    addMVCFollower(listeners, polygon, 'fillcolor_changed', changeFillStyle);
+    addMVCFollower(listeners, polygon, 'fillopacity_changed', changeFillStyle);
+    addMVCFollower(listeners, polygon, 'strokecolor_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, polygon, 'strokeopacity_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, polygon, 'strokeweight_changed', function () {
+      var weight = polygon.get('strokeWeight') || 2;
+      poly_style.getLineStyle().setWidth(weight);
     });
+
+    this.copyMouseEvents(placemark, polygon);
 
     doInsert(polygon, placemark, listeners);
   };
@@ -507,18 +547,24 @@ var EarthMapType = (function () {
     var style = ge.createStyle('');
     polyc.setStyleSelector(style);
 
-    function styleChanged() {
+    function changeStrokeColorOpacity() {
       style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
         circle.get('strokeColor') || '000000', circle.get('strokeOpacity') || 1));
-      style.getLineStyle().setWidth(circle.get('strokeWeight') || 2);
+    }
+    function changeFillStyle() {
       style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
         circle.get('fillColor') || '000000', circle.get('fillOpacity') || 0.5));
-    };
-    addMVCFollower(listeners, circle, 'fillcolor_changed', styleChanged);
-    addMVCFollower(listeners, circle, 'fillopacity_changed', styleChanged);
-    addMVCFollower(listeners, circle, 'strokecolor_changed', styleChanged);
-    addMVCFollower(listeners, circle, 'strokeopacity_changed', styleChanged);
-    addMVCFollower(listeners, circle, 'strokeweight_changed', styleChanged);
+    }
+    addMVCFollower(listeners, circle, 'fillcolor_changed', changeFillStyle);
+    addMVCFollower(listeners, circle, 'fillopacity_changed', changeFillStyle);
+    addMVCFollower(listeners, circle, 'strokecolor_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, circle, 'strokeopacity_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, circle, 'strokeweight_changed', function () {
+      var weight = circle.get('strokeWeight') || 2;
+      style.getLineStyle().setWidth(weight);
+    });
+
+    this.copyMouseEvents(polyc, circle);
 
     doInsert(circle, polyc);
   };
@@ -548,18 +594,27 @@ var EarthMapType = (function () {
 
     var style = ge.createStyle('');
     polyr.setStyleSelector(style);
-    function styleChanged() {
-      style.getLineStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
-        rect.get('strokeColor') || '000000', rect.get('strokeOpacity') || 1));
-      style.getLineStyle().setWidth(rect.get('strokeWeight') || 2);
+
+    function changeStrokeColorOpacity() {
+      var color = rect.get('strokeColor') || '000000';
+      var opacity = rect.get('strokeOpacity') || 1;
+      style.getLineStyle().getColor().set(
+        self.hexColorAndAlphaToEarthColor(color, opacity));
+    }
+    function changeFillStyle() {
       style.getPolyStyle().getColor().set(self.hexColorAndAlphaToEarthColor(
         rect.get('fillColor') || '000000', rect.get('fillOpacity') || 0.5));
-    };
-    addMVCFollower(listeners, rect, 'fillcolor_changed', styleChanged);
-    addMVCFollower(listeners, rect, 'fillopacity_changed', styleChanged);
-    addMVCFollower(listeners, rect, 'strokecolor_changed', styleChanged);
-    addMVCFollower(listeners, rect, 'strokeopacity_changed', styleChanged);
-    addMVCFollower(listeners, rect, 'strokeweight_changed', styleChanged);
+    }
+    addMVCFollower(listeners, rect, 'fillcolor_changed', changeFillStyle);
+    addMVCFollower(listeners, rect, 'fillopacity_changed', changeFillStyle);
+    addMVCFollower(listeners, rect, 'strokecolor_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, rect, 'strokeopacity_changed', changeStrokeColorOpacity);
+    addMVCFollower(listeners, rect, 'strokeweight_changed', function () {
+      var weight = rect.get('strokeWeight') || 2;
+      style.getLineStyle().setWidth(weight);
+    });
+
+    this.copyMouseEvents(polyr, rect);
 
     doInsert(rect, polyr);
   };
@@ -810,8 +865,10 @@ var EarthMapType = (function () {
         maps_earth_zoom_control_style[google.maps.ZoomControlStyle.SMALL] = 
           ge.NAVIGATION_CONTROL_SMALL;
         ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
-        ge.getNavigationControl().setStreetViewEnabled(
-          map.get('streetViewControl') !== false);
+        if (ge.getNavigationControl().setStreetViewEnabled) {
+          ge.getNavigationControl().setStreetViewEnabled(
+            map.get('streetViewControl') !== false);
+        }
         var screenxy = ge.getNavigationControl().getScreenXY();
         screenxy.setXUnits(ge.UNITS_PIXELS);
         ge.getNavigationControl().setControlType(
@@ -854,7 +911,7 @@ var EarthMapType = (function () {
     lookat.set(center.lat(), center.lng(), 0, ge.ALTITUDE_CLAMP_TO_GROUND,
                0, 0, this.mapper.zoomToRange(this.get('map').getZoom()));
     this._flyToAtSpeed(ge, lookat);
-    lookat.setTilt(30);
+    lookat.setTilt(10);
     this._flyToAtSpeed(ge, lookat, 1);
   };
   EarthMapType.prototype.hide = function () {

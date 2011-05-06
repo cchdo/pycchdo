@@ -5,8 +5,6 @@
 // google.maps v3
 // google.visualization [table]
 
-function defaultTo(x, d) { return x ? x : d; };
-
 function rails_csrf() {
   var data = {};
   data[$('meta[name=csrf-param]').attr('content')] =
@@ -30,6 +28,10 @@ function loadScript(url) {
   document.body.appendChild(s);
 }
 
+function defaultTo(x, d) {
+  return x ? x : d;
+}
+
 var CCHDO = defaultTo(CCHDO, {});
 var CM = CCHDO.MAP = {
   map: null,
@@ -51,6 +53,10 @@ var CM = CCHDO.MAP = {
 };
 
 CM.TIPS = {
+  'earthPluginBlocked': 
+    '<p>Unable to load the Google Earth plugin.</p>' + 
+    '<p>You will not be able to use 3D earth functionality.</p>' +
+    '<p>This may have been caused by plugin blocking.</p>',
   'searcherror': 'Encountered error while searching',
   'importing': 'Importing '+CM.LOADING_IMG,
   'startDraw': '<dl><dt>Preset shapes</dt><dd>Click and drag.</dd>' + 
@@ -63,13 +69,14 @@ CM.TIPS = {
   'polyedit': 'Drag the vertices to edit the polygon',
   'timeswap': ['Swapped min time with max time; ',
     'the values you entered were not min/max.'].join(''),
-  'region': '<p>Selects all cruises that pass through a defined region.</p>',
-  'kml': '<p>KML or KMZ files used by Google Earth can be loaded into the map.</p>',
-  'nav': '<p>NAV files have the format (in decimal degrees): </p>' + 
-         '<pre>lon &lt;whitespace&gt; lat\n' + 
-         'lon &lt;whitespace&gt; lat\netc.</pre>' +
-         '<p>This tool displays such files as a line. One possible use is ' + 
-         'comparing tracks.</p>',
+  'region': '<p>Find cruises that pass through a defined region.</p>',
+  'kml': '<p>Load KML or KMZ files used by Google Earth into the map.</p>',
+  'nav': 
+    '<p>Display NAV files as a line.</p><p>This may be useful for comparing ' +
+    'tracks.</p>' +
+    '<p>NAV files have the format (in decimal degrees):</p>' + 
+    '<pre>lon &lt;whitespace&gt; lat\n' + 
+    'lon &lt;whitespace&gt; lat\netc.</pre>',
   'search': "<p>You may search for specific parameters using the syntax " + 
             "'parameter:query' e.g.</p>" + 
             "<ul><li>ship:knorr</li><li>line:p10</li>" + 
@@ -78,44 +85,6 @@ CM.TIPS = {
             "<ul><li>Group</li><li>Chief_Scientist</li><li>ExpoCode</li>" + 
             "<li>Alias</li><li>Ship</li><li>Line</li></ul>."
 };
-
-CM.util = (function () {
-  var _ = {};
-  _.get_radius_coord = function(center, radius) {
-    if (radius <= 0) { return center; }
-    var EARTH_RADIUS = 6378.137; //km
-    var arclen = radius / EARTH_RADIUS;
-    var deltalng = Math.acos((Math.cos(arclen) -
-                              Math.pow(Math.sin(center.latRadians()), 2)) /
-                              Math.pow(Math.cos(center.latRadians()), 2));
-    return new google.maps.LatLng(center.lat(),
-                         (center.lngRadians() + deltalng) * 180 / Math.PI);
-  };
-  _.get_circle_on_map_from_pts = function(map, center, outer, color) {
-    var radius = Math.sqrt(Math.pow(center.x - outer.x, 2) +
-                 Math.pow(center.y - outer.y, 2));
-    var NUMSIDES = 20;
-    var SIDELENGTH = 18;
-    var sideLengthRad = SIDELENGTH * Math.PI / 180;
-    var maxRad = (NUMSIDES + 1) * sideLengthRad;
-    var pts = [];
-    for (var aRad = 0; aRad < maxRad; aRad += sideLengthRad) {
-      pts.push(map.fromContainerPixelToLatLng(
-        new google.maps.Point(center.x + radius * Math.cos(aRad),
-                     center.y + radius * Math.sin(aRad))));
-    }
-    
-    return new google.maps.Polygon(pts, color, 2, 0.5, color, 0.5);
-  };
-  _.get_circle_on_map_from_latlngs = function(map, centerlatlng,
-                                              outerlatlng, color) {
-    var ll2px = map.fromLatLngToContainerPixel;
-    var center = ll2px(centerlatlng);
-    var outer = ll2px(outerlatlng);
-    return _.get_circle_on_map_from_pts(map, center, outer, color);
-  };
-  return _;
-})();
 
 CM.TransientPop = (function () {
   function _(map, positioning) {
@@ -149,76 +118,33 @@ CM.TransientPop = (function () {
   return _;
 })();
 
-//// Tracks selections on the map and which results are associated with them.
-//    this.timebox = new CM.TransientPop(self.map,
-//      {position: 'absolute', bottom: 0, width: '60%', left: '15%'});
-//    this.timerange = $('#timerange').detach();
-//  _p.showTimebox = function () {
-//    this.timebox.set(this.timerange);
-//    this.timebox._pop.hover(function () { $(this).fadeTo('fast', 1); },
-//                            function () { $(this).fadeTo('slow', 0.2); })
-//                     .fadeTo('slow', 0.2);
-//    CM.initTimeSlider();
-//  };
-
-
 // TODO
 //  importedCircles: [],
-
-
-//            info_id = CMI.add(info);
-//            info_id = CMI.add(info, true);
-
-
-CM.tracks_handler = function (cruise_tracks) {
-  CM.R.add(cruise_tracks);
-  if ($.isEmptyObject(cruise_tracks)) {
-    CM.tip(CM.TIPS['noresults']);
-    CM.R.clear();
-  } else {
-    CM.pane.activate();
-    CM.pane.unshade();
-  }
-};
-
-CM.get_circle = function (center, radius, polyColor) {
-  if (radius <= 0) { return null; }
-  var outer = CM.map.fromLatLngToContainerPixel(
-    CM.util.get_radius_coord(center, radius));
-  center = CM.map.fromLatLngToContainerPixel(center);
-  return CM.util.get_circle_on_map_from_pts(CM.map, center, outer, polyColor);
-};
 
 CM.tip = $.jGrowl;
 
 CM.initTimeSlider = function () {
-  var min = $('#min_time'),
-      max = $('#max_time'),
-      slide = $('#timeslider');
-  function setTimeDisplay(values) {
-    min.val(values[0]);
-    max.val(values[1]);
-  }
-  slide.slider({
-    range: true,
-    min: CM.MIN_TIME,
-    max: CM.MAX_TIME,
-    values: [CM.MIN_TIME, CM.MAX_TIME],
-    slide: function (event, ui) { setTimeDisplay(ui.values); }
-  });
-  setTimeDisplay(slide.slider('values'));
+};
 
-  $('.time.coords').blur(function () {
-    var max_time = parseInt(max.val(), 10);
-    var min_time = parseInt(min.val(), 10);
-    if (max_time < min_time) {
-      min.val(max_time);
-      max.val(min_time);
-      CM.tip(CM.TIPS['timeswap']);
+CM.processHashCommands = function () {
+  if (!CM.layerView) {
+    return;
+  }
+  var hash = location.hash;
+  if (hash) {
+    commands = hash.substring(1).split(',');
+    var searchCreator = CM.layerView.layerSectionSearch.creator._content;
+    for (var i = 0; i < commands.length; i += 1) {
+      var command = commands[i];
+      if (/^search\:(.+)/.test(command)) {
+        $(':text', searchCreator).val(command.substring('search:'.length));
+        $('form', searchCreator).submit();
+      } else {
+  // TODO autoload cruise ids
+  //    data: 'ids='+CM._autoload_cruises, dataType: 'json',
+      }
     }
-    if (min_time < CM.MIN_TIME) { min.val(CM.MIN_TIME); }
-    if (max_time > CM.MAX_TIME) { max.val(CM.MAX_TIME); }
-  });
+  }
 };
 
 CM.load = function () {
@@ -242,9 +168,9 @@ CM.load = function () {
   // TODO
   //var lltip = new LatLngTooltip(CM.map);
 
-  var cchdo_map_type = 'CCHDO';
-  var cchdomt = new CCHDOMapType();
-  CM.map.get('mapTypes').set(cchdo_map_type, cchdomt);
+  var etopo_map_type = 'ETOPO';
+  var etopomt = new ETOPOMapType();
+  CM.map.get('mapTypes').set(etopo_map_type, etopomt);
 
   CM.earth = new EarthMapType(CM.map);
 
@@ -255,7 +181,7 @@ CM.load = function () {
     ids = [];
   }
   ids.push(CM.earth.name);
-  ids.push(cchdo_map_type);
+  ids.push(etopo_map_type);
   mapTypeControlOptions.mapTypeIds = ids;
   CM.map.set('mapTypeControlOptions', mapTypeControlOptions);;
 
@@ -265,8 +191,8 @@ CM.load = function () {
 
   function completeInit() {
     // graticules needs to be loaded before layerview
-    var lv = new CM.Layers.DefaultLayerView(CM.map);
-    CM.pane.setPaneContent(lv._dom);
+    CM.layerView = new CM.Layers.DefaultLayerView(CM.map);
+    CM.pane.setPaneContent(CM.layerView._dom);
 
     $(window).resize(function () {
       domroot.height($(this).height() - 20);
@@ -278,29 +204,12 @@ CM.load = function () {
 
     CM.map.setCenter(center);
 
-    // XXX
-    var creator = lv.layerSectionSearch.creator._content;
-    $(':text', creator).val('p6');
-    $('form', creator).submit();
-
-    //  $.ajax({type: 'GET', url: CM.APPNAME+'/tracks',
-    //    data: 'ids='+CM._autoload_cruises, dataType: 'json',
-    //    beforeSend: function () {CM.tip('Loading cruises '+CM.LOADING_IMG);},
-    //    success: function (response) {
-    //      CM.tip();
-    //      CM.tracks_handler(response);
-    //    }
-    //  });
-    //}
+    CM.processHashCommands();
   }
 
   google.maps.event.addListener(CM.earth, 'initialized', completeInit);
   google.maps.event.addListener(CM.earth, 'unableToLoadPlugin', function () {
-    $('[title="Change map style"]').tipTip({
-      content: 'Unable to load Google Earth plugin. This may have been caused by plugin blocking.',
-      exit: function () {
-      }
-    });
+    CM.tip(CM.TIPS['earthPluginBlocked']);
     completeInit();
   });
 };

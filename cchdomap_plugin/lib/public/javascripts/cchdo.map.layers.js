@@ -269,11 +269,27 @@ Model.prototype.layerSelectedActions = function (
   return all_callback.call(layer);
 };
 
+Model.prototype.addSelected = function (x) {
+  this._selected.add(x);
+  if (this._table) {
+    this._table.idsAdded(x);
+  }
+};
+
+Model.prototype.removeSelected = function (x) {
+  this._selected.remove(x);
+  if (this._table) {
+    this._table.idsRemoved(x);
+  }
+};
+
 Model.prototype.over = function(layer, t) {
+  var ids = null;
   if (layer) {
-    var ids = layer._ids;
+    ids = layer._ids;
     var selected = ids.intersection(this._selected);
-    this.eachT(ids.difference(this._selected).toArray(), function () {
+    var nonselected = ids.difference(this._selected);
+    this.eachT(nonselected.toArray(), function () {
       this.dim();
     });
     this.eachT(selected.toArray(), function () {
@@ -287,7 +303,7 @@ Model.prototype.over = function(layer, t) {
       this.dimhl();
     });
   } else if (t) {
-    var ids = new Set(this._getIds([t]));
+    ids = new Set(this._getIds([t]));
     var selected = ids.intersection(this._selected);
     if (selected.isEmpty()) {
       t.dim();
@@ -307,11 +323,18 @@ Model.prototype.over = function(layer, t) {
       });
     }
   }
+  if (this._table && ids) {
+    var self = this;
+    ids.forEach(function (id) {
+      self._table.dim(id);
+    });
+  }
 };
 
 Model.prototype.out = function(layer, t) {
+  var ids = null;
   if (layer) {
-    var ids = layer._ids;
+    ids = layer._ids;
     var selected = ids.intersection(this._selected);
     this.eachT(ids.difference(this._selected).toArray(), function () {
       this.dark(layer._color);
@@ -327,7 +350,7 @@ Model.prototype.out = function(layer, t) {
       this.hl();
     });
   } else if (t) {
-    var ids = new Set(this._getIds([t]));
+    ids = new Set(this._getIds([t]));
     var selected = ids.intersection(this._selected);
 
     var layers = this._getLayers(ids.toArray());
@@ -356,25 +379,18 @@ Model.prototype.out = function(layer, t) {
       t.hl();
     }
   }
-};
-
-Model.prototype.addSelected = function (x) {
-  this._selected.add(x);
-  if (this._table) {
-    this._table.idsAdded(x);
-  }
-};
-
-Model.prototype.removeSelected = function (x) {
-  this._selected.remove(x);
-  if (this._table) {
-    this._table.idsRemoved(x);
+  if (this._table && ids) {
+    var self = this;
+    ids.forEach(function (id) {
+      self._table.dark(id);
+    });
   }
 };
 
 Model.prototype.click = function(layer, t) {
+  var ids = null;
   if (layer) {
-    var ids = layer._ids;
+    ids = layer._ids;
 
     var selected = layer._ids.intersection(this._selected);
 
@@ -392,7 +408,7 @@ Model.prototype.click = function(layer, t) {
       });
     }
   } else if (t) {
-    var ids = new Set(this._getIds([t]));
+    ids = new Set(this._getIds([t]));
     var selected = ids.intersection(this._selected);
 
     if (selected.isEmpty()) {
@@ -431,6 +447,16 @@ Model.prototype.removeId = function (id) {
   if (this._tid_ids[tid].getLength() < 1) {
     this.removeT(tid);
   }
+  if (this._selected.has(id)) {
+    this.removeSelected([id]);
+  }
+};
+
+Model.prototype.removeIdFromLayer = function (id, layer) {
+  this._id_ls[id].remove(layer.id);
+  if (this._id_ls[id].getLength() < 1) {
+    this.removeId(id);
+  }
 };
 
 Model.prototype.dissociate = function (layer) {
@@ -438,18 +464,14 @@ Model.prototype.dissociate = function (layer) {
   var gcids = [];
   var self = this;
   ids.forEach(function (id) {
-    self._id_ls[id].remove(layer.id);
-    if (self._id_ls[id].getLength() < 1) {
-      self.removeId(id);
-    }
+    self.removeIdFromLayer(id, layer);
   });
 };
 
-Model.prototype.query = function (layer, x, callback, tracks_callback) {
+Model.prototype.query = function (layer, query, callback, tracks_callback, error_callback) {
   var self = this;
 
   function handleData(data) {
-    console.log('got query data', data);
     var id_t = data["id_t"];
     var ids = [];
     for (var id in id_t) {
@@ -503,6 +525,8 @@ Model.prototype.query = function (layer, x, callback, tracks_callback) {
 
   var queryData = {};
 
+  var x = query.query;
+
   if (typeof(x) == 'string') {
     queryData = {q: x};
   } else {
@@ -510,9 +534,7 @@ Model.prototype.query = function (layer, x, callback, tracks_callback) {
     var shape = {shape: "polygon", v: []};
     if (overlay instanceof google.maps.Circle) {
       shape.shape = "circle";
-      // TODO explode the circle and feed!
-      alert("Sorry, circle mode hasn't been completely finished yet.");
-      shape.v = [];
+      shape.v = x.getCirclePolygon().getPath();
     } else if (overlay instanceof google.maps.Rectangle) {
       shape.shape = "rectangle";
 
@@ -551,9 +573,8 @@ Model.prototype.query = function (layer, x, callback, tracks_callback) {
     queryData = {shapes: [serializeShape(shape)]};
   }
 
-  // TODO allow customization of time
-  queryData.min_time = '1967';
-  queryData.max_time = new Date().getFullYear();
+  queryData.min_time = query.min_time || CM.MIN_TIME;
+  queryData.max_time = query.max_time || CM.MAX_TIME;
 
   $.ajax({
     url:'/cchdomap/ids',
@@ -563,6 +584,7 @@ Model.prototype.query = function (layer, x, callback, tracks_callback) {
     success: handleData,
     error: function () {
       CM.tip(CM.TIPS['searcherror']);
+      error_callback.apply(self, arguments);
     }
   });
 };
@@ -576,16 +598,73 @@ function View() {
   this._dom = null;
 }
 
+function TimeSlider(timerange) {
+  View.call(this);
+  var self = this;
+
+  this._dom = $('<div></div>')[0];
+
+  this.slide = $('<div></div>').appendTo(this._dom);
+  var coords = $('<div></div>').appendTo(this._dom);
+
+  var min = $('<input type="text">').width('4em').appendTo(coords);
+  var max = min.clone().css('float', 'right').appendTo(coords);
+
+  function setTimeDisplay(values) {
+    min.val(values[0]);
+    max.val(values[1]);
+  }
+
+  $(this.slide).slider({
+    range: true,
+    min: CM.MIN_TIME,
+    max: CM.MAX_TIME,
+    values: [CM.MIN_TIME, CM.MAX_TIME],
+    slide: function (event, ui) { setTimeDisplay(ui.values); }
+  });
+
+  setTimeDisplay(this.getTimeRange());
+
+  function checkTimeInputs() {
+    var max_time = parseInt(max.val(), 10);
+    var min_time = parseInt(min.val(), 10);
+    if (max_time < min_time) {
+      min.val(max_time);
+      max.val(min_time);
+      CM.tip(CM.TIPS['timeswap']);
+    }
+    if (min_time < CM.MIN_TIME) { min.val(CM.MIN_TIME); }
+    if (max_time > CM.MAX_TIME) { max.val(CM.MAX_TIME); }
+    $(self.slide).slider('values', 0, min.val());
+    $(self.slide).slider('values', 1, max.val());
+  }
+  min.blur(checkTimeInputs);
+  max.blur(checkTimeInputs);
+
+  if (timerange) {
+    setTimeDisplay(timerange);
+    checkTimeInputs();
+  }
+}
+
+TimeSlider.prototype = new View();
+
+TimeSlider.prototype.getTimeRange = function () {
+  return $(this.slide).slider('values');
+};
+
+
 function Table() {
   View.call(this);
   var self = this;
 
   this._dom = document.createElement('DIV');
-  $(this._dom).dialog({
+  $(this._dom).autoPopDialog({
     autoOpen: false,
     position: ['left', 'bottom'],
     width: 800,
     height: 300,
+    title: 'Cruise information for selected cruises',
     close: function () {
       if (self._layer) {
         $(self._layer._check).attr('checked', '');
@@ -601,11 +680,9 @@ Table.prototype.setLayer = function (layer) {
 };
 
 Table.prototype.idsAdded = function (ids) {
-  console.log('added ids');
 };
 
 Table.prototype.idsRemoved = function (ids) {
-  console.log('removed ids');
 };
 
 Table.prototype.show = function (show) {
@@ -639,8 +716,6 @@ function GVTable() {
     sortAscending: false
   };
 
-  $('<h1 style="font-size: 1.2em;">Cruise information for selected cruises</h1>').appendTo(this._dom);
-
   this._explanation = $(
     '<p>Click on a layer ' +
     'or track to select it and its information will appear here.</p>'
@@ -664,15 +739,10 @@ GVTable.prototype.idsAdded = function (ids) {
   this.redraw();
 };
 
-GVTable.prototype.getDtRowsForId = function (id) {
-  return this._dt.getFilteredRows([{column: 0, value: Number(id)}]);
-};
-
 GVTable.prototype.idsRemoved = function (ids) {
-  console.log('remove', ids);
   var self = this;
   ids.forEach(function (id) {
-    var dtRows = self.getDtRowsForId(id).sort();
+    var dtRows = self.getDtRowsForCid(id).sort();
     for (var i = dtRows.length - 1; i >= 0; i -= 1) {
       self._dt.removeRow(dtRows[i]);
     }
@@ -696,36 +766,35 @@ GVTable.prototype.setTableJDOM = function (jdom) {
   this._table_jdom = jdom;
   this._table_view = new google.visualization.Table(this._table_jdom[0]);
 
-  window.jdom = this._table_jdom;
-  window.x = this;
-  console.log('hello', this.tableRows());
-
   var self = this;
 
   this.tableRows()
-  .live('mouseenter', function () {
-      console.log('mouseenter');
-    self._model.over(CMI.get_id(_));
+  .live('mouseover', function () {
+    var cid = self.getCruiseIdForTr(this);
+    if (cid !== undefined && cid > -1) {
+      self._model.over(null, self.getTrackForCid(cid));
+    }
     return false;
   })
-  .live('mouseleave', function () {
-      console.log('mouseleave');
-    self._model.out(CMI.get_id(_));
+  .live('mouseout', function () {
+    var cid = self.getCruiseIdForTr(this);
+    if (cid !== undefined && cid > -1) {
+      self._model.out(null, self.getTrackForCid(cid));
+    }
     return false;
   })
-  .live('click', function () {
-      console.log('mouseclick');
-    self._model.click(CMI.get_id(_));
-    return true;
-  });
+  // TODO Sending a click will de select the cruise. Do we really want that?
+  //.live('click', function () {
+  //  var cid = self.getCruiseIdForTr(this);
+  //  if (cid !== undefined && cid > -1) {
+  //    self._model.click(null, self.getTrackForCid(cid));
+  //  }
+  //  return true;
+  //});
 
   google.visualization.events.addListener(this._table_view, 'sort', function (event) {
     self.syncSortorder(event);
   });
-};
-
-GVTable.prototype.tableRows = function () {
-  return $('tr', this._table_jdom);
 };
 
 GVTable.prototype.syncSortorder = function (event) {
@@ -734,32 +803,72 @@ GVTable.prototype.syncSortorder = function (event) {
   }
   this._table_view_opts.sortColumn = event.column;
   this._table_view_opts.sortAscending = event.ascending;
-  this.i_to_d = event.sortedIndexes;
+  this.trid_to_dtrow = event.sortedIndexes;
 };
 
-GVTable.prototype.row_to_id = function (row) {
-  if (this.i_to_d) { return this.i_to_d[row]; }
-  return row;
+GVTable.prototype.tableRows = function () {
+  // WARN: This must be bound to a DOM node context, not a jQuery object,
+  // hence the subscript.
+  return $('tr[class^=google-visualization-table-tr]:not([class$=head])',
+           this._table_jdom[0]);
 };
 
-GVTable.prototype.id_to_row = function (id) {
-  if (this.i_to_d) { return this.i_to_d.indexOf(id); }
-  return id;
+GVTable.prototype.getDtRowsForCid = function (cid) {
+  return this._dt.getFilteredRows([{column: 0, value: Number(cid)}]);
 };
 
-GVTable.prototype.get_id = function (tr) {
-  return this.row_to_id(this.get_row_num(tr));
+GVTable.prototype.getCidForDtRow = function (dtrow) {
+  if (dtrow < 0) {
+    return -1;
+  }
+  return this._dt.getValue(dtrow, 0);
 };
 
-GVTable.prototype.get_row = function (id) {
-  return this.tableRows()[this.id_to_row(id) + 1];
+GVTable.prototype.getTrackForCid = function (cid) {
+  return this._model._t[this._model._id_tid[cid]];
 };
 
-GVTable.prototype.get_row_num = function (tr) {
-  for (var i = 1; i < this.tableRows().length; i += 1) {
-    var itr = this.tableRows()[i];
+GVTable.prototype.getCruiseIdForTr = function (tr) {
+  return this.getCidForDtRow(this.get_dtrow(tr));
+};
+
+GVTable.prototype.getTrsForId = function (id) {
+  var dtrows = this.getDtRowsForCid(id);
+  var trs = [];
+  for (var i = 0; i < dtrows.length; i += 1) {
+    trs.push(this.getTr(this.dtrowToTrid(dtrows[i])));
+  }
+  return trs;
+};
+
+GVTable.prototype.dtrowToTrid = function (dtrow) {
+  if (this.trid_to_dtrow) {
+    return this.trid_to_dtrow.indexOf(dtrow);
+  }
+  return dtrow;
+};
+
+GVTable.prototype.tridToDtrow = function (trid) {
+  if (this.trid_to_dtrow) {
+    return this.trid_to_dtrow[trid];
+  }
+  return trid;
+};
+
+GVTable.prototype.get_dtrow = function (tr) {
+  return this.tridToDtrow(this.get_trid(tr));
+};
+
+GVTable.prototype.getTr = function (i) {
+  return this.tableRows()[i];
+};
+
+GVTable.prototype.get_trid = function (tr) {
+  var trs = this.tableRows();
+  for (var i = 0; i < trs.length; i += 1) {
+    var itr = trs[i];
     if (tr === itr) {
-      return i - 1;
+      return i;
     }
   }
   return -1;
@@ -778,7 +887,6 @@ GVTable.prototype.add = function (id, info, hasTrack) {
 };
 
 GVTable.prototype.remove = function (ids) {
-  console.log('removing dtids', ids);
   if (ids instanceof Array) {
     ids = ids.sort();
     for (var i = ids.length - 1; i >= 0; i -= 1) {
@@ -795,23 +903,51 @@ GVTable.prototype.hl = function (id) {
   this.selected = this._table_view.getSelection();
 };
 
+GVTable.prototype.DIM_CLASS = 'google-visualization-table-tr-over';
+
+GVTable.prototype.dimTr = function (tr) {
+  //var selection = this._table_view.getSelection();
+  //for (var i = 0; i < selection.length; i += 1) {
+  //  var selector = selection[i];
+  //  if (selector.row != this.get_dtrow(tr)) {
+  //    $(tr).addClass(this.DIM_CLASS);
+  //  }
+  //}
+  $(tr).addClass(this.DIM_CLASS);
+};
+
+GVTable.prototype.darkTr = function (tr) {
+  //var selection = this._table_view.getSelection();
+  //for (var i = 0; i < selection.length; i += 1) {
+  //  var selector = selection[i];
+  //  if (selector.row != this.get_dtrow(tr)) {
+  //    $(tr).removeClass(this.DIM_CLASS);
+  //  }
+  //}
+  $(tr).removeClass(this.DIM_CLASS);
+};
+
 GVTable.prototype.dim = function (id) {
-  var row = this.get_row(id);
-  var selection = this._table_view.getSelection();
-  if (selection.length <= 0 || selection[0].row != id) {
-    $(row).addClass('google-visualization-table-tr-over');
+  var trs = this.getTrsForId(id);
+  for (var i = 0; i < trs.length; i += 1) {
+    var tr = trs[i];
+    this.dimTr(tr);
   }
 };
 
 GVTable.prototype.dark = function (id) {
-  var row = this.get_row(id);
-  $(row).removeClass('google-visualization-table-tr-over');
-  var selection = this._table_view.getSelection();
-  if (selection.length > 0) {
-    for (var i in selection) {
-      if (selection[i].row == id) {
-        selection.splice(i, 1);
-        this._table_view.setSelection(selection);
+  var trs = this.getTrsForId(id);
+  for (var i = 0; i < trs.length; i += 1) {
+    var tr = trs[i];
+
+    $(tr).removeClass(this.DIM_CLASS);
+    var selection = this._table_view.getSelection();
+    if (selection.length > 0) {
+      for (var i in selection) {
+        if (selection[i].row == id) {
+          selection.splice(i, 1);
+          this._table_view.setSelection(selection);
+        }
       }
     }
   }
@@ -1118,10 +1254,8 @@ function Layer() {
 
   $(this._check).change(function () {
     self._turnOn($(this).is(':checked'));
-  });
-
-  $(this._accessory).click(function () {
-    return self.clickedAccessory();
+  }).click(function (event) {
+    event.stopPropagation();
   });
 }
 
@@ -1168,7 +1302,18 @@ Layer.prototype.remove = function () {
 };
 
 Layer.prototype.associate = function (ids) {
-  this._ids = new Set(ids);
+  var newids = new Set(ids);
+
+  if (this._ids) {
+    var removedIds = this._ids.difference(newids);
+
+    var self = this;
+    removedIds.forEach(function (id) {
+      self._layerSection._layerView._model.removeIdFromLayer(id, self);
+    });
+  }
+
+  this._ids = newids;
   this._associated();
 };
 
@@ -1205,9 +1350,6 @@ Layer.prototype._on = function () {
 };
 
 Layer.prototype._off = function () {
-};
-
-Layer.prototype.clickedAccessory = function () {
 };
 
 Layer.prototype._associated = function () {
@@ -1331,6 +1473,41 @@ function addColorBox(layer, color) {
 }
 
 
+function QueryLayer() {
+  Layer.call(this);
+  var self = this;
+
+  this._accessory_count = 
+    $('<span class="accessory-count">loading...</span>').appendTo(this._accessory)[0];
+  this._accessory_edit = 
+    $('<span class="accessory-edit">&raquo;</span>').appendTo(this._accessory)[0];
+
+  $(this._accessory_edit).click(function () {
+    return self.edit();
+  });
+}
+
+QueryLayer.prototype = new Layer();
+
+QueryLayer.prototype.setQuery = function (query) {
+  if (!this._query) {
+    this._query = {
+      query: query,
+      min_time: CM.MIN_TIME,
+      max_time: CM.MAX_TIME
+    };
+  } else {
+    this._query.query = query;
+  }
+};
+
+QueryLayer.prototype.query = function () {
+};
+
+QueryLayer.prototype.edit = function () {
+};
+
+
 function SearchLayerSection() {
   LayerSection.call(this, 'Searches');
   this.creator = new SearchLayerCreator();
@@ -1340,20 +1517,16 @@ function SearchLayerSection() {
 SearchLayerSection.prototype = new LayerSection();
 
 
-function SearchLayer(name, color) {
-  Layer.call(this);
+function SearchLayer(query, color) {
+  QueryLayer.call(this);
 
   addColorBox(this, color);
 
-  $('<span class="search-query"></span>').html(name).css('vertical-align', 'top').appendTo(this._content);
-
-  this._accessory_count = 
-    $('<span class="accessory-count">loading...</span>')
-      .appendTo(this._accessory)[0];
-  this._accessory.appendChild(document.createTextNode('x'));
+  this.setQuery(query);
+  $('<span class="search-query"></span>').html(query).css('vertical-align', 'top').appendTo(this._content);
 }
 
-SearchLayer.prototype = new Layer();
+SearchLayer.prototype = new QueryLayer();
 
 SearchLayer.prototype.setColor = function (color) {
   if (this._ids) {
@@ -1380,8 +1553,22 @@ SearchLayer.prototype._off = function () {
   }, 0);
 };
 
-SearchLayer.prototype.clickedAccessory = function () {
-  this.remove();
+SearchLayer.prototype.edit = function () {
+  var self = this;
+
+  var dialog = $('<div></div>').dialog({
+    modal: true,
+    title: 'Edit layer',
+    buttons: {
+      'Done': function () {
+        $(this).dialog('close');
+      },
+      'Delete': function () {
+        self.remove();
+        $(this).dialog('destroy');
+      }
+    }
+  });
   return false;
 };
 
@@ -1389,8 +1576,25 @@ SearchLayer.prototype._associated = function () {
   $(this._accessory_count).empty().html(this._ids.getLength());
 };
 
+SearchLayer.prototype.query = function () {
+  var self = this;
+  var query = this._query;
+  this.disable();
+  this._layerSection._layerView._model.query(this, query, function (ids) {
+    self.associate(ids);
+    self.enable();
+    self.setOn(true);
+  }, function (ts) {
+    for (var i = 0; i < ts.length; i += 1) {
+      ts[i].set('strokeColor', self._color);
+    }
+  }, function () {
+    self.remove();
+  });
+};
 
-function SearchLayerCreator(name) {
+
+function SearchLayerCreator() {
   LayerCreator.call(this);
   var textfield = document.createElement('INPUT');
   textfield.type = 'text';
@@ -1398,7 +1602,7 @@ function SearchLayerCreator(name) {
   submit.type = 'submit';
   submit.value = 'Search';
 
-  $(textfield).tipTip({activation: 'focus', content: CM.TIPS['search']});
+  $(textfield).tipTipTip({activation: 'focus', content: CM.TIPS['search']});
 
   var form = document.createElement('FORM');
   form.appendChild(textfield);
@@ -1413,17 +1617,8 @@ function SearchLayerCreator(name) {
       return false;
     }
     var layer = new SearchLayer(query, nextColor());
-    layer.disable();
     self._layerSection.addLayer(layer);
-    self._layerSection._layerView._model.query(layer, query, function (ids) {
-      layer.associate(ids);
-      layer.enable();
-      layer.setOn(true);
-    }, function (ts) {
-      for (var i = 0; i < ts.length; i += 1) {
-        ts[i].set('strokeColor', layer._color);
-      }
-    });
+    layer.query();
     $(textfield).blur();
     return false;
   });
@@ -1437,35 +1632,57 @@ function RegionLayerSection() {
   this.creator = new RegionLayerCreator();
   this.addLayer(this.creator);
 
-  $(this._dom).tipTip({defaultPosition: 'right', content: CM.TIPS['region']});
+  $(this._dom).tipTipTip({defaultPosition: 'right', content: CM.TIPS['region']});
 }
 
 RegionLayerSection.prototype = new LayerSection();
 
 
 function RegionLayer(shape, color) {
-  Layer.call(this);
+  QueryLayer.call(this);
   this._shape = shape;
 
   addColorBox(this, color);
-
-  this._accessory_count = document.createElement('SPAN');
-  this._accessory_count.className = 'accessory-count';
-  this._accessory_count.appendChild(document.createTextNode('loading...'));
-  this._accessory.appendChild(this._accessory_count);
-  this._accessory.appendChild(document.createTextNode('x'));
-
 }
 
-RegionLayer.prototype = new Layer();
+RegionLayer.prototype = new QueryLayer();
 
 RegionLayer.prototype.remove = function () {
   this._shape.setMap(null);
   Layer.prototype.remove.call(this);
 };
 
-RegionLayer.prototype.clickedAccessory = function () {
-  this.remove();
+RegionLayer.prototype.edit = function () {
+  var self = this;
+
+  var timeslider = new TimeSlider([self._query.min_time, self._query.max_time]);
+
+  function updateTimeRange() {
+    var timerange = timeslider.getTimeRange();
+    var changed = self._query.min_time != timerange[0] ||
+                  self._query.max_time != timerange[1];
+    self._query.min_time = timerange[0];
+    self._query.max_time = timerange[1];
+    if (changed) {
+      self.query();
+    }
+  }
+
+  var dialog = $('<div></div>').dialog({
+    modal: true,
+    title: 'Edit layer',
+    beforeClose: updateTimeRange,
+    buttons: {
+      'Done': function () {
+        updateTimeRange();
+        $(this).dialog('close');
+      },
+      'Delete': function () {
+        self.remove();
+        $(this).dialog('destroy');
+      }
+    }
+  }).append(timeslider._dom);
   return false;
 };
 
@@ -1508,6 +1725,23 @@ RegionLayer.prototype._associated = function () {
   this.setColor(this._color);
 };
 
+RegionLayer.prototype.query = function () {
+  var self = this;
+  this.disable();
+  var query = this._query;
+  this._layerSection._layerView._model.query(this, query, function (ids) {
+    self.associate(ids);
+    self.enable();
+    self.setOn(true);
+  }, function (ts) {
+    for (var i = 0; i < ts.length; i += 1) {
+      ts[i].set('strokeColor', self._color);
+    }
+  }, function () {
+    self.remove();
+  });
+};
+
 
 function RegionLayerCreator(name) {
   LayerCreator.call(this);
@@ -1519,27 +1753,10 @@ function RegionLayerCreator(name) {
   button.onclick = function () {
     var shape = new DShape();
     var layer = new RegionLayer(shape, nextColor());
-    layer.disable();
-
     button.disabled = 'disabled';
 
     function finished() {
       button.disabled = '';
-    }
-
-    function query() {
-      self._layerSection._layerView._model.query(layer, shape, function (ids) {
-        console.log(ids);
-        // TODO Merge ids with ones already present
-
-        layer.associate(ids);
-        layer.enable();
-        layer.setOn(true);
-      }, function (ts) {
-        for (var i = 0; i < ts.length; i += 1) {
-          ts[i].set('strokeColor', layer._color);
-        }
-      });
     }
 
     shape.setMap(self._layerSection._layerView._model._map);
@@ -1547,22 +1764,23 @@ function RegionLayerCreator(name) {
     CM.tip(CM.TIPS['startDraw']);
 
     var completed = false;
-    google.maps.event.addListener(shape, 'draw_updated', function () {
+    function requery() {
       if (completed) {
-        query();
+        layer.setQuery(shape);
+        layer.query();
       }
-    });
+    }
+    google.maps.event.addListener(shape, 'shape_changed', requery);
+    google.maps.event.addListener(shape, 'draw_updated', requery);
     google.maps.event.addListener(shape, 'draw_canceled', function () {
-      // Delay a little so that the shape itself has time to clean up.
-      setTimeout(function () {
-        shape.setMap(null);
-        finished();
-      }, 0);
+      shape.setMap(null);
+      finished();
     });
     google.maps.event.addListener(shape, 'draw_ended', function () {
       self._layerSection.addLayer(layer);
       completed = true;
-      query();
+      layer.setQuery(shape);
+      layer.query();
       finished();
     });
     var polyEar = google.maps.event.addListenerOnce(shape, 'drawing_polygon', function () {
@@ -1593,7 +1811,7 @@ function KMLLayerSection() {
   this._importer = new ImportKML();
   this._mapobj = null;
 
-  $(this._dom).tipTip({defaultPosition: 'right', content: CM.TIPS['kml']});
+  $(this._dom).tipTipTip({defaultPosition: 'right', content: CM.TIPS['kml']});
 }
 
 KMLLayerSection.prototype = new LayerSection();
@@ -1700,7 +1918,7 @@ function NAVLayerSection() {
   this.addLayer(this.creator);
   this._importer = new ImportNAV();
 
-  $(this._dom).tipTip({defaultPosition: 'right', content: CM.TIPS['nav']});
+  $(this._dom).tipTipTip({defaultPosition: 'right', content: CM.TIPS['nav']});
 }
 
 NAVLayerSection.prototype = new LayerSection();

@@ -45,6 +45,17 @@
   float: right;
 }
 
+.layerview .layer .accessory-edit {
+  margin-left: 0.2em;
+  padding: 0 0.2em;
+  border-radius: 0.2em;
+  -moz-border-radius: 0.2em;
+}
+
+.layerview .layer .accessory-edit:hover {
+  background: #ffffaa;
+}
+
 .layerview .layer-creator input[type=checkbox],
 .layerview .layer-creator .accessory {
   visibility: hidden;

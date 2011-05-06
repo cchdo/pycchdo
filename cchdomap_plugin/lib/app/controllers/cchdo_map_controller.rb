@@ -94,6 +94,32 @@ class SearchMapsController < ApplicationController
       render :json => response
   end
 
+  def layer
+      # Provides a mirror for KML/NAV files that need to be loaded from a web site.
+      # Returns: text
+      #     path to the mirrored file
+      dirname = 'map_mirror'
+      dir = File.join(RAILS_ROOT, 'public', dirname)
+      Dir.mkdir(dir) unless File.directory? dir
+      now = Time.now.to_i
+      Dir.foreach(dir) do |file|
+          if file !~ /\./ and file.to_i < now - 60
+              File.unlink(File.join(dir, file))
+          end
+      end
+      filename = File.join(dir, now.to_s)
+      f = File.new(filename, 'w')
+      input = params[:file]
+      input.each_line {|line| f.write line }
+      f.flush.close
+      json = "<textarea>" +
+        "{\"url\":\"" + 
+        File.join(dirname, File.basename(filename)) + 
+        "\"}" +
+        "</textarea>"
+      render :text => json
+  end
+
   private
 
   def _max_coords
@@ -138,34 +164,6 @@ class SearchMapsController < ApplicationController
           end
       end
       infos
-  end
-
-  public
-
-  def layer
-      # Provides a mirror for KML/NAV files that need to be loaded from a web site.
-      # Returns: text
-      #     path to the mirrored file
-      dirname = 'map_mirror'
-      dir = File.join(RAILS_ROOT, 'public', dirname)
-      Dir.mkdir(dir) unless File.directory? dir
-      now = Time.now.to_i
-      Dir.foreach(dir) do |file|
-          if file !~ /\./ and file.to_i < now - 60
-              File.unlink(File.join(dir, file))
-          end
-      end
-      filename = File.join(dir, now.to_s)
-      f = File.new(filename, 'w')
-      input = params[:file]
-      input.each_line {|line| f.write line }
-      f.flush.close
-      json = "<textarea>" +
-        "{\"url\":\"" + 
-        File.join(dirname, File.basename(filename)) + 
-        "\"}" +
-        "</textarea>"
-      render :text => json
   end
 
   private

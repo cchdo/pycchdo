@@ -232,10 +232,23 @@ var EarthMapType = (function () {
       LOG('unrecognized', x);
     }
   };
+  MapToEarth.prototype.getEarthObj = function (x) {
+    var ge = this.get('earth_plugin');
+    var k = this.get('linker').getId(x);
+    var earthobj = this.map_earth[k];
+    if (earthobj && earthobj.length > 0) {
+      return earthobj[0];
+    } else {
+      return null;
+    }
+  };
   MapToEarth.prototype.remove = function (x) {
     var ge = this.get('earth_plugin');
     var k = this.get('linker').getId(x);
     var earthobj = this.map_earth[k];
+    if (!earthobj) {
+      return;
+    }
     var placemark = earthobj[0];
     var listeners = earthobj[1];
     if (listeners) {
@@ -518,10 +531,9 @@ var EarthMapType = (function () {
     var ge = this.get('earth_plugin');
     if (!kmllayer.kmlobj) {
       google.earth.fetchKml(ge, kmllayer.url, function (kmlobj) {
-        if (kmlobj) {
-          kmllayer.kmlobj = kmlobj;
-          doInsert(kmllayer, kmllayer.kmlobj);
-        }
+        google.maps.event.trigger(kmllayer, 'earth_kml_ready', kmlobj);
+        kmllayer.kmlobj = kmlobj;
+        doInsert(kmllayer, kmllayer.kmlobj);
       });
     } else {
       doInsert(kmllayer, kmllayer.kmlobj);

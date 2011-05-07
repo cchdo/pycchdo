@@ -1,10 +1,15 @@
 function ImportKML() {
 }
 
-ImportKML.prototype.importURL = function (url, callback) {
-  callback({
-    mapsLayer: new google.maps.KmlLayer(CM.host + '/' + url),
-    earth: {kml: null, tour: null}});
+ImportKML.prototype.importURL = function (url, map_callback, earth_callback) {
+  var self = this;
+  var layer = new google.maps.KmlLayer(CM.host + '/' + url);
+  google.maps.event.addListenerOnce(layer, 'earth_kml_ready', function (kmlobj) {
+    self._getTour(kmlobj, function (tour) {
+      earth_callback(kmlobj, tour);
+    });
+  });
+  map_callback(layer);
 };
 
 ImportKML.prototype._getTour = function (kmlroot, callback) {
@@ -28,27 +33,3 @@ ImportKML.prototype._getTour = function (kmlroot, callback) {
     }
   });
 };
-
-//  importKMLFile: function (file, filename) {
-//    CM.GE(function (ge) {
-//      google.earth.fetchKml(ge, CM.host() + '/'+file, function (kmlobj) {
-//        if (kmlobj) {
-//          var importedFile = CM.importFile.newImportedFile(filename)
-//                                          .data('kml', kmlobj);
-//          var tour = CM.importFile.getKmlTour(kmlobj);
-//          if (tour) {
-//            importedFile.append($(' <a href="#">Play</a>').click(function () {
-//              CM.GE(function (ge) {
-//                ge.getTourPlayer().setTour(tour);
-//                ge.getTourPlayer().play();
-//              });
-//           }));
-//          }
-//          CM.importFile.gotoImported(importedFile);
-//        } else {
-//          alert('Sorry, there was an error loading the file.');
-//        }
-//      });
-//    });
-//    CM.map.setMapType(G_SATELLITE_3D_MAP);
-//  },

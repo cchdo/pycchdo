@@ -1278,7 +1278,9 @@ Layer.prototype.enable = function () {
   this._dom.className = this._dom.className.replace(' disabled', '');
   this._check.disabled = '';
   this.showAccessory();
-  this.setColor(this._color);
+  if (this.setColor) {
+    this.setColor(this._color);
+  }
 };
 
 Layer.prototype.disable = function () {
@@ -1295,7 +1297,9 @@ Layer.prototype.showAccessory = function (show) {
  * Removes this layer from the section.
  */
 Layer.prototype.remove = function () {
-  this._layerSection._layerView._model.dissociate(this);
+  if (this._ids) {
+    this._layerSection._layerView._model.dissociate(this);
+  }
   if (this._layerSection) {
     this._layerSection.removeLayer(this);
   }
@@ -1820,7 +1824,10 @@ KMLLayerSection.prototype = new LayerSection();
 function KMLLayer(filename) {
   Layer.call(this);
   this._content.appendChild(document.createTextNode(filename));
-  this._accessory.appendChild(document.createTextNode('x'));
+  var self = this;
+  $('<span>x</span>').click(function () {
+    self.remove();
+  }).appendTo(this._accessory);
 }
 
 KMLLayer.prototype = new Layer();
@@ -1837,6 +1844,56 @@ KMLLayer.prototype._off = function () {
     return;
   }
   this._mapobj.setMap(null);
+};
+
+KMLLayer.prototype.remove = function () {
+  this._off();
+  Layer.prototype.remove.call(this);
+};
+
+KMLLayer.prototype.setTour = function (tour) {
+  if (!tour) {
+    return;
+  }
+  this._tour = tour;
+
+  var self = this;
+
+  var playbutton = $('<span class="kml-tour-play">&#9658;</span>').prependTo(this._accessory);
+  playbutton.click(function () {
+    if ($(this).data('playing')) {
+      self.pauseTour();
+      playbutton.attr('class', 'kml-tour-play').html('&#9658;');
+    } else {
+      self.playTour();
+      playbutton.attr('class', 'kml-tour-pause').html('||');
+    }
+    $(this).data('playing', !$(this).data('playing'));
+    return false;
+  });
+
+  // TODO change kml tour status according to status
+  playbutton.hide();
+  google.maps.event.addListener(CM.earth, 'showing_changed', function () {
+    if (CM.earth.get('showing')) {
+      playbutton.show('fast');
+    } else {
+      playbutton.hide('fast');
+    }
+  });
+};
+
+KMLLayer.prototype.pauseTour = function () {
+  console.log('ause');
+};
+
+KMLLayer.prototype.playTour = function () {
+  var self = this;
+  console.log('play');
+  CM.earth._withEarth(function (ge) {
+    ge.getTourPlayer().setTour(self._tour);
+    ge.getTourPlayer().play();
+  });
 };
 
 
@@ -1886,6 +1943,7 @@ function KMLLayerCreator() {
       }
       CM.tip(CM.TIPS['importing']);
       layer = new KMLLayer(filename);
+
       layer.disable();
       self._layerSection.addLayer(layer);
 
@@ -1898,11 +1956,14 @@ function KMLLayerCreator() {
       filefield.value = '';
 
       self._layerSection._importer.importURL(response['url'], 
-                                             function (imported) {
-        console.log('imported: ', imported);
-        layer._mapobj = imported.mapsLayer;
+                                             function (mapLayer) {
+        layer._mapobj = mapLayer;
         layer.enable();
         layer.setOn(true);
+      }, function (kmlobj, tour) {
+        if (tour) {
+          layer.setTour(tour);
+        }
       });
     },
     error: error
@@ -1931,6 +1992,10 @@ function NAVLayer(filename, color) {
 
   $('<span class="nav-filename"></span>').html(filename).appendTo(this._content);
   this._accessory.appendChild(document.createTextNode('x'));
+  var self = this;
+  $(this._accessory).click(function () {
+    self.remove();
+  });
 
   this._mapobj = null;
   this._color = null;
@@ -1959,6 +2024,10 @@ NAVLayer.prototype.setColor = function (color) {
   this._color = color;
 };
 
+NAVLayer.prototype.remove = function () {
+  this._off();
+  Layer.prototype.remove.call(this);
+};
 
 function NAVLayerCreator() {
   LayerCreator.call(this);
@@ -2021,6 +2090,7 @@ function NAVLayerCreator() {
       self._layerSection._importer.importURL(response['url'],
                                              function (imported) {
         layer._mapobj = imported.mapsLayer;
+
         layer.setColor(nextColor());
         layer.enable();
         layer.setOn(true);

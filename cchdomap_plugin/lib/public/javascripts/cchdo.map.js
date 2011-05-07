@@ -120,6 +120,7 @@ CM.TransientPop = (function () {
 
 // TODO
 //  importedCircles: [],
+//  autoload cruise ids
 
 CM.tip = $.jGrowl;
 
@@ -140,8 +141,6 @@ CM.processHashCommands = function () {
         $(':text', searchCreator).val(command.substring('search:'.length));
         $('form', searchCreator).submit();
       } else {
-  // TODO autoload cruise ids
-  //    data: 'ids='+CM._autoload_cruises, dataType: 'json',
       }
     }
   }

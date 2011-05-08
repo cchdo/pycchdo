@@ -1,5 +1,6 @@
 (function ($) {
   var popupsblocked = false;
+  var blockingdialog_lock = false;
 
   var autopopid_next = 0;
   function autopopid() {
@@ -158,12 +159,18 @@
           popupsblocked = true;
           popIn(null, null, true);
 
-          $("<div><p>The table was prevented from popping into a separate window.</p>" + 
-            "<p>It's likely that popups are being blocked.</p></div>").dialog({
-            modal: true,
-            title: "I wish I could do that for you!",
-            buttons: {"Ok": function () { $(this).dialog('close'); }}
-          });
+          if (!blockingdialog_lock) {
+            blockingdialog_lock = true;
+            $("<div><p>The table was prevented from popping into a separate window.</p>" + 
+              "<p>It's likely that popups are being blocked.</p></div>").dialog({
+              modal: true,
+              title: "I wish I could do that for you!",
+              buttons: {"Ok": function () {
+                $(this).dialog('close');
+                blockingdialog_lock = false;
+              }}
+            });
+          }
         } else {
           startCheckingForPopin();
         }

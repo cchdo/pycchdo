@@ -17,9 +17,10 @@ body { background: transparent; }
 <script src="https://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRT7NFPYQoGJ7jU_HZH5c99Vip7REBTXco2ruU-sf4ym1vUKQ7DmOK-EeA"></script>
 <script>
 //google.load('earth', '1');
-google.load('jquery', '1.5.1');
+//google.load('jquery', '1.5.1');
 //google.load('jqueryui', '1.8.0');
 </script>
+<script src="LatLngTooltip.3.js"></script>
 <script src="graticule.3.js"></script>
 <script src="earth_map_type.js"></script>
 <script src="dshape.js"></script>
@@ -55,6 +56,8 @@ window.onload = function () {
       mapTypeIds: maptypes
     }
   });
+
+  window.lltip = new LatLngTooltip(window.map);
 
   function init() {
     // BUTTONS

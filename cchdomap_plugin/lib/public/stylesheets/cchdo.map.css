@@ -1,3 +1,24 @@
+#map_space {
+  width: 100%;
+  position: relative;
+}
+#map { position: absolute; }
+
+.maxstations input[type=text] { width: 3em; }
+
+.unselectable {
+  cursor: default;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+.clickable { cursor: pointer; }
+.clickable.disabled { cursor: auto; }
+
+/* LayerView */
 .layerview {
   padding: 0.3em;
   width: 20em;
@@ -69,3 +90,37 @@
   width: 19em;
 }
 
+/* PanedMap */
+.pane-content {
+  height: 100%;
+  z-index: 1;
+  overflow-y: auto;
+}
+
+.pane-content, .pane-handle {
+  background: #eeeeee;
+}
+
+.pane-handle {
+  width: 1em;
+  height: 1.2em;
+  position: absolute;
+  z-index: 2;
+
+  background-size: 0.7em;
+  background-repeat: no-repeat;
+  background-position: right center;
+
+  border-top-right-radius: 0.3em;
+  border-bottom-right-radius: 0.3em;
+  -moz-border-radius-topright: 0.3em;
+  -moz-border-radius-bottomright: 0.3em;
+}
+
+.pane-handle.left {
+  background-image: url('/images/cchdomap/shade_arrow_left.png');
+}
+
+.pane-handle.right {
+  background-image: url('/images/cchdomap/shade_arrow_right.png');
+}

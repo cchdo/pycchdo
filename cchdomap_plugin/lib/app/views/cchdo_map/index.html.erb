@@ -1,52 +1,64 @@
+<% content_for :title do %>Map<% end %>
 <% content_for :head do %>
   <%= stylesheet_link_tag(
-    'cchdomap/cchdomap',
-    'cchdomap/cchdo.map.panedmap',
-    'cchdomap/cchdo.map.layers',
     'cchdomap/overcast/jquery-ui-1.7.2.custom',
     'cchdomap/jquery.jgrowl',
     'cchdomap/tipTip',
-    'cchdomap/colorpicker/colorpicker'
+    'cchdomap/colorpicker/colorpicker',
+    'cchdomap/cchdo.map',
+    :cache => true
   ) %>
 <% end %>
 <% content_for :js do %>
-  <%= javascript_include_tag("http://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw") %><%# dimes:8000 %>
-  <script type="text/javascript">
-    google.load('jquery', '1.5.1');
-    google.load('jqueryui', '1.7.2');
-    google.load('maps', '3', {other_params: 'sensor=false&libraries=geometry'});
-    google.load('earth', '1');
-    google.load('visualization', '1', {'packages': ['table']});
-  </script>
-  <%= javascript_include_tag("http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js") %>
-  <%= javascript_include_tag(
-    'jquery.form',
-    'cchdomap/jquery.jgrowl_minimized',
-    'cchdomap/jquery.tipTipTip',
-    'cchdomap/colorpicker/colorpicker',
-    'cchdomap/jquery.autopopdialog',
-    'cchdomap/cchdo.map',
-    'cchdomap/cchdo.map.panedmap',
-    'cchdomap/cchdo.map.layers',
-    'cchdomap/cchdo.map.importkml',
-    'cchdomap/cchdo.map.importnav',
-    'cchdomap/LatLngTooltip.3',
-    'cchdomap/dshape',
-    'cchdomap/etopo_map_type',
-    'cchdomap/earth_map_type',
-    'cchdomap/graticule.3'
-  ) %>
-  <% if params[:autoload] %>
-    <script type="text/javascript">
-      <% if params[:expocodes] %>
-        CM._autoload_cruises = "<%= params[:expocodes] %>";
-      <% else %>
-        CM._autosubmit = true;
-      <% end %>
-    </script>
-  <% end %>
-<% end %>
-
+<% 
+  modules = {
+    :modules => [
+      {
+        :name => 'jquery',
+        :version => '1.5.1'
+      },
+      {
+        :name => 'jqueryui',
+        :version => '1.7.2'
+      },
+      {
+        :name => 'maps',
+        :version => '3',
+        :other_params => 'sensor=false&libraries=geometry'
+      },
+      {
+        :name => 'earth',
+        :version => '1',
+      },
+      {
+        :name => 'visualization',
+        :version => '1',
+        :packages => ['table']
+      }
+    ]
+  }
+  jsapiload = CGI::escape(modules.to_json)
+  # dimes:8000
+  key = "ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw"
+%>
+<%= javascript_include_tag(
+  "http://www.google.com/jsapi?autoload=#{jsapiload}&key=#{key}",
+  "http://earth-api-utility-library.googlecode.com/svn/tags/" + 
+    "extensions-0.2.1/dist/extensions.pack.js",
+  'cchdomap/jquery.form',
+  'cchdomap/jquery.jgrowl_minimized',
+  'cchdomap/jquery.tipTipTip',
+  'cchdomap/jquery.autopopdialog',
+  'cchdomap/colorpicker/colorpicker',
+  'cchdomap/graticule.3',
+  'cchdomap/earth_map_type',
+  'cchdomap/etopo_map_type',
+  'cchdomap/dshape',
+  'cchdomap/LatLngTooltip.3',
+  'cchdomap/cchdo.map',
+  :cache => true
+) %>
+<% end -%>
 <div id="map_space">
   <noscript>
     <h1>JavaScript is needed to use the interactive map.</h1>
@@ -55,35 +67,4 @@
       Please enable JavaScript by changing your browser options and reload.
     </p>
   </noscript>
-<!--
-<div id="settings">
-  <p class="maxstations">
-    <%= text_field_tag 'max_coords', @DEFAULT[:max_coords] %>
-    stations shown / cruise
-  </p>
-</div>
-
-<div id="timerange">
-  <table>
-    <tr>
-      <td class="year"><%= text_field_tag :min_time, @DEFAULT[:min_time] %></td>
-      <td class="slider"><div id="timeslider"></div></td>
-      <td class="year"><%= text_field_tag :max_time, @DEFAULT[:max_time] %></td>
-    </tr>
-  </table>
-</div>
-
-<div id='gearth'>
-  <p>
-    This map can be viewed as a globe with the
-    <a href="http://earth.google.com/plugin">Google Earth plugin</a>
-    if you are running Windows or Mac OS by switching the map type to Earth.
-  </p>
-  <p class="knownissues">
-    <strong>Known issue: </strong>If the map type control disappears when 
-    switched to the Earth plugin you have an old version of the Google Earth
-    plugin and should upgrade immediately.
-  </p>
-</div>
--->
 </div>

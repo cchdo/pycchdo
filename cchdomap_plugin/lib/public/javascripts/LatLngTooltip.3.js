@@ -13,12 +13,14 @@ LatLngTooltip.prototype.onAdd = function () {
   div.style.whiteSpace = 'nowrap';
   div.style.fontFamily = 'Helvetica, sans-serif';
   div.style.fontSize = '0.8em';
-  div.style.display = 'none';
+  div.style.visibility = 'hidden';
 
   this.getPanes().floatPane.appendChild(div);
 
   var lastLatLng = null;
   var inMap = false;
+
+  var map = this.getMap();
 
   this._moveear = google.maps.event.addListener(map, 'mousemove', mousemoved);
   function mousemoved(mouseevent) {
@@ -34,10 +36,10 @@ LatLngTooltip.prototype.onAdd = function () {
     inMap = false;
   });
 
-  window.onkeydown = function (e) {
+  document.onkeydown = function (e) {
     var evt = e || window.event;
     if (evt.keyCode == 16 && inMap) {
-      div.style.display = 'block';
+      div.style.visibility = 'visible';
       if (lastLatLng) {
         position(lastLatLng);
       }
@@ -46,23 +48,25 @@ LatLngTooltip.prototype.onAdd = function () {
       // Copy to clipboard?
     }
   };
-  window.onkeyup = function (e) {
+  document.onkeyup = function (e) {
     var evt = e || window.event;
     if (evt.keyCode == 16) {
-      div.style.display = 'none';
+      div.style.visibility = 'hidden';
     }
   };
   function position(latlng) {
     var px = self.getProjection().fromLatLngToDivPixel(latlng);
-    div.style.top = px.y - div.offsetHeight + 'px';
-    div.style.left = px.x + 'px';
+    var top = px.y - div.offsetHeight;
+    var left = px.x;
+    if (top < 0) {
+      top = 0;
+    }
     var map_width = self.getMap().getDiv().offsetWidth;
-    if (px.y - div.offsetHeight < 0) {
-      div.style.top = 0 + 'px';
-    }
     if (px.x + div.offsetWidth > map_width) {
-      div.style.left = px.x - div.offsetWidth + 'px';
+      left = px.x - div.offsetWidth;
     }
+    div.style.top = top + 'px';
+    div.style.left = left + 'px';
   }
 };
 LatLngTooltip.prototype.draw = function () {};

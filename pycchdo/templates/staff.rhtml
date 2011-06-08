@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>CCHDO | CLIVAR & Carbon Hydrographic Data Office</title>
+<%= stylesheet_link_tag 'main' %>
+<%= render :partial => 'layouts/ie_compatibility' %>
+<meta name="google-site-verification" content="xBVm_AfJYEdA-tbww41dajF9RuGbZHAjpOBhwWwqbcM" />
+<%= javascript_include_tag 'img_rotate', 'sortable/sortable', :defaults -%>
+<script type="text/javascript">
+   function ChangeColor(tableRow, highLight)
+   {
+tableRow.style.backgroundColor = '#ffffff';
+   if (highLight)
+   {
+     tableRow.style.backgroundColor = '#dcfac9';
+   }
+   else
+   {
+     tableRow.style.backgroundColor = 'white';
+   }
+ }
+
+ function DoNav(theUrl)
+ {
+ document.location.href = theUrl;
+ }
+ </script>
+</head>
+<body>
+<div id='centering' class="staff">
+  <%= render :partial => 'layouts/cchdo_header' %>
+  <% if session[:user] %>
+    <div id="menu">
+      <%= link_to("Staff Home", :controller => "/staff") %> |
+      <!-- <%= link_to("Assignments", :controller => "task_manager") %> | -->
+      <%= link_to("Data Entry", :controller => "/staff/data_entry") %> |
+      <%= link_to("Submissions", :controller => "/staff", :action => "submitted_files") %> |
+      <%= link_to("Cruise Info", :controller => "/cruise_status") %> |
+      <%= link_to("Documentation",:controller=>'/staff',:action =>'documentation')%> |
+      <%= link_to("Recent Updates", :controller => "/staff", :action => "recent_updates") %> |
+      <%= link_to("Software", :controller=>'/staff',:action =>'software')%> |
+      <%= link_to("Minutes", :controller=>'/staff',:action =>'minutes_archive') %> |
+      <%= link_to("Queue", :controller=>'/staff',:action =>'queue_files') %> |
+      <%= link_to("Tasks(Dave)", :controller=>'arctic_tasks') %> | 
+       <%= link_to("File Calendar",:controller => '/staff/cal') %>
+    </div>
+    <div id="signout">
+      <%= link_to("Sign out [#{session[:username]}]", :controller => "/staff", :action => "signout") %>
+    </div>
+  <% end %>
+  <div id='content'>
+    <% if flash[:notice] %>
+      <h1 class='notice'><%= flash[:notice] %></h1>
+    <% end %>
+    <%= yield -%>
+  </div>
+  <%= render :partial => 'layouts/cchdo_footer' -%>
+</div>
+<%= render :partial => 'layouts/google_analytics' -%>
+</body>
+</html>

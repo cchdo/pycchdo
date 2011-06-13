@@ -5,7 +5,8 @@ if Rails::VERSION::MAJOR == 2
         def cchdo_webtools(options = {})
           options[:name_prefix] ||= ''
           options[:namespace] ||= ''
-          named_route(options[:name_prefix] + :btlcmp.to_s, options[:namespace][0..-2] + '/btlcmp', :controller => :cchdo_webtools, :action => :btlcmp)
+          named_route(options[:name_prefix] + :btlcmp.to_s, options[:namespace][0..-2] + '/btlcmp', :controller => :cchdo_webtools, :action => :datacmp)
+          named_route(options[:name_prefix] + :datacmp.to_s, options[:namespace][0..-2] + '/datcmp', :controller => :cchdo_webtools, :action => :datacmp)
           named_route(options[:name_prefix] + :visual.to_s, options[:namespace][0..-2] + '/visual', :controller => :cchdo_webtools, :action => :visual)
           named_route(options[:name_prefix] + :xss.to_s, options[:namespace][0..-2] + '/xss/:file', :controller => :cchdo_webtools, :action => :xss)
           named_route(options[:name_prefix] + :convert.to_s, options[:namespace][0..-2] + '/convert', :controller => :cchdo_webtools, :action => :convert)
@@ -21,7 +22,8 @@ else
     module Routing #:nodoc:
       module MapperExtensions
         def cchdo_webtools(options = {})
-          match('/btlcmp' => 'cchdo_webtools#btlcmp')
+          match('/btlcmp' => 'cchdo_webtools#datacmp')
+          match('/datacmp' => 'cchdo_webtools#datacmp')
           match('/visual' => 'cchdo_webtools#visual')
           match('/xss/:file' => 'cchdo_webtools#xss', :as => :xss)
           match('/convert' => 'cchdo_webtools#convert', :as => :convert)

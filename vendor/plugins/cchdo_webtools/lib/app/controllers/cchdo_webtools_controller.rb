@@ -1,11 +1,11 @@
 class CchdoWebtoolsController < ApplicationController
   require 'open3'
-  layout :only => [:visual, :btlcmp, :convert]
+  layout :only => [:visual, :datacmp, :convert]
 
   def visual
   end
 
-  def btlcmp
+  def datacmp
   end
 
   def convert

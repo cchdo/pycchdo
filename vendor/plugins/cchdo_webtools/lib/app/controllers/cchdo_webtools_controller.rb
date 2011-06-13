@@ -23,7 +23,15 @@ class CchdoWebtoolsController < ApplicationController
       return
     end
 
-    command = "#{LIBCCHDOBIN}/any_to_type --input-type botex --type google_wire --json #{tmpfilepath}"
+    input_type = params[:input_type]
+    if not ALLOWED_FILE_FORMATS.include?(input_type) or input_type == 'detect'
+      input_type = ''
+    else
+      input_type = "--input-type #{input_type} "
+    end
+
+    command = ["#{LIBCCHDOBIN}/any_to_type", input_type, '--type google_wire',
+               '--json', tmpfilepath].join(' ')
 
     errors = ''
     wire = ''
@@ -47,6 +55,9 @@ class CchdoWebtoolsController < ApplicationController
       read_wire.join
       read_errors.join
     end
+
+    Rails.logger.error(command)
+    Rails.logger.error(wire.inspect)
 
     if wire.empty?
       render_json_error("Failed to parse: #{errors.gsub('"', '\"').gsub(/\n/, '\n')}")
@@ -90,6 +101,8 @@ class CchdoWebtoolsController < ApplicationController
   end
 
  private
+
+  ALLOWED_FILE_FORMATS = ['botex', 'ctdzipex']
  
   ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
 

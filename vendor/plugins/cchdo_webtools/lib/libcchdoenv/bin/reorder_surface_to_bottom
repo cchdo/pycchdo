@@ -1,9 +1,8 @@
-#!/usr/bin/env python2.6
-from __future__ import with_statement
-import os; activate_this=os.path.join(os.path.dirname(__file__), 'activate_this.py'); execfile(activate_this, dict(__file__=activate_this)); del os, activate_this
+#!/srv/webtools/webtools/libcchdoenv/bin/python
 
 '''Put casts into ascending pressure sequenced order. '''
 
+from __future__ import with_statement
 import operator
 import sys
 
@@ -18,6 +17,11 @@ PRESSURE_PARAMETERS = ('CTDPRS', 'CTDRAW', )
 def swap_rows(a, b, file):
     for c in file.columns.values():
         c.values[a], c.values[b] = c.values[b], c.values[a]
+        if c.is_flagged_woce():
+            c.flags_woce[a], c.flags_woce[b] = c.flags_woce[b], c.flags_woce[a]
+        if c.is_flagged_igoss():
+            c.flags_igoss[a], c.flags_igoss[b] = \
+                c.flags_igoss[b], c.flags_igoss[a]
 
 
 def sort_file_range(file, start, end, ascending):

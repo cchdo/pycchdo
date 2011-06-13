@@ -1,22 +1,23 @@
-#!/usr/bin/env python2.6
-from __future__ import with_statement
-import os; activate_this=os.path.join(os.path.dirname(__file__), 'activate_this.py'); execfile(activate_this, dict(__file__=activate_this)); del os, activate_this
+#!/srv/webtools/webtools/libcchdoenv/bin/python
 
+from __future__ import with_statement
 import sys
 
 import libcchdo as L
 import libcchdo.model.datafile
+import libcchdo.formats.summary.hot as sumhot
+import libcchdo.formats.summary.woce as sumwoce
 
 
 def main(argv):
-    if len(argv) < 3:
+    if len(argv) < 2:
         print 'Usage:', argv[0], '<HOT sumfile>'
         return 1
     
     with open(argv[1], 'r') as in_file:
         file = L.model.datafile.SummaryFile()
-        file.read_HOT_Summary(in_file)
-        file.write_WOCE_Summary(sys.stdout)
+        sumhot.read(file, in_file)
+        sumwoce.write(file, sys.stdout)
 
 
 if __name__ == '__main__':

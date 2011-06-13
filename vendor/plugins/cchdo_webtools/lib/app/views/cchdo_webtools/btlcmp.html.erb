@@ -40,10 +40,28 @@
       <table id="files">
         <tr>
           <td class="left">
-            <%=form_tag do-%><input id="lfile_prompt" type="file" name="file" /><%end-%>
+            <%=form_tag do-%>
+              <input id="lfile_prompt" type="file" name="file" />
+              <select name="input_type">
+                <option value="detect" selected="selected">Detect</option>
+                <optgroup label="Formats">
+                  <option value="botex">Bottle Exchange</option>
+                  <option value="ctdzipex" disabled="disabled">CTD Zip Exchange</option>
+                </optgroup>
+              </select>
+            <%end-%>
           </td>
           <td>
-            <%=form_tag do-%><input id="rfile_prompt" type="file" name="file" /><%end-%>
+            <%=form_tag do-%>
+              <input id="rfile_prompt" type="file" name="file" />
+              <select name="input_type">
+                <option value="detect" selected="selected">Detect</option>
+                <optgroup label="Formats">
+                  <option value="botex">Bottle Exchange</option>
+                  <option value="ctdzipex" disabled="disabled">CTD Zip Exchange</option>
+                </optgroup>
+              </select>
+            <%end-%>
           </td>
         </tr>
       </table>
@@ -328,10 +346,28 @@ function ensureColumnType(dtd, column, data) {
   columns[column].type = type;
 }
 
-function google_wire_to_datatable (gw) {
+function google_wire_to_datatable(gw) {
   // Strip the first two columns (stamp, header)
   var dt = new GV.DataTable(gw, GVDT_VER);
   dt.removeColumns(0, 2);
+  if (findColumnIndices(dt, ['SAMPNO'])[0] < 0) {
+    // XXX HACK Inserts pressure value as sample number for CTD data so that
+    // merging can happen.
+    var castcol = findColumnIndices(dt, ['CASTNO'])[0];
+    if (castcol < 0) {
+      console.log('ERROR: no cast column');
+    } else {
+      var sampcol = castcol + 1;
+      dt.insertColumn(sampcol, 'number', 'SAMPNO');
+      var prsvals = get_col(dt, 'CTDPRS');
+      for (var i = 0; i < prsvals.length; i += 1) {
+        dt.setCell(i, sampcol, prsvals[i]);
+      }
+    }
+    for (var i = 0; i < dt.getNumberOfColumns(); i += 1) {
+      console.log(dt.getColumnLabel(i));
+    }
+  }
   return dt;
 };
 function dt_val_or_default(dt, r, c, d) {
@@ -775,6 +811,14 @@ $(function () {
     }
     t.toggleClass('open');
   });
+  $('#files select').each(function () {
+    $(this).change(function () {
+      var file = $(this).siblings(':file:eq(0)');
+      if (file.val()) {
+        file.change();
+      }
+    });
+  });
   $('#files input:file').each(function () {
     var file = $(this);
     var errors = null;
@@ -880,7 +924,6 @@ var test = (function () {
       }, 'json');
   }
 })();
-//test();
-//test('btlcmp_test_data_1l.json', 'btlcmp_test_data_1r.json');
+//test('btlcmp_test_data_2l.json', 'btlcmp_test_data_2r.json');
 </script>
 <% end -%>

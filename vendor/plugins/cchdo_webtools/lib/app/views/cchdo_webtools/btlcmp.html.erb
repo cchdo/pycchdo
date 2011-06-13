@@ -32,7 +32,7 @@
   </style>
 <% end -%>
 <div class="boxed btlcmp">
-<h1>Bottle Comparer</h1>
+<h1>Data Comparer</h1>
 <div class="box_content">
 <table id="columns">
   <tr>
@@ -46,7 +46,7 @@
                 <option value="detect" selected="selected">Detect</option>
                 <optgroup label="Formats">
                   <option value="botex">Bottle Exchange</option>
-                  <option value="ctdzipex" disabled="disabled">CTD Zip Exchange</option>
+                  <option value="ctdzipex">CTD Zip Exchange</option>
                 </optgroup>
               </select>
             <%end-%>
@@ -58,7 +58,7 @@
                 <option value="detect" selected="selected">Detect</option>
                 <optgroup label="Formats">
                   <option value="botex">Bottle Exchange</option>
-                  <option value="ctdzipex" disabled="disabled">CTD Zip Exchange</option>
+                  <option value="ctdzipex">CTD Zip Exchange</option>
                 </optgroup>
               </select>
             <%end-%>
@@ -363,9 +363,6 @@ function google_wire_to_datatable(gw) {
       for (var i = 0; i < prsvals.length; i += 1) {
         dt.setCell(i, sampcol, prsvals[i]);
       }
-    }
-    for (var i = 0; i < dt.getNumberOfColumns(); i += 1) {
-      console.log(dt.getColumnLabel(i));
     }
   }
   return dt;

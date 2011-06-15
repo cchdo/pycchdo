@@ -1,0 +1,32 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Objs{% endblock %}
+{% block content %}
+  {% call helpers_layout.boxed('Obj') -%}
+    <p>{{obj}}</p>
+
+    <p>
+      <form action="/obj/{{ obj['_id'] }}" method="DELETE">
+        <input type="hidden" name="_method" value="DELETE">
+        <input type="submit" value="Delete">
+      </form>
+    </p>
+
+    <h2>Attrs</h2>
+    {% if attrs -%}
+      <table>
+      {% for attr in attrs -%}
+        <tr>
+        </tr>
+      {%- endfor %}
+      </table>
+    {%- endif %}
+    <p>
+      <a href="/obj/{{ obj['_id'] }}/a">Edit attributes</a>
+    </p>
+
+    <h2>Actions</h2>
+    <p>
+      <a href="/objs">Back to objs</a>
+    </p>
+  {%- endcall %}
+{% endblock %}

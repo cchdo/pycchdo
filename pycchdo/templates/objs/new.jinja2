@@ -1,0 +1,10 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}New Obj{% endblock %}
+{% block content %}
+  {% call helpers_layout.boxed('New Obj') -%}
+    <p>New obj created!</p>
+    <p>
+      <a href="/objs">Back to objs</a>
+    </p>
+  {%- endcall %}
+{% endblock %}

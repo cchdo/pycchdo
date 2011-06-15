@@ -1,0 +1,12 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Objs{% endblock %}
+{% block content %}
+  {% call helpers_layout.boxed('Objs') -%}
+    <ul>
+    {% for obj in objs -%}
+      <li><a href="/obj/{{ obj['_id'] }}">Go</a> {{obj}}</li>
+    {%- endfor %}
+    </ul>
+    <a href="/objs/new">New obj</a>
+  {%- endcall %}
+{% endblock %}

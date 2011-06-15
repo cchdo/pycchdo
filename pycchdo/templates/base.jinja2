@@ -1,9 +1,12 @@
+{% import "templates/_helpers_layout.jinja2" as helpers_layout %}
 <!DOCTYPE html>
 <html>
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <meta name="google-site-verification" content="xBVm_AfJYEdA-tbww41dajF9RuGbZHAjpOBhwWwqbcM" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="google-site-verification" content="xBVm_AfJYEdA-tbww41dajF9RuGbZHAjpOBhwWwqbcM">
   <title>CCHDO | CLIVAR & Carbon Hydrographic Data Office{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css">
+  <link rel="stylesheet" type="text/css" href="/static/screen.css">
   {%- block head -%}
     {% include 'templates/_ie_compat.jinja2' ignore missing %}
   {%- endblock -%}

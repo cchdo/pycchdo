@@ -1,7 +1,6 @@
 import datetime
 
 import pymongo
-import pymongo.objectid
 from pymongo.son_manipulator import SONManipulator
 
 mongo_conn = pymongo.Connection()
@@ -30,14 +29,23 @@ class collectablemongodoc(mongodoc):
         pass
 
     def save(self):
-        self._mongo_collection.save(self)
+        self['_id'] = self._mongo_collection.save(self)
 
     def remove(self):
         self._mongo_collection.remove(self['_id'])
 
     @classmethod
     def map_mongo(cls, cursor):
-        return [cls().from_mongo(x) for x in cursor]
+        if type(cls) is Person:
+            return [cls().from_mongo(x) for x in cursor]
+        l = []
+        for x in cursor:
+            id = x['creation_stamp']['person']
+            p = Person(identifier='placeholder').from_mongo(
+                Person.find_one({'_id': id}))
+            c = cls(p).from_mongo(x)
+            l.append(c)
+        return l
 
     @classmethod
     def all(cls):
@@ -47,12 +55,20 @@ class collectablemongodoc(mongodoc):
     def find(cls, *args, **kwargs):
         return cls._mongo_collection.find(*args, **kwargs)
 
+    @classmethod
+    def find_one(cls, *args, **kwargs):
+        return cls._mongo_collection.find_one(*args, **kwargs)
+
 
 class Stamp(mongodoc):
-    def __init__(self, person=None):
+    def __init__(self, person):
         self['timestamp'] = timestamp()
-        # TODO
-        self['person'] = person
+        if type(person) != Person:
+            raise TypeError('person is not a Person object')
+        try:
+            self['person'] = person['_id']
+        except KeyError:
+            raise ValueError('Person object must be saved first')
 
 
 class Note(mongodoc):
@@ -66,8 +82,8 @@ class Note(mongodoc):
 class _Change(collectablemongodoc):
     _mongo_collection = cchdo.changes
 
-    def __init__(self, note=None):
-        self['creation_stamp'] = Stamp()
+    def __init__(self, person, note=None):
+        self['creation_stamp'] = Stamp(person)
         self['pending_stamp'] = None
         self['judgment_stamp'] = None
         self['accepted'] = False
@@ -92,21 +108,21 @@ class _Change(collectablemongodoc):
     def is_rejected(self):
         return self.is_judged() and not self['accepted']
 
-    def accept(self):
-        self['judgment_stamp'] = Stamp()
+    def accept(self, person):
+        self['judgment_stamp'] = Stamp(person)
         self['accepted'] = True
         self.save()
 
-    def acknowledge(self):
+    def acknowledge(self, person):
         if not self['pending_stamp']:
-            self['pending_stamp'] = Stamp()
+            self['pending_stamp'] = Stamp(person)
             self.save()
             return True
         else:
             return False
 
-    def reject(self):
-        self['judgment_stamp'] = Stamp()
+    def reject(self, person):
+        self['judgment_stamp'] = Stamp(person)
         self['accepted'] = False
         self.save()
 
@@ -122,9 +138,9 @@ class Attr(_Change):
     _mongo_collection = cchdo.attrs
     accepted_value = None
 
-    def __init__(self, key=None, value=None, obj=None, note=None,
+    def __init__(self, person, key=None, value=None, obj=None, note=None,
                  deleted=False):
-        super(Attr, self).__init__()
+        super(Attr, self).__init__(person)
         self['key'] = key
         self['value'] = value
         self['deleted'] = deleted
@@ -177,25 +193,33 @@ class _Attrs(dict):
             return attr['value']
         raise KeyError(key)
 
-    def __setitem__(self, key, value, note=None):
+    get = __getitem__
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError()
+
+    def set(self, key, value, person, note=None):
         if type(value) == _AttrList:
             pass
         elif type(value) == list:
             value = _AttrList(value)
 
-        attr = Attr(key, value, self._obj['_id'], note)
+        attr = Attr(person, key, value, self._obj['_id'], note)
         attr.save()
 
-    def __delitem__(self, key, note=None):
-        attr = Attr(key, None, self._obj['_id'], note, deleted=True)
+    def __delitem__(self, key):
+        raise NotImplementedError()
+
+    def delete(self, key, person, note=None):
+        attr = Attr(person, key, None, self._obj['_id'], note, deleted=True)
         attr.save()
 
 
 class Obj(_Change):
     _mongo_collection = cchdo.objs
 
-    def __init__(self, doc=None):
-        super(Obj, self).__init__(doc)
+    def __init__(self, person, doc=None):
+        super(Obj, self).__init__(person, doc)
         self['_obj_type'] = type(self).__name__
         self.copy_keys_from(doc, ('_obj_type', ))
 
@@ -218,10 +242,24 @@ class Data(Attr):
 
 
 class Person(Obj):
-    def __init__(self):
+    """ People may be either verified or not.
+    If they are associated with an ID provider then they are verified.
+    """
+    def __init__(self, identifier=None, name_first=None, name_last=None,
+                 institution=None, country=None, email=None):
         self['obj_type'] = 'person'
-        self['name_first'] = None
-        self['name_last'] = None
-        self['institution'] = None
-        self['country'] = None
-        self['email'] = None
+
+        self['identifier'] = identifier
+        self['name_first'] = name_first
+        self['name_last'] = name_last
+        self['institution'] = institution
+        self['country'] = country
+        self['email'] = email
+
+        if identifier is None and None in (name_first, name_last, institution,
+                                           country, email):
+            raise ValueError('Person must be initialized either with '
+                             'identifier or attributes.')
+
+    def is_verified(self):
+        return self['identifier'] is not None

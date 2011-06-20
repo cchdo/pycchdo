@@ -13,7 +13,7 @@
 </head>
 <body>
   <div id="centering">
-    {% include 'templates/_base_header.html' %}
+    {% include 'templates/_base_header.jinja2' %}
     <div id="content">
       {%- if flash and flash['notice'] -%}
         <h1 class="notice">{{flash['notice']}}</h1>
@@ -25,6 +25,7 @@
   <div id="scripts">
     {% block js %}{% endblock %}
     {% include 'templates/_track.html' ignore missing %}
+    {% include 'templates/_janrain.html' ignore missing %}
   </div>
 </body>
 </html>

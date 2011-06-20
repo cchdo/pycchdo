@@ -1,5 +1,12 @@
 <div id='cchdo_header'>
   <a href="/"><img id="cchdo_logo" src="/static/img/logos/CCHDO_logo.png" /></a>
+  <p>
+  {% if request.user -%}
+    Welcome {{request.user['name_first']}}! <a href="/session/delete">Sign out</a>
+  {%- else -%}
+    <a class="rpxnow" onclick="return false;" href="https://cchdo.rpxnow.com/openid/v2/signin?token_url=http%3A%2F%2Fdimes.ucsd.edu%3A6543%2Fsession%2Fnew">Sign In</a>
+  {%- endif %}
+  </p>
   <div id='cchdo_search'>
     <form action="/search">
       <input class="search_box" id="query" name="query" size="20" type="text" />

@@ -1,6 +1,7 @@
 import datetime
 
 import pymongo
+from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
 mongo_conn = pymongo.Connection()
@@ -25,27 +26,40 @@ class mongodoc(dict):
 class collectablemongodoc(mongodoc):
     _mongo_collection = cchdo.collectables
 
-    def from_mongo(self, doc):
-        pass
-
     def save(self):
         self['_id'] = self._mongo_collection.save(self)
 
     def remove(self):
         self._mongo_collection.remove(self['_id'])
 
+    def from_mongo(cls, doc):
+        return None
+
     @classmethod
-    def map_mongo(cls, cursor):
-        if type(cls) is Person:
-            return [cls().from_mongo(x) for x in cursor]
-        l = []
-        for x in cursor:
-            id = x['creation_stamp']['person']
-            p = Person(identifier='placeholder').from_mongo(
-                Person.find_one({'_id': id}))
-            c = cls(p).from_mongo(x)
-            l.append(c)
-        return l
+    def map_mongo(cls, cursor_or_dict):
+        """ If the input is a cursor, returns a list. Else returns the mapped
+        class instance
+
+        """
+        if cursor_or_dict is None:
+            return None
+
+        def get_person(obj_doc):
+            try:
+                cstamp = obj_doc['creation_stamp']
+                return cls(Person.get(cstamp['person']))
+            except KeyError:
+                return cls(None)
+
+        def get_instance(cursor_or_dict, for_person=False):
+            if for_person:
+                return cls(identifier='placeholder').from_mongo(cursor_or_dict)
+            else:
+                return cls(get_person(cursor_or_dict)).from_mongo(cursor_or_dict)
+
+        if type(cursor_or_dict) is dict:
+            return get_instance(cursor_or_dict, cls is Person)
+        return map(lambda x: get_instance(x, cls is Person), cursor_or_dict)
 
     @classmethod
     def all(cls):
@@ -58,6 +72,12 @@ class collectablemongodoc(mongodoc):
     @classmethod
     def find_one(cls, *args, **kwargs):
         return cls._mongo_collection.find_one(*args, **kwargs)
+
+    @classmethod
+    def get(cls, id):
+        if type(id) is not ObjectId:
+            id = ObjectId(id)
+        return cls.map_mongo(cls._mongo_collection.find_one({'_id': id}))
 
 
 class Stamp(mongodoc):
@@ -217,6 +237,10 @@ class _Attrs(dict):
 
 class Obj(_Change):
     _mongo_collection = cchdo.objs
+    from pyramid.security import Authenticated, Allow, Deny
+    __acl__ = [
+        (Allow, Authenticated, 'create'),
+    ]
 
     def __init__(self, person, doc=None):
         super(Obj, self).__init__(person, doc)
@@ -235,10 +259,6 @@ class Obj(_Change):
         super(Obj, self).remove()
         for attr in Attr.map_mongo(self.attrs.history()):
             attr.remove()
-
-
-class Data(Attr):
-    pass
 
 
 class Person(Obj):
@@ -260,6 +280,17 @@ class Person(Obj):
                                            country, email):
             raise ValueError('Person must be initialized either with '
                              'identifier or attributes.')
+    def from_mongo(self, doc):
+        super(Obj, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last',
+                                  'institution', 'country', 'email', ))
+        return self
 
     def is_verified(self):
         return self['identifier'] is not None
+
+
+class Data(Attr):
+    pass
+
+

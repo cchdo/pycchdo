@@ -39,8 +39,6 @@ class mongodoc(dict):
         if cursor_or_dict is None:
             return None
 
-        print 'mapping _mongo for', cls, cursor_or_dict
-
         def get_person(obj_doc):
             try:
                 return Stamp.map_mongo(obj_doc['creation_stamp']).person

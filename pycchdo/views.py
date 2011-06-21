@@ -37,8 +37,8 @@ def home(request):
 
 
 def clear_db(request):
-    models.cchdo.objs.drop()
-    models.cchdo.attrs.drop()
+    models.cchdo().objs.drop()
+    models.cchdo().attrs.drop()
     return Response('OK')
 
 

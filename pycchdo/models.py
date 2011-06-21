@@ -5,7 +5,12 @@ from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
 mongo_conn = pymongo.Connection()
-cchdo = mongo_conn.cchdo
+
+def init_conn(settings):
+    mongo_conn = pymongo.Connection(settings['db_uri'])
+
+def cchdo():
+    return mongo_conn.cchdo
 
 
 def timestamp():
@@ -38,7 +43,7 @@ class mongodoc(dict):
 
         def get_person(obj_doc):
             try:
-                return cls(Stamp.map_mongo(obj_doc['creation_stamp']).person)
+                return Stamp.map_mongo(obj_doc['creation_stamp']).person
             except KeyError:
                 return cls(None)
 
@@ -58,7 +63,7 @@ class mongodoc(dict):
 
 
 class collectablemongodoc(mongodoc):
-    _mongo_collection = cchdo.collectables
+    _mongo_collection = cchdo().collectables
 
     def save(self):
         self['_id'] = self._mongo_collection.save(self)
@@ -115,7 +120,7 @@ class Note(mongodoc):
 
 
 class _Change(collectablemongodoc):
-    _mongo_collection = cchdo.changes
+    _mongo_collection = cchdo().changes
 
     def __init__(self, person, note=None):
         self['creation_stamp'] = Stamp(person)
@@ -170,7 +175,7 @@ class _AttrList(list):
 
 
 class Attr(_Change):
-    _mongo_collection = cchdo.attrs
+    _mongo_collection = cchdo().attrs
     accepted_value = None
 
     def __init__(self, person, key=None, value=None, obj=None, note=None,
@@ -251,7 +256,7 @@ class _Attrs(dict):
 
 
 class Obj(_Change):
-    _mongo_collection = cchdo.objs
+    _mongo_collection = cchdo().objs
     from pyramid.security import Authenticated, Allow, Deny
     __acl__ = [
         (Allow, Authenticated, 'create'),

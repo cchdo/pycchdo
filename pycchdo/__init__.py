@@ -5,16 +5,15 @@ from pyramid.decorator import reify
 from pyramid.request import Request
 from pyramid.security import unauthenticated_userid
 
+from models import init_conn
+
 
 class RequestWithUserAttribute(Request):
     @reify
     def user(self):
-        # <your database connection, however you get it, the below line
-        # is just an example>
         userid = unauthenticated_userid(self)
         if userid is not None:
             # this should return None if the user doesn't exist
-            # in the database
             import models
             p = models.Person.get_id(userid)
             return p
@@ -32,6 +31,8 @@ def main(global_config, **settings):
         authorization_policy=authorization_policy,
         request_factory=RequestWithUserAttribute,
     )
+
+    init_conn(settings)
 
     config.include('pyramid_jinja2')
 

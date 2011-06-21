@@ -9,7 +9,7 @@ cchdo = mongo_conn.cchdo
 
 
 def timestamp():
-    return datetime.datetime.now()
+    return datetime.datetime.utcnow()
 
 
 class mongodoc(dict):
@@ -21,16 +21,6 @@ class mongodoc(dict):
                 self[key] = o[key]
             except KeyError:
                 pass
-
-
-class collectablemongodoc(mongodoc):
-    _mongo_collection = cchdo.collectables
-
-    def save(self):
-        self['_id'] = self._mongo_collection.save(self)
-
-    def remove(self):
-        self._mongo_collection.remove(self['_id'])
 
     def from_mongo(cls, doc):
         return None
@@ -44,22 +34,37 @@ class collectablemongodoc(mongodoc):
         if cursor_or_dict is None:
             return None
 
+        print 'mapping _mongo for', cls, cursor_or_dict
+
         def get_person(obj_doc):
             try:
-                cstamp = obj_doc['creation_stamp']
-                return cls(Person.get(cstamp['person']))
+                return cls(Stamp.map_mongo(obj_doc['creation_stamp']).person)
             except KeyError:
                 return cls(None)
 
-        def get_instance(cursor_or_dict, for_person=False):
-            if for_person:
-                return cls(identifier='placeholder').from_mongo(cursor_or_dict)
+        def get_instance(d):
+            if cls is Person:
+                return cls(identifier='placeholder').from_mongo(d)
+            elif cls is Stamp:
+                p = Person(identifier='placeholder')
+                p['_id'] = 'fake'
+                return cls(person=p).from_mongo(d)
             else:
-                return cls(get_person(cursor_or_dict)).from_mongo(cursor_or_dict)
+                return cls(get_person(d)).from_mongo(d)
 
         if type(cursor_or_dict) is dict:
-            return get_instance(cursor_or_dict, cls is Person)
-        return map(lambda x: get_instance(x, cls is Person), cursor_or_dict)
+            return get_instance(cursor_or_dict)
+        return map(get_instance, cursor_or_dict)
+
+
+class collectablemongodoc(mongodoc):
+    _mongo_collection = cchdo.collectables
+
+    def save(self):
+        self['_id'] = self._mongo_collection.save(self)
+
+    def remove(self):
+        self._mongo_collection.remove(self['_id'])
 
     @classmethod
     def all(cls):
@@ -74,7 +79,7 @@ class collectablemongodoc(mongodoc):
         return cls._mongo_collection.find_one(*args, **kwargs)
 
     @classmethod
-    def get(cls, id):
+    def get_id(cls, id):
         if type(id) is not ObjectId:
             id = ObjectId(id)
         return cls.map_mongo(cls._mongo_collection.find_one({'_id': id}))
@@ -83,12 +88,22 @@ class collectablemongodoc(mongodoc):
 class Stamp(mongodoc):
     def __init__(self, person):
         self['timestamp'] = timestamp()
-        if type(person) != Person:
-            raise TypeError('person is not a Person object')
+        if type(person) is not Person:
+            raise TypeError('%r (%s) is not a Person object' % \
+                            (person, type(person)))
         try:
             self['person'] = person['_id']
         except KeyError:
             raise ValueError('Person object must be saved first')
+
+    def from_mongo(self, doc):
+        super(Stamp, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('timestamp', 'person', ))
+        return self
+
+    @property
+    def person(self):
+        return Person.get_id(self['person'])
 
 
 class Note(mongodoc):
@@ -267,6 +282,10 @@ class Person(Obj):
     """
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
+        self['_id'] = 'self'
+        super(Person, self).__init__(self)
+        del self['_id']
+
         self['obj_type'] = 'person'
 
         self['identifier'] = identifier
@@ -289,8 +308,12 @@ class Person(Obj):
     def is_verified(self):
         return self['identifier'] is not None
 
+    def save(self):
+        super(Person, self).save()
+        self['creation_stamp']['person'] = self['_id']
+        super(Person, self).save()
+
 
 class Data(Attr):
+    """ Specific type of attribute that stores large amounts of data """
     pass
-
-

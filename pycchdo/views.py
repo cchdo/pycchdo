@@ -29,11 +29,17 @@ def _sign_in_user(request, profile):
         p = models.Person(identifier=identifier, name_first=name['givenName'],
                           name_last=name['familyName'], email=email)
         p.save()
-    return remember(request, identifier)
+    return remember(request, str(p['_id']))
 
 
 def home(request):
     return {'project': 'pycchdo'}
+
+
+def clear_db(request):
+    models.cchdo.objs.drop()
+    models.cchdo.attrs.drop()
+    return Response('OK')
 
 
 def session_show(request):

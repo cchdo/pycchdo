@@ -16,7 +16,7 @@ class RequestWithUserAttribute(Request):
             # this should return None if the user doesn't exist
             # in the database
             import models
-            p = models.Person.map_mongo(models.Person.find_one({'identifier': userid}))
+            p = models.Person.get_id(userid)
             return p
 
 
@@ -38,6 +38,8 @@ def main(global_config, **settings):
     config.add_static_view('static', 'pycchdo:static')
 
     config.add_route('home', '/', view='pycchdo.views.home', view_renderer='templates/base.jinja2')
+
+    config.add_route('clear', '/clear', view='pycchdo.views.clear_db')
 
     config.add_route('session', '/session', view='pycchdo.views.session_show', view_renderer='templates/sessions/show.jinja2')
     config.add_route('session_new', '/session/new', view='pycchdo.views.session_new')

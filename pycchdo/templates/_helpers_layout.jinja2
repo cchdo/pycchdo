@@ -1,5 +1,5 @@
-{% macro boxed(title='', bottom='') -%}
-  <div class="boxed">
+{% macro boxed(title='', bottom='', box_attrs='') -%}
+  <div {{box_attrs}} class="boxed">
   <h1>{{ title }}</h1>
   <div class="box_content">
     {{ caller() }}

@@ -38,27 +38,32 @@ def main(global_config, **settings):
 
     config.add_static_view('static', 'pycchdo:static')
 
-    config.add_route('home', '/', view='pycchdo.views.home', view_renderer='templates/base.jinja2')
+    config.add_route('home', '/')
+    config.add_view('pycchdo.views.home', route_name='home', renderer='templates/base.jinja2')
 
-    config.add_route('clear', '/clear', view='pycchdo.views.clear_db')
+    config.add_route('clear', '/clear')
+    config.add_view('pycchdo.views.clear_db', route_name='clear')
 
-    config.add_route('session', '/session', view='pycchdo.views.session_show', view_renderer='templates/sessions/show.jinja2')
-    config.add_route('session_new', '/session/new', view='pycchdo.views.session_new')
-    config.add_route('session_delete', '/session/delete', view='pycchdo.views.session_delete')
+    config.add_route('session', '/session')
+    config.add_view('pycchdo.views.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
+    config.add_route('session_new', '/session/new')
+    config.add_view('pycchdo.views.session_new', route_name='session_new')
+    config.add_route('session_delete', '/session/delete')
+    config.add_view('pycchdo.views.session_delete', route_name='session_delete')
 
-    config.add_route('objs', '/objs', view='pycchdo.views.objs',
-                     view_renderer='templates/objs/index.jinja2')
-    config.add_route('obj_new', '/objs/new', view='pycchdo.views.obj_new',
-                     view_renderer='templates/objs/new.jinja2')
+    config.add_route('objs', '/objs')
+    config.add_view('pycchdo.views.objs', route_name='objs', renderer='templates/objs/index.jinja2')
+    config.add_route('obj_new', '/objs/new')
     config.add_view(
         view='pycchdo.views.obj_new', route_name='obj_new',
         context='pycchdo.models.Obj', permission='create',
         renderer='templates/objs/new.jinja2')
-    config.add_route('obj_show', '/obj/{obj_id}', view='pycchdo.views.obj_show',
-                     view_renderer='templates/objs/show.jinja2')
-    config.add_route('obj_attrs', '/obj/{obj_id}/a', view='pycchdo.views.obj_attrs',
-                     view_renderer='templates/objs/attrs.jinja2')
-    config.add_route('obj_attr', '/obj/{obj_id}/a/{key}', view='pycchdo.views.obj_attr',
-                     view_renderer='templates/objs/attr.jinja2')
+    config.add_route('obj_show', '/obj/{obj_id}')
+    config.add_view('pycchdo.views.obj_show', route_name='obj_show', renderer='templates/objs/show.jinja2')
+    config.add_route('obj_attrs', '/obj/{obj_id}/a')
+    config.add_view('pycchdo.views.obj_attrs', route_name='obj_attrs', renderer='templates/objs/attrs.jinja2')
+
+    config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
+    config.add_view('pycchdo.views.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
 
     return config.make_wsgi_app()

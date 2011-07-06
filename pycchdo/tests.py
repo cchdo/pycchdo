@@ -27,9 +27,9 @@ class TestModel(unittest.TestCase):
     def test_new_Change(self):
         """ Newly created objects have correct values for stamps and notes """
         from pycchdo.models import _Change
-        before = datetime.datetime.now()
+        before = datetime.datetime.utcnow()
         change = _Change(self.testPerson)
-        after = datetime.datetime.now()
+        after = datetime.datetime.utcnow()
         self.assertTrue(change['creation_stamp']['timestamp'] >= before)
         self.assertTrue(change['creation_stamp']['timestamp'] <= after)
         self.assertTrue(change['pending_stamp'] is None)
@@ -176,6 +176,16 @@ class TestModel(unittest.TestCase):
         self.assertEqual(Attr.map_mongo(Attr.find({'obj': obj['_id']}))[0]['_id'], attr['_id'])
         obj.remove()
         self.assertEqual(Attr.find({'obj': obj['_id']}).count(True), 0)
+
+    def test_Obj_has_obj_type(self):
+        """ Objs are required to have an _obj_type key that is just the class
+        name """
+        from pycchdo.models import Obj, Person
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertEqual(Obj.__name__, obj['_obj_type'])
+        obj.remove()
+        self.assertEqual(Person.__name__, self.testPerson['_obj_type'])
 
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """

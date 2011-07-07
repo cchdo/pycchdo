@@ -82,10 +82,14 @@ class collectablemongodoc(mongodoc):
         return cls._mongo_collection.find_one(*args, **kwargs)
 
     @classmethod
-    def get_id(cls, id):
+    def find_id(cls, id):
         if type(id) is not ObjectId:
             id = ObjectId(id)
-        return cls.map_mongo(cls._mongo_collection.find_one({'_id': id}))
+        return cls.find_one({'_id': id})
+
+    @classmethod
+    def get_id(cls, id):
+        return cls.map_mongo(cls.find_id(id))
 
 
 class Stamp(mongodoc):
@@ -278,6 +282,48 @@ class Obj(_Change):
         for attr in Attr.map_mongo(self.attrs.history()):
             attr.remove()
 
+    @classmethod
+    def all(cls):
+        if cls is Obj:
+            return cls._mongo_collection.find()
+        return cls._mongo_collection.find({'_obj_type': cls.__name__})
+
+    @classmethod
+    def find(cls, *args, **kwargs):
+        try:
+            query = args[0]
+        except IndexError:
+            query = {}
+            args = (query, )
+        try:
+            query['_obj_type']
+        except KeyError:
+            if cls is not Obj:
+                query['_obj_type'] = cls.__name__
+        return cls._mongo_collection.find(*args, **kwargs)
+
+    @classmethod
+    def find_one(cls, *args, **kwargs):
+        try:
+            query = args[0]
+        except IndexError:
+            query = {}
+            args = (query, )
+        try:
+            query['_obj_type']
+        except KeyError:
+            if cls is not Obj:
+                query['_obj_type'] = cls.__name__
+        return cls._mongo_collection.find_one(*args, **kwargs)
+
+    @classmethod
+    def find_id(cls, id):
+        if type(id) is not ObjectId:
+            id = ObjectId(id)
+        if cls is Obj:
+            return cls.find_one({'_id': id})
+        return cls.find_one({'_id': id, '_obj_type': cls.__name__})
+
 
 class Person(Obj):
     """ People may be either verified or not.
@@ -288,8 +334,6 @@ class Person(Obj):
         self['_id'] = 'self'
         super(Person, self).__init__(self)
         del self['_id']
-
-        self['obj_type'] = 'person'
 
         self['identifier'] = identifier
         self['name_first'] = name_first
@@ -316,7 +360,16 @@ class Person(Obj):
         self['creation_stamp']['person'] = self['_id']
         super(Person, self).save()
 
+    def __repr__(self):
+        return 'Person ({last}, {first})'.format(last=self['name_last'],
+                                                 first=self['name_first'])
+
 
 class Data(Attr):
     """ Specific type of attribute that stores large amounts of data """
     pass
+
+
+class Cruise(Obj):
+    def __init__(self, person):
+        super(Cruise, self).__init__(person)

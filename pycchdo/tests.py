@@ -262,3 +262,12 @@ class TestModel(unittest.TestCase):
         self.assertRaises(TypeError, lambda: Stamp())
         self.assertRaises(TypeError, lambda: Stamp(None))
         Stamp(self.testPerson)
+
+    def test_Obj_finders_find_Objs(self):
+        """ Obj finders should find Objs based on their class """
+        from pycchdo.models import Obj, Person
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertTrue(Obj.find_one({'_id': obj['_id']}) != None)
+        self.assertTrue(Person.find_one({'_id': self.testPerson['_id']}) != None)
+        obj.remove()

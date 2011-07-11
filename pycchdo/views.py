@@ -268,3 +268,8 @@ def catchall_static(request):
     if os.path.isfile(path):
         return {'_static': relpath}
     return HTTPNotFound()
+
+
+def advanced_search(request):
+    post = (request.str_POST.getone('line') if request.str_POST else None)
+    return {'post':post}

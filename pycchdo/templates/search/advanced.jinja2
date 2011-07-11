@@ -1,0 +1,44 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Advanced Search{% endblock %}
+{% block content %}
+  {% call helpers_layout.boxed('Advanced Search') -%}
+<b>Find things that contain the following:</b>
+  <form name="advanced_search" action="/search/advanced" method="POST">
+    <table>
+      <tr>
+        <td><label for="search_line">Line Number</label></td>
+        <td><input type="text" placeholder="ALL" name="line" id="search_line" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_expocode">ExpoCode</label></td>
+        <td><input type="text" placeholder="ALL" name="expocode" id="search_expocode" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_ship">Ship</label></td>
+        <td><input type="text" placeholder="ALL" name="ship" id="search_ship" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_people">People</label></td>
+        <td><input type="text" placeholder="ALL" name="people" id="search_people" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_country">Country</label></td>
+        <td><input type="text" placeholder="ALL" name="country" id="search_country" /></td>
+      </tr>
+    </table>
+    <b>Between the following dates:</b>
+    <br />
+    insert date picker here
+    <br />
+    <input type="submit" value="Search" />
+   </form>
+   {% if post %}
+     <br />
+     The Search Term is:
+     {{ post }}<br />
+   {% endif %}
+Search by specific parameters is also supported by the always present search bar at the top right.  To
+match a search to a specific parameter, use the following syntax:  parameter:query.  For example, ship:knorr line:p10  chief_scientist:swift.<br>
+The following parameters are valid:    Group, Chief_Scientist, ExpoCode, Alias, Ship, Line.
+  {%- endcall %}
+{% endblock %}

@@ -1,13 +1,13 @@
 {% extends "templates/base.jinja2" %}
 {% block title %}Obj Attrs{% endblock %}
 {% block content %}
-  {% call helpers_layout.boxed('%s attrs' % obj['_id']) -%}
+  {% call h.boxed('%s attrs' % obj['_id']) -%}
     <p>{{obj}}</p>
 
     <h2>Attrs</h2>
     <p>
       <form action="/objs/{{ obj['_id'] }}/a/" method="POST">
-        <input type="submit" value="Add">
+        <input type="text" name="key"><input type="text" name="value"><input type="submit" value="Add">
       </form>
     </p>
 

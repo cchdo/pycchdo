@@ -1,10 +1,16 @@
 from pyramid.config import Configurator
+from pyramid.events import BeforeRender
 from pyramid.authentication import AuthTktAuthenticationPolicy
 from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.decorator import reify
 from pyramid.request import Request
 from pyramid.security import unauthenticated_userid
 
+import webhelpers
+import webhelpers.html
+import webhelpers.html.tags
+
+import helpers
 from models import init_conn
 
 
@@ -17,6 +23,12 @@ class RequestWithUserAttribute(Request):
             import models
             p = models.Person.get_id(userid)
             return p
+
+
+def add_renderer_globals(event):
+    event['wh'] = webhelpers
+    event['whh'] = webhelpers.html
+    event['h'] = helpers
 
 
 def main(global_config, **settings):
@@ -35,6 +47,7 @@ def main(global_config, **settings):
     init_conn(settings)
 
     config.include('pyramid_jinja2')
+    config.add_subscriber(add_renderer_globals, BeforeRender)
 
     config.add_static_view('static', 'pycchdo:static')
 

@@ -1,7 +1,7 @@
 {% extends "templates/base.jinja2" %}
 {% block title %}Session{% endblock %}
 {% block content %}
-  {% call helpers_layout.boxed('Currently signed in') -%}
+  {% call h.boxed('Currently signed in') -%}
     <h2>{{person['identifier']}}</h2>
     <p>{{person}}</p>
   {%- endcall %}

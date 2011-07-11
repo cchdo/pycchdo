@@ -1,22 +1,21 @@
-{% import "templates/_helpers_layout.jinja2" as helpers_layout %}
-<!DOCTYPE html>
+{% import "templates/_helpers_layout.jinja2" as helpers_layout -%}
+{{ whh.tags.Doctype().html5() }}
 <html>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="google-site-verification" content="xBVm_AfJYEdA-tbww41dajF9RuGbZHAjpOBhwWwqbcM">
-  <title>CCHDO{% block title %}{% endblock %}</title>
+  <title>CCHDO{% call h.title() %}{% block title %}{% endblock %}{% endcall %}</title>
   <link rel="shortcut icon" href="/static/favicon.ico">
   <link rel="icon" type="image/png" href="/static/favicon.png">
-  <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css">
-  <link rel="stylesheet" type="text/css" href="/static/screen.css">
-  {%- block head -%}
-    {% include 'templates/_ie_compat.jinja2' ignore missing %}
-  {%- endblock -%}
+  {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
+  {% include 'templates/_ie_compat.jinja2' ignore missing %}
+  {%- block head -%}{%- endblock -%}
 </head>
 <body>
   <div id="centering">
     {% include 'templates/_base_header.jinja2' %}
-    <div id="content">
+    <div id="content"{%- block content_attrs -%}{%- endblock %}>
       {%- if flash and flash['notice'] -%}
         <h1 class="notice">{{flash['notice']}}</h1>
       {%- endif -%}

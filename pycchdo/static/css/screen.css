@@ -1,8 +1,14 @@
-body { font-family: Futura, Verdana, Tahoma, sans-serif; font-size: 10pt; padding-top: 0.5em; position: relative; }
+body {
+  font-family: Futura, Verdana, Tahoma, sans-serif;
+  font-size: 0.8em;
+  position: relative;
+}
+
 a, .link { color: #405381; }
 a:visited, .visited_link { color: #88673E; }
+
 /*
-p { line-height: 1.5em; max-width: 66ex; }
+p { line-height: 1.5em; }
 address { line-height: 1.5em; }
 pre { font-family: Andale Mono, Courier New, Courier, Fixed, monospace; }
 
@@ -37,23 +43,6 @@ h3 { margin-top: 1em; margin-bottom: 1em; font-weight: bold; }
 }
 .button {
   height: 1.5em;
-}
-
-/* SEARCH BOX /
-.search_box {
-  border: 1px solid #A0A0A0;
-  background-color: #D0D0D0;
-  margin-right: 0.5em;
-  font-size: 1.2em;
-  vertical-align: middle;
-}
-.search_box:focus {
-  background-color: #FFFFFF;
-  border: 1px solid #1286FE;
-}
-.search_button { 
-  height: 2em;
-  vertical-align: middle;
 }
 
 /* query /
@@ -240,124 +229,202 @@ td.map img {
   background-color:#d1edec;
 }
 
-/* MAIN */
+*/
 
 #centering {
-  text-align: center;
   margin: 0 auto;
+  margin-top: 0.5em;
   width: 1024px;
 }
-#content {
-  text-align: left;
-  line-height: 1.5em;
-  position:relative;
-}
-#content > h1 {
-  font-size: large;
-  border-bottom: 1px solid #A0A0A0;
-  background-color: #E0E0E0;
+
+#gheader {
   position: relative;
-  left: 0;
-  right: 0;
   top: 0;
-  padding: 0.5em;
+  right: 0;
+  left: 0;
+  text-align: left;
 }
 
-/* cchdo_header */
-#cchdo_header {
-  position: relative;
-  top: 0;
-  right: 0;
-  left: 0;
-  text-align: left;
-}
-#cchdo_search {
-  position: absolute;
-  right: 0;
-  bottom: 0.5em;
-}
 #cchdo_logo {
   height: 3.5em;
 }
+
+#session_status {
+  position: absolute;
+  top: 0;
+  right: 24em;
+  text-align: right;
+}
+
+#gsearch {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+#gsearch input {
+  border: 1px solid #A0A0A0;
+  background: #D0D0D0;
+  font-size: 1.1em;
+  vertical-align: middle;
+}
+#gsearch input:focus {
+  background-color: inherit;
+  border: 1px solid #1286FE;
+}
+#gsearch input[type="submit"] { 
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  border: 1px solid #4f4f4f;
+  color: #4f4f4f;
+  font-weight: lighter;
+  height: 1.8em;
+  padding: 0.2em 0.5em;
+  background: #FFFFFF;
+}
+#gsearch input[type="submit"]:hover { 
+  background: #E0E0E0;
+}
+#gsearch input[type="submit"]:active { 
+  border: 1px solid #000000;
+  color: #000000;
+}
+#gsearch p {
+  padding-top: 0.25em;
+  font-size: 0.75em;
+  text-align: right;
+}
+
 #picture {
   position: relative;
-  /*padding-top: 84px; /* Push the menu down */
   height: 125px;
   z-index: 1;
 }
 #bannerA, #bannerB {
   position: absolute;
-  left: 0;
   width: 100%;
   background: url('/static/img/banners/banner.jpg');
   height: 125px;
 }
-#banner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100px;
-}
-//#cart {
-//  position: absolute;
-//  top: 0;
-//  right: 0;
-//}
-//.cart_prompt {
-//  float: right;
-//  margin-top: 1em;
-//  margin-bottom: 1em;
-//}
-//
-//.addcart_button {
-//  vertical-align: middle;
-//  height: 1.5em;
-//}
-//#cart_listing {
-//  max-height: 600px;
-//  overflow: auto;
-//}
 
-/* cchdo footer */
-#cchdo_footer {
+#cchdo_menu {
+  /* pin to bottom of picture */
+  z-index: 100;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  /* make a light area in the picture for the menu */
+  background-image: url("/static/img/banners/transparent_menu_bg.png");
+  height: 1.4em;
+  text-align: center;
+}
+#cchdo_menu a {
+  color: #000000;
+  text-decoration: none;
+}
+#cchdo_menu li {
+  /* Make all entries a little bigger */
+  height: 1.3em;
+  padding: 0 2em;
+  position: relative;
+  display: inline;
+  text-transform: uppercase;
+  z-index: 100;
+  white-space: nowrap;
+}
+#cchdo_menu li h1 { 
+  display: inline;
+}
+/* back up styling for submenu entries */
+#cchdo_menu ul ul li {
+  padding: 0;
+  position: static;
+  display: block;
+  text-transform: none;
+  height: 2em;
+  line-height: 2em;
+}
+#cchdo_menu ul ul {
+  visibility: hidden;
+  position: absolute;
+  top: 100%;
+  width: 100%;
+  left: 0; /* HACK force firefox to left align */
+  background: #D0D0D0;
+}
+#cchdo_menu ul ul a {
+  height: 100%;
+  display: block;
+}
+#cchdo_menu ul li:hover ul {
+  visibility: visible;
+}
+#cchdo_menu ul li:hover ul ul {
+  visibility: hidden;
+}
+#cchdo_menu ul ul li:hover,
+#cchdo_menu ul ul li:hover a,
+.submenu_hover {
+  background: #A0A0A0;
+  color: #FFFFFF;
+}
+#cchdo_menu ul ul li:hover ul {
+  visibility: visible;
+}
+#cchdo_menu ul ul li:hover ul a {
+  color: #000000;
+}
+#cchdo_menu ul ul ul {
+  position: static;
+  background: #A0A0A0;
+  margin: -2em 0 0 100%;
+}
+#cchdo_menu ul ul ul li:hover,
+#cchdo_menu ul ul ul li:hover a, 
+.submenu2_hover {
+  background: #3C3C3C;
+  color: #FFFFFF;
+}
+
+#content {
+}
+
+#gfooter {
   position: relative;
   bottom: 0;
   clear: both;
-  margin-bottom: 1em;
+  margin: 1em 0;
 }
-#cchdo_credit {
-  margin-top: 1em;
+#gcredit {
   text-align: center;
   font-size: x-small;
 }
-#cchdo_credit p {
-  max-width: none;
+#gcredit p {
   width: 57em;
   margin: 0 auto;
 }
-#cchdo_credit p:first-child {
+#gcredit #nsfcredit {
   font-size: larger;
 }
-#cchdo_logos {
+#footer_logos {
   position: absolute;
   top: 0;
   right: 0;
 }
-#cchdo_logos img {
+#footer_logos img {
   height: 40px;
 }
 
-/* shaded boxes */
-
 .boxed { 
   border: 1px solid #A0A0A0;
+  line-height: 1.5em;
   position: relative;
   margin-bottom: 1em;
   z-index: 0;
 }
-.boxed > h1 {
-  font-size: large;
+.boxed h1:first-child {
+  font-size: 1.3em;
   border-bottom: 1px solid #A0A0A0;
   background-color: #E0E0E0;
   position: relative;
@@ -366,16 +433,9 @@ td.map img {
   top: 0;
   padding: 0.5em;
 }
-.boxed > .box_content {
+.boxed .box_content {
   padding: 1em;
   position: relative;
-}
-.box > h1 {
-  font-size: large;
-  background-color: #E0E0E0;
-  padding: 0.5em;
-  border: 1px solid #A0A0A0;
-  margin-bottom: 1em;
 }
 .box_bottom { 
   font-size: large;
@@ -383,108 +443,9 @@ td.map img {
   background-color: #E0E0E0;
   position: relative;
   left: 0;
-  right: 0;
   bottom: 0;
   padding: 0.5em;
   clear: both;
-}
-
-/* CCHDO Menu *****************************************************************/
-#cchdo_menu {
-  /* pin to bottom of picture */
-  z-index: 100;
-  position: absolute;
-  width: 100%;
-  left: 0;
-  bottom: 0;
-  /* make a light area in the picture for the menu */
-  background-image: url("/static/img/banners/transparent_menu_bg.png");
-  height: 16px;
-  /* bump to center text in transparency */
-  padding-bottom: 3px;
-  text-align: center;
-}
-#cchdo_menu a {
-  color: #000000;
-  text-decoration: none;
-}
-#cchdo_menu ul li {
-  height: 1.3em; /* Make boxes a little bigger */
-}
-#cchdo_menu > ul {
-}
-#cchdo_menu > ul > li {
-  padding-left: 2em;
-  padding-right: 2em;
-  padding-bottom: 3px;
-  position: relative;
-  display: inline;
-  text-transform: uppercase;
-  z-index: 100;
-  height: 17px;
-}
-#cchdo_menu > ul > li > h1 { 
-  display: inline;
-  padding: 0;
-  margin: 0;
-  font-size: inherit;
-}
-#cchdo_menu ul li ul {
-  margin-top: 0;
-  visibility: hidden;
-}
-#cchdo_menu ul li ul a {
-  height: 1.53em; /* Make the (most of) the entire highlighted area clickable */
-  display: block;
-}
-#cchdo_menu > ul > li > ul {
-  /* inline-table hack */
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 18px; /* bump submenu down below the transparent bar */
-  background-color: #D0D0D0;
-}
-#cchdo_menu > ul > li:hover > ul {
-  visibility: visible;
-}
-#cchdo_menu > ul > li > ul > li {
-  text-transform: none;
-  padding-top: 3px;
-  padding-bottom: 3px;
-}
-#cchdo_menu ul li ul li:hover,
-#cchdo_menu ul li ul li:hover > a,
-.submenu_hover {
-  background-color: #A0A0A0;
-  color: white;
-}
-#cchdo_menu ul li ul li ul {
-  position: absolute;
-  left: 100%;
-  background-color: #A0A0A0;
-  white-space: nowrap;
-  width: 130px !important;
-}
-#cchdo_menu ul li ul li ul.ocean {
-  top: 0;
-}
-#cchdo_menu ul li ul li ul.time_series {
-  top: 1.75em;
-}
-#cchdo_menu ul li ul li ul.contributions_projects {
-  top: 3.5em;
-}
-#cchdo_menu ul li ul li:hover ul {
-  visibility: visible;
-}
-#cchdo_menu ul li ul li ul li {
-  padding: 3px;
-  margin-top: 0px;
-}
-#cchdo_menu ul li ul li ul li:hover, .submenu2_hover, #cchdo_menu ul li ul li ul li:hover a {
-  background-color: #3C3C3C;
-  color: white;
 }
 
 ///* home */

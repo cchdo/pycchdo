@@ -84,7 +84,10 @@ class collectablemongodoc(mongodoc):
     @classmethod
     def find_id(cls, id):
         if type(id) is not ObjectId:
-            id = ObjectId(id)
+            try:
+                id = ObjectId(id)
+            except pymongo.objectid.InvalidId:
+                return None
         return cls.find_one({'_id': id})
 
     @classmethod
@@ -225,6 +228,17 @@ class _Attrs(dict):
             {'obj': self._obj['_id'], 'accepted': True}).sort(
             'judgment_stamp.timestamp', pymongo.DESCENDING))
 
+    @property
+    def current_pairs(self):
+        curr = {}
+        for change in self.accepted_changes:
+            if change['key'] not in curr:
+                curr[change['key']] = change['value']
+        return curr
+
+    def keys(self):
+        return self.current_pairs.keys()
+
     def __getitem__(self, key):
         attrs = self.history(key, accepted=True).sort(
             'judgment_stamp.timestamp', pymongo.DESCENDING)
@@ -235,7 +249,11 @@ class _Attrs(dict):
             return attr['value']
         raise KeyError(key)
 
-    get = __getitem__
+    def get(self, key, default=None):
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
 
     def __setitem__(self, key, value):
         raise NotImplementedError()
@@ -319,7 +337,10 @@ class Obj(_Change):
     @classmethod
     def find_id(cls, id):
         if type(id) is not ObjectId:
-            id = ObjectId(id)
+            try:
+                id = ObjectId(id)
+            except pymongo.objectid.InvalidId:
+                return None
         if cls is Obj:
             return cls.find_one({'_id': id})
         return cls.find_one({'_id': id, '_obj_type': cls.__name__})
@@ -346,11 +367,15 @@ class Person(Obj):
                                            country, email):
             raise ValueError('Person must be initialized either with '
                              'identifier or attributes.')
+
     def from_mongo(self, doc):
         super(Obj, self).from_mongo(doc)
         self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last',
                                   'institution', 'country', 'email', ))
         return self
+
+    def full_name(self):
+        return ' '.join((self['name_first'], self['name_last']))
 
     def is_verified(self):
         return self['identifier'] is not None

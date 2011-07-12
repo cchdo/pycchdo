@@ -67,9 +67,7 @@ def main(global_config, **settings):
     config.add_route('objs', '/objs')
     config.add_view('pycchdo.views.objs', route_name='objs', renderer='templates/objs/index.jinja2')
     config.add_route('obj_new', '/objs/new')
-    config.add_view(
-        view='pycchdo.views.obj_new', route_name='obj_new',
-        context='pycchdo.models.Obj', permission='create',
+    config.add_view('pycchdo.views.obj_new', route_name='obj_new',
         renderer='templates/objs/new.jinja2')
     config.add_route('obj_show', '/obj/{obj_id}')
     config.add_view('pycchdo.views.obj_show', route_name='obj_show', renderer='templates/objs/show.jinja2')
@@ -78,5 +76,11 @@ def main(global_config, **settings):
 
     config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
     config.add_view('pycchdo.views.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
+
+    config.add_route('cruises', '/cruises')
+    config.add_view('pycchdo.views.cruises_index', route_name='cruises', renderer='templates/cruise/index.jinja2')
+
+    config.add_route('cruise_show', '/cruise/{cruise_id}')
+    config.add_view('pycchdo.views.cruise_show', route_name='cruise_show', renderer='templates/cruise/show.jinja2')
 
     return config.make_wsgi_app()

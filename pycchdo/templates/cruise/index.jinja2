@@ -1,0 +1,13 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Cruises{% endblock %}
+{% block content %}
+  {% call h.boxed('Cruises') -%}
+    <ul>
+    {% for cruise in cruises %}
+      <li><a href="/cruise/{{cruise['_id']}}">{{cruise['_id']}}</a></li>
+    {% endfor %}
+    </ul>
+    <a href="/objs/new?_obj_type=Cruise">New Cruise</a>
+  {%- endcall %}
+{% endblock %}
+

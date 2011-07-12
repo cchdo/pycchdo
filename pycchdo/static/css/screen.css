@@ -538,36 +538,9 @@ td.map img {
 //   font-size: smaller;
 //   text-align: right;
 //}
-//
-//.clear { clear: both; }
-//
-//.data_access #left { float: left; width: 45%; }
-//.data_access #right { float: right; text-align: left; width: 53%; }
-//.data_access .box_content { padding-top: 0; margin-top: -0.5em; }
-//.data_access #right .box_content,
-//.data_access #left .box_content { min-height: 39em; }
-//.data_access h2 { margin-top: 1em; border-bottom: 1px solid #006f89; }
-//.data_access h3 { margin: 0.5em 0 0.25em 0; }
-//.data_access .important { color: #ff0900; }
-//.data_access .preliminary { font-size: 1.3em; font-weight: bold; }
-//.data_access .thumb { margin-top: 1em; float: right; text-align: right; }
-//.data_access .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
-//.data_access .thumb img { width: 80px; height: 80px; }
-//.data_access #data_access_history { max-height: 37em; overflow-y: auto; }
-//.data_access #right table { width: 100%; }
-//.data_access #right table th { border-bottom: 1px solid #aaa; }
-//.data_access #right td { vertical-align: top;}
-//.data_access #right td.date { font-weight: bold; white-space: nowrap; }
-//.data_access .note { width: 37em; }
-//.data_access .note pre { overflow: auto; max-height: 10em; }
-//.data_access .note .close { text-align: right; }
-//.data_access .note .close a { text-decoration: none; }
-//.data_access #updates table { width: 100%; }
-//.data_access #updates th { border-bottom: 1px solid #ddd; }
-//.data_access #updates .date { width: 13em; }
-//.data_access #updates .merged td { background-color: #d9eaed; }
-//.data_access #updates .notes { width: 70%; }
-//
+
+.clear { clear: both; }
+
 //.data_summary_history { background: #9ec4cd; }
 //.data_summary_history a { color: #fff; }
 //#data_summary_and_history { height:700px; }

@@ -1,0 +1,60 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Cruise {{cruise['expocode']}}{% endblock %}
+{% block head -%}
+  {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
+{%- endblock %}
+{% macro cruise_attr(attr='', val='') -%}
+  {% if val %}
+    <p><strong>{{attr}}:</strong> {{val}}</p>
+  {% endif %}
+{%- endmacro %}
+{% block content_attrs %} class="cruise-page"{% endblock %}
+{% block content %}
+  {% call h.boxed('General Information and Files', id='left', class='upper') -%}
+    <div class="subsection general-information">
+      <h2>General Information</h2>
+
+      <div class="thumb"> 
+        <p><a href="{{maps['full']}}"><img src="{{maps['thumb']}}"></a></p>
+        <p class="caption"><a href="{{link}}">Full Size</a></p>
+      </div> 
+
+      {{ cruise_attr('ExpoCode', cruise['expocode']) }}
+      {{ cruise_attr('Collections', cruise['collections']) }}
+      {{ cruise_attr('Ship', cruise['ship_name']) }}
+      {{ cruise_attr('Country', cruise['country_name']) }}
+      {#{ cruise_attr('Chief Scientists', ', '.join([x['name_first'] for x in cruise['chief_scientists']])) }#}
+      {{ cruise_attr('Chief Scientists', 'SCIS') }}
+      {{ cruise_attr('Cruise Dates', cruise['cruise_dates']) }}
+    </div>
+    <div class="clear"></div>
+    <div class="subsection data-files">
+      <h2>Data Files</h2>
+
+      {% if 'preliminary' in cruise['statuses'] %}
+        <p id="preliminary">These data are preliminary (Please see <a href="">data history</a>)</p> 
+      {% endif %}
+       
+      <h3>Exchange</h3>
+      <p><a href="/data/onetime/atlantic/a20/a20_ct1.zip">CTD</a> - ZIP archive of ASCII .csv CTD data with station information</p> 
+      <p><a href="/data/onetime/atlantic/a20/a20_hy1.csv">BOT</a> - ASCII .csv bottle data with station information</p> 
+
+      <h3>NetCDF</h3>
+      <p><a href="/data/onetime/atlantic/a20/a20_nc_ctd.zip">CTD</a> - ZIP archive of binary CTD data with station information</p> 
+      <p><a href="/data/onetime/atlantic/a20/a20_nc_hyd.zip">BOT</a> - Binary bottle data with station information</p> 
+
+      <h3>WOCE</h3>
+      <p><a href="/data/onetime/atlantic/a20/a20su.txt">SUM</a> - ASCII station/cast information</p> 
+    </div>
+  {%- endcall %}
+  {% call h.boxed('Data Histories and Notes', id='right', class='upper') -%}
+    <div class="subsection">
+      <ol>
+      {% for change in history %}
+        <li>{{ h.change_pretty(change) }}</li>
+      {% endfor %}
+      </ol>
+      <a href="{{request.url}}/a">Attrs</a>
+    </div>
+  {%- endcall %}
+{% endblock %}

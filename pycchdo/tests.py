@@ -71,6 +71,29 @@ class TestModel(unittest.TestCase):
         self.assertFalse(change['accepted'])
         change.remove()
 
+    def test_Attrs_accepted_changes(self):
+        """ Accepted changes """
+        from pycchdo.models import Obj, Attr
+        o = Obj(self.testPerson)
+        o.save()
+        self.assertEquals([], o.attrs.accepted_changes)
+        o.attrs.set('a', 'b', self.testPerson)
+        self.assertEquals([], o.attrs.accepted_changes)
+        Attr.map_mongo(o.attrs.history()[0]).accept(self.testPerson)
+        self.assertEquals([o.attrs.history()[0]], o.attrs.accepted_changes)
+        o.remove()
+
+    def test_Attrs_keys(self):
+        """ Accepted keys """
+        from pycchdo.models import Obj, Attr
+        o = Obj(self.testPerson)
+        o.save()
+        self.assertEquals([], o.attrs.keys())
+        o.attrs.set('a', 'b', self.testPerson)
+        Attr.map_mongo(o.attrs.history()[0]).accept(self.testPerson)
+        self.assertEquals(['a'], o.attrs.keys())
+        o.remove()
+
     def test_get_Obj_Attrs(self):
         """ Obj should always return an _Attrs dict """
         from pycchdo.models import Obj, _Attrs
@@ -123,6 +146,19 @@ class TestModel(unittest.TestCase):
         attrs.delete(key, self.testPerson)
         attrs.unacknowledged_changes[0].accept(self.testPerson)
         self.assertRaises(KeyError, lambda: attrs[key])
+
+        obj.remove()
+
+    def test_Attrs_get_default(self):
+        """ Getting a non-existant value should return default. """
+        from pycchdo.models import Obj, Attr
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        attrs = obj.attrs
+
+        self.assertEquals(attrs.get('a'), None)
+        self.assertEquals(attrs.get('a', 'b'), 'b')
 
         obj.remove()
 
@@ -262,6 +298,16 @@ class TestModel(unittest.TestCase):
         self.assertRaises(TypeError, lambda: Stamp())
         self.assertRaises(TypeError, lambda: Stamp(None))
         Stamp(self.testPerson)
+
+    def test_collectablemongodoc_find_id_with_invalid_id_returns_None(self):
+        """ Attempting to find an invalid collectablemongodoc returns None. """
+        from pycchdo.models import collectablemongodoc
+        self.assertEquals(None, collectablemongodoc.find_id('invalid_object_id'))
+
+    def test_Obj_find_id_with_invalid_id_returns_None(self):
+        """ Attempting to find an invalid ObjectId returns None. """
+        from pycchdo.models import Obj
+        self.assertEquals(None, Obj.find_id('invalid_object_id'))
 
     def test_Obj_finders_find_Objs(self):
         """ Obj finders should find Objs based on their class """

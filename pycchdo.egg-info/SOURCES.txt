@@ -6,7 +6,7 @@ production.ini
 setup.cfg
 setup.py
 pycchdo/__init__.py
-pycchdo/_test.py
+pycchdo/helpers.py
 pycchdo/models.py
 pycchdo/tests.py
 pycchdo/views.py
@@ -25,6 +25,7 @@ pycchdo/pycchdo.egg-info/paster_plugins.txt
 pycchdo/pycchdo.egg-info/requires.txt
 pycchdo/pycchdo.egg-info/top_level.txt
 pycchdo/static/favicon.ico
+pycchdo/static/favicon.png
 pycchdo/static/footerbg.png
 pycchdo/static/headerbg.png
 pycchdo/static/ie6.css
@@ -32,8 +33,9 @@ pycchdo/static/middlebg.png
 pycchdo/static/pylons.css
 pycchdo/static/pyramid-small.png
 pycchdo/static/pyramid.png
-pycchdo/static/screen.css
 pycchdo/static/transparent.gif
+pycchdo/static/css/cruise.css
+pycchdo/static/css/screen.css
 pycchdo/static/img/banners/banner.jpg
 pycchdo/static/img/banners/banner_1.jpg
 pycchdo/static/img/banners/banner_10.jpg

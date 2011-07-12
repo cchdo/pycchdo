@@ -87,7 +87,12 @@ def objs(request):
 
 def obj_new(request):
     import pyramid.security as sec
-    models.Obj(request.user).save()
+    obj = models.Obj(request.user)
+    obj_type = request.params.get('obj_type', None)
+    if obj_type:
+        obj['_obj_type'] = obj_type
+    obj.save()
+
     return {}
 
 
@@ -111,12 +116,56 @@ def obj_show(request):
 
 def obj_attrs(request):
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.find(obj_id)
+    obj = models.Obj.get_id(obj_id)
     return {'obj': obj}
 
 
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.find(obj_id)
+    obj = models.Obj.find_id(obj_id)
     key = request.matchdict['key']
     return {'obj': obj}
+
+
+def cruises_index(request):
+    return {'cruises': models.Cruise.map_mongo(models.Cruise.find())}
+
+
+def cruise_show(request):
+    cruise_id = request.matchdict['cruise_id']
+    cruise_obj = models.Cruise.get_id(cruise_id)
+
+    # If the id is not an ObjectId, try searching based on ExpoCode
+    if not cruise_obj:
+        # TODO
+        pass
+
+    cruise = {}
+    history = []
+    if cruise_obj:
+        cruise['expocode'] = cruise_obj.attrs.get('expocode', '')
+        cruise['collections'] = None # TODO
+        cruise['ship'] = cruise_obj.attrs.get('ship', None)
+        try:
+            cruise['ship_name'] = cruise['ship']['name']
+        except TypeError:
+            cruise['ship_name'] = ''
+        except KeyError:
+            cruise['ship_name'] = ''
+        cruise['country'] = cruise_obj.attrs.get('country', None)
+        try:
+            cruise['country_name'] = cruise['country']['name']
+        except TypeError:
+            cruise['country_name'] = ''
+        except KeyError:
+            cruise['country_name'] = ''
+        cruise['chief_scientists'] = [{'name_first': 'ALICE'}, {'name_first': 'BOB'}]
+        cruise['date_start'] = cruise_obj.attrs.get('date_start')
+        cruise['date_end'] = cruise_obj.attrs.get('date_end')
+        cruise['cruise_dates'] = ''
+        if cruise['date_start'] and cruise['date_end']:
+            cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'], cruise['date_end'])))
+
+        history = models.Attr.map_mongo(cruise_obj.attrs.history())
+
+    return {'cruise': cruise, 'maps': {'thumb': '/data/onetime/atlantic/a20/a20_316N151_3trk.jpg', 'full': '/data/onetime/atlantic/a20/a20_316N151_3trk.gif'}, 'history': history}

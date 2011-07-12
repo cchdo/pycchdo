@@ -1,6 +1,7 @@
 from pyramid.config import Configurator
 from pyramid.events import BeforeRender
 from pyramid.authentication import AuthTktAuthenticationPolicy
+from pyramid.session import UnencryptedCookieSessionFactoryConfig
 from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.decorator import reify
 from pyramid.request import Request
@@ -34,14 +35,19 @@ def add_renderer_globals(event):
 def main(global_config, **settings):
     """ This function returns a Pyramid WSGI application.
     """
+    # TODO change the secret
     authentication_policy = AuthTktAuthenticationPolicy('seekrit')
     authorization_policy = ACLAuthorizationPolicy()
+
+    # TODO change the secret
+    session_factory = UnencryptedCookieSessionFactoryConfig('itsaseekreet')
 
     config = Configurator(
         settings=settings,
         authentication_policy=authentication_policy,
         authorization_policy=authorization_policy,
         request_factory=RequestWithUserAttribute,
+        session_factory=session_factory,
     )
 
     init_conn(settings)
@@ -59,6 +65,8 @@ def main(global_config, **settings):
 
     config.add_route('session', '/session')
     config.add_view('pycchdo.views.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
+    config.add_route('session_identify', '/session/identify')
+    config.add_view('pycchdo.views.session_identify', route_name='session_identify', renderer='templates/sessions/identify.jinja2')
     config.add_route('session_new', '/session/new')
     config.add_view('pycchdo.views.session_new', route_name='session_new')
     config.add_route('session_delete', '/session/delete')
@@ -67,8 +75,7 @@ def main(global_config, **settings):
     config.add_route('objs', '/objs')
     config.add_view('pycchdo.views.objs', route_name='objs', renderer='templates/objs/index.jinja2')
     config.add_route('obj_new', '/objs/new')
-    config.add_view('pycchdo.views.obj_new', route_name='obj_new',
-        renderer='templates/objs/new.jinja2')
+    config.add_view('pycchdo.views.obj_new', route_name='obj_new', renderer='templates/objs/new.jinja2')
     config.add_route('obj_show', '/obj/{obj_id}')
     config.add_view('pycchdo.views.obj_show', route_name='obj_show', renderer='templates/objs/show.jinja2')
     config.add_route('obj_attrs', '/obj/{obj_id}/a')

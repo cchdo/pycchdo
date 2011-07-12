@@ -1,0 +1,13 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Signin{% endblock %}
+{% block content %}
+  {% call h.boxed('Please identify yourself') -%}
+    <iframe src="http://cchdo.rpxnow.com/openid/embed?token_url=http%3A%2F%2Fdimes.ucsd.edu%3A6543%2Fsession%2Fnew" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px"></iframe>
+
+    <p>or</p>
+
+    <form action="/sessions/new">
+      <p>Provide some identifying information:</p>
+    </form>
+  {%- endcall %}
+{% endblock %}

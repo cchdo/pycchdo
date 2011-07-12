@@ -9,11 +9,23 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPInternalServe
 
 import pycchdo.models as models
 
+
+signin_uri = "/session/identify"
+
+
+_janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
+
+
 def _http_method(request):
     try:
         return request.params['_method']
     except KeyError:
         return request.method
+
+
+def require_signin(request):
+    request.session['signin_return_uri'] = request.url
+    return HTTPSeeOther(location=signin_uri)
 
 
 def _sign_in_user(request, profile):
@@ -43,9 +55,12 @@ def clear_db(request):
 
 
 def session_show(request):
-    from pyramid.security import authenticated_userid
     person = request.user
     return {'person': person}
+
+
+def session_identify(request):
+    return {}
 
 
 def session_new(request):
@@ -54,7 +69,7 @@ def session_new(request):
     # auth_info expects an HTTP Post with the following paramters:
     api_params = {
         'token': token,
-        'apiKey': 'f7b289d355eadb8126008f619702389daf108ae5',
+        'apiKey': _janrain_api_key,
         'format': 'json',
     }
      
@@ -71,9 +86,17 @@ def session_new(request):
     # Step 4) use the response to sign the user in
     if auth_info['stat'] == 'ok':
         profile = auth_info['profile']
-        return HTTPSeeOther(location='/session', headers=_sign_in_user(request, profile))
+
+        try:
+            redirect_uri = request.session['signin_return_uri']
+            del request.session['signin_return_uri']
+        except KeyError:
+            redirect_uri = '/session'
+
+        return HTTPSeeOther(location=redirect_uri,
+                            headers=_sign_in_user(request, profile))
     else:
-        print 'An error occured: ' + auth_info['err']['msg']
+        print 'ERROR: During signin: ' + auth_info['err']['msg']
         return HTTPInternalServerError()
 
 
@@ -86,13 +109,11 @@ def objs(request):
 
 
 def obj_new(request):
-    import pyramid.security as sec
+    if not request.user:
+        return require_signin(request)
     obj = models.Obj(request.user)
-    obj_type = request.params.get('obj_type', None)
-    if obj_type:
-        obj['_obj_type'] = obj_type
+    obj['_obj_type'] = request.params.get('_obj_type', models.Obj.__name__)
     obj.save()
-
     return {}
 
 

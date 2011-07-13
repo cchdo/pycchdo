@@ -16,8 +16,8 @@
   <div id="centering">
     {% include 'templates/_base_header.jinja2' %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
-      {%- if flash and flash['notice'] -%}
-        <h1 class="notice">{{flash['notice']}}</h1>
+      {%- if request.session.peek_flash('action_taken') -%}
+        <h1 class="flash action_taken">{{ request.session.pop_flash('action_taken') }}</h1>
       {%- endif -%}
       {% block content %}{% endblock %}
     </div>

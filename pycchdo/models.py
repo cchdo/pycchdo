@@ -17,6 +17,12 @@ def timestamp():
     return datetime.datetime.utcnow()
 
 
+def ensure_objectid(id):
+    if type(id) is not ObjectId:
+        return ObjectId(id)
+    return id
+
+
 class mongodoc(dict):
     def copy_keys_from(self, o, keys):
         if not o:
@@ -26,6 +32,16 @@ class mongodoc(dict):
                 self[key] = o[key]
             except KeyError:
                 pass
+
+    def mapobj(self, doc, key, cls):
+        try:
+            v = doc[key]
+            if type(v) is not dict:
+                self[key] = v
+            else:
+                self[key] = cls.map_mongo(v)
+        except KeyError:
+            pass
 
     def from_mongo(cls, doc):
         return None
@@ -83,11 +99,10 @@ class collectablemongodoc(mongodoc):
 
     @classmethod
     def find_id(cls, id):
-        if type(id) is not ObjectId:
-            try:
-                id = ObjectId(id)
-            except pymongo.objectid.InvalidId:
-                return None
+        try:
+            id = ensure_objectid(id)
+        except pymongo.objectid.InvalidId:
+            return None
         return cls.find_one({'_id': id})
 
     @classmethod
@@ -136,10 +151,37 @@ class _Change(collectablemongodoc):
 
     def from_mongo(self, doc):
         super(_Change, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('_id', 'creation_stamp',
-                                  'pending_stamp', 'judgment_stamp',
-                                  'accepted', 'note', ))
+        self.copy_keys_from(doc, ('_id', 'creation_stamp', 'pending_stamp',
+                                  'judgment_stamp', 'accepted', 'note', ))
         return self
+
+    @property
+    def creation_stamp(self):
+        v = self['creation_stamp']
+        if type(v) is dict:
+            return Stamp.map_mongo(v)
+        return v
+
+    @property
+    def pending_stamp(self):
+        v = self['pending_stamp']
+        if type(v) is dict:
+            return Stamp.map_mongo(v)
+        return v
+
+    @property
+    def judgment_stamp(self):
+        v = self['judgment_stamp']
+        if type(v) is dict:
+            return Stamp.map_mongo(v)
+        return v
+
+    @property
+    def note(self):
+        v = self['note']
+        if type(v) is dict:
+            return Note.map_mongo(v)
+        return v
 
     def is_judged(self):
         return self['judgment_stamp'] is not None

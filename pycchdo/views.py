@@ -1,11 +1,12 @@
 import urllib
 import urllib2
 import json
+import datetime
      
 from pyramid.view import view_config
 from pyramid.response import Response
 from pyramid.security import remember, forget
-from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPInternalServerError
+from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPInternalServerError
 
 import pycchdo.models as models
 
@@ -136,16 +137,77 @@ def obj_show(request):
 
 
 def obj_attrs(request):
-    obj_id = request.matchdict['obj_id']
-    obj = models.Obj.get_id(obj_id)
-    return {'obj': obj}
+    method = _http_method(request)
+    if method  == 'GET':
+        obj_id = request.matchdict['obj_id']
+        obj = models.Obj.get_id(obj_id)
+        return {'obj': obj}
+    elif method == 'POST':
+        if not request.user:
+            return require_signin(request)
+        obj_id = request.matchdict['obj_id']
+        obj = models.Obj.get_id(obj_id)
+        key = request.params.get('key', None)
+        value = request.params.get('value', None)
+        type = request.params.get('type', 'text')
+        if not key:
+            return HTTPBadRequest()
+        if type == 'datetime':
+            try:
+                value = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                pass
+        elif type == 'list':
+            def unescape(s, escape='\\'):
+                n = s.find(escape)
+                while n > -1:
+                    s = s[:n] + s[n + 1:]
+                    n = s.find(escape, n + 1)
+                return s
+            value = [unescape(x) for x in value.split(',')]
+        elif type == 'id':
+            value = models.Obj.get_id(id)
+            if value:
+                value = value['_id']
+
+        # TODO note
+        note = None
+        obj.attrs.set(key, value, request.user, note)
+        return {'obj': obj}
 
 
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.find_id(obj_id)
     key = request.matchdict['key']
-    return {'obj': obj}
+    attr = models.Attr.get_id(key)
+    if not attr:
+        return HTTPNotFound()
+    if not str(attr['obj']) == obj_id:
+        return HTTPNotFound()
+
+    method = _http_method(request)
+    if method == 'GET':
+        pass
+    elif method == 'POST':
+        if not request.user:
+            return require_signin(request)
+        try:
+            action = request.params['action']
+        except KeyError:
+            return HTTPBadRequest()
+        if action == 'Accept':
+            attr.accept(request.user)
+            request.session.flash('action_taken', 'Attribute accepted')
+        elif action == 'Acknowledge':
+            attr.acknowledge(request.user)
+            request.session.flash('action_taken', 'Attribute acknowledged')
+        elif action == 'Reject':
+            attr.reject(request.user)
+            request.session.flash('action_taken', 'Attribute rejected')
+        else:
+            return HTTPBadRequest()
+
+    return {'attr': attr}
 
 
 def cruises_index(request):

@@ -317,3 +317,18 @@ class TestModel(unittest.TestCase):
         self.assertTrue(Obj.find_one({'_id': obj['_id']}) != None)
         self.assertTrue(Person.find_one({'_id': self.testPerson['_id']}) != None)
         obj.remove()
+
+    def test_Change_stamp_properties(self):
+        """ The properties for _Changes corresponding to stamps should return a mapped object """
+        from pycchdo.models import Obj, Stamp
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertTrue(type(obj.creation_stamp) is Stamp)
+        self.assertTrue(obj.pending_stamp is None)
+        self.assertTrue(obj.judgment_stamp is None)
+        obj.acknowledge(self.testPerson)
+        self.assertTrue(type(obj.pending_stamp) is Stamp)
+        obj.accept(self.testPerson)
+        self.assertTrue(type(obj.judgment_stamp) is Stamp)
+        obj.remove()
+

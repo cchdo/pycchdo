@@ -8,6 +8,8 @@ from pyramid import testing
 class TestModel(unittest.TestCase):
     def setUp(self):
         from pycchdo.models import Person
+        import pycchdo.models
+        pycchdo.models.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018'})
         self.config = testing.setUp()
         self.testPerson = Person(identifier='testid')
         self.testPerson.save()

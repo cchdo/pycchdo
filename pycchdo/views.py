@@ -1,3 +1,4 @@
+import os
 import urllib
 import urllib2
 import json
@@ -252,3 +253,18 @@ def cruise_show(request):
         history = models.Attr.map_mongo(cruise_obj.attrs.history())
 
     return {'cruise': cruise, 'maps': {'thumb': '/data/onetime/atlantic/a20/a20_316N151_3trk.jpg', 'full': '/data/onetime/atlantic/a20/a20_316N151_3trk.gif'}, 'history': history}
+
+
+def catchall_static(request):
+    """ Wraps any static templates with the layout """
+    subpath = os.path.join(*request.matchdict['subpath'])
+
+    project_path = os.path.dirname(__file__)
+    static_path = os.path.join('templates', 'static')
+
+    path = os.path.join(project_path, static_path, subpath)
+    relpath = os.path.join(static_path, subpath)
+
+    if os.path.isfile(path):
+        return {'_static': relpath}
+    return HTTPNotFound()

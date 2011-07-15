@@ -1,0 +1,401 @@
+<pre class="fixed"><font face="Courier New, Courier">
+netcdf p31_00072_00001_hy1 {
+dimensions:
+	time = 1 ;
+	pressure = 36 ;
+	latitude = 1 ;
+	longitude = 1 ;
+	string_dimension = 40 ;
+variables:
+	double pressure(pressure) ;
+		pressure:long_name = "pressure" ;
+		pressure:units = "dbar" ;
+		pressure:positive = "down" ;
+		pressure:C_format = "%8.1f" ;
+		pressure:WHPO_Variable_Name = "CTDPRS" ;
+	double temperature(pressure) ;
+		temperature:long_name = "temperature" ;
+		temperature:units = "its-90" ;
+		temperature:C_format = "%8.4f" ;
+		temperature:WHPO_Variable_Name = "CTDTMP" ;
+	double salinity(pressure) ;
+		salinity:long_name = "salinity" ;
+		salinity:units = "pss-78" ;
+		salinity:C_format = "%8.4f" ;
+		salinity:WHPO_Variable_Name = "CTDSAL" ;
+		salinity:OBS_QC_VARIABLE = "salinity_QC" ;
+	short salinity_QC(pressure) ;
+		salinity_QC:long_name = "salinity_QC_flag" ;
+		salinity_QC:units = "woce_flags" ;
+		salinity_QC:C_format = "%1d" ;
+	double bottle_salinity(pressure) ;
+		bottle_salinity:long_name = "bottle_salinity" ;
+		bottle_salinity:units = "pss-78" ;
+		bottle_salinity:C_format = "%8.4f" ;
+		bottle_salinity:WHPO_Variable_Name = "SALNTY" ;
+		bottle_salinity:OBS_QC_VARIABLE = "bottle_salinity_QC" ;
+	short bottle_salinity_QC(pressure) ;
+		bottle_salinity_QC:long_name = "bottle_salinity_QC_flag" ;
+		bottle_salinity_QC:units = "woce_flags" ;
+		bottle_salinity_QC:C_format = "%1d" ;
+	double oxygen(pressure) ;
+		oxygen:long_name = "oxygen" ;
+		oxygen:units = "umol/kg" ;
+		oxygen:C_format = "%8.1f" ;
+		oxygen:WHPO_Variable_Name = "CTDOXY" ;
+		oxygen:OBS_QC_VARIABLE = "oxygen_QC" ;
+	short oxygen_QC(pressure) ;
+		oxygen_QC:long_name = "oxygen_QC_flag" ;
+		oxygen_QC:units = "woce_flags" ;
+		oxygen_QC:C_format = "%1d" ;
+	double bottle_oxygen(pressure) ;
+		bottle_oxygen:long_name = "bottle_oxygen" ;
+		bottle_oxygen:units = "umol/kg" ;
+		bottle_oxygen:C_format = "%8.1f" ;
+		bottle_oxygen:WHPO_Variable_Name = "OXYGEN" ;
+		bottle_oxygen:OBS_QC_VARIABLE = "bottle_oxygen_QC" ;
+	short bottle_oxygen_QC(pressure) ;
+		bottle_oxygen_QC:long_name = "bottle_oxygen_QC_flag" ;
+		bottle_oxygen_QC:units = "woce_flags" ;
+		bottle_oxygen_QC:C_format = "%1d" ;
+	double silicate(pressure) ;
+		silicate:long_name = "silicate" ;
+		silicate:units = "umol/kg" ;
+		silicate:C_format = "%8.2f" ;
+		silicate:WHPO_Variable_Name = "SILCAT" ;
+		silicate:OBS_QC_VARIABLE = "silicate_QC" ;
+	short silicate_QC(pressure) ;
+		silicate_QC:long_name = "silicate_QC_flag" ;
+		silicate_QC:units = "woce_flags" ;
+		silicate_QC:C_format = "%1d" ;
+	double nitrate(pressure) ;
+		nitrate:long_name = "nitrate" ;
+		nitrate:units = "umol/kg" ;
+		nitrate:C_format = "%8.2f" ;
+		nitrate:WHPO_Variable_Name = "NITRAT" ;
+		nitrate:OBS_QC_VARIABLE = "nitrate_QC" ;
+	short nitrate_QC(pressure) ;
+		nitrate_QC:long_name = "nitrate_QC_flag" ;
+		nitrate_QC:units = "woce_flags" ;
+		nitrate_QC:C_format = "%1d" ;
+	double nitrite(pressure) ;
+		nitrite:long_name = "nitrite" ;
+		nitrite:units = "umol/kg" ;
+		nitrite:C_format = "%8.2" ;
+		nitrite:WHPO_Variable_Name = "NITRIT" ;
+		nitrite:OBS_QC_VARIABLE = "nitrite_QC" ;
+	short nitrite_QC(pressure) ;
+		nitrite_QC:long_name = "nitrite_QC_flag" ;
+		nitrite_QC:units = "woce_flags" ;
+		nitrite_QC:C_format = "%1d" ;
+	double phosphate(pressure) ;
+		phosphate:long_name = "phosphate" ;
+		phosphate:units = "umol/kg" ;
+		phosphate:C_format = "%8.2f" ;
+		phosphate:WHPO_Variable_Name = "PHSPHT" ;
+		phosphate:OBS_QC_VARIABLE = "phosphate_QC" ;
+	short phosphate_QC(pressure) ;
+		phosphate_QC:long_name = "phosphate_QC_flag" ;
+		phosphate_QC:units = "woce_flags" ;
+		phosphate_QC:C_format = "%1d" ;
+	double freon_11(pressure) ;
+		freon_11:long_name = "freon_11" ;
+		freon_11:units = "pmol/kg" ;
+		freon_11:C_format = "%8.3f" ;
+		freon_11:WHPO_Variable_Name = "CFC-11" ;
+		freon_11:OBS_QC_VARIABLE = "freon_11_QC" ;
+	short freon_11_QC(pressure) ;
+		freon_11_QC:long_name = "freon_11_QC_flag" ;
+		freon_11_QC:units = "woce_flags" ;
+		freon_11_QC:C_format = "%1d" ;
+	double freon_12(pressure) ;
+		freon_12:long_name = "freon_12" ;
+		freon_12:units = "pmol/kg" ;
+		freon_12:C_format = "%8.3f" ;
+		freon_12:WHPO_Variable_Name = "CFC-12" ;
+		freon_12:OBS_QC_VARIABLE = "freon_12_QC" ;
+	short freon_12_QC(pressure) ;
+		freon_12_QC:long_name = "freon_12_QC_flag" ;
+		freon_12_QC:units = "woce_flags" ;
+		freon_12_QC:C_format = "%1d" ;
+	double total_carbon(pressure) ;
+		total_carbon:long_name = "total_carbon" ;
+		total_carbon:units = "umol/kg" ;
+		total_carbon:C_format = "%8.1f" ;
+		total_carbon:WHPO_Variable_Name = "TCARBN" ;
+		total_carbon:OBS_QC_VARIABLE = "total_carbon_QC" ;
+	short total_carbon_QC(pressure) ;
+		total_carbon_QC:long_name = "total_carbon_QC_flag" ;
+		total_carbon_QC:units = "woce_flags" ;
+		total_carbon_QC:C_format = "%1d" ;
+	double total_alkalinity(pressure) ;
+		total_alkalinity:long_name = "total_alkalinity" ;
+		total_alkalinity:units = "umol/kg" ;
+		total_alkalinity:C_format = "%8.1f" ;
+		total_alkalinity:WHPO_Variable_Name = "ALKALI" ;
+		total_alkalinity:OBS_QC_VARIABLE = "total_alkalinity_QC" ;
+	short total_alkalinity_QC(pressure) ;
+		total_alkalinity_QC:long_name = "total_alkalinity_QC_flag" ;
+		total_alkalinity_QC:units = "woce_flags" ;
+		total_alkalinity_QC:C_format = "%1d" ;
+	double ph(pressure) ;
+		ph:long_name = "ph" ;
+		ph:units = "" ;
+		ph:C_format = "%8.4f" ;
+		ph:WHPO_Variable_Name = "PH" ;
+		ph:OBS_QC_VARIABLE = "ph_QC" ;
+	short ph_QC(pressure) ;
+		ph_QC:long_name = "ph_QC_flag" ;
+		ph_QC:units = "woce_flags" ;
+		ph_QC:C_format = "%1d" ;
+	double phtemp(pressure) ;
+		phtemp:long_name = "phtemp" ;
+		phtemp:units = "deg c" ;
+		phtemp:C_format = "%8.2f" ;
+		phtemp:WHPO_Variable_Name = "PHTEMP" ;
+	double theta(pressure) ;
+		theta:long_name = "theta" ;
+		theta:units = "deg c" ;
+		theta:C_format = "%8.4f" ;
+		theta:WHPO_Variable_Name = "THETA" ;
+	int time(time) ;
+		time:long_name = "time" ;
+		time:units = "minutes since 1980-01-01 00:00:00" ;
+		time:data_min = 7427527 ;
+		time:data_max = 7427527 ;
+		time:C_format = "%10d" ;
+	double latitude(latitude) ;
+		latitude:long_name = "latitude" ;
+		latitude:units = "degrees_N" ;
+		latitude:data_min = -10.178f ;
+		latitude:data_max = -10.178f ;
+		latitude:C_format = "%9.4f" ;
+	double longitude(longitude) ;
+		longitude:long_name = "longitude" ;
+		longitude:units = "degrees_E" ;
+		longitude:data_min = -174.5782f ;
+		longitude:data_max = -174.5782f ;
+		longitude:C_format = "%9.4f" ;
+	int woce_date(time) ;
+		woce_date:long_name = "WOCE date" ;
+		woce_date:units = "yyyymmdd UTC" ;
+		woce_date:data_min = 1.994021e+07f ;
+		woce_date:data_max = 1.994021e+07f ;
+		woce_date:C_format = "%8d" ;
+	int woce_time(time) ;
+		woce_time:long_name = "WOCE time" ;
+		woce_time:units = "hhmm UTC" ;
+		woce_time:data_min = 7.f ;
+		woce_time:data_max = 7.f ;
+		woce_time:C_format = "%4d" ;
+	char station(string_dimension) ;
+		station:long_name = "STATION" ;
+		station:units = "unspecified" ;
+		station:C_format = "%s" ;
+	char cast(string_dimension) ;
+		cast:long_name = "CAST" ;
+		cast:units = "unspecified" ;
+		cast:C_format = "%s" ;
+
+// global attributes:
+		:EXPOCODE = "3250031_1" ;
+		:Conventions = "COARDS/WOCE" ;
+		:WOCE_VERSION = "3.0" ;
+		:WOCE_ID = "P31" ;
+		:DATA_TYPE = "WOCE BOT" ;
+		:STATION_NUMBER = "    72" ;
+		:CAST_NUMBER = "  1" ;
+		:BOTTOM_DEPTH_METERS = 4251 ;
+		:BOTTLE_NUMBERS = "     36     35     34     33     32     31     30     29     28     27     26     25     24     23     22     21     20     19     18     17     16     15     14     13     12     11     10      9      8      7      6      5      4      3      2      1" ;
+		:BOTTLE_QUALITY_CODES = 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s, 2s ;
+		:Creation_Time = "Diggs EXBOT-to-NetCDF Code v0.1b: Thu Aug 15 21:20:14 2002 GMT" ;
+		:ORIGINAL_HEADER = "
+",
+    "BOTTLE,20020814WHPSIOdm
+",
+    "#code : jjward hyd_to_exchange.pl 
+",
+    "#original files copied from HTML directory: 20020814
+",
+    "#original HYD file: p31hy.txt   Wed Aug 14 09:37:48 2002
+",
+    "#original SUM file: p31su.txt   Wed Aug 14 09:40:03 2002
+",
+    "" ;
+		:WOCE_BOTTLE_FLAG_DESCRIPTION = "::1 = Bottle information unavailable.:2 = No problems noted.:3 = Leaking.:4 = Did not trip correctly.:5 = Not reported.:6 = Significant discrepancy in measured values between Gerard and Niskin bottles.:7 = Unknown problem.:8 = Pair did not trip correctly. Note that the Niskin bottle can trip at an unplanned depth while the Gerard trips correctly and vice versa.:9 = Samples not drawn from this bottle.:
+",
+    "" ;
+		:WOCE_WATER_SAMPLE_FLAG_DESCRIPTION = "::1 = Sample for this measurement was drawn from water bottle but analysis not received.:2 = Acceptable measurement.:3 = Questionable measurement.:4 = Bad measurement.:5 = Not reported.:6 = Mean of replicate measurements.:7 = Manual chromatographic peak measurement.:8 = Irregular digital chromatographic peak integration.:9 = Sample not drawn for this measurement from this bottle.:
+",
+    "" ;
+data:
+
+ pressure =      2.3,     13.4,     58.7,    108.4,    208.7,    308.4, 
+       409.8,    510.4,    611.5,    711.6,    812.2,    913.5,   1013.2, 
+      1214.9,   1414.3,   1610.3,   1822.7,   2025.8,   2227.0,   2428.2, 
+      2629.8,   2830.9,   3030.9,   3129.5,   3231.8,   3334.2,   3436.9, 
+      3539.8,   3641.3,   3767.5,   3842.6,   3918.5,   3997.6,   4074.7, 
+      4152.7,   4239.8 ;
+
+ temperature =  29.9711,  29.7578,  29.6771,  26.4072,  19.8224,  13.4496, 
+      9.8823,   7.7255,   6.6724,   5.8429,   5.2283,   4.8290,   4.4305, 
+      3.6370,   2.9605,   2.5745,   2.3059,   2.1086,   1.9664,   1.8939, 
+      1.8004,   1.7270,   1.6643,   1.6330,   1.6099,   1.5962,   1.5651, 
+      1.5353,   1.4983,   1.4540,   1.3860,   1.3495,   1.1691,   1.1373, 
+      1.1144,   1.1042 ;
+
+ salinity =  33.6661,  33.6575,  35.0027,  35.9872,  35.7659,  35.0287, 
+     34.7096,  34.5701,  34.5235,  34.5105,  34.5071,  34.5118,  34.5194, 
+     34.5493,  34.5812,  34.6048,  34.6244,  34.6394,  34.6500,  34.6563, 
+     34.6630,  34.6686,  34.6738,  34.6760,  34.6777,  34.6795,  34.6810, 
+     34.6836,  34.6862,  34.6893,  34.6942,  34.6977,  34.7067,  34.7084, 
+     34.7093,  34.7104 ;
+
+ salinity_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ bottle_salinity =  33.6662,  33.6602,  35.1321,  35.9837,  35.7557, 
+     35.0258,  34.7100,  34.5774,  34.5194,  34.5114,  34.5089,  34.5173, 
+     34.5209,  34.5486,  34.5829,  34.6053,  34.6262,  34.6411,  34.6513, 
+     34.6565,  34.6638,  34.6693,  34.6742,  34.6769,  34.6789,  34.6785, 
+     34.6782,  34.6833,  34.6864,  34.6906,  34.6951,  34.6967,  34.7067, 
+     34.7087,  34.7105,  34.7109 ;
+
+ bottle_salinity_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ oxygen =     50.6,    245.0,     -0.1,     -0.1,    138.5,     90.3, 
+       104.9,    117.0,    122.9,    115.4,    114.9,    118.1,    120.0, 
+       123.4,    133.2,    138.4,    139.2,    139.8,    138.2,    139.5, 
+       141.9,    146.7,    148.2,    153.4,    152.8,    154.7,    156.8, 
+       158.9,    162.8,    167.9,    173.6,    178.9,    194.8,    198.8, 
+       201.2,    205.8 ;
+
+ oxygen_QC = 4, 4, 4, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3 ;
+
+ bottle_oxygen =    194.0,    194.0,    203.2,    145.2,    139.5,     89.2, 
+       104.1,    115.0,    130.3,    117.7,    118.0,    116.5,    118.9, 
+       124.7,    132.7,    137.6,    137.2,    138.4,    138.6,    139.0, 
+       140.6,    144.2,    148.5,    150.9,    152.5,    153.3,    156.2, 
+       159.7,    164.0,    168.3,    175.7,    179.8,    195.9,    198.6, 
+       201.0,    203.0 ;
+
+ bottle_oxygen_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ silicate =     1.81,     1.60,     1.57,     2.46,     3.54,    13.79, 
+       22.39,    30.81,    37.94,    49.67,    57.91,    65.26,    72.25, 
+       88.63,   102.04,   110.87,   120.44,   126.59,   131.61,   133.81, 
+      135.61,   136.59,   137.16,   137.10,   137.46,   137.41,   137.14, 
+      136.05,   134.75,   132.64,   128.72,   126.04,   120.00,   119.55, 
+      118.71,   118.46 ;
+
+ silicate_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ nitrate =     0.16,     0.16,     0.21,     5.11,     9.04,    21.48, 
+       27.46,    31.32,    32.57,    35.56,    36.50,    37.18,    37.44, 
+       37.54,    37.22,    37.01,    37.10,    37.10,    37.09,    36.99, 
+       36.98,    36.76,    36.50,    36.28,    36.17,    36.16,    35.95, 
+       35.73,    35.36,    34.94,    34.31,    33.99,    32.94,    32.72, 
+       32.56,    32.45 ;
+
+ nitrate_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ nitrite = , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,  ;
+
+ nitrite_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ phosphate =     0.11,     0.11,     0.23,     0.70,     0.87,     1.72, 
+        1.97,     2.16,     2.23,     2.42,     2.50,     2.55,     2.57, 
+        2.58,     2.55,     2.53,     2.54,     2.53,     2.53,     2.54, 
+        2.53,     2.51,     2.48,     2.47,     2.46,     2.46,     2.45, 
+        2.43,     2.41,     2.38,     2.34,     2.32,     2.23,     2.23, 
+        2.21,     2.21 ;
+
+ phosphate_QC = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ;
+
+ freon_11 =    1.485, -999.000,    1.605,    1.611,    1.591,    0.737, 
+    -999.000,    0.082, -999.000, -999.000, -999.000, -999.000,    0.013, 
+    -999.000, -999.000, -999.000, -999.000,    0.004, -999.000, -999.000, 
+    -999.000, -999.000, -999.000, -999.000, -999.000, -999.000, -999.000, 
+    -999.000, -999.000, -999.000,    0.003,    0.007, -999.000, -999.000, 
+       0.016,    0.033 ;
+
+ freon_11_QC = 3, 9, 3, 3, 3, 3, 9, 3, 9, 9, 9, 9, 3, 9, 9, 9, 9, 3, 9, 9, 9, 
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 3, 3, 9, 9, 3, 3 ;
+
+ freon_12 =    0.814, -999.000,    0.889,    0.865,    0.829,    0.380, 
+    -999.000,    0.046, -999.000, -999.000, -999.000, -999.000,    0.003, 
+    -999.000, -999.000, -999.000, -999.000,    0.001, -999.000, -999.000, 
+    -999.000, -999.000, -999.000, -999.000, -999.000, -999.000, -999.000, 
+    -999.000, -999.000, -999.000,   -0.001,   -0.001, -999.000, -999.000, 
+       0.023,    0.032 ;
+
+ freon_12_QC = 3, 9, 3, 3, 3, 3, 9, 3, 9, 9, 9, 9, 3, 9, 9, 9, 9, 3, 9, 9, 9, 
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 3, 3, 9, 9, 3, 3 ;
+
+ total_carbon =   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0 ;
+
+ total_carbon_QC = 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 ;
+
+ total_alkalinity =   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0,   -999.0, 
+      -999.0,   -999.0,   -999.0 ;
+
+ total_alkalinity_QC = 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 ;
+
+ ph = -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, 
+    -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, 
+    -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, 
+    -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, 
+    -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, 
+    -999.0000, -999.0000, -999.0000, -999.0000, -999.0000, -999.0000 ;
+
+ ph_QC = 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 ;
+
+ phtemp =  -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00, 
+     -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00, 
+     -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00, 
+     -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00, 
+     -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00,  -999.00, 
+     -999.00,  -999.00 ;
+
+ theta =  29.9705,  29.7545,  29.6626,  26.3826,  19.7838,  13.4060, 
+      9.8348,   7.6742,   6.6154,   5.7805,   5.1603,   4.7546,   4.3504, 
+      3.5464,   2.8601,   2.4626,   2.1799,   1.9683,   1.8111,   1.7220, 
+      1.6120,   1.5214,   1.4409,   1.4007,   1.3681,   1.3445,   1.3038, 
+      1.2641,   1.2176,   1.1613,   1.0871,   1.0435,   0.8597,   0.8205, 
+      0.7898,   0.7704 ;
+
+ time =    7427527 ;
+
+ latitude =  -10.1780 ;
+
+ longitude = -174.5782 ;
+
+ woce_date = 19940214 ;
+
+ woce_time =    7 ;
+
+ station = "    72" ;
+
+ cast = "  1" ;
+}
+</font>
+</pre>

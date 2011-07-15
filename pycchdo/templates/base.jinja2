@@ -19,7 +19,9 @@
       {%- if request.session.peek_flash('action_taken') -%}
         <h1 class="flash action_taken">{{ request.session.pop_flash('action_taken') }}</h1>
       {%- endif -%}
-      {% block content %}{% endblock %}
+      {% block content -%}
+        {% if _static -%}{% include _static %}{%- endif %}
+      {%- endblock %}
     </div>
     {% include 'templates/_base_footer.html' %}
   </div>

@@ -1,0 +1,21 @@
+{% call h.boxed('Version Policy', class='version-policy') -%}
+<p>All files modified by the CCHDO will carry a version number, so that the
+most recent files may be readily identified. The format for this version
+number, which will occur at the top of the file (and will not violate any
+predefined format described in the WOCE 90-1 manual) is:</p>
+
+<p id="version-number"><a href="#year">2008</a><a href="#month">01</a><a href="#day">28</a><a href="#inst">SIO</a><a href="#org">CCH</a><a href="#initials">SCD</a></p>
+
+<p>where:</p>
+
+<table id="explanation">
+  <tr><th id="year">2008</th><td>4-digit year of modification</td></tr>
+  <tr><th id="month">01</th><td>2-digit month</td></tr>
+  <tr><th id="day">28</th><td>2-digit day</td></tr>
+  <tr><th id="inst">SIO</th><td>institution where the organization resides</td></tr>
+  <tr><th id="org">CCH</th><td>organization where the modifications took place</td></tr>
+  <tr><th id="initials">SCD</th><td>initials of the person who modified this file</td></tr>
+</table>
+
+<p>Questions/Comments: {{ h.email_link('sdiggs@ucsd.edu') }} +1-858-534-1108.</p>
+{%- endcall %}

@@ -1,0 +1,1532 @@
+<table >
+<tr />
+<td />
+<div align="center"><h4>Improved Exchange Format for Hydrographic Data</h4>
+version of 12 September 2001
+<br><br>
+James H. Swift &amp; Stephen C. Diggs
+<br>(with help from David Newton, Sarilee
+Anderson, John Osborne, and Jeremy Ward)
+<br>CLIVAR and Carbon Hydrographic Data Office (CCHDO)
+<br>UCSD Scripps Institution of Oceanography
+<br><a href="mailto:cchdo@ucsd.edu">cchdo@ucsd.edu</a>
+
+</div>
+<b>Summary</b><br><br>
+Exchange formats for the CCHDO CTD and bottle data are described. The WHP-exchange formats provide
+simplified exchange and improved readability of hydrographic data. WHP-exchange
+data files draw the essential information from the present WHP .sum, .sea/.hyd,
+and .ctd data files and present them in rigorously-described comma-delimited
+(csv) ASCII formats which should ease data exchange and simplify data import.
+<br><br>
+<b>Overview of WHP-exchange file formats</b><br><br>
+The new WHP-exchange bottle and CTD data formats
+include these features:
+<ul>
+<li>
+ASCII, spreadsheet-like
+
+<li>
+comma-delimited values (csv)
+
+<li>
+no special meaning to blank/empty spaces
+
+<li>
+station information in every line in the file
+(bottle) or in the top lines in each file (CTD)
+
+
+<li>
+only one missing data value defined for all
+parameters
+
+<li>
+missing data value format defined in the format
+for each parameter
+
+<li>
+WHP quality flag, when provided, associated
+directly with its parameter
+
+<li>
+positions in decimal degrees
+
+<li>
+dates in YYYYMMDD format
+</ul>
+Data written in WHP-exchange format by the
+CCHDO from existing .sum, .sea/.hyd, and .ctd data files are "data
+products" because they do not include all information from the original
+files. The original .sum, .sea/.hyd, and .ctd files will form the official
+WOCE Archive version of WHP data. The WHP-exchange format files have also
+been included in the WOCE Archive.
+
+<b>Format description for WHP-exchange bottle data (_hy1.csv)</b>
+<br><br>
+[Note: To better understand this section please
+refer to document "example_hy1.csv". It is recommended that the reader
+examine "example_hy1.csv" in a text editor application in order to see
+all characters and also in a spreadsheet application in order to view overall
+layout.]
+<br><br>
+
+The overall layout of a _hy1.csv bottle
+data file is described in Table 1.
+<ul>
+<li>
+The first line of a WHP-exchange format file
+is a single word which describes the file type, in this case "BOTTLE",
+followed by a comma and a date/time stamp.
+
+<li>
+The format next provides for 0-N optional
+information lines, each beginning with a "#" character, near the beginning
+of a _hy1.csv file. The CCHDO intends to use the "#" lines to hold
+file history information.
+
+<li>
+A description of the station information columns
+of a _hy1.csv file is in Table 2.
+
+<li>
+A description of the remaining data columns
+and preferred parameter names in a _hy1.csv files is in Table 3.
+
+<li>
+A line with "END_DATA" signals the end of
+the data lines.
+
+<li>
+After that line, a bottle data file may hold
+other file-specific documentation. The primary documentation for WHP data
+will, however, remain in the ".doc" file (or zipped directory).
+</ul>
+<b>General rules for WHP-exchange_hy1.csv data files:</b>
+
+<ol>
+<li>
+Each line must end with a carriage return
+or end-of-line.
+
+<li>
+With the exception of the file type line,
+lines starting with a "#" character, or including and following a line
+which reads "END_DATA", each line in a _hy1.csv file must have exactly
+the same number of commas as do all other lines in that file.
+
+<li>
+The number and names of the parameters in
+a _hy1.csv file is not specifically addressed, except that for WHP data
+certain parameters are noted as REQUIRED. It is not, for example, necessary
+that a bottle data file contain columns for CFC measurements when there
+are no CFC data.
+
+<li>
+The order of the header and bottle data parameters
+in a _hy1.csv file is preferred to be as shown in "example_hy1.csv" but
+not strictly required. Although the _hy1.csv files prepared by the WHP
+Office shall be as consistent as feasible in this regard, data users are
+urged to use "read" statements that are sensitive to parameter names rather
+than position of the parameter in the data files.
+
+<li>
+All parameters defined as alphanumeric (e.g.
+"A14") and integer (e.g. "I4") will be shown in the full defined width
+and will be right-justified, meaning that entries shorter than the defined
+width (for example, EXPOCODEs are almost always shorter than the defined
+maximum of 14 alphanumeric characters) will be padded with meaningless
+spaces to the left of the first character.
+
+<li>
+The bottle data parameter names should follow
+those listed in Table 3 when feasible. Data providers are urged to use
+caution, however, and list their actual parameter name rather than a WHP
+parameter name whenever there is any question on this matter.
+
+<li>
+Each data parameter listed in Table 3 - except
+for all flags, which are "I1" - will be listed in "F9.x" floating point
+format, where "x" indicates the number of decimal places. For each parameter,
+the CCHDO will pad with meaningless zeros data received with fewer decimal
+places and round data received with extra decimal places to the number
+of decimal places specified in Table 3.
+
+<li>
+When a quality byte is available for a parameter,
+that quality byte shall be placed in the column immediately to the right
+of the parameter. (Also see "WOCE Flag 1 vs. WOCE Flag 2, and IGOSS Quality
+Codes", below.)
+
+
+<li>
+The name of a quality flag always begins with
+the name of the parameter with which it is associated, followed by an underscore
+character, followed by "FLAG", followed by an underscore, and then followed
+by an alphanumeric character indicating the flag type. (Also see "WOCE
+Flag 1 vs. WOCE Flag 2, and IGOSS Quality Codes", below.)
+
+<li>
+The "missing value" for a data value is always
+defined as -999, but written in the decimal place format of the parameter
+in question. For example, a missing salinity would be written -999.0000
+or a missing phosphate -999.00. The value -999 was chosen because it is
+out of range for all WHP parameters.
+</div></ol>
+
+<h4>
+Table 1.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+General description of _hy1.csv file layout.</h4>
+
+<table border="0" cellspacing="3" cellpadding="3">
+         <tr>
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+
+               1st line
+            </td>
+            <td bgcolor="#EEEEEE">
+               File type, here BOTTLE, followed by a comma and a DATE_TIME
+               stamp 
+<pre class="fixed">
+<font face="Courier New,Courier">YYYYMMDDdivINSwho
+ 
+YYYY    4 digit year 
+MM      2 digit month 
+DD      2 digit day 
+div     division of Institution 
+INS     Institution name 
+who     initials of responsible person 
+
+example:   20000711WHPSIOSCD</font>
+</pre>
+            </td>
+         </tr>
+         <tr>
+
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+               #lines
+            </td>
+            <td bgcolor="#EEEEEE">
+               A file may include 0-N optional lines, typically at the start of
+               a data file, but after the file type line, each beginning with a
+               &quot;#&quot; character and each ending with carriage return or
+               end-of-line. Information relevant to file change/update history
+               of the file itself may be included here, for example.
+            </td>
+         </tr>
+         <tr>
+
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+               2nd line
+            </td>
+            <td bgcolor="#EEEEEE">
+               Column headings. A list of column headings approved and used by
+               the CCHDO is found in Table 2. A list of parameter headings
+               approved and used by the CCHDO is found in Table 3. Data
+               originators are urged, however, to be careful to supply their
+               <b>correct</b> column headings rather than to simply copy
+               &#39;approved&#39; column headings into their files.
+            </td>
+         </tr>
+
+         <tr>
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+               3rd line
+            </td>
+            <td bgcolor="#EEEEEE">
+               Units. A list of parameter units used by the WHP Office is found
+               in Tables 2 and 3. Data originators are urged, however, to be
+               careful to supply their <b>correct</b> units rather than to
+               simply copy the units used by the WHP.
+            </td>
+         </tr>
+
+         <tr>
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+               data lines
+            </td>
+            <td bgcolor="#EEEEEE">
+               As many data lines may be included in a single file as is
+               convenient for the user, with the proviso that the number and
+               order of parameters, parameter order, headings, units, and
+               commas remain absolutely consistent throughout a single file.
+               Thus a single data file may contain data lines for as little as
+               one bottle from one cruise to as much as many bottles from many
+               cruises.
+            </td>
+         </tr>
+         <tr>
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+
+               <i>note</i> 
+            </td>
+            <td bgcolor="#EEEEEE">
+               Within a _hy1.csv file it is very strongly preferred that data
+               from each station be contiguous, it is recommended that data
+               from each cast at a station be contiguous, and it is preferred
+               that the data from each cast be sorted from lowest pressure to
+               highest pressure.
+            </td>
+         </tr>
+         <tr>
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+               END_DATA&nbsp;&nbsp;
+
+            </td>
+            <td bgcolor="#EEEEEE">
+               The line after the last data line must read END_DATA, and be
+               followed by a carriage return or end of line.
+            </td>
+         </tr>
+         <tr>
+            <td bgcolor="#EEEEEE" valign="top" colspan="2">
+               other lines
+            </td>
+            <td bgcolor="#EEEEEE">
+
+               Users may include any information they wish in 0-N optional
+               lines at the end of a data file, after the END_DATA line.
+            </td>
+         </tr>
+      </table>
+
+<h4>
+Table 2.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+_hy1.csv header columns</h4>
+
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" colspan="3">Parameter</td>
+
+<td bgcolor="#EEEEEE">Format&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE">Description notes</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">EXPOCODE</td>
+
+<td bgcolor="#EEEEEE" valign="top">A14</td>
+
+<td bgcolor="#EEEEEE">The expedition code, assigned by the WHP
+Office for WHP data or generated by the user or a data facility for non-WHP
+data. A single alphanumeric word, without spaces, commas, or "/" characters
+(but "_" underscore characters are OK) which is unique cruise identifier
+code. REQUIRED.</td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="3">SECT</td>
+
+<td bgcolor="#EEEEEE">A6</td>
+
+<td bgcolor="#EEEEEE">For WOCE data the WHP section identifier.
+Optional.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">STNNBR</td>
+
+<td bgcolor="#EEEEEE" valign="top">A6</td>
+
+<td bgcolor="#EEEEEE">The originator's station number. This
+column is used for a single alphanumeric word, without spaces, commas,
+or "/" characters (but "_" underscore characters are OK) which is unique
+station identifier. Numeric-only STATION identifiers are preferred by many
+data users, but provision for alphanumeric identifiers is retained to maintain
+compatibility with WOCE records. REQUIRED.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">CASTNO</td>
+
+<td bgcolor="#EEEEEE" valign="top">I3</td>
+
+<td bgcolor="#EEEEEE">The originator's cast number. This column
+is used for a single integer cast number. Where cast number is unknown
+a default value of 1 is used or written in by the WHP Office. REQUIRED.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="3"><i>note</i></td>
+
+<td bgcolor="#EEEEEE"></td>
+
+<td bgcolor="#EEEEEE">No "cast type" designator is used.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">SAMPNO</td>
+
+<td bgcolor="#EEEEEE" valign="top">A7</td>
+
+<td bgcolor="#EEEEEE">The sample number as described in WHP
+Office Report 90-1, WOCE Report No. 67/91, "Requirements for WHP Data Reporting".
+It is very strongly recommended that at least one, preferably both, of
+the parameters SAMPNO and BTLNBR be reported for bottle data files. Where
+neither SAMPNO or BTLNBR are available to the WHP Office, the WHP Office
+may add a SAMPNO column containing consecutive integers for each station/cast.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">BTLNBR</td>
+
+<td bgcolor="#EEEEEE" valign="top">A7</td>
+
+<td bgcolor="#EEEEEE">The bottle identification number as described
+in WHP Office Report 90-1, WOCE Report No. 67/91, "Requirements for WHP
+Data Reporting". It is very strongly suggested that at least one, preferably
+both, of the parameters SAMPNO and BTLNBR be reported for bottle data files.
+It is preferred that one of these, preferably BTLNBR, include a quality
+flag in the column immediately to its right. This is the primary index
+to a water sample. Pressure - or depth - is a measured parameter. The pressure
+value can change during processing, and so pressure (or sample depth) should
+never be used to index water sample data.</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" valign="top" colspan="3">BTLNBR_FL
+<br>AG_W</td>
+
+<td bgcolor="#EEEEEE" valign="top">I1</td>
+
+<td bgcolor="#EEEEEE">The parameter name of a data quality flag
+should be identical to the actual parameter name, followed by "FLAG" and
+then by a character indicating the type of quality flag, with underscores
+between each word. W = WHP quality flag; I = IGOSS quality flag; U = quality
+flag from user-defined table.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="3">DATE</td>
+
+<td bgcolor="#EEEEEE">I8</td>
+
+<td bgcolor="#EEEEEE">Cast date in YYYYMMDD integer format.
+REQUIRED</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="3">TIME</td>
+
+<td bgcolor="#EEEEEE">I4</td>
+
+<td bgcolor="#EEEEEE">Cast time (UT) as HHMM. Optional. Must
+have all four digits.</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" valign="top" colspan="3">LATITUDE</td>
+
+<td bgcolor="#EEEEEE" valign="top">F8.4</td>
+
+<td bgcolor="#EEEEEE">Latitude as SDD.dddd where "S" is sign
+(blank or missing is positive), DD are degrees, and dddd are decimal degrees.
+Sign is positive in northern hemisphere, negative in southern hemisphere.
+Spaces to left of leftmost digit are ignored. Data with positions not reliable
+to ten-thousandths of a degree should be padded with meaningless zeros.
+To convert from WHP .sum files, the "BO" or "bottom" position (ship position
+when cast is at deepest level) will be used if available, with "BE" (ship
+position at cast start) or "EN" (ship position at cast end) used in that
+priority order when "BO" position is not available. REQUIRED</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">LONGITUDE&nbsp;&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.4</td>
+
+<td bgcolor="#EEEEEE">Longitude as SDDD.dddd where "S" is sign
+(blank or missing is positive), DDD are degrees, and dddd are decimal degrees.
+Sign is positive for "east" longitude, negative for "west" longitude. Spaces
+to left of leftmost digit are ignored. Data with positions not reliable
+to ten-thousandths of a degree should be padded with meaningless zeros.
+To convert from WHP .sum files, the "BO" or "bottom" position (ship position
+when cast is at deepest level) will be used if available, with "BE" (ship
+position at cast start) or "EN" (ship position at cast end) used in that
+priority order when "BO" position is not available. REQUIRED</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="3">DEPTH</td>
+
+<td bgcolor="#EEEEEE" valign="top">I5</td>
+
+<td bgcolor="#EEEEEE">Reported depth to bottom. Preferred units
+are "meters" and should be specified in Line 2. In general, corrected depths
+are preferred to uncorrected depths. Documentation accompanying data should
+include notes on methodology of correction. The CCHDO will, however,
+initially provide whatever depth was received from the data originator
+in _hy1.csv and _ct1.csv files due to ongoing confusion about which received
+depths were corrected and which were uncorrected. When no depth-to-bottom
+is supplied by the data originator for one or more rows of data in a _hy1.csv
+file which contains a "DEPTH" column, -999 will be written in by the CCHDO.
+Optional.</td>
+</tr>
+</table>
+
+<h4>
+
+Table 3.&nbsp;&nbsp;&nbsp;&nbsp; WHP parameter
+names, units, and comments.</h4>
+
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">Parameter&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">Format&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">Suggested Units&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">Comments</td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDPRS</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.1</td>
+
+<td bgcolor="#EEEEEE" valign="top">decibars</td>
+
+<td bgcolor="#EEEEEE">corrected CTD pressure (in a _hy1.csv
+file the value accompanying closure of the rosette bottle)</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDTMP</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.4</td>
+
+<td bgcolor="#EEEEEE" valign="top">degrees C
+<br>(specify ITS-90
+<br>or IPTS-68 if&nbsp;
+<br>known)</td>
+
+<td bgcolor="#EEEEEE" valign="top">corrected CTD temperature (in
+a _hy1.csv file the value accompanying closure of the rosette bottle)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDSAL</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.4</td>
+
+<td bgcolor="#EEEEEE" valign="top"></td>
+
+<td bgcolor="#EEEEEE">corrected CTD salinity (in a _hy1.csv
+file the value accompanying closure of the rosette bottle)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDSAL_
+<br>FLAG_a</td>
+
+<td bgcolor="#EEEEEE" valign="top">I1</td>
+
+<td bgcolor="#EEEEEE" valign="top">W = WHP
+<br>quality flags;
+<br>I = IGOSS
+<br>quality flag;</td>
+
+<td bgcolor="#EEEEEE" valign="top">The parameter name of a data
+flag should be identical to the actual parameter name, followed by "FLAG"
+and then by a character indicating the type of quality flag, with underscores
+between each word.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4"></td>
+
+<td bgcolor="#EEEEEE" valign="top"></td>
+
+<td bgcolor="#EEEEEE" valign="top">U = quality flag
+<br>from user-
+<br>defined table
+<br>(table to be
+<br>supplied in
+<br>comment lines)</td>
+
+<td bgcolor="#EEEEEE" valign="top">[A FLAG value can follow any
+data value. FLAG is shown here only for CTDSAL for simplicity. Typically
+a WHP data file will have FLAG_W values following most parameters in this
+table except for CTDPRS and CTDTMP.]</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">SALNTY</td>
+
+<td bgcolor="#EEEEEE">F9.4</td>
+
+<td bgcolor="#EEEEEE"></td>
+
+<td bgcolor="#EEEEEE">bottle salinity</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDOXY</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.1</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">corrected CTD oxygen (in a _hy1.csv file
+the value accompanying closure of the rosette bottle; often not available
+in _hy1.csv files)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">OXYGEN</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.1</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">bottle oxygen (must specify actual units,
+not simply copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">SILCAT</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.2</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">silicate (must specify actual units, not
+simply copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">NITRAT</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.2</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">nitrate (must specify actual units, not
+simply copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">NO2+NO3
+
+<p>(shown only
+<br>if separate&nbsp;
+<br>NITRAT and&nbsp;
+<br>NITRIT are&nbsp;
+<br>not available)</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.2</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">nitrate plus nitrite (must specify actual
+units, not simply copy the suggested units) [Most modern techniques for
+determining dissolved nitrate return a value of nitrate (NO3) plus nitrite
+(NO2). A separate determination is then done for nitrite and the result
+subtracted by the data originator to obtain nitrate. If no separate nitrite
+determination was carried out - or in rare cases the nitrite number was
+not subtracted - data providers should list the result as NO2+NO3. Because
+nitrite values are in most regions small compared to nitrate, most data
+users will not adversely affect their results by relabeling NO2+NO3 as
+NITRAT.]</td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">NITRIT</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.2</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">nitrite (see NO2+NO3) (must specify actual
+units, not simply copy the suggested units)</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" valign="top" colspan="4">PHSPHT</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.2</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">phosphate (must specify actual units,
+not simply copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CFC-11</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.3</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">(must specify actual units, not simply
+copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CFC-12</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.3</td>
+
+<td bgcolor="#EEEEEE" valign="top">pmol/kg</td>
+
+<td bgcolor="#EEEEEE">(must specify actual units, not simply
+copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CFC113</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.3</td>
+
+<td bgcolor="#EEEEEE" valign="top">pmol/kg</td>
+
+<td bgcolor="#EEEEEE">(must specify actual units, not simply
+copy the suggested units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">CCL4</td>
+
+<td bgcolor="#EEEEEE">F9.3</td>
+
+<td bgcolor="#EEEEEE">pmol/kg</td>
+
+<td bgcolor="#EEEEEE"></td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">TRITUM</td>
+
+<td bgcolor="#EEEEEE">F9.3</td>
+
+<td bgcolor="#EEEEEE">TU</td>
+
+<td bgcolor="#EEEEEE">(must specify actual units)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">HELIUM</td>
+
+<td bgcolor="#EEEEEE">F9.4</td>
+
+<td bgcolor="#EEEEEE">nmol/kg</td>
+
+<td bgcolor="#EEEEEE"></td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">DELHE3</td>
+
+<td bgcolor="#EEEEEE">F9.2</td>
+
+<td bgcolor="#EEEEEE">%</td>
+
+<td bgcolor="#EEEEEE"></td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">DELC14</td>
+
+<td bgcolor="#EEEEEE">F9.1</td>
+
+<td bgcolor="#EEEEEE">0/00</td>
+
+<td bgcolor="#EEEEEE"></td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">DELC13</td>
+
+<td bgcolor="#EEEEEE">F9.1</td>
+
+<td bgcolor="#EEEEEE">0/00</td>
+
+<td bgcolor="#EEEEEE"></td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">O18O16</td>
+
+<td bgcolor="#EEEEEE">F9.2</td>
+
+<td bgcolor="#EEEEEE">per mille</td>
+
+<td bgcolor="#EEEEEE"></td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">TCARBN</td>
+
+<td bgcolor="#EEEEEE">F9.1</td>
+
+<td bgcolor="#EEEEEE">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">total carbon</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">ALKALI</td>
+
+<td bgcolor="#EEEEEE">F9.1</td>
+
+<td bgcolor="#EEEEEE">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">alkalinity</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">PCO2</td>
+
+<td bgcolor="#EEEEEE">F9.1</td>
+
+<td bgcolor="#EEEEEE">&micro;atm</td>
+
+<td bgcolor="#EEEEEE">partial pressure of CO2</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">PH</td>
+
+<td bgcolor="#EEEEEE">F9.2</td>
+
+<td bgcolor="#EEEEEE"></td>
+
+<td bgcolor="#EEEEEE">pH</td>
+</tr>
+</table>
+
+<h4>
+Format description for WHP-exchange CTD data</h4>
+
+[Note: To better understand this section please
+refer to document "example_ct1.csv". It is recommended that the reader
+examine "example_ct.csv" in a text editor application in order to see all
+characters and also in a spreadsheet application in order to view overall
+layout.]
+<br><br>
+The overall layout of a_ct1.csv CTD data file is described in Table 4.
+<ul>
+<li>
+The first line of a WHP-exchange format file
+is a single word which describes the file type, in this case "CTD", followed
+by a comma and a date/time stamp.
+
+<li>
+The format next provides for 0-N optional
+information lines, each beginning with a "#" character, near the beginning
+of a _ct1.csv file. The CCHDO intends to use the "#" lines to hold
+file history information.
+
+<li>
+Next is a line indicating the number of header
+lines (counting the present line and those following), usually 10 in WHP
+CTD data in WHP-exchange format.
+
+<li>
+Next are the remaining 9 lines (usually) of
+header information. These mostly match the description of the similar information
+in a _hy1.csv file.
+
+<li>
+Next are the remaining 9 lines (usually) of
+header information. These mostly match the description of the similar information
+in a _hy1.csv file.
+
+<li>
+A line with "END_DATA" signals the end of
+the data lines.
+
+<li>
+
+After that line, a CTD data file may hold
+other file-specific documentation. The primary documentation for WHP data
+will, however, remain in the ".doc" file (or zipped directory).
+</div></ul>
+General rules for WHP-exchange_ct1.csv data
+files:
+<ol>
+<li>
+Each line must end with a carriage return
+or end-of-line.
+
+<li>
+With the exception of the file type line,
+lines starting with a "#" character, the 10 header lines, or including
+and following a line which reads "END_DATA", each line in a_ct1.csv file
+must have exactly the same number of commas as do all other lines in that
+file.
+
+<li>
+The order of the parameters in the header
+lines in a_ct1.csv file should follow the order listed (and in "example_ct1.csv")
+to make it simplest for users to import files. All _ct1.csv files prepared
+by the CCHDO will adhere to the header parameter line order shown
+in "example_ct1.csv". Still, CTD data users are urged to use "read" statements
+that are sensitive to parameter names rather than position of the parameter
+in the data files.
+
+<li>
+It is not necessary that a CTD data file contain
+a column for CTD oxygen probe measurements (CTDOXY) when there are no CTD
+oxygen probe data.
+
+<li>
+When a quality byte is available for a CTD
+parameter, that quality byte shall be placed in the column immediately
+to the right of the parameter. (See "WOCE Flag 1 vs. WOCE Flag 2, and IGOSS
+Quality Codes", below.)
+
+<li>
+The name of a quality flag always begins with
+the name of the parameter with which it is associated, followed by an underscore
+character, followed by "FLAG", followed by an underscore, and then followed
+by an alphanumeric character indicating the flag type. (See "WOCE Flag
+1 vs. WOCE Flag 2, and IGOSS Quality Codes", below.)
+
+<li>
+
+The "missing value" for a data value is always
+defined as -999, but written in the decimal place format of the parameter
+in question. For example, a missing salinity would be written -999.0000.
+The value -999 was chosen because it is out of range for all WHP parameters.
+
+<li>
+Each data parameter listed in Table 5 - except
+for all flags, which are "I1" - will be listed in "F9.x" floating point
+format, where "x" indicates the number of decimal places. For each parameter,
+the CCHDO will pad with meaningless zeros data received with fewer decimal
+places and round data received with extra decimal places to the number
+of decimal places specified in Table 5.
+</div></ol>
+
+<h4>
+Table 4.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+General description of _ct1.csv file layout.</h4>
+
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">1st line</td>
+
+<td bgcolor="#EEEEEE">File type, here CTD, followed by
+a comma and a DATE_TIME stamp
+
+<pre>
+<font face="Courier New,Courier">
+YYYYMMDDdivINSwho
+ 
+   
+YYYY    4 digit year 
+MM      2 digit month 
+DD      2 digit day 
+div     division of Institution 
+INS     Institution name 
+who     initials of responsible person
+
+example:   20000711WHPSIOSCD 
+ORIGINAL_DEPTH_HEADER=  
+</pre></td>
+
+</td>
+</tr>
+
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">#lines</td>
+
+<td bgcolor="#EEEEEE">A file may include 0-N optional lines
+at the start of a data file, each beginning with a "#" character and each
+ending with carriage return or end-of-line. Information relevant to file
+change/update history may be included here, for example.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">2nd line</td>
+
+<td bgcolor="#EEEEEE">NUMBER_HEADERS = n (n = 10 in this table
+and the example_ct1.csv file.)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">3rd line</td>
+
+<td bgcolor="#EEEEEE">EXPOCODE = [expocode] (see Table 2 for
+definition)</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" colspan="2">4th line</td>
+
+<td bgcolor="#EEEEEE">SECT = [section] (see Table 2 for definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">5th line</td>
+
+<td bgcolor="#EEEEEE">STNNBR = [station] (see Table 2 for definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">6th line</td>
+
+<td bgcolor="#EEEEEE">CASTNO = [cast] (see Table 2 for definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">7th line</td>
+
+<td bgcolor="#EEEEEE">DATE = [date] (see Table 2 for definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">8th line</td>
+
+<td bgcolor="#EEEEEE">TIME = [time] (see Table 2 for definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">9th line</td>
+
+<td bgcolor="#EEEEEE">LATITUDE = [latitude] (see Table 2 for
+definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">10th line</td>
+
+<td bgcolor="#EEEEEE">LONGITUDE = [longitude] (see Table 2 for
+definition)</td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">11th line</td>
+
+<td bgcolor="#EEEEEE">DEPTH = [bottom] (see Table 2 for definition)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">next lines</td>
+
+<td bgcolor="#EEEEEE">Parameter headings. A list of CTD parameter
+headings approved and used by the CCHDO is found in Table 5. Data
+originators are urged, however, to be careful to supply their <b>correct</b>
+
+column headings rather than to simply copy 'approved' column headings into
+their files.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">next lines</td>
+
+<td bgcolor="#EEEEEE">Units. A list of parameter units used
+by the CCHDO is found in Table 5. Data originators are urged, however,
+to be careful to supply their <b>correct</b> units rather than to simply
+copy the units used by the WHP.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">data lines</td>
+
+<td bgcolor="#EEEEEE">A single _ct1.csv CTD data file will normally
+contain data lines for one CTD cast. Generally these will be what is called
+a "2 decibar" file, i.e. there will be a 2-decibar interval between data
+lines, and each line will lay at either even or odd whole decibars.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">END_DATA&nbsp;</td>
+
+<td bgcolor="#EEEEEE">The line after the last data line must
+read END_DATA, and be followed by a carriage return or end of line.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">other lines</td>
+
+<td bgcolor="#EEEEEE">Users may include any information they
+wish in 0-N optional lines at the end of a data file, after the END_DATA
+line.</td>
+</tr>
+</table>
+
+<h4>
+Table 5.&nbsp;&nbsp;&nbsp;&nbsp; _ct1.csv
+WHP parameter names, units, and comments.</h4>
+
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">Parameter&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">Format&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">Suggested Units&nbsp;</td>
+
+<td bgcolor="#EEEEEE" valign="top">Comments</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDPRS</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.1</td>
+
+<td bgcolor="#EEEEEE" valign="top">decibars</td>
+
+<td bgcolor="#EEEEEE">corrected CTD pressure</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">PARAMET&nbsp;
+<br>ER_NAME
+<br>_FLAG_a</td>
+
+<td bgcolor="#EEEEEE" valign="top">I1</td>
+
+<td bgcolor="#EEEEEE" valign="top">W = WHP
+<br>quality flag.
+
+<br>I = IGOSS
+<br>quality flag.</td>
+
+<td bgcolor="#EEEEEE">The parameter name of a data flag should
+be identical to the actual parameter name, followed by "FLAG" and then
+by a character indicating the type of quality flag, with underscores between
+each word.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4"></td>
+
+<td bgcolor="#EEEEEE" valign="top"></td>
+
+<td bgcolor="#EEEEEE" valign="top">[U = quality&nbsp;
+<br>flag from user-
+<br>defined table]</td>
+
+<td bgcolor="#EEEEEE">[A FLAG value can follow any data value
+in this table. FLAG is shown here only for CTDPRS for simplicity. Typically
+a WHP data file will have FLAG_W values following every parameter in this
+table.]</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDTMP</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.4</td>
+
+<td bgcolor="#EEEEEE" valign="top">degrees C
+<br>(specify ITS-90
+<br>or IPTS-68 if&nbsp;
+<br>known)</td>
+
+<td bgcolor="#EEEEEE" valign="top">corrected CTD temperature</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="4">CTDSAL</td>
+
+<td bgcolor="#EEEEEE">F9.4</td>
+
+<td bgcolor="#EEEEEE"></td>
+
+<td bgcolor="#EEEEEE">corrected CTD salinity</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="4">CTDOXY</td>
+
+<td bgcolor="#EEEEEE" valign="top">F9.1</td>
+
+<td bgcolor="#EEEEEE" valign="top">&micro;mol/kg</td>
+
+<td bgcolor="#EEEEEE">corrected CTD oxygen (must specify actual
+units, not simply copy the suggested units)</td>
+</tr>
+</table>
+<p>
+<h4>
+
+WOCE Flag 1 vs. WOCE Flag 2, and IGOSS Quality
+Codes</h4>
+The data files in WHP-exchange format contain
+original WOCE quality flags, where these have been provided.
+<ol>
+<li>
+Where both WOCE Flag 1 (QUALT1) and WOCE Flag
+2 (QUALT2) exist in an original WOCE .sea/.hyd or .ctd data file, the WOCE
+Flag 2 value will be used in the WHP-Exchange format files, but only when
+that flag results from DQE activity. WOCE Flag 2 values should be ignored
+and not used to replace WOCE Flag 1 values when it is evident that they
+were set to some default pre-examination value other than the value of
+WOCE Flag 1.</div>
+
+<li>
+The determination of when to replace WOCE
+Flag 1 with WOCE Flag 2 in a WHP-Exchange format file is done on a parameter
+by parameter basis.</div>
+
+<li>
+Where both WOCE Flag 1 and WOCE Flag 2 quality
+bytes are present in the original WHP-format data file, these will be preserved
+in the original files in the WOCE Archive.</div>
+</ol>
+In order that WHP data be used with data from
+other WOCE programs, and with non-WOCE data, it may be advantageous for
+some users to translate the WOCE-specific quality codes into the more widely
+recognized IGOSS quality codes.
+
+<br><br>The WHP quality codes for the water bottle
+itself are:
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE">Bottle information unavailable.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">2</td>
+
+<td bgcolor="#EEEEEE">No problems noted.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">3</td>
+
+<td bgcolor="#EEEEEE">Leaking.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">4</td>
+
+<td bgcolor="#EEEEEE">Did not trip correctly.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">5</td>
+
+<td bgcolor="#EEEEEE">Not reported.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">6</td>
+
+<td bgcolor="#EEEEEE">Significant discrepancy in measured values
+between Gerard and Niskin bottles.</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" colspan="2">7</td>
+
+<td bgcolor="#EEEEEE">Unknown problem.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">8</td>
+
+<td bgcolor="#EEEEEE">Pair did not trip correctly. Note that
+the Niskin bottle can trip at an unplanned depth while the Gerard trips
+correctly and vice versa.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">9</td>
+
+<td bgcolor="#EEEEEE">Samples not drawn from this bottle.</td>
+</tr>
+</table>
+<p>
+Flags 6, 7, and 8 apply primarily to large
+volume samplers.
+<p>The WHP bottle parameter data quality codes
+are:
+
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE">Sample for this measurement was drawn
+from water bottle but analysis not received. Note that if water is drawn
+for any measurement from a water bottle, the quality flag for that parameter
+must be set equal to 1 initially to ensure that all water samples are accounted
+for.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">2</td>
+
+<td bgcolor="#EEEEEE">Acceptable measurement.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">3</td>
+
+<td bgcolor="#EEEEEE">Questionable measurement.</td>
+</tr>
+
+<tr>
+
+<td bgcolor="#EEEEEE" colspan="2">4</td>
+
+<td bgcolor="#EEEEEE">Bad measurement.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">5</td>
+
+<td bgcolor="#EEEEEE">Not reported.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2">6</td>
+
+<td bgcolor="#EEEEEE">Mean of replicate measurements (Number
+of replicates should be specified in the -.DOC file and replicate data
+tabulated).</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">7</td>
+
+<td bgcolor="#EEEEEE">Manual chromatographic peak measurement.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">8</td>
+
+<td bgcolor="#EEEEEE">Irregular digital chromatographic peak
+integration.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">9</td>
+
+<td bgcolor="#EEEEEE">Sample not drawn for this measurement
+from this bottle.</td>
+</tr>
+</table>
+
+<p>The WHP CTD data quality codes are:
+
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE">Not calibrated.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">2</td>
+
+<td bgcolor="#EEEEEE">Acceptable measurement.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">3</td>
+
+<td bgcolor="#EEEEEE">Questionable measurement.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">4</td>
+
+<td bgcolor="#EEEEEE">Bad measurement.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">5</td>
+
+<td bgcolor="#EEEEEE">Not reported.</td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">6</td>
+
+<td bgcolor="#EEEEEE">Interpolated over >2 dbar interval.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">7</td>
+
+<td bgcolor="#EEEEEE">Despiked.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">8</td>
+
+<td bgcolor="#EEEEEE">Not assigned for CTD data.</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">9</td>
+
+<td bgcolor="#EEEEEE">Not sampled.</td>
+</tr>
+</table>
+
+<p>The WMO IGOSS observation quality codes
+are:
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">0&nbsp;</td>
+
+<td bgcolor="#EEEEEE">No quality control yet assigned to this
+element</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">1</td>
+
+<td bgcolor="#EEEEEE">The element appears to be correct</td>
+
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">2</td>
+
+<td bgcolor="#EEEEEE">The element is probably good</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">3</td>
+
+<td bgcolor="#EEEEEE">The element is probably bad</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">4</td>
+
+<td bgcolor="#EEEEEE">The element appears erroneous</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">5</td>
+
+<td bgcolor="#EEEEEE">The element has been changed</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">6 to 8&nbsp;&nbsp;</td>
+
+<td bgcolor="#EEEEEE">Reserved for future use</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" colspan="2">9</td>
+
+<td bgcolor="#EEEEEE">The element is missing</td>
+</tr>
+</table>
+
+<p>A perfect translation is probably not feasible,
+but we suggest the following WHP-to-IGOSS (not IGOSS-to-WHP) translation
+rules as reasonable:
+<p><b>WOCE</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<b>IGOSS</b>
+<br><b>bottle</b>
+<br>1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0
+<br>2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+1
+<br>3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+3 (see note #1)
+<br>4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+4
+<br>5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0
+<br>6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+4
+<br>7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+4
+<br>8&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+4
+<br>9&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+9
+<p><b>water sample</b>
+
+<br>1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0
+<br>2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+1
+<br>3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2 (see note #2)
+<br>4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+4
+<br>5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0
+<br>6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+2
+<br>7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2
+<br>8&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2
+<br>9&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+9
+<p><b>ctd</b>
+<br>1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0
+<br>2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+1
+<br>3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2 (see note #2)
+<br>4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+4
+<br>5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0
+<br>6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2
+<br>7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2
+<br>9&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+9
+<br>&nbsp;
+<br>&nbsp;
+<table border="0" cellspacing="3" cellpadding="3">
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2" nowrap>Note #1:</td>
+
+<td bgcolor="#EEEEEE">The CCHDO, in the interest of being
+conservative, has chosen to translate the WOCE bottle quality code 3 into
+IGOSS quality code 3. A leaking water sample bottle typically results in
+a discrepancy or error in gas samples, such as oxygen and CFCs, but less
+often results in data discrepancies for salinity and nutrients. It is suggested
+that data users who wish to import only "good" data not import any water
+sample data from bottles with a WOCE code 3 or IGOSS code 3. A data user
+who is willing to entertain slightly greater risk might choose to import
+non-gas sample data (e.g., salinity and nutrients) from a WOCE code 3 or
+IGOSS code 3 water sample bottle, and allow import of gas sample data (e.g.
+oxygens and CFCs) for bottles with IGOSS Code 2. (The CCHDO is not,
+however, currently assigning IGOSS code 2 to water sample bottles; but
+future data originators or data centers may wish to use code 2.)</td>
+</tr>
+
+<tr>
+<td bgcolor="#EEEEEE" valign="top" colspan="2" nowrap>Note #2:</td>
+
+<td bgcolor="#EEEEEE">The CCHDO has noted that in general,
+data originators tend to be conservative and so in DQE reports many WHP
+code 3 ("questionable") water sample parameter data are deemed WHP code
+2 ("good") by the examiners. The IGOSS code 2 ("probably good") seems to
+be a reasonable interpretation. The CCHDO is not currently assigning
+IGOSS code 3 ("probably bad") to WHP water sample data values.</td>
+
+</tr>
+</table>
+</table>

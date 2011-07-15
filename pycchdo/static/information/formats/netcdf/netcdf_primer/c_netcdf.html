@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+ 	
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+ 	 	
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+ 	
+  <meta name="AUTHOR" content="Nathan L">
+ 	
+  <meta name="CREATED" content="20020305;12303300">
+ 	
+  <meta name="CHANGEDBY" content="Nathan L">
+ 	
+  <meta name="CHANGED" content="20020305;12315100">
+</head>
+  <body>
+ 
+<p><font size="4"><b>6.0 Using C to read netCDF files</b></font></p>
+ 
+<p>The simplest way to create the C code you need to read a netCDF is to
+use the C programs cdf2c.c (at the above site or <a href="http://www-c4.ucsd.edu/%7Ecids/software/visual.html">
+http://www-c4.ucsd.edu/~cids/software/visual.html</a>
+). This program reads a netCDF file and creates another C program with the
+required calls to the netCDF libraries. This machine generated program only
+needs to be compiled (with correct include file and netCDF libraries). When
+executed this code fragment can then read the netCDF file and is ready for
+the C code to be added to undertake the analysis required by the user. The
+procedure for installing and compiling is described in the documentation
+from the web site listed above and is similar in operation to the cdf2fortran
+program described above.</p>
+ 
+</body>
+</html>

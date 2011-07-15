@@ -1,0 +1,24 @@
+{% call h.boxed('An Improved Exchange Format for WOCE Hydrographic Program Data Files') -%}
+  <p>The original WHP formats for both CTD and bottle data have been a problem
+  to produce. The descriptions are vague, leading to inconsistencies that have
+  caused difficulties for both the WHPO and data users.</p>
+
+  <p>We have created a self-describing data exchange format, combining the most
+  relevant information from the summary (*.SUM) files with the parameter names,
+  units and values from the CTD and bottle files. The result is a single,
+  sensible, comma separated value ASCII file for each data type that should
+  alleviate the problems asscociated with reading the WOCE hydrographic
+  data.</p>
+
+  <p><a href="/static/information/formats/exchange/WHP_Exchange_Description.pdf">A complete description of the Exchange format</a></p>
+
+  <h2>Examples</h2>
+  <ul>
+    <li><a href="/static/information/formats/exchange/example_ct1.csv">An example CTD file</a></li>
+    <li><a href="/static/information/formats/exchange/example_hy1.csv">An example bottle file</a></li>
+    <li><a href="example_hy1.html">A look at the bottle file in a spreadsheet</a></li>
+  </ul>
+
+  <p>If you have any questions or comments, please contact us at 
+  {{ h.email_link('cchdo@ucsd.edu') }}.</p>
+{%- endcall %}

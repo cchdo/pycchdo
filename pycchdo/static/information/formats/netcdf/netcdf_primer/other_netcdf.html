@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+    	         
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+             	 	         
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+    	         
+  <meta name="AUTHOR" content="Nathan L">
+    	         
+  <meta name="CREATED" content="20020305;12342000">
+    	         
+  <meta name="CHANGEDBY" content="Nathan L">
+    	         
+  <meta name="CHANGED" content="20020305;12361700">
+</head>
+  <body>
+       
+<p><font size="4"><b>7.0 Other methods and examining netCDF files</b></font></p>
+       
+<p>Obtaining ascii output of a netcdf file is possible. &nbsp;There are several
+ methods. First is to use ncdump or ncBrowse. &nbsp;Both ncdump and ncBrowse
+ produce the ascii output in the same format. &nbsp;However this format is
+ not particularly friendly if you want to import the data to a spreadsheet
+such as Excel. &nbsp;The second method is to use Ferret, MATLAB or IDL. &nbsp;An
+ example is given from Ferret below. &nbsp;The third method is to use publicly
+ available routines such as <a href="http://www-c4.ucsd.edu/%7Ecids/software/visual.html">
+  cdf2asc</a>
+   or <a href="http://www.unidata.ucar.edu/packages/netcdf/Contrib.html">
+nc2text</a>
+   commands. I have not tested either of these routines. &nbsp;<br>
+  </p>
+   
+<p><b>7.1 ncdump</b></p>
+       
+<p>This utility is a very useful program for those who do not have Matlab,
+ IDL, Ferret, or ncBrowse and want to check the attributes and obtain the
+data from a netCDF file. On unix machines the man pages describe this command
+in detail (and its partner ncgen) or in the netCDF User's Guide for Fortran,
+ (Chapter 10). To obtain the attributes of the current meter data one would</p>
+       
+<p>&gt;ncdump -h rcm00683.cdf</p>
+       
+<p><a href="Appendix_ncdump.html">Appendix 3</a>
+   shows the output from this command. To obtain the speed data in this file
+  </p>
+       
+<p>&gt;ncdump -v speed rcm00683.cdf</p>
+       
+<p>or to obtain the speed and the direction data  </p>
+       
+<p>&gt;ncdump -v speed,direction rcm00683.cdf</p>
+       
+<p>The last command can lead to large files ascii files, but have a relatively 
+ simple structure and can be read by programs. However, the value of ncdump 
+ is that it allows one to check attributes and structure of netcdf files quickly
+ and easily. A more convenient way to examine netCDF files is too be able
+to visualize the data using a graphical interface such as ncBrowse or Ferret.</p>
+   
+<h4>7.2 Using Ferret to create ascii files</h4>
+   
+<p>Ferret has the capability to read netcdf file directly, and it also has
+ the capability to export variables in ascii format from a netcdf file. For
+ example the ferret commands</p>
+   
+<pre>USE sst05d19900108.nc<br>SHADE/X=0.25E:363.25E/Y=89.75S:89.75N SEA_SURFACE_TEMPERATURE[d=sst05d19900108.nc]<br>LIST/X=0.25E:363.25E/Y=0S/file=sea_surface_temperature SEA_SURFACE_TEMPERATURE[d=sst05d19900108.nc]<br>QUIT<br></pre>
+   
+<p>will use the sea surface temperature netcdf file &nbsp;(USE command),
+plot its contours (SHADE), and list the sea surface temperature field along
+the equator around the world to the file called &nbsp;sea_surface_temperature
+ (LIST).</p>
+   
+<p>The output of the LIST command in this case is a more friendly format
+than the output from ncdump, and can be imported into spreadsheet programs
+like excel, staroffice or gnumeric.</p>
+   
+<pre>             sea surface temperature (1/100 degree C)<br>             LATITUDE: 0 (interpolated)<br>             DATA SET: ./sst05d19900108.nc<br> 0.25E   /   1:  32767.<br> 0.75E   /   2:  32767.<br> 1.25E   /   3:  17644.<br> 1.75E   /   4:  32767.<br> 2.25E   /   5:  32767.<br> 2.75E   /   6:  17704.<br> 3.25E   /   7:  32767.<br> 3.75E   /   8:  32767.<br> 4.25E   /   9:  32767.<br> 4.75E   /  10:  32767.<br><br></pre>
+   
+<p>to <br>
+  </p>
+   
+<pre><br> 0.25W   / 720:  17711.<br> 0.25E   / 721:  32767.<br> 0.75E   / 722:  32767.<br> 1.25E   / 723:  17644.<br> 1.75E   / 724:  32767.<br> 2.25E   / 725:  32767.<br> 2.75E   / 726:  17704.<br> 3.25E   / 727:  32767.</pre>
+   
+<p>Note that ferret cannot list a large number of columns to a file, and
+thus the size of two dimensional arrays that are LISTed to a file is limited.<br>
+  <br>
+  </p>
+   
+<p><br>
+  </p>
+   
+<p><br>
+  </p>
+       
+<p></p>
+       
+</body>
+</html>

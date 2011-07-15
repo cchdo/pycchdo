@@ -90,4 +90,7 @@ def main(global_config, **settings):
     config.add_route('cruise_show', '/cruise/{cruise_id}')
     config.add_view('pycchdo.views.cruise_show', route_name='cruise_show', renderer='templates/cruise/show.jinja2')
 
+    config.add_route('catchall_static', '/*subpath')
+    config.add_view('pycchdo.views.catchall_static', route_name='catchall_static', renderer='templates/base.jinja2')
+
     return config.make_wsgi_app()

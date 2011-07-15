@@ -1,0 +1,390 @@
+<% content_for :js do -%>
+<script type="text/javascript">
+<!--
+function findObject(n, d) { //v4.01
+  var p,i,x;  if(!d) d=document; if((p=n.indexOf("?"))>0&&parent.frames.length) {
+    d=parent.frames[n.substring(p+1)].document; n=n.substring(0,p);}
+  if(!(x=d[n])&&d.all) x=d.all[n]; for (i=0;!x&&i<d.forms.length;i++) x=d.forms[i][n];
+  for(i=0;!x&&d.layers&&i<d.layers.length;i++) x=findObject(n,d.layers[i].document);
+  if(!x && d.getElementById) x=d.getElementById(n); return x;
+}
+function swapImage() { //v3.0
+  var i,j=0,x,a=swapImage.arguments; document.sr=new Array; for(i=0;i<(a.length-2);i+=3)
+   if ((x=findObject(a[i]))!=null){document.sr[j++]=x; if(!x.oSrc) x.oSrc=x.src; x.src=a[i+2];}
+}
+function preloadImages() { //v3.0
+  var d=document; if(d.images){ if(!d.p) d.p=new Array();
+    var i,j=d.p.length,a=preloadImages.arguments; for(i=0; i<a.length; i++)
+    if (a[i].indexOf("#")!=0){ d.p[j]=new Image; d.p[j++].src=a[i];}}
+}
+
+//-->
+</script>
+
+
+<% end -%>
+
+        
+	        <div class='boxed'>
+	<h1>Arctic Cruises</h1>
+	<div class='box_content'>
+
+<div class="arctic_map">
+<p>Mouse over an area of the map below and click on the highlighted cruise to visit its cruise page.</p>	
+
+<img name="arctic" src="images/arctic3.gif" width="581" height="587" border="0" id="arctic" usemap="#m_arctic" alt="" />
+
+
+<!-- Rollover Image Map-->
+<map name="m_arctic" id="m_arctic">
+	<area shape="poly" coords="262,406,259,419,296,426,320,420,326,433,290,493,304,511,309,499,307,487,339,434,328,406,298,404,285,390,262,406" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=58AA19950217" title="75N" alt="75N" onmouseover="swapImage('arctic','','images/arctic3_f19.gif',1);"  />
+	<area shape="poly" coords="304,404,278,407,258,425,268,441,295,439,277,462,284,470,309,444,304,404" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=58AA19970225" title="75N" alt="75N" onmouseover="swapImage('arctic','','images/arctic3_f20.gif',1);"  />
+	<area shape="rect" coords="260,405,327,421" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=58GS20060721" title="75N" alt="75N" onmouseover="swapImage('arctic','','images/arctic3_f21.gif',1);"  />
+	<area shape="poly" coords="218,174,249,222,317,204,304,190,301,168,271,150,220,160,218,174" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=32PZ20020819" title="CBL" alt="CBL" onmouseover="swapImage('arctic','','images/arctic3_f18.gif',1);"  />
+<area shape="poly" coords="329,396,352,454,349,455,333,416,324,419,323,425,317,423,298,443,343,459,315,535,310,535,337,461,314,455,295,445,286,453,281,447,291,443,284,431,281,425,248,425,249,417,283,421,295,439,313,423,320,419,304,424,290,423,284,421,299,420,320,415,332,411,327,403,320,408,322,412,317,413,315,408,329,396" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=58JH19990615" title="75N" alt="75N" onmouseover="swapImage('arctic','','images/arctic3_f17.gif',1);"  />
+<area shape="poly" coords="245,86,252,98,247,134,228,154,241,158,239,180,246,182,247,158,257,160,250,135,255,135,262,164,250,162,249,188,235,184,238,161,227,157,221,170,213,167,213,151,217,151,215,162,218,164,222,156,217,155,218,151,224,153,242,134,249,100,242,92,245,86" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=32H120020718" title="HEALY0203" alt="HEALY0203" onmouseover="swapImage('arctic','','images/arctic3_f4.gif',1);"  />
+<area shape="poly" coords="200,168,193,154,228,148,228,153,225,160,230,160,231,164,225,163,225,167,220,163,226,151,218,152,221,158,218,160,213,154,200,156,206,167,200,168" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=320620030705" title="SBI" alt="SBI" onmouseover="swapImage('arctic','','images/arctic3_f16.gif',1);"  />
+<area shape="poly" coords="241,132,244,134,240,139,245,147,245,163,249,163,249,168,245,166,244,186,233,188,229,151,229,145,231,143,233,158,241,170,238,172,234,166,236,184,241,184,243,147,238,141,233,147,232,142,241,132" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=320620030705" title="SBI" alt="SBI" onmouseover="swapImage('arctic','','images/arctic3_f16.gif',1);"  />
+<area shape="poly" coords="244,84,258,112,251,116,262,122,250,130,265,132,257,141,260,158,269,153,272,157,261,164,263,176,253,180,247,159,251,158,255,176,261,174,258,167,254,168,254,165,258,162,255,142,259,136,244,133,243,130,255,121,246,116,253,110,242,89,244,84" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=320620030705" title="SBI" alt="SBI" onmouseover="swapImage('arctic','','images/arctic3_f16.gif',1);"  />
+<area shape="poly" coords="180,153,182,181,241,202,252,172,261,80,246,80,245,154,180,153" href="http://cchdo.ucsd.edu/data_access?ExpoCode=32H120020505" alt="HEALY0201" title="HEALY0201" onmouseover="swapImage('arctic','','images/arctic3_f3.gif',1);"  />
+<area shape="poly" coords="347,226,343,231,356,251,347,262,336,252,328,251,311,264,317,278,355,291,357,288,365,295,364,305,369,308,358,327,354,326,363,308,359,307,362,295,356,292,356,295,316,282,307,265,326,250,338,249,346,256,350,250,340,233,345,222,383,230,383,234,347,226" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=06AQ19960712" title="ARKXII" alt="ARKXII" onmouseover="swapImage('arctic','','images/arctic3_f15.gif',1);"  />
+<area shape="poly" coords="274,368,270,369,269,374,265,375,260,385,270,385,263,401,270,415,274,412,267,402,274,384,286,381,285,378,277,379,277,377,282,376,282,373,279,373,279,370,274,368" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=32L919930718" title="NEWP93" alt="NEWP93" onmouseover="swapImage('arctic','','images/arctic3_f14.gif',1);"  />
+<area shape="poly" coords="269,379,268,375,279,369,287,369,281,383,275,378,272,383,273,387,271,393,272,409,268,414,285,422,281,426,264,416,269,408,269,405,257,398,257,394,268,390,269,379" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=32L919920715" title="NEWP92" alt="NEWP92" onmouseover="swapImage('arctic','','images/arctic3_f13.gif',1);"  />
+<area shape="poly" coords="297,282,301,284,291,295,291,319,299,322,275,335,313,365,310,347,316,328,300,277,296,278,293,281,294,277,300,273,320,329,314,348,320,375,270,335,292,323,289,320,290,295,297,282" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=77DN19910726" title="ODEN91" alt="ODEN91" onmouseover="swapImage('arctic','','images/arctic3_f12.gif',1);"  />
+<area shape="poly" coords="315,531,311,535,287,509,239,509,241,494,256,475,264,425,311,506,321,496,283,435,279,416,307,417,308,425,329,421,331,425,305,430,303,421,284,419,288,434,327,496,311,511,266,435,259,477,245,497,244,507,287,504,315,531" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=58JH19941029" title="AR18" alt="AR18" onmouseover="swapImage('arctic','','images/arctic3_f11.gif',1);"  />
+<area shape="poly" coords="300,392,300,395,294,404,295,415,319,413,316,406,302,411,300,410,304,408,301,396,302,387,307,407,316,404,323,414,294,417,290,404,299,389,299,387,302,387,304,394" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18HU19820228" title="HUDSON1982" alt="HUDSON1982" onmouseover="swapImage('arctic','','images/arctic3_f10.gif',1);"  />
+<area shape="poly" coords="280,433,283,434,284,418,294,419,293,416,284,416,286,396,295,398,296,396,286,393,287,387,301,388,302,386,279,384,278,386,285,387,284,393,281,392,280,396,284,395,282,416,279,415,279,418,282,418,280,433" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18HU19820228" title="HUDSON1982" alt="HUDSON1982" onmouseover="swapImage('arctic','','images/arctic3_f10.gif',1);"  />
+<area shape="poly" coords="287,441,287,444,304,469,341,461,334,426,325,418,294,417,294,424,302,430,298,438,288,443,292,443,300,440,305,431,297,423,298,419,324,420,332,427,338,459,306,466,292,443,287,441" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18HU19820228" title="HUDSON1982" alt="HUDSON1982" onmouseover="swapImage('arctic','','images/arctic3_f10.gif',1);"  />
+<area shape="poly" coords="272,461,268,443,281,433,288,442,277,462,276,460,286,443,281,436,271,444,275,460,272,461" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18HU19820228" title="HUDSON1982" alt="HUDSON1982" onmouseover="swapImage('arctic','','images/arctic3_f10.gif',1);"  />
+<area shape="poly" coords="249,481,252,482,253,472,272,463,291,541,274,541,263,547,272,557,274,555,266,548,274,542,295,544,274,461,252,469,249,481" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18HU19820228" title="HUDSON1982" alt="HUDSON1982" onmouseover="swapImage('arctic','','images/arctic3_f10.gif',1);"  />
+<area shape="poly" coords="290,385,309,365,303,353,307,348,303,325,305,324,333,361,331,361,308,331,312,349,307,355,314,364,295,388,290,385" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=06AQ19870704" title="ARKIV3" alt="ARKIV3" onmouseover="swapImage('arctic','','images/arctic3_f9.gif',1);"  />
+<area shape="poly" coords="272,367,274,353,279,354,283,359,285,361,311,359,319,365,301,378,297,375,313,365,310,363,289,363,282,392,312,395,318,410,313,411,309,398,272,397,285,364,272,367" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=06AQ19840720" title="ARCHY" alt="ARCHY" onmouseover="swapImage('arctic','','images/arctic3_f8.gif',1);"  />
+<area shape="poly" coords="305,326,317,346,327,338,315,315,305,326" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18SN19940724" title="A094" alt="A094" onmouseover="swapImage('arctic','','images/arctic3_f2.gif',1);"  />
+<area shape="poly" coords="256,137,264,136,273,181,294,188,286,210,301,209,307,292,293,314,288,311,295,280,290,221,276,213,285,194,262,189,256,137" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=18SN19940724" title="A094" alt="A094" onmouseover="swapImage('arctic','','images/arctic3_f2.gif',1);"  />
+<area shape="poly" coords="345,363,333,350,323,355,330,373,345,363" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=77DN20050819" title="ODEN05" alt="ODEN05" onmouseover="swapImage('arctic','','images/arctic3_f7.gif',1);"  />
+<area shape="poly" coords="176,162,190,148,234,210,234,229,262,254,317,266,295,290,311,293,322,319,309,325,293,303,282,306,297,273,262,272,229,250,220,214,176,162" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=77DN20050819" title="ODEN05" alt="ODEN05" onmouseover="swapImage('arctic','','images/arctic3_f7.gif',1);"  />
+<area shape="poly" coords="277,390,295,394,280,439,268,442,256,459,306,458,298,419,325,421,330,474,252,470,250,491,321,502,326,516,286,518,265,543,282,558,253,558,234,527,240,516,264,526,278,506,246,507,240,489,226,496,236,474,233,457,248,455,277,390" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=316N20020530" title="NS02" alt="NS02" onmouseover="swapImage('arctic','','images/arctic3_f6.gif',1);"  />
+<area shape="poly" coords="161,467,176,457,180,471,194,459,209,479,221,455,221,435,248,430,250,413,269,415,269,393,269,371,288,351,325,366,305,387,276,387,258,414,292,421,317,401,341,397,341,414,307,417,302,437,280,433,241,449,229,487,213,490,193,494,174,487,161,467" href="http://cchdo.ucsd.edu/data_access/show_cruise?ExpoCode=77DN20020420" title="ODEN02" alt="ODEN02" onmouseover="swapImage('arctic','','images/arctic3_f5.gif',1);"  />
+<area shape="poly" coords="291,22,220,40,-1,2,-1,587,291,587,288,569,197,553,115,510,52,433,22,342,22,251,51,159,115,87,209,40,-1,0,581,0,582,586,289,590,288,565,388,553,465,503,525,426,559,342,557,247,525,163,462,84,388,39,291,22" href="javascript:;" alt="" onmouseover="swapImage('arctic','','images/arctic3.gif',1);"  />
+</map>
+
+</div>
+
+<div class="arctic_cruises">
+	<table class="arctic_table">
+	      <tr>
+
+	      <th width="10%">Line</th>
+
+	      <th width="25%">Cruise Dates</th>
+	      <th width="10%">Ship</th>
+
+	      <th width="20%">Chief Scientist</th>
+	      <th width="10%">Country</th>
+	      </tr>
+
+	    <tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3.gif',1);">
+
+		<td colspan="5"> <a href="project_carina">Project Carina Collection</a></td></tr>
+		<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f10.gif',1);">
+			<td><a href="data_access/show_cruise?ExpoCode=18HU19820228">hudson1982</a></td>
+
+			      <td>
+			                  1982-02-28 to 1982-04-04        
+			      </td>
+			      <td>HUDSON</td>
+
+			      <td>
+
+			          Clarke,
+					  Reid,
+					  Swift
+			      </td>
+
+			      <td>CAN</td>
+			    </tr>
+
+				<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f8.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=06AQ19840720">archy</a></td>
+
+      <td>
+                  1984-07-20 to 1984-08-08        
+      </td>
+      <td>POLARSTERN</td>
+
+      <td>
+
+          Hemple
+
+      </td>
+      <td>GER</td>
+
+    </tr>
+<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f9.gif',1);">
+	<td><a href="data_access/show_cruise?ExpoCode=06AQ19870704">arkIV3</a></td>
+
+	      <td>
+	                  1987-07-04 to 1987-09-02        
+	      </td>
+
+	      <td>POLARSTERN</td>
+	      <td>
+
+	          Thiede 
+	      </td>
+	      <td>GER</td>
+	    </tr>
+		<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f12.gif',1);">
+
+			<td><a href="data_access/show_cruise?ExpoCode=77DN19910726">ODEN91</a></td>
+			      <td>
+
+			                  1991-07-26        
+			      </td>
+			      <td>ODEN</td>
+
+			      <td>Anderson, Hellsvik</td>
+
+			      <td>SWD</td>
+			    </tr>
+		<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f13.gif',1);">
+
+			<td><a href="data_access/show_cruise?ExpoCode=32L919920715">NEWP92</a></td>
+			      	<td>
+				                  1992-07-15 to 1992-08-15        
+				      </td>
+
+				      <td>POLAR SEA</td>
+
+				      <td>
+				          Deming 
+				      </td>
+
+				      <td>USA</td>
+			    </tr>
+				<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f14.gif',1);">
+					<td><a href="data_access/show_cruise?ExpoCode=32L919930718">NEWP93</a></td>
+
+					      <td>
+					                  1993-07-18 to 1993-08-20        
+					      </td>
+
+					      <td>POLAR SEA</td>
+					      <td>
+					          Deming 
+					      </td>
+
+					      <td>USA</td>
+					    </tr>
+	<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f2.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=18SN19940724">AO94</a></td>
+
+      <td>
+                  1994-07-24 to 1994-09-09        
+      </td>
+
+      <td>LOUIS ST. LAURENT</td>
+
+      <td>
+          Aagaard, Carmack, Swift
+      </td>
+
+      <td>CAN</td>
+
+    </tr>
+	<tr valign="top"  class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f11.gif',1);">
+		<td><a href="data_access/show_cruise?ExpoCode=58JH19941029">AR18</a></td>
+
+		      <td>
+		                  1994-10-29 to 1994-11-23        
+		      </td>
+		      <td>JOHAN HJORT</td>
+
+		      <td></td>
+		      <td>NOR</td>
+		    </tr>
+			<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f19.gif',1);">
+			  <td><a href="data_access/show_cruise?ExpoCode=58AA19950217">75N</a></td>
+			  <td>
+
+			              1995-02-17 to 1995-03-18        
+			  </td>
+			  <td>HAAKON MOSBY</td>
+
+			  <td>Johannessen, Skjelvan</td>
+			  <td>NOR</td>
+			</tr>
+<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f15.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=06AQ19960712">ARKXII</a></td>
+     <td>
+                 1996-07-12 to 1996-09-23        
+     </td>
+
+     <td>POLARSTERN</td>
+
+     <td>
+         Augstein 
+     </td>
+
+     <td>GER</td>
+
+   </tr>
+	<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f20.gif',1);">
+	  <td><a href="data_access/show_cruise?ExpoCode=58AA19970225">75N</a></td>
+	  <td>
+
+	              1997-02-25 to 1997-03-24        
+	  </td>
+	  <td>HAAKON MOSBY</td>
+
+	  <td>Johanessen</td>
+	  <td>NOR</td>
+	</tr>
+	<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3.gif',1);">
+	  <td><a href="data_access/show_cruise?ExpoCode=58AA19980308">75N</a></td>
+	  <td>
+
+	              1998-03-08 to 1998-03-24        
+	  </td>
+	  <td>HAAKON MOSBY</td>
+
+	  <td>Simonsen</td>
+	  <td>NOR</td>
+	</tr>		
+<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f17.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=58JH19990615">75N</a></td>
+    <td>
+                1999-06-15 to 1999-07-07        
+    </td>
+
+    <td>JOHAN HJORT</td>
+    <td>
+        Blindheim, Rey </a> 
+
+    </td>
+
+    <td>NOR</td>
+
+  </tr>
+	<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f5.gif',1);">
+
+	<td><a href="data_access/show_cruise?ExpoCode=77DN20020420">ODEN02</a></td>
+     <td>
+
+                 2002-04-19 to 2002-06-06        
+     </td>
+
+     <td>ODEN</td>
+
+     <td>Anderson</td>
+     <td>SWD</td>
+   </tr>
+	
+<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f3.gif',1);">
+
+<td><a href="data_access/show_cruise?ExpoCode=32H120020505">HEALY0201</a></td>
+
+<td>
+ 2002-05-05 to 2002-06-15        
+</td>
+
+<td>HEALY</td>
+
+<td>Grebmeier</td>
+<td>USA</td>
+
+</tr>
+
+<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f6.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=316N20020530">NS02</a></td>
+
+  <td>
+              2002-05-30 to 2002-07-01        
+  </td>
+
+  <td>KNORR</td>
+  <td>Smethie</td>
+  <td>USA</td>
+
+</tr>
+<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f4.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=32H120020718">HEALY0203</a></td>
+<td>
+  2002-07-15 to 2002-08-26        
+
+</td>
+
+<td>HEALY</td>
+<td>Cooper</td>
+
+<td>USA</td>
+
+</tr>
+<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f18.gif',1);">
+
+<td><a href="data_access/show_cruise?ExpoCode=32PZ20020819">CBL</a></td>
+  <td>
+              2002-08-19 to 2002-09-23        
+  </td>
+
+  <td>POLAR STAR</td>
+  <td>Woodgate</td>
+
+  <td>USA</td>
+
+</tr>
+<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f16.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=320620030705">SBI</a></td>
+<td>
+  2003-07-05 to 2003-08-18        
+
+</td>
+
+<td>NATHANIEL B. PALMER</td>
+<td>Swift</td>
+
+<td>USA</td>
+
+</tr>
+<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3.gif',1);">
+<td><a href="data_access/show_cruise?ExpoCode=32H120030721">HLY031</a></td>
+<td>
+  2003-07-21 to 2003-08-16        
+
+</td>
+
+<td>Healy</td>
+<td>Falkner</td>
+<td>CAN</td>
+
+</tr>
+<tr valign="top" onmouseover="swapImage('arctic','','images/arctic3_f7.gif',1);">
+
+<td><a href="data_access/show_cruise?ExpoCode=77DN20050819">ODEN05</a></td>
+  <td>
+              2005-08-19 to 2005-09-25        
+  </td>
+
+  <td>ODEN</td>
+  <td>Karlqvist</td>
+
+  <td>SWD</td>
+
+</tr>
+<tr valign="top" class="highlighted_cell" onmouseover="swapImage('arctic','','images/arctic3_f21.gif',1);">
+  <td><a href="data_access/show_cruise?ExpoCode=58GS20060721">75N</a></td>
+  <td>
+
+              2006-07-21 to 2006-07-21        
+  </td>
+  <td>GO SARS</td>
+
+  <td>Olsen</td>
+  <td>NOR</td>
+</tr>
+			</table>
+</div>
+
+</div>
+
+<div class='box_bottom'></div>

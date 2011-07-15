@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+      	               
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+                     	 	               
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+      	               
+  <meta name="AUTHOR" content="Nathan L">
+      	               
+  <meta name="CREATED" content="20020305;12224400">
+      	               
+  <meta name="CHANGEDBY" content="Nathan L">
+      	               
+  <meta name="CHANGED" content="20020305;12252100">
+      	               
+  <style>
+	<!--
+		@page { size: 8.27in 11.69in; margin-left: 1.25in; margin-right: 1.25in; margin-top: 1in; margin-bottom: 1in }
+	-->
+	</style>
+</head>
+  <body>
+       
+<p><font size="4"><b>1.0 Why use netCDF for CD ROM 3.0 of WOCE Global Data 
+ set?</b></font></p>
+       
+<p>All of the WOCE Global Data is now in netCDF format. This data format
+has many advantages. The most important of which is that it is a self describing, 
+  meaning that software packages can directly read the data and determine 
+its  structure, the variables names and essential metadata such as the units. 
+ This self describing aspect of netCDF file format means that the information 
+ needed to ensure accurate work (i.e. reducing the incidence of errors) is 
+available   with the data itself. Secondly, it means that programs describe 
+below can   read a netCDF file and generate the code needed to read the file 
+whether  it be Fortran, C/C++, JAVA or PERL. Thirdly, plotting and analysis 
+packages  (e.g. Ferret, IDL, MATLAB) can directly read the netCDF files for 
+plotting or analysis. In many of these packages the axes can be labeled without
+ intervention from the user</p>
+       
+<p>Although there is an initial learning curve for the inexperienced netCDF 
+  user, high efficiency in reading netCDF files and multiple data can be readily
+  achieved as shown in the examples below. These savings translate to more
+ time for analyzing data and addressing the synthesis of the WOCE Global
+Data.   </p>
+       
+<p>I have assumed that netCDF libraries have already been installed on your 
+  system. They can be obtained from <a href="http://www.unidata.ucar.edu/Software.html"><font size="2">
+   www.unidata.ucar.edu/Software.html</font></a>
+      or <a href="http://www.unidata.ucar.edu/packages/netcdf/index.html"><font size="2">
+   www.unidata.ucar.edu/packages/netcdf/index.html</font> </a>
+   and are available for Unix, Windows and Macintosh based systems. This
+site  also contains excellent description of the Fortran (also Fortran 90),
+JAVA  and PERL interfaces for netCDF files. Freely available and commercial
+software  that uses netCDF for input are also listed at these sites and includes
+products  such as Ferret,  GMT and GrADs and commercial products such as
+MATLAB, NCAR  Graphics, IDL and others. Here we focus on reading netCDF files
+with ncBrowse,  Matlab, IDL, Fortran, C,&nbsp; ncdump, and Ferret.</p>
+       
+<p>The WOCE Global Data V3 are now in a <a href="http://ferret.wrc.noaa.gov/noaa_coop/coop_cdf_profile.html">
+  COARDS</a>
+   compliant format. &nbsp;This means that the variables names associated 
+with the data, the attributes of the data and the time convention follow a
+common standard for all the different data types within the WOCE Global Data
+set, and also are common to other data sets that are used by the oceanographic
+ and meteorology communities.<br>
+    </p>
+       
+</body>
+</html>

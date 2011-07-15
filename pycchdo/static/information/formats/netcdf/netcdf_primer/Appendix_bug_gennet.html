@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+ 	
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=iso-8859-1">
+  <title></title>
+ 	 	
+  <meta name="GENERATOR" content="StarOffice/5.2 (Linux)">
+ 	
+  <meta name="AUTHOR" content="Nathan L">
+ 	
+  <meta name="CREATED" content="20020305;12423300">
+ 	
+  <meta name="CHANGEDBY" content="Nathan L">
+ 	
+  <meta name="CHANGED" content="20020305;12431700">
+</head>
+  <body>
+ 
+<p><font size="4"><b>Appendix 4: Bug in gennet.for</b></font></p>
+ 
+<p>The program in gennet.for is not quite perfect. When it creates the readnet.for
+program it some times places the wrong routine call in readnet.for. If you
+get a message like</p>
+ 
+<p>&gt;NCAGT: : Attempt to convert between text &amp; numbers</p>
+ 
+<p>the following may fix the problem. The line where readnet.for crashes
+is a call to NCAGT. At this point, readnet.for tries to read a character
+variable atribute "long_name" using a routine that is designed for numeric
+attributes (NCAGT). To make the code work substitute a call to NCAGTC at
+this point in the code and also to assign mtlen=50 (the character width dimension
+of "name"). With these two changes the code runs like a charm.</p>
+ 
+<p><br>
+<br>
+ </p>
+ 
+</body>
+</html>

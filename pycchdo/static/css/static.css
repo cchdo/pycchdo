@@ -1,0 +1,122 @@
+.contact .vcard {
+  margin-bottom: 1em;
+}
+.contact .vcard h2 {
+  font-size: 1.3em;
+}
+.contact .vcard .adr {
+  line-height: 1.1em;
+  padding: 0.4em 0;
+}
+.contact .vcard .tel .value,
+.contact .vcard.cchdo .email {
+  padding-left: 0.5em;
+}
+.contact .people {
+  width: 50em;
+}
+.contact .people .vcard {
+  float: left;
+  width: 25em;
+}
+.contact .vcard h3 {
+  font-size: 1.2em;
+}
+
+.sumfile-example pre {
+  border: 1px solid #888888;
+  border-left: 0;
+  border-right: 0;
+  padding: 1em 0;
+  margin: 1em 0;
+}
+.sumfile-example td,
+.sumfile-example th {
+  vertical-align: top;
+  padding: 0.25em;
+}
+.sumfile-example th {
+  font-weight: bold;
+  text-decoration: underline;
+}
+.sumfile-example .top-header th {
+  text-decoration: none;
+}
+.sumfile-example .fortran {
+  font-weight: bold;
+  white-space: nowrap;
+}
+.sumfile-example p.subposition {
+  font-weight: normal;
+  text-decoration: none;
+  font-style: italic;
+}
+.sumfile-example #nav-sys-codes {
+  margin: 0.5em 0;
+}
+.sumfile-example #nav-sys-codes h3 {
+  font-weight: bold;
+  text-decoration: underline;
+}
+.sumfile-example #nav-sys-codes th {
+  padding-right: 0.5em;
+  text-decoration: none;
+}
+
+.version-policy #version-number {
+  font-weight: bold;
+  line-height: 3em;
+}
+.version-policy #explanation {
+  margin: 1em 0;
+}
+.version-policy #explanation th {
+  font-weight: bold;
+}
+.version-policy #explanation th,
+.version-policy #explanation td {
+  padding: 0 0.25em;
+}
+
+.data-sharing-policy h2 {
+  font-size: 1.2em;
+  font-weight: bold;
+  text-align: center;
+}
+.data-sharing-policy p {
+  margin-bottom: 1em;
+}
+.data-sharing-policy p:first-letter {
+  padding-left: 1em;
+}
+.data-sharing-policy ol p:first-letter {
+  padding-left: 0;
+}
+.data-sharing-policy ol li {
+  margin-left: 2em;
+  list-style-type: decimal;
+}
+
+.file-name-conv h2 {
+  font-weight: bold;
+  text-decoration: underline;
+  margin: 1em 0 0.5em 0;
+}
+.file-name-conv table {
+  margin: 0.5em 0;
+}
+.file-name-conv th {
+  width: 10em;
+}
+.file-name-conv td,
+.file-name-conv code {
+  font-size: 1em;
+  font-family: Andale Mono, Courier New, Courier, Fixed, monospace;
+}
+.file-name-conv th,
+.file-name-conv td {
+  padding: 0 0.5em;
+}
+.file-name-conv .empty {
+  height: 0.5em;
+}

@@ -9,6 +9,7 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
   {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
+  {% if _static -%}{{ whh.tags.stylesheet_link('/static/css/static.css') }}{%- endif %}
   {% include 'templates/_ie_compat.jinja2' ignore missing %}
   {%- block head -%}{%- endblock -%}
 </head>

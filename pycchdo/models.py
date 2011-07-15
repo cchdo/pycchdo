@@ -4,12 +4,18 @@ import pymongo
 from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
-mongo_conn = pymongo.Connection()
+
+mongo_conn = None
+
 
 def init_conn(settings):
+    global mongo_conn
     mongo_conn = pymongo.Connection(settings['db_uri'])
 
+
 def cchdo():
+    if not mongo_conn:
+        raise IOError('No database connection. Check that the server .ini file contains the correct db_uri.')
     return mongo_conn.cchdo
 
 
@@ -77,25 +83,27 @@ class mongodoc(dict):
 
 
 class collectablemongodoc(mongodoc):
-    _mongo_collection = cchdo().collectables
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().collectables
 
     def save(self):
-        self['_id'] = self._mongo_collection.save(self)
+        self['_id'] = self._mongo_collection().save(self)
 
     def remove(self):
-        self._mongo_collection.remove(self['_id'])
+        self._mongo_collection().remove(self['_id'])
 
     @classmethod
     def all(cls):
-        return cls._mongo_collection.find()
+        return cls._mongo_collection().find()
 
     @classmethod
     def find(cls, *args, **kwargs):
-        return cls._mongo_collection.find(*args, **kwargs)
+        return cls._mongo_collection().find(*args, **kwargs)
 
     @classmethod
     def find_one(cls, *args, **kwargs):
-        return cls._mongo_collection.find_one(*args, **kwargs)
+        return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
     def find_id(cls, id):
@@ -140,7 +148,9 @@ class Note(mongodoc):
 
 
 class _Change(collectablemongodoc):
-    _mongo_collection = cchdo().changes
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().changes
 
     def __init__(self, person, note=None):
         self['creation_stamp'] = Stamp(person)
@@ -222,8 +232,11 @@ class _AttrList(list):
 
 
 class Attr(_Change):
-    _mongo_collection = cchdo().attrs
     accepted_value = None
+
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().attrs
 
     def __init__(self, person, key=None, value=None, obj=None, note=None,
                  deleted=False):
@@ -318,11 +331,9 @@ class _Attrs(dict):
 
 
 class Obj(_Change):
-    _mongo_collection = cchdo().objs
-    from pyramid.security import Authenticated, Allow, Deny
-    __acl__ = [
-        (Allow, Authenticated, 'create'),
-    ]
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().objs
 
     def __init__(self, person, doc=None):
         super(Obj, self).__init__(person, doc)
@@ -345,8 +356,8 @@ class Obj(_Change):
     @classmethod
     def all(cls):
         if cls is Obj:
-            return cls._mongo_collection.find()
-        return cls._mongo_collection.find({'_obj_type': cls.__name__})
+            return cls._mongo_collection().find()
+        return cls._mongo_collection().find({'_obj_type': cls.__name__})
 
     @classmethod
     def find(cls, *args, **kwargs):
@@ -360,7 +371,7 @@ class Obj(_Change):
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
-        return cls._mongo_collection.find(*args, **kwargs)
+        return cls._mongo_collection().find(*args, **kwargs)
 
     @classmethod
     def find_one(cls, *args, **kwargs):
@@ -374,7 +385,7 @@ class Obj(_Change):
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
-        return cls._mongo_collection.find_one(*args, **kwargs)
+        return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
     def find_id(cls, id):

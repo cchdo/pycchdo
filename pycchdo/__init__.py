@@ -12,6 +12,7 @@ import webhelpers.html
 import webhelpers.html.tags
 
 import helpers
+import models
 from models import init_conn
 
 
@@ -21,7 +22,6 @@ class RequestWithUserAttribute(Request):
         userid = unauthenticated_userid(self)
         if userid is not None:
             # this should return None if the user doesn't exist
-            import models
             p = models.Person.get_id(userid)
             return p
 
@@ -50,7 +50,7 @@ def main(global_config, **settings):
         session_factory=session_factory,
     )
 
-    init_conn(settings)
+    models.init_conn(settings)
 
     config.include('pyramid_jinja2')
     config.add_subscriber(add_renderer_globals, BeforeRender)

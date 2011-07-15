@@ -120,3 +120,27 @@
 .file-name-conv .empty {
   height: 0.5em;
 }
+
+.manuals-index h2 {
+  font-size: 1.3em;
+  margin-top: 1em;
+}
+.manuals-index h3 {
+  font-size: 1.2em;
+  margin-top: 0.75em;
+}
+.manuals-index #requirements-for-reporting a {
+  display: inline-block;
+  width: 7em;
+}
+.manuals-index .title {
+  font-weight: bold;
+}
+.manuals-index p.credit {
+  margin-left: 1em;
+}
+.manuals-index .pdf {
+  margin-top: 1em;
+  border-top: 1px solid #AAAAAA;
+  text-align: center;
+}

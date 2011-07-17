@@ -8,7 +8,6 @@ setup.py
 pycchdo/__init__.py
 pycchdo/helpers.py
 pycchdo/models.py
-pycchdo/tests.py
 pycchdo/views.py
 pycchdo.egg-info/PKG-INFO
 pycchdo.egg-info/SOURCES.txt
@@ -146,3 +145,7 @@ pycchdo/templates/static/policies/postwoce_name.html
 pycchdo/templates/static/policies/sharing.html
 pycchdo/templates/static/policies/version.html
 pycchdo/templates/static/policies/woce_name.html
+pycchdo/tests/__init__.py
+pycchdo/tests/functional.py
+pycchdo/tests/integration.py
+pycchdo/tests/unit.py

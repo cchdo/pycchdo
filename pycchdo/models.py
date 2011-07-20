@@ -10,7 +10,10 @@ mongo_conn = None
 
 def init_conn(settings):
     global mongo_conn
-    mongo_conn = pymongo.Connection(settings['db_uri'])
+    try:
+        mongo_conn = pymongo.Connection(settings['db_uri'])
+    except pymongo.errors.AutoReconnect:
+        raise IOError('Unable to connect to database. Check that the database server is running.')
 
 
 def cchdo():

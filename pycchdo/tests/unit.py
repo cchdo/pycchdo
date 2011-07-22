@@ -356,3 +356,35 @@ class TestModel(unittest.TestCase):
         self.assertTrue(a['value'] == ['b'])
 
         obj.remove()
+
+    def test_Data_suggesting(self):
+        """ Setting an Attr to some binary data adds a Data object.
+            A Data object must be given some data. It may optionally be given
+            a MIME type.
+        """
+        from pycchdo.models import Obj, Data
+        from StringIO import StringIO
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        file = StringIO('this is a test file object\nwith two lines')
+
+        a = obj.attrs.set('a', file, self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a) is Data)
+        obj.remove()
+
+    def test_Data_creation(self):
+        """ Creating a Data attribute stores the file in an object store. """
+        from pycchdo.models import Data
+        from StringIO import StringIO
+
+        file = StringIO('this is a test file object\nwith two lines')
+        note = None
+
+        d = Data(self.testPerson, 'a', file, 'testid', note)
+        d.save()
+
+        file.seek(0)
+        self.assertEquals(d.file.read(), file.read())
+        d.remove()

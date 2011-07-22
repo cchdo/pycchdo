@@ -148,11 +148,17 @@ def obj_attrs(request):
             return require_signin(request)
         obj_id = request.matchdict['obj_id']
         obj = models.Obj.get_id(obj_id)
+        
+        if not obj:
+            return HTTPNotFound()
+
         key = request.params.get('key', None)
         value = request.params.get('value', None)
         type = request.params.get('type', 'text')
+
         if not key:
             return HTTPBadRequest()
+
         if type == 'datetime':
             try:
                 value = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
@@ -170,6 +176,12 @@ def obj_attrs(request):
             value = models.Obj.get_id(id)
             if value:
                 value = value['_id']
+        else:
+            # file upload
+            try:
+                value = value.file
+            except AttributeError:
+                return HTTPBadRequest()
 
         # TODO note
         note = None

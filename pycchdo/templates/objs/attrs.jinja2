@@ -23,7 +23,8 @@
     {% endfor %}
     </ul>
 
-    <h2>New</h2>
+    <div class="editor">
+    <h2>Update Value</h2>
     <form action="{{ request.url }}" method="POST">
       <ul>
         <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
@@ -42,8 +43,33 @@
           </td>
         </tr>
         <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
-        <tr><td colspan=2><input type="submit" value="Add"></td></tr>
+        <tr><td colspan=2><input type="submit" value="Update"></td></tr>
       </table>
     </form>
+    </div>
+
+    <div class="editor">
+    <h2>Update File</h2>
+    {{ whh.tags.form(request.url, multipart=True) }}
+      <table>
+        <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
+        <tr><td>{{ whh.HTML.label('Value', for='value') }}</td><td><input type="file" name="value"></td></tr>
+        <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
+        <tr><td colspan=2><input type="submit" value="Update"></td></tr>
+      </table>
+    </form>
+    </div>
+
+    <div class="editor">
+    <h2>Delete</h2>
+    <form action="{{ request.url }}" method="DELETE">
+      <table>
+        <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
+        <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
+        <tr><td colspan=2><input type="submit" value="Delete"></td></tr>
+      </table>
+    </form>
+    </div>
+
   {%- endcall %}
 {% endblock %}

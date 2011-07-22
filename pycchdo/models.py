@@ -4,8 +4,11 @@ import pymongo
 from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
+import gridfs
+
 
 mongo_conn = None
+grid_fs = None
 
 
 def init_conn(settings):
@@ -20,6 +23,13 @@ def cchdo():
     if not mongo_conn:
         raise IOError('No database connection. Check that the server .ini file contains the correct db_uri.')
     return mongo_conn.cchdo
+
+
+def fs():
+    global grid_fs
+    if not grid_fs:
+        grid_fs = gridfs.GridFS(cchdo())
+    return grid_fs
 
 
 def timestamp():
@@ -237,8 +247,7 @@ class Attr(_Change):
     def __init__(self, person, key=None, value=None, obj=None, note=None,
                  deleted=False):
         super(Attr, self).__init__(person)
-        self['key'] = key
-        self['value'] = value
+        self.set(key, value)
         self['deleted'] = deleted
         self['obj'] = obj
         self['note'] = note
@@ -247,6 +256,35 @@ class Attr(_Change):
         super(Attr, self).from_mongo(doc)
         self.copy_keys_from(doc, ('key', 'value', 'obj', 'note', 'deleted', ))
         return self
+
+    def set(self, key, value):
+        self['key'] = key
+        self['value'] = value
+
+
+class Data(Attr):
+    """ Specific type of attribute that stores large amounts of data """
+
+    def set(self, key, value):
+        """ Sets Data key and value pair but instead stores the file in gridfs
+        """
+        self['key'] = key
+        try:
+            gridfile = fs().put(value)
+        except Exception, e:
+            raise e
+        self['value'] = gridfile
+
+    @property
+    def file(self):
+        return fs().get(self['value'])
+
+    def delete_file(self):
+        fs().delete(self['value'])
+
+    def remove(self):
+        self.delete_file()
+        super(Data, self).remove()
 
 
 class _Attrs(dict):
@@ -310,9 +348,17 @@ class _Attrs(dict):
         raise NotImplementedError()
 
     def set(self, key, value, person, note=None):
-        attr = Attr(person, key, value, self._obj['_id'], note)
-        attr.save()
-        return attr
+        try:
+            attr = Attr(person, key, value, self._obj['_id'], note)
+            attr.save()
+            return attr
+        except pymongo.errors.InvalidDocument:
+            try:
+                data = Data(person, key, value, self._obj['_id'], note)
+                data.save()
+                return data
+            except pymongo.errors.InvalidDocument:
+                raise ValueError(value)
 
     def __delitem__(self, key):
         raise NotImplementedError()
@@ -433,11 +479,6 @@ class Person(Obj):
     def __repr__(self):
         return 'Person ({last}, {first})'.format(last=self['name_last'],
                                                  first=self['name_first'])
-
-
-class Data(Attr):
-    """ Specific type of attribute that stores large amounts of data """
-    pass
 
 
 class Cruise(Obj):

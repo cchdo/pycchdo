@@ -9,10 +9,8 @@ CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 requires = [
     'pyramid',
-    'SQLAlchemy',
     'transaction',
     'repoze.tm2>=1.0b1', # default_commit_veto
-    'zope.sqlalchemy',
     'WebError',
     ]
 
@@ -36,7 +34,7 @@ setup(name='pycchdo',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
-      test_suite='pycchdo',
+      test_suite='pycchdo.tests',
       install_requires = requires,
       entry_points = """\
       [paste.app_factory]

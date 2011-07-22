@@ -8,7 +8,6 @@ setup.py
 pycchdo/__init__.py
 pycchdo/helpers.py
 pycchdo/models.py
-pycchdo/tests.py
 pycchdo/views.py
 pycchdo.egg-info/PKG-INFO
 pycchdo.egg-info/SOURCES.txt
@@ -101,6 +100,7 @@ pycchdo/static/js/jQDateRangeSlider.js
 pycchdo/static/js/jQRangeSlider.js
 pycchdo/static/js/jquery-1.4.4.min.js
 pycchdo/static/js/jquery-ui-1.8.7.custom.min.js
+pycchdo/static/js/banner_rotate.js
 pycchdo/templates/_base_footer.html
 pycchdo/templates/_janrain.html
 pycchdo/templates/_track.html
@@ -154,3 +154,7 @@ pycchdo/templates/static/policies/postwoce_name.html
 pycchdo/templates/static/policies/sharing.html
 pycchdo/templates/static/policies/version.html
 pycchdo/templates/static/policies/woce_name.html
+pycchdo/tests/__init__.py
+pycchdo/tests/functional.py
+pycchdo/tests/integration.py
+pycchdo/tests/unit.py

@@ -10,7 +10,10 @@ mongo_conn = None
 
 def init_conn(settings):
     global mongo_conn
-    mongo_conn = pymongo.Connection(settings['db_uri'])
+    try:
+        mongo_conn = pymongo.Connection(settings['db_uri'])
+    except pymongo.errors.AutoReconnect:
+        raise IOError('Unable to connect to database. Check that the database server is running.')
 
 
 def cchdo():
@@ -224,13 +227,6 @@ class _Change(collectablemongodoc):
         self.save()
 
 
-class _AttrList(list):
-    def __init__(self, L=None):
-        if L:
-            # TODO
-            pass
-
-
 class Attr(_Change):
     accepted_value = None
 
@@ -314,13 +310,9 @@ class _Attrs(dict):
         raise NotImplementedError()
 
     def set(self, key, value, person, note=None):
-        if type(value) == _AttrList:
-            pass
-        elif type(value) == list:
-            value = _AttrList(value)
-
         attr = Attr(person, key, value, self._obj['_id'], note)
         attr.save()
+        return attr
 
     def __delitem__(self, key):
         raise NotImplementedError()

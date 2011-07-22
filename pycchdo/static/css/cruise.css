@@ -13,7 +13,7 @@
 .cruise-page .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
 .cruise-page .thumb img { width: 80px; height: 80px; }
 
-.cruise-page #preliminary { color: #ff0900; font-size: 1.3em; font-weight: bold; }
+.cruise-page #preliminary { color: #ff0900; font-size: 1.2em; margin: 0.5em 0; }
 .cruise-page #data_access_history { max-height: 37em; overflow-y: auto; }
 .cruise-page #right table { width: 100%; }
 .cruise-page #right table th { border-bottom: 1px solid #aaa; }

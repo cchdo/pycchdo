@@ -8,6 +8,8 @@ from pyramid import testing
 class TestModel(unittest.TestCase):
     def setUp(self):
         from pycchdo.models import Person
+        import pycchdo.models
+        pycchdo.models.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018'})
         self.config = testing.setUp()
         self.testPerson = Person(identifier='testid')
         self.testPerson.save()
@@ -332,3 +334,25 @@ class TestModel(unittest.TestCase):
         self.assertTrue(type(obj.judgment_stamp) is Stamp)
         obj.remove()
 
+    def test_new_Attr_returns_Attr(self):
+        from pycchdo.models import Obj, Attr
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertTrue(type(obj.attrs.set('a', 'v', self.testPerson)) is Attr)
+        obj.remove()
+
+    def test_Attr_list(self):
+        """ Setting a list on an Obj's attrs stores a list """
+        from pycchdo.models import Obj
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.attrs.set('a', [], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a['value']) is list)
+        a = obj.attrs.set('a', ['b'], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a['value']) is list)
+        self.assertTrue(a['value'] == ['b'])
+
+        obj.remove()

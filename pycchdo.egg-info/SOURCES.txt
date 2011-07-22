@@ -92,6 +92,7 @@ pycchdo/static/information/formats/netcdf/netcdf_primer/pcolor.jpg
 pycchdo/static/information/formats/netcdf/netcdf_primer/pcolor.png
 pycchdo/static/information/formats/netcdf/netcdf_primer/summary.html
 pycchdo/static/information/formats/netcdf/netcdf_primer/why_netcdf.html
+pycchdo/static/js/banner_rotate.js
 pycchdo/templates/_base_footer.html
 pycchdo/templates/_janrain.html
 pycchdo/templates/_track.html

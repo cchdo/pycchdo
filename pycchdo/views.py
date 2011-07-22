@@ -249,6 +249,7 @@ def cruise_show(request):
         cruise['cruise_dates'] = ''
         if cruise['date_start'] and cruise['date_end']:
             cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'], cruise['date_end'])))
+        cruise['statuses'] = cruise_obj.attrs.get('statuses')
 
         history = models.Attr.map_mongo(cruise_obj.attrs.history())
 

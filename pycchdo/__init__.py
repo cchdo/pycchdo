@@ -91,6 +91,12 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.cruise_show', route_name='cruise_show', renderer='templates/cruise/show.jinja2')
 
 	# Seach routes
+    config.add_route('search','/search')
+    config.add_view('pycchdo.views.search', route_name='search')
+
+    config.add_route('search_results', '/search/results')
+    config.add_view('pycchdo.views.search_results', route_name='search_results')
+
     config.add_route('advanced_search','/search/advanced')
     config.add_route('data_access','/data_access') #maintain legacy URLs
     config.add_view('pycchdo.views.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')

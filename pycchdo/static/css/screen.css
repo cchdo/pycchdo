@@ -83,6 +83,36 @@ pre {
   text-align: right;
 }
 
+#search_advanced input{
+  border: 1px solid #A0A0A0;
+  background: #D0D0D0;
+  font-size: 1.1em;
+  vertical-align: middle;
+}
+#search_advanced_date{
+  position: relative;
+  width: 40em;
+}
+#search_advanced #date_to_date {
+	position:absolute;
+	left:19em;
+	right:20em;
+	text-align:center;
+}
+#search_advanced td{
+	padding:0.1em;
+	padding-right:0.4em;
+	text-align: right;
+}
+#search_advanced h2{
+	font-size:1.1em;
+	font-weight:bold;
+}
+#search_advanced table{
+	position:relative;
+	left:10px;
+}
+
 #picture {
   position: relative;
   height: 125px;

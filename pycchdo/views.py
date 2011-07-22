@@ -271,5 +271,31 @@ def catchall_static(request):
 
 
 def advanced_search(request):
-    post = (request.str_POST.getone('line') if request.str_POST else None)
-    return {'post':post}
+    return {}
+
+def search_results(request):
+    str = request.params['query']
+    return Response("%s"%(str))
+
+def search(request):
+    params = request.str_params
+    if params: 
+        query = ''
+        if 'query' in params:
+            return HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
+        if params.get('line'): 
+            query = query + "line:" + urllib.quote_plus(params['line']) + '+'
+        if params.get('expocode'): 
+            query = query + "expocode:" + urllib.quote_plus(params['expocode']) + '+'
+        if params.get('ship'):
+            query = query + "ship:" + urllib.quote_plus(params['ship']) + '+'
+        if params.get('people'):
+            query = query + "people:" + urllib.quote_plus(params['people']) + '+'
+        if params.get('country'):
+            query = query + "country:" + urllib.quote_plus(params['country']) + '+'
+        if params.get('search_date_min'):
+            query = query + "from:" + urllib.quote_plus(params['search_date_min']) + '+'
+        if params.get('search_date_max'):
+            query = query + "to:" + urllib.quote_plus(params['search_date_min']) + '+'
+        return HTTPSeeOther(location='/search/results?query=%s'%(query))
+    return HTTPSeeOther(location='/search/advanced') 

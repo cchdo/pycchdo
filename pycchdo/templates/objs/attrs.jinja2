@@ -24,12 +24,12 @@
     </ul>
 
     <div class="editor">
-    <h2>Update Value</h2>
-    <form action="{{ request.url }}" method="POST">
-      <ul>
-        <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
-        <li>Lists are ',' separated. Escape character is '\'.</li>
-      </ul>
+    <h2>Update value</h2>
+    <ul>
+      <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
+      <li>Lists are ',' separated. Escape character is '\'.</li>
+    </ul>
+    {{ whh.tags.form(request.url) }}
       <table>
         <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
         <tr><td>{{ whh.HTML.label('Value', for='value') }}</td><td><input type="text" name="value"></td>
@@ -62,7 +62,7 @@
 
     <div class="editor">
     <h2>Delete</h2>
-    <form action="{{ request.url }}" method="DELETE">
+    {{ whh.tags.form(request.url, 'DELETE') }}
       <table>
         <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
         <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>

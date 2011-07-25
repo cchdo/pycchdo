@@ -9,6 +9,8 @@ from pyramid.response import Response
 from pyramid.security import remember, forget
 from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPInternalServerError
 
+import paste.fileapp
+
 import pycchdo.models as models
 
 
@@ -16,6 +18,20 @@ signin_uri = "/session/identify"
 
 
 _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
+
+
+def _collapsed_dict(d, n=None):
+    """ Collapses a dict recursively into the value n if it has no values that
+    are not n """
+    e = {}
+    for k, v in d.items():
+        if type(v) is dict:
+            v = _collapsed_dict(v, n)
+        if v is not n:
+            e[k] = v
+    if len(e) < 1:
+        return n
+    return e
 
 
 def _http_method(request):
@@ -139,27 +155,32 @@ def obj_show(request):
 
 def obj_attrs(request):
     method = _http_method(request)
+
+    obj_id = request.matchdict['obj_id']
+    obj = models.Obj.get_id(obj_id)
+    if not obj:
+        return HTTPNotFound()
+
     if method  == 'GET':
-        obj_id = request.matchdict['obj_id']
-        obj = models.Obj.get_id(obj_id)
         return {'obj': obj}
-    elif method == 'POST':
-        if not request.user:
-            return require_signin(request)
-        obj_id = request.matchdict['obj_id']
-        obj = models.Obj.get_id(obj_id)
-        
-        if not obj:
-            return HTTPNotFound()
 
-        key = request.params.get('key', None)
+    if not request.user:
+        return require_signin(request)
+
+    key = request.params.get('key', None)
+    if not key:
+        return HTTPBadRequest('Attr key required')
+
+    # TODO note
+    note = None
+
+    if method == 'POST':
         value = request.params.get('value', None)
-        type = request.params.get('type', 'text')
+        type = request.params.get('type', None)
 
-        if not key:
-            return HTTPBadRequest()
-
-        if type == 'datetime':
+        if type == 'text':
+            pass
+        elif type == 'datetime':
             try:
                 value = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
             except ValueError:
@@ -177,15 +198,12 @@ def obj_attrs(request):
             if value:
                 value = value['_id']
         else:
-            # file upload
-            try:
-                value = value.file
-            except AttributeError:
-                return HTTPBadRequest()
-
-        # TODO note
-        note = None
+            # file upload sends the field storage anyway
+            pass
         obj.attrs.set(key, value, request.user, note)
+        return {'obj': obj}
+    elif method == 'DELETE':
+        obj.attrs.delete(key, request.user, note)
         return {'obj': obj}
 
 
@@ -263,9 +281,69 @@ def cruise_show(request):
             cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'], cruise['date_end'])))
         cruise['statuses'] = cruise_obj.attrs.get('statuses')
 
+        def getAttr(cruise_obj, type):
+            id = None
+            for c in cruise_obj.attrs.accepted_changes:
+                if c['key'] == type:
+                    id = c['_id']
+            return models.Attr.get_id(id)
+
+        data_files = {}
+        data_files['exchange'] = {
+            'ctdzip_exchange': getAttr(cruise_obj, 'ctdzip_exchange'),
+            'bottle_exchange': getAttr(cruise_obj, 'bottle_exchange'),
+        }
+        data_files['netcdf'] = {
+            'ctdzip_netcdf': getAttr(cruise_obj, 'ctdzip_netcdf'),
+            'bottlezip_netcdf': getAttr(cruise_obj, 'bottlezip_netcdf'),
+        }
+        data_files['woce'] = {
+            'sum_woce': getAttr(cruise_obj, 'sum_woce'),
+            'bottle_woce': getAttr(cruise_obj, 'bottle_woce'),
+            'ctdzip_woce': getAttr(cruise_obj, 'ctdzip_woce'),
+        }
+        data_files['doc'] = {
+            'doc_txt': getAttr(cruise_obj, 'doc_txt'),
+            'doc_pdf': getAttr(cruise_obj, 'doc_pdf'),
+        }
+
         history = models.Attr.map_mongo(cruise_obj.attrs.history())
 
-    return {'cruise': cruise, 'maps': {'thumb': '/data/onetime/atlantic/a20/a20_316N151_3trk.jpg', 'full': '/data/onetime/atlantic/a20/a20_316N151_3trk.gif'}, 'history': history}
+    return {
+        'cruise': cruise,
+        'data_files': _collapsed_dict(data_files) or {},
+        'maps': {'thumb': '/data/onetime/atlantic/a20/a20_316N151_3trk.jpg',
+                 'full': '/data/onetime/atlantic/a20/a20_316N151_3trk.gif'},
+        'history': history,
+        }
+
+class GridOutWrapper(object):
+    def __init__(self, g):
+        self._g = g
+
+    def __len__(self):
+        return self._g.length
+
+    def __getattr__(self, name):
+        return self._g[name]
+
+
+def data(request):
+    """ Returns data """
+    id = request.matchdict['data_id']
+    try:
+        data = models.Attr.get_id(id)
+    except ValueError:
+        return HTTPNotFound()
+
+    file = data.file
+
+    resp = Response()
+    resp.app_iter = file
+    resp.content_length = file.length
+    resp.content_type = file.content_type
+    resp.content_disposition = 'attachment; filename="{name}"'.format(name=file.name)
+    return resp
 
 
 def catchall_static(request):

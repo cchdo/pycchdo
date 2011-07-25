@@ -28,3 +28,11 @@
 .cruise-page #updates .date { width: 13em; }
 .cruise-page #updates .merged td { background-color: #d9eaed; }
 .cruise-page #updates .notes { width: 70%; }
+
+.cruise-page .subsection.data-files th,
+.cruise-page .subsection.data-files td {
+  text-align: left;
+}
+.cruise-page .subsection.data-files th {
+  width: 5em;
+}

@@ -34,17 +34,42 @@
       {% if 'preliminary' in cruise['statuses'] %}
         <p id="preliminary">These data are preliminary (Please see <a href="">data history</a>)</p> 
       {% endif %}
-       
+
+      {% if data_files.get('exchange', None) %}
       <h3>Exchange</h3>
-      <p><a href="/data/onetime/atlantic/a20/a20_ct1.zip">CTD</a> - ZIP archive of ASCII .csv CTD data with station information</p> 
-      <p><a href="/data/onetime/atlantic/a20/a20_hy1.csv">BOT</a> - ASCII .csv bottle data with station information</p> 
+      <table>
+      {% for type, df in data_files.get('exchange').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
 
+      {% if data_files.get('netcdf', None) %}
       <h3>NetCDF</h3>
-      <p><a href="/data/onetime/atlantic/a20/a20_nc_ctd.zip">CTD</a> - ZIP archive of binary CTD data with station information</p> 
-      <p><a href="/data/onetime/atlantic/a20/a20_nc_hyd.zip">BOT</a> - Binary bottle data with station information</p> 
+      <table>
+      {% for type, df in data_files.get('netcdf').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
 
+      {% if data_files.get('woce', None) %}
       <h3>WOCE</h3>
-      <p><a href="/data/onetime/atlantic/a20/a20su.txt">SUM</a> - ASCII station/cast information</p> 
+      <table>
+      {% for type, df in data_files.get('woce').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
+
+      {% if data_files.get('doc', None) %}
+      <h3>Documentation</h3>
+      <table>
+      {% for type, df in data_files.get('doc').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
     </div>
   {%- endcall %}
   {% call h.boxed('Data Histories and Notes', id='right', class='upper') -%}

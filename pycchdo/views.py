@@ -319,16 +319,6 @@ def cruise_show(request):
         'history': history,
         }
 
-class GridOutWrapper(object):
-    def __init__(self, g):
-        self._g = g
-
-    def __len__(self):
-        return self._g.length
-
-    def __getattr__(self, name):
-        return self._g[name]
-
 
 def data(request):
     """ Returns data """

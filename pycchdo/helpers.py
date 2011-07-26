@@ -50,14 +50,26 @@ def boxed(title='', bottom='', **attrs):
 
 def change_pretty(change):
     person = models.Person.get_id(change['creation_stamp']['person'])
-    status = 'changed'
+    if change['deleted']:
+        status = 'deleted'
+    else:
+        status = 'changed'
     if not change.is_accepted():
         if change.is_acknowledged():
-            status = 'has a pending suggestion for'
+            if change['deleted']:
+                status = 'wants to delete'
+            else:
+                status = 'wants to change'
         elif change.is_rejected():
-            status = 'could not change'
+            if change['deleted']:
+                status = 'could not delete'
+            else:
+                status = 'could not change'
         else:
-            status = 'suggested changing'
+            if change['deleted']:
+                status = 'suggested deleting'
+            else:
+                status = 'suggested changing'
     status = ' %s ' % status
     span = whh.HTML.span
     return whh.HTML.p(
@@ -66,3 +78,42 @@ def change_pretty(change):
         span(change['value'], class_='value'), ' at ',
         span(change['creation_stamp']['timestamp'], class_='date'), ' ',
         whh.tags.link_to('Details', ''), class_='change')
+
+def data_uri(data):
+    """ Given a Attr with a file, provides a link to a file. """
+    if not data.is_data():
+        raise ValueError('Cannot link to a non file')
+
+    return '/data/{id}'.format(id=data['_id'])
+
+
+def data_file_link(type, data):
+    """ Given a Attr with a file, provides a link to a file next to its
+        description as a table row
+
+        type - a short form of the file format e.g. ctdzip_exchange,
+               bottlezip_netcdf
+        data - the Attr with file
+    """
+    try:
+        link = data_uri(data)
+    except KeyError:
+        return ''
+
+    data_type = ''
+    if 'ctd' in type:
+        data_type = 'CTD'
+    elif 'bot' in type:
+        data_type = 'BOT'
+    elif 'sum' in type:
+        data_type = 'SUM'
+    elif 'doc' in type:
+        if 'pdf' in type:
+            data_type = 'PDF'
+        elif 'txt' in type or 'text' in type:
+            data_type = 'TXT'
+
+    description = models.data_file_descriptions.get(type, '')
+    return whh.HTML.tr(
+        whh.HTML.th(whh.tags.link_to(data_type, link)) + \
+                    whh.HTML.td(description), class_=type.replace('_', ' '))

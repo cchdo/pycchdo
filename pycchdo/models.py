@@ -4,8 +4,20 @@ import pymongo
 from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
+import gridfs
+
 
 mongo_conn = None
+grid_fs = None
+
+
+data_file_descriptions = {
+    'bottle_exchange': 'ASCII .csv bottle data with station information',
+    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station information',
+    'ctdzip_netcdf': 'ZIP archive of binary CTD data with station information',
+    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station information',
+    'sum_woce': 'ASCII station/cast information',
+}
 
 
 def init_conn(settings):
@@ -20,6 +32,13 @@ def cchdo():
     if not mongo_conn:
         raise IOError('No database connection. Check that the server .ini file contains the correct db_uri.')
     return mongo_conn.cchdo
+
+
+def fs():
+    global grid_fs
+    if not grid_fs:
+        grid_fs = gridfs.GridFS(cchdo())
+    return grid_fs
 
 
 def timestamp():
@@ -66,9 +85,9 @@ class mongodoc(dict):
 
         def get_person(obj_doc):
             try:
-                return Stamp.map_mongo(obj_doc['creation_stamp']).person
+                return obj_doc['creation_stamp']['person']
             except KeyError:
-                return cls(None)
+                return None
 
         def get_instance(d):
             if cls is Person:
@@ -113,7 +132,7 @@ class collectablemongodoc(mongodoc):
         try:
             id = ensure_objectid(id)
         except pymongo.objectid.InvalidId:
-            return None
+            raise ValueError()
         return cls.find_one({'_id': id})
 
     @classmethod
@@ -124,13 +143,16 @@ class collectablemongodoc(mongodoc):
 class Stamp(mongodoc):
     def __init__(self, person):
         self['timestamp'] = timestamp()
-        if type(person) is not Person:
-            raise TypeError('%r (%s) is not a Person object' % \
-                            (person, type(person)))
-        try:
-            self['person'] = person['_id']
-        except KeyError:
-            raise ValueError('Person object must be saved first')
+        if type(person) is pymongo.objectid.ObjectId:
+            self['person'] = person
+        else:
+            if type(person) is not Person:
+                raise TypeError('%r (%s) is not a Person object' % \
+                                (person, type(person)))
+            try:
+                self['person'] = person['_id']
+            except KeyError:
+                raise ValueError('Person object must be saved first')
 
     def from_mongo(self, doc):
         super(Stamp, self).from_mongo(doc)
@@ -228,8 +250,6 @@ class _Change(collectablemongodoc):
 
 
 class Attr(_Change):
-    accepted_value = None
-
     @classmethod
     def _mongo_collection(cls):
         return cchdo().attrs
@@ -237,16 +257,54 @@ class Attr(_Change):
     def __init__(self, person, key=None, value=None, obj=None, note=None,
                  deleted=False):
         super(Attr, self).__init__(person)
-        self['key'] = key
-        self['value'] = value
+        self.set(key, value)
         self['deleted'] = deleted
         self['obj'] = obj
         self['note'] = note
 
     def from_mongo(self, doc):
         super(Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('key', 'value', 'obj', 'note', 'deleted', ))
+        self.copy_keys_from(doc, ('key', 'value', 'file', 'obj', 'note', 'deleted', ))
         return self
+
+    def set(self, key, value):
+        """ Sets the key and value. Special case when value is a file-like
+        object.
+
+        Attempts to store the file in the filesystem and stores the id in the
+        'file' attribute
+        """
+        self['key'] = key
+        self['file'] = False
+        self['value'] = None
+        try:
+            value.filename
+            try:
+                gridfile = fs().put(value.file, filename=value.filename, contentType=value.type)
+            except Exception, e:
+                raise e
+            self['value'] = gridfile
+            self['file'] = True
+        except AttributeError:
+            self['value'] = value
+
+    def is_data(self):
+        return self['file']
+
+    @property
+    def file(self):
+        if not self.is_data():
+            return None
+        return fs().get(self['value'])
+
+    def delete_file(self):
+        if not self.is_data():
+            return
+        fs().delete(self['value'])
+
+    def remove(self):
+        self.delete_file()
+        super(Attr, self).remove()
 
 
 class _Attrs(dict):
@@ -282,9 +340,14 @@ class _Attrs(dict):
     @property
     def current_pairs(self):
         curr = {}
+        deleted = []
         for change in self.accepted_changes:
-            if change['key'] not in curr:
-                curr[change['key']] = change['value']
+            k = change['key']
+            if k not in curr and k not in deleted:
+                if change['deleted']:
+                    deleted.append(k)
+                else:
+                    curr[k] = change['value']
         return curr
 
     def keys(self):
@@ -320,6 +383,11 @@ class _Attrs(dict):
     def delete(self, key, person, note=None):
         attr = Attr(person, key, None, self._obj['_id'], note, deleted=True)
         attr.save()
+        return attr
+
+    def remove(self):
+        for attr in Attr.map_mongo(self.history()):
+            attr.remove()
 
 
 class Obj(_Change):
@@ -342,8 +410,7 @@ class Obj(_Change):
 
     def remove(self):
         super(Obj, self).remove()
-        for attr in Attr.map_mongo(self.attrs.history()):
-            attr.remove()
+        self.attrs.remove()
 
     @classmethod
     def all(cls):
@@ -390,6 +457,14 @@ class Obj(_Change):
             return cls.find_one({'_id': id})
         return cls.find_one({'_id': id, '_obj_type': cls.__name__})
 
+    def __str__(self):
+        copy = {}
+        for key, value in self.items():
+            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp', ):
+                continue
+            copy[key] = value
+        return str(copy)
+
 
 class Person(Obj):
     """ People may be either verified or not.
@@ -433,11 +508,6 @@ class Person(Obj):
     def __repr__(self):
         return 'Person ({last}, {first})'.format(last=self['name_last'],
                                                  first=self['name_first'])
-
-
-class Data(Attr):
-    """ Specific type of attribute that stores large amounts of data """
-    pass
 
 
 class Cruise(Obj):

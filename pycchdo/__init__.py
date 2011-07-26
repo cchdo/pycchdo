@@ -60,6 +60,9 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_view('pycchdo.views.home', route_name='home', renderer='templates/base.jinja2')
 
+    config.add_route('submit', '/submit')
+    config.add_view('pycchdo.views.submit', route_name='submit', renderer='templates/submit.jinja2')
+
     config.add_route('clear', '/clear')
     config.add_view('pycchdo.views.clear_db', route_name='clear')
 
@@ -101,6 +104,9 @@ def main(global_config, **settings):
     config.add_route('data_access','/data_access') #maintain legacy URLs
     config.add_view('pycchdo.views.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
     config.add_view('pycchdo.views.advanced_search', route_name='data_access', renderer='templates/search/advanced.jinja2') #maintain legacy URLs
+
+    config.add_route('data', '/data/{data_id}')
+    config.add_view('pycchdo.views.data', route_name='data')
 
 	# catchall_static must be last row 
     config.add_route('catchall_static', '/*subpath')

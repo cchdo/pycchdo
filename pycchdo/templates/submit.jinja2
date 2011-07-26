@@ -1,0 +1,172 @@
+{% extends "templates/base.jinja2" %}
+{% block head -%}
+ {{ whh.tags.stylesheet_link('/static/css/submit.css') }}
+{%- endblock %}
+{% macro required() -%}<sup class="required">*</sup>{%- endmacro %}
+{% macro required_label(name='', label='') -%}
+<label for="{{name}}">{{label}} {{required()}}</label>
+{%- endmacro %}
+{% macro step(number, text='') -%}
+  <div id="step{{number}}">
+    <h2 class="step-title">Step <em>{{number}}</em>: <span>{{text}}</span></h2>
+    {{caller()}}
+  </div>
+{%- endmacro %}
+{% block content -%}
+{% call h.boxed('Submit Data') -%}
+  {{ whh.tags.form('/submit', multipart=True) }}
+
+  {% call step(1, 'Contact Information') -%}
+    <table>
+      <tr>
+        <th>{{required_label('name', 'Name (Last, First)')}}</th> 
+        <td>{{whh.tags.text('name')}}</td>
+        <td>{#error_message_on['name']#}</td>
+      </tr>
+      <tr>
+        <th>{{required_label('institute', 'Institution')}}</th>
+        <td>{{whh.tags.text('institute')}}</td>
+        <td>{#error_message_on['institute']#}</td>
+      </tr>
+      <tr>
+        <th>{{required_label('country', 'Country')}}</th>
+        <td>{{whh.tags.text('country')}}</td>
+        <td>{#error_message_on['country']#}</td>
+      </tr>
+      <tr>
+        <th>{{required_label('email', 'Email')}}</th>
+        <td>{{whh.tags.text('email', type="email")}}</td>
+        <td>{#error_message_on['email']#}</td>
+      </tr>
+      </tr>
+    </table>
+  {%- endcall %}
+  
+  {% call step(2, 'Cruise Information') -%}
+    <table>
+      <tr>
+        <th><label for="ExpoCode">ExpoCode or Cruise Name</label></th>
+        <td>{{whh.tags.text('ExpoCode')}}</td>
+        <td>{# error_message_on['ExpoCode'] #}</td>
+      </tr>
+      <tr>
+        <th><label for="Line">WOCE Line (if known)</label></th>
+        <td>{{whh.tags.text('Line')}}</td>
+        <td>{# error_message_on['Line'] #}</td>
+      </tr>
+      <tr>
+        <th><label for="Ship_Name">Ship name</label></th>
+        <td>{{whh.tags.text('Ship_Name')}}</td>
+        <td>{# error_message_on['Ship_Name'] #}</td>
+      </tr>
+      <tr>
+        <th><label for="cruise_date">Cruise date</label></th>
+        <td><input name="cruise_date" type="date"></td>
+        <td>{# error_message_on['cruise_date']#}</td>
+      </tr>
+      <th><label for="notes">Notes</label></th>
+      <td>{{ whh.tags.textarea('notes', cols=35, rows=5) }}</td>
+    </table>
+  
+    <!--h3><label for="notes">Notes</label></h3>
+    {{ whh.tags.textarea('notes', cols=35, rows=5) }}-->
+  {%- endcall %}
+  
+  {% call step(3, 'Type of Submission') -%}
+    <table>
+      <tr>
+        <td>
+          {{ whh.tags.checkbox('actions_1', '1') }}
+          <label for="actions_1">Merge Data</label>
+          <span>{# error_message_on['actions_one'] #}</span>
+        </td>
+        <td>
+          {{ whh.tags.checkbox('actions_2', '2') }}
+          <label for="actions_2">Place Data Online</label>
+          <span>{# error_message_on['actions_two'] #}</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          {{ whh.tags.checkbox('actions_3', '3') }}
+          <label for="actions_3">Update Parameters</label>
+          <span>{# error_message_on['actions_three'] #}</span>
+        </td>
+        <td>
+          {{ whh.tags.checkbox('actions_4', '4') }}
+          <label for="actions_4">Non-public data for Argo calibration (proprietary, rapid-delivery)</label>
+          <span>{# error_message_on['actions_four'] #}</span>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          {{whh.tags.radio('public', 'public', checked=True)}}
+          <label for="public_public">Public</label>
+          {{whh.tags.radio('public', 'nonpublic')}}
+          <label for="public_nonpublic">Non-Public</label>
+        </td>
+        <td>{#error_message_on['public']#}</td>
+      </tr>
+    </table>
+  {%- endcall %}
+  
+  {% call step(4, 'Data/Documentation Files') -%}
+  {# if error_messages_for['submission'] -#}
+    <p id="file_reselect_warn">For your protection, the files you selected
+    previously cannot be automatically reselected from your computer (prevents
+    malicious pages from uploading arbitrary files from your computer). Please
+    reselect the files. We apologize for the inconvenience.</p>
+  {#- endif #}
+  <div id="files">
+    <p index="0">{{ whh.tags.file('files[0]') }}</p>
+  </div>
+  {%- endcall %}
+
+  {{ whh.tags.submit('Submit', 'Submit') }}
+  
+  <div id="guides">
+    <p>{{required()}} Indicates a required field</p>
+    <p>
+      <a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Submission Guide</a> |
+      <a href="/argo_submission_info.html">Argo Submission Guide</a>
+    </p>
+  </div>
+  {%- endcall %}
+{%- endblock %}
+{% block js -%}
+  {{ whh.tags.javascript_link("https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.js") }}
+  <script>
+    jQuery.noConflict();
+    jQuery(document).ready(function ($) {
+      var files = $('#files');
+      files.height(100).css('overflow-y', 'auto');
+      files.find('a[title=Remove]').live('click', function () {
+        $(this).parent().hide('fast', function () { $(this).remove() });
+        if (files.find('p:has(:file)').length <= 1) {
+          files.find('p:has(:file) a[title=Remove]').hide('fast');
+        }
+      });
+      files.change(function () {
+        $('#step_content42').find('.notice').hide('fast');
+      });
+      var remove_button = $('<a title="Remove" href="#">Remove</a>').hide();
+      var sample_file_selector = files.find('p[index=0]').append(remove_button);
+      var addButton = $('<a title="Add file" href="#">Add file</a>').click(function () {
+        var i;
+        for (i = 1; i < files.find('p:has(:file)').length + 1; i += 1) {
+          if (files.find('p[index=' + i + ']').length < 1) {
+            break;
+          }
+        }
+        var clone = sample_file_selector.clone(true).attr('index', i).hide();
+        clone.find('input')
+          .attr('id', sample_file_selector.find('input').attr('id').replace('files[0]', 'files[' + i + ']'))
+          .attr('name', sample_file_selector.find('input').attr('name').replace('files[0]', 'files[' + i + ']'));
+        clone.appendTo(files).show('fast');
+        files.trigger('change').find('p[index!=0] a[title=Remove]').show('fast');
+        return false;
+      });
+      files.parent().append(addButton);
+    });
+  </script>
+{%- endblock %}

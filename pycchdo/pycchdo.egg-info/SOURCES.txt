@@ -1,8 +1,0 @@
-pycchdo.egg-info/PKG-INFO
-pycchdo.egg-info/SOURCES.txt
-pycchdo.egg-info/dependency_links.txt
-pycchdo.egg-info/entry_points.txt
-pycchdo.egg-info/not-zip-safe
-pycchdo.egg-info/paster_plugins.txt
-pycchdo.egg-info/requires.txt
-pycchdo.egg-info/top_level.txt

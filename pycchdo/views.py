@@ -66,6 +66,10 @@ def home(request):
     return {'project': 'pycchdo'}
 
 
+def submit(request):
+    return {}
+
+
 def clear_db(request):
     models.cchdo().objs.drop()
     models.cchdo().attrs.drop()

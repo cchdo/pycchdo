@@ -60,6 +60,9 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_view('pycchdo.views.home', route_name='home', renderer='templates/base.jinja2')
 
+    config.add_route('submit', '/submit')
+    config.add_view('pycchdo.views.submit', route_name='submit', renderer='templates/submit.jinja2')
+
     config.add_route('clear', '/clear')
     config.add_view('pycchdo.views.clear_db', route_name='clear')
 

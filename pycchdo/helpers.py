@@ -79,6 +79,13 @@ def change_pretty(change):
         span(change['creation_stamp']['timestamp'], class_='date'), ' ',
         whh.tags.link_to('Details', ''), class_='change')
 
+def data_uri(data):
+    """ Given a Attr with a file, provides a link to a file. """
+    if not data.is_data():
+        raise ValueError('Cannot link to a non file')
+
+    return '/data/{id}'.format(id=data['_id'])
+
 
 def data_file_link(type, data):
     """ Given a Attr with a file, provides a link to a file next to its
@@ -88,11 +95,8 @@ def data_file_link(type, data):
                bottlezip_netcdf
         data - the Attr with file
     """
-    if not data.is_data():
-        raise ValueError('Cannot link to a non file')
-
     try:
-        link = '/data/{id}'.format(id=data['_id'])
+        link = data_uri(data)
     except KeyError:
         return ''
 

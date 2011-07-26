@@ -289,6 +289,10 @@ def cruise_show(request):
             return models.Attr.get_id(id)
 
         data_files = {}
+        data_files['map'] = {
+            'full': getAttr(cruise_obj, 'map_full'),
+            'thumb': getAttr(cruise_obj, 'map_thumb'),
+        }
         data_files['exchange'] = {
             'ctdzip_exchange': getAttr(cruise_obj, 'ctdzip_exchange'),
             'bottle_exchange': getAttr(cruise_obj, 'bottle_exchange'),
@@ -312,8 +316,6 @@ def cruise_show(request):
     return {
         'cruise': cruise,
         'data_files': _collapsed_dict(data_files) or {},
-        'maps': {'thumb': '/data/onetime/atlantic/a20/a20_316N151_3trk.jpg',
-                 'full': '/data/onetime/atlantic/a20/a20_316N151_3trk.gif'},
         'history': history,
         }
 
@@ -342,7 +344,7 @@ def data(request):
     resp.app_iter = file
     resp.content_length = file.length
     resp.content_type = file.content_type
-    resp.content_disposition = 'attachment; filename="{name}"'.format(name=file.name)
+    resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
     return resp
 
 

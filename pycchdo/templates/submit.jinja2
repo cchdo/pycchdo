@@ -134,7 +134,7 @@
   {%- endcall %}
 {%- endblock %}
 {% block js -%}
-  {{ whh.tags.javascript_link("https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.js") }}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
   <script>
     jQuery.noConflict();
     jQuery(document).ready(function ($) {

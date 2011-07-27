@@ -76,8 +76,8 @@ def change_pretty(change):
         span(person.full_name(), class_='person'), status,
         span(change['key'], class_='key'), ' to ',
         span(change['value'], class_='value'), ' at ',
-        span(change['creation_stamp']['timestamp'], class_='date'), ' ',
-        whh.tags.link_to('Details', ''), class_='change')
+        span(change['creation_stamp']['timestamp'], class_='date'),
+        class_='change')
 
 def data_uri(data):
     """ Given a Attr with a file, provides a link to a file. """

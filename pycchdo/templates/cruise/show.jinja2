@@ -9,7 +9,7 @@
   {% endif %}
 {%- endmacro %}
 {% block content_attrs %} class="cruise-page"{% endblock %}
-{% block content %}
+{% block content -%}
   {% call h.boxed('General Information and Files', id='left', class='upper') -%}
     <div class="subsection general-information">
       <h2>General Information</h2>
@@ -76,11 +76,68 @@
   {%- endcall %}
   {% call h.boxed('Data Histories and Notes', id='right', class='upper') -%}
     <div class="subsection">
-      <ol>
-      {% for change in history %}
-        <li>{{ h.change_pretty(change) }}</li>
-      {% endfor %}
-      </ol>
+      <h2>History</h2>
+      <div id="notes">
+        <table>
+          <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
+          {% set i = 0 %}
+          {% for change in history %}
+            {% if i % 2 == 0 -%}
+              {% set hl = 'even' %}
+            {% else %}
+              {% set hl = 'odd' %}
+            {%- endif %}
+            <tr class="note{{i}} meta {{hl}}">
+              <td>{{change['creation_stamp']['timestamp'].strftime('%Y-%m-%d')}}</td>
+              <td>{{ change['key'] }}</td>
+              <td>Edit</td>
+              <td>{{ change['value'] }}</td>
+            </tr>
+            <tr class="note{{i}} body {{hl}}">
+              <td colspan="4">{{ h.change_pretty(change) }}</td>
+            </tr>
+            {% set i = i + 1 %}
+          {% endfor %}
+        </table>
+      </div>
     </div>
   {%- endcall %}
-{% endblock %}
+{%- endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  <script>
+    (function togglifyNoteBodies () {
+      var notes = $('#notes');
+      notes.find('tr').each(function () {
+        var prepend = '';
+        if ($(this).hasClass('header')) {
+          prepend = $('<th class="expander"></th>');
+        } else {
+          if ($(this).hasClass('body')) {
+            prepend = $('<td class="expander"></td>');
+          } else {
+            prepend = $('<td class="expander">&#x25B8;</td>');
+          }
+        }
+        $(this).prepend($(prepend).css({cursor: 'pointer', width: '0.5em'}));
+      });
+      notes.find('tr.body').hide();
+      notes.find('tr.meta').each(function () {
+        $(this).click(function () {
+          $(this).data('open', !$(this).data('open'));
+
+          var noteClass = /(note\d+)/.exec($(this).attr('class'));
+          var body = notes.find('.body.' + noteClass);
+
+          if ($(this).data('open')) {
+            $(this).addClass('open').find('.expander').html('&#x25BE;');
+            body.addClass('open').show('fast');
+          } else {
+            $(this).removeClass('open').find('.expander').html('&#x25B8;');
+            body.removeClass('open').hide('fast').css('display', 'none');
+          }
+        });
+      });
+    })();
+  </script>
+{%- endblock %}

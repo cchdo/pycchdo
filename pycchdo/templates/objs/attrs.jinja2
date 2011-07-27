@@ -1,15 +1,70 @@
 {% extends "templates/base.jinja2" %}
 {% block title %}Obj Attrs{% endblock %}
 {% block content %}
-  {% call h.boxed('%s attrs' % obj['_id']) -%}
+  {% call h.boxed('Obj %s attrs' % obj['_id']) -%}
     <p>{{obj}}</p>
 
     <h2>Attrs</h2>
-    <ul>
+    <table>
     {% for k, v in obj.attrs.current_pairs.items() %}
-      <li>{{ k }}: {{ v }}</li>
+      <tr>
+        <th>{{ k }}</th>
+        <td>{{ v }}</td>
+        <td>{{ type(v) }}</td>
+        <td>
+          {{ whh.tags.form(request.url, method="DELETE") }}
+            <input type="hidden" name="key" value="{{ k }}">
+            <input type="submit" value="Delete">
+            <label for="note">Note (optional)</label>
+            <input type="text" name="note">
+          </form>
+        </td>
+      </tr>
     {% endfor %}
+    </table>
+
+    <h2>Update value</h2>
+
+    <table>
+    <tr><th>Key</th><th>Value</th><th>Type</th></tr>
+    <tr>
+      {{ whh.tags.form(request.url) }}
+        <th><input type="text" name="key"></th>
+        <td><input type="text" name="value"></td>
+        <td>
+          <select name="type">
+            <option>text</option>
+            <option>datetime</option>
+            <option>list</option>
+            <option>id</option>
+          </select>
+        </td>
+        <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+      </form>
+    </tr>
+    </table>
+
+    <ul>
+      <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
+      <li>Lists are ',' separated. Escape character is '\'.</li>
     </ul>
+
+    <p>or</p>
+
+    <h2>Update file</h2>
+
+    <table>
+    <tr><th>Key</th><th>File</th></tr>
+    <tr>
+      {{ whh.tags.form(request.url, multipart=True) }}
+        <td><input type="text" name="key"></td>
+        <td><input type="file" name="value"></td>
+        <td></td>
+        <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+      </form>
+    </tr>
+
+    </table>
 
     <h2>Unacknowledged changes</h2>
     <ul>
@@ -22,54 +77,5 @@
     </li>
     {% endfor %}
     </ul>
-
-    <div class="editor">
-    <h2>Update value</h2>
-    <ul>
-      <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
-      <li>Lists are ',' separated. Escape character is '\'.</li>
-    </ul>
-    {{ whh.tags.form(request.url) }}
-      <table>
-        <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
-        <tr><td>{{ whh.HTML.label('Value', for='value') }}</td><td><input type="text" name="value"></td>
-          <td>
-            <select name="type">
-              <option>text</option>
-              <option>datetime</option>
-              <option>list</option>
-              <option>id</option>
-            </select>
-          </td>
-        </tr>
-        <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
-        <tr><td colspan=2><input type="submit" value="Update"></td></tr>
-      </table>
-    </form>
-    </div>
-
-    <div class="editor">
-    <h2>Update File</h2>
-    {{ whh.tags.form(request.url, multipart=True) }}
-      <table>
-        <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
-        <tr><td>{{ whh.HTML.label('Value', for='value') }}</td><td><input type="file" name="value"></td></tr>
-        <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
-        <tr><td colspan=2><input type="submit" value="Update"></td></tr>
-      </table>
-    </form>
-    </div>
-
-    <div class="editor">
-    <h2>Delete</h2>
-    {{ whh.tags.form(request.url, 'DELETE') }}
-      <table>
-        <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
-        <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
-        <tr><td colspan=2><input type="submit" value="Delete"></td></tr>
-      </table>
-    </form>
-    </div>
-
   {%- endcall %}
 {% endblock %}

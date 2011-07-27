@@ -104,7 +104,51 @@ class mongodoc(dict):
         return map(get_instance, cursor_or_dict)
 
 
+class Stamp(mongodoc):
+    def __init__(self, person):
+        self['timestamp'] = timestamp()
+        if type(person) is pymongo.objectid.ObjectId:
+            self['person'] = person
+        else:
+            if type(person) is not Person:
+                raise TypeError('%r (%s) is not a Person object' % \
+                                (person, type(person)))
+            try:
+                self['person'] = person['_id']
+            except KeyError:
+                raise ValueError('Person object must be saved first')
+
+    def from_mongo(self, doc):
+        super(Stamp, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('timestamp', 'person', ))
+        return self
+
+    @property
+    def person(self):
+        return Person.get_id(self['person'])
+
+
+class Note(mongodoc):
+    def __init__(self, action=None, data_type=None, subject=None, body=None):
+        """ A Note that can be attached to any _Change 
+
+            action - the action taken
+            data_type - the type of data that was changed
+            subject - a nice summary
+            body - the actual note
+        """
+        self['action'] = action
+        self['data_type'] = data_type
+        self['subject'] = subject
+        self['body'] = body
+
+
 class collectablemongodoc(mongodoc):
+    """ A top level document in collections.
+
+    These documents have _ids versus noncollectable ones which should only be
+    stored inside these.
+    """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().collectables
@@ -138,38 +182,6 @@ class collectablemongodoc(mongodoc):
     @classmethod
     def get_id(cls, id):
         return cls.map_mongo(cls.find_id(id))
-
-
-class Stamp(mongodoc):
-    def __init__(self, person):
-        self['timestamp'] = timestamp()
-        if type(person) is pymongo.objectid.ObjectId:
-            self['person'] = person
-        else:
-            if type(person) is not Person:
-                raise TypeError('%r (%s) is not a Person object' % \
-                                (person, type(person)))
-            try:
-                self['person'] = person['_id']
-            except KeyError:
-                raise ValueError('Person object must be saved first')
-
-    def from_mongo(self, doc):
-        super(Stamp, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('timestamp', 'person', ))
-        return self
-
-    @property
-    def person(self):
-        return Person.get_id(self['person'])
-
-
-class Note(mongodoc):
-    def __init__(self, action=None, data_type=None, subject=None, body=None):
-        self['action'] = action
-        self['data_type'] = data_type
-        self['subject'] = subject
-        self['body'] = body
 
 
 class _Change(collectablemongodoc):
@@ -400,6 +412,11 @@ class Obj(_Change):
         self['_obj_type'] = type(self).__name__
         self.copy_keys_from(doc, ('_obj_type', ))
 
+    def from_mongo(self, doc):
+        super(Obj, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('_obj_type', '_attrs',))
+        return self
+
     @property
     def attrs(self):
         try:
@@ -489,7 +506,7 @@ class Person(Obj):
                              'identifier or attributes.')
 
     def from_mongo(self, doc):
-        super(Obj, self).from_mongo(doc)
+        super(Person, self).from_mongo(doc)
         self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last',
                                   'institution', 'country', 'email', ))
         return self

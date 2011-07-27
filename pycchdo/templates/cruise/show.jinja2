@@ -17,7 +17,7 @@
       {% if 'map' in data_files -%}
       <div class="thumb"> 
         <p><a href="{{h.data_uri(data_files['map']['full'])}}"><img src="{{h.data_uri(data_files['map']['thumb'])}}"></a></p>
-        <p class="caption"><a href="{{link}}">Full Size</a></p>
+        <p class="caption"><a href="{{h.data_uri(data_files['map']['full'])}}">Full Size</a></p>
       </div> 
       {%- endif %}
 
@@ -81,7 +81,6 @@
         <li>{{ h.change_pretty(change) }}</li>
       {% endfor %}
       </ol>
-      <a href="{{request.url}}/a">Attrs</a>
     </div>
   {%- endcall %}
 {% endblock %}

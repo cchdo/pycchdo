@@ -154,7 +154,19 @@ def obj_show(request):
             attrs = obj['attrs']
         except KeyError:
             attrs = []
-    return {'obj': obj, 'attrs': attrs}
+
+    link = request.url
+    if obj['_obj_type'] == 'Cruise':
+        link = request.url.replace('/obj/', '/cruise/')
+    elif obj['_obj_type'] == 'Obj':
+        link = None
+
+    return {
+        'id': obj_id,
+        'obj': obj,
+        'attrs': attrs,
+        'link': link,
+    }
 
 
 def obj_attrs(request):
@@ -166,7 +178,7 @@ def obj_attrs(request):
         return HTTPNotFound()
 
     if method  == 'GET':
-        return {'obj': obj}
+        return {'obj': obj, 'type': __builtins__['type']}
 
     if not request.user:
         return require_signin(request)
@@ -175,8 +187,10 @@ def obj_attrs(request):
     if not key:
         return HTTPBadRequest('Attr key required')
 
-    # TODO note
     note = None
+    note_text = request.params.get('note', None)
+    if note_text:
+        note = models.Note(body=note)
 
     if method == 'POST':
         value = request.params.get('value', None)
@@ -205,10 +219,9 @@ def obj_attrs(request):
             # file upload sends the field storage anyway
             pass
         obj.attrs.set(key, value, request.user, note)
-        return {'obj': obj}
     elif method == 'DELETE':
         obj.attrs.delete(key, request.user, note)
-        return {'obj': obj}
+    return {'obj': obj, 'type': __builtins__['type']}
 
 
 def obj_attr(request):
@@ -283,7 +296,7 @@ def cruise_show(request):
         cruise['cruise_dates'] = ''
         if cruise['date_start'] and cruise['date_end']:
             cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'], cruise['date_end'])))
-        cruise['statuses'] = cruise_obj.attrs.get('statuses')
+        cruise['statuses'] = cruise_obj.attrs.get('statuses', [])
 
         def getAttr(cruise_obj, type):
             id = None

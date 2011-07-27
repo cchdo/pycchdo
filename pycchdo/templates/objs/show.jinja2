@@ -1,8 +1,12 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Objs{% endblock %}
+{% block title %}Obj {{id}}{% endblock %}
 {% block content %}
-  {% call h.boxed('Obj') -%}
+  {% call h.boxed('Obj {id}'.format(id=id)) -%}
     <p>{{obj}}</p>
+
+    {% if link -%}
+      <p><a href="{{link}}">{{link}}</a></p>
+    {%- endif %}
 
     <p>
       <form action="/obj/{{ obj['_id'] }}" method="DELETE">

@@ -13,10 +13,18 @@ def global_setUp(self):
     self.testPerson = Person(identifier='testid')
     self.testPerson.save()
 
+
 def global_tearDown(self):
     self.testPerson.remove()
     del self.testPerson
     testing.tearDown()
+
+
+class _mock_FieldStorage:
+    def __init__(self, filename, file, contentType):
+        self.filename = filename
+        self.file = file
+        self.type = contentType
 
 
 class TestModel(unittest.TestCase):
@@ -328,6 +336,13 @@ class TestModel(unittest.TestCase):
         from pycchdo.models import collectablemongodoc
         self.assertRaises(ValueError, lambda: collectablemongodoc.find_id('invalid_object_id'))
 
+    def test_Obj_map_mongo(self):
+        """ An Obj mapped from a mongo doc will have the correct _obj_type """
+        from pycchdo.models import Obj
+        id = self.testPerson['_id']
+        o = Obj.get_id(id)
+        self.assertEquals(o['_obj_type'], 'Person')
+
     def test_Obj_find_id_with_invalid_id_returns_None(self):
         """ Attempting to find an invalid ObjectId returns None. """
         from pycchdo.models import Obj
@@ -390,7 +405,8 @@ class TestModel(unittest.TestCase):
         obj = Obj(self.testPerson)
         obj.save()
 
-        file = StringIO('this is a test file object\nwith two lines')
+        file_data = StringIO('this is a test file object\nwith two lines')
+        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
 
         a = obj.attrs.set('a', file, self.testPerson)
         a.accept(self.testPerson)
@@ -402,14 +418,15 @@ class TestModel(unittest.TestCase):
         """ Creating a Attr with a file stores the file in an object store. """
         from pycchdo.models import Attr
         from StringIO import StringIO
-        file = StringIO('this is a test file object\nwith two lines')
+        file_data = StringIO('this is a test file object\nwith two lines')
+        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         note = None
 
         d = Attr(self.testPerson, 'a', file, 'testid', note)
         d.save()
 
-        file.seek(0)
-        self.assertEquals(d.file.read(), file.read())
+        file.file.seek(0)
+        self.assertEquals(d.file.read(), file.file.read())
         d.remove()
 
 
@@ -418,11 +435,12 @@ class TestHelper(unittest.TestCase):
     tearDown = global_tearDown
 
     def test_helper_data_file_link(self):
-        """ Given a Attr with a file, provide a link to a file next to its description """
+        """ Given an Attr with a file, provide a link to a file next to its description """
         from pycchdo.models import Attr
         from pycchdo.helpers import data_file_link
         from StringIO import StringIO
-        file = StringIO('')
+        file_data = StringIO('')
+        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         data = Attr(self.testPerson, 'a', file, 'testid')
         data.save()
         id = data['_id']

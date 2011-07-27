@@ -15,10 +15,7 @@
       <h2>General Information</h2>
 
       {% if 'map' in data_files -%}
-      <div class="thumb"> 
-        <p><a href="{{h.data_uri(data_files['map']['full'])}}"><img src="{{h.data_uri(data_files['map']['thumb'])}}"></a></p>
-        <p class="caption"><a href="{{h.data_uri(data_files['map']['full'])}}">Full Size</a></p>
-      </div> 
+        {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
       {%- endif %}
 
       {{ cruise_attr('ExpoCode', cruise['expocode']) }}

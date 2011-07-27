@@ -48,6 +48,22 @@ def boxed(title='', bottom='', **attrs):
             ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
 
 
+def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
+    thumb_link = ''
+    thumb_img = whh.tags.image(data_uri(thumb), 'Cruise Map thumbnail')
+    if full:
+        full_uri = data_uri(full)
+        if thumb:
+            thumb_link = whh.HTML.p(
+                whh.tags.link_to(thumb_img, full_uri))
+        thumb_link += whh.HTML.p(whh.tags.link_to('Full Map', full_uri),
+                                 class_='caption')
+    else:
+        if thumb:
+            thumb_link = whh.HTML.p(thumb_img)
+    return whh.HTML.div(thumb_link, class_='thumb')
+
+
 def change_pretty(change):
     person = models.Person.get_id(change['creation_stamp']['person'])
     if change['deleted']:

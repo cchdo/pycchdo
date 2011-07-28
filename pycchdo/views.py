@@ -41,6 +41,14 @@ def _http_method(request):
         return request.method
 
 
+def unescape(s, escape='\\'):
+    n = s.find(escape)
+    while n > -1:
+        s = s[:n] + s[n + 1:]
+        n = s.find(escape, n + 1)
+    return s
+
+
 def require_signin(request):
     request.session['signin_return_uri'] = request.url
     return HTTPSeeOther(location=signin_uri)
@@ -183,17 +191,19 @@ def obj_attrs(request):
     if not request.user:
         return require_signin(request)
 
-    key = request.params.get('key', None)
-    if not key:
-        return HTTPBadRequest('Attr key required')
-
     note = None
-    note_text = request.params.get('note', None)
-    if note_text:
-        note = models.Note(body=note)
+    note_body = request.params.get('note_body', None)
+    note_action = request.params.get('note_action', None)
+    note_data_type = request.params.get('note_data_type', None)
+    note_subject = request.params.get('note_subject', None)
+    if note_body or note_action or note_data_type or note_subject:
+        note = models.Note(note_body, note_action, note_data_type, note_subject)
 
     if method == 'POST':
+        key = request.params.get('key', None)
         value = request.params.get('value', None)
+        if not key and value:
+            return HTTPBadRequest('Attr key required if setting value')
         type = request.params.get('type', None)
 
         if type == 'text':
@@ -204,19 +214,14 @@ def obj_attrs(request):
             except ValueError:
                 pass
         elif type == 'list':
-            def unescape(s, escape='\\'):
-                n = s.find(escape)
-                while n > -1:
-                    s = s[:n] + s[n + 1:]
-                    n = s.find(escape, n + 1)
-                return s
             value = [unescape(x) for x in value.split(',')]
         elif type == 'id':
             value = models.Obj.get_id(id)
             if value:
                 value = value['_id']
         else:
-            # file upload sends the field storage anyway
+            # file upload should send the FieldStorage unchanged
+            # notes should not change anything either
             pass
         obj.attrs.set(key, value, request.user, note)
     elif method == 'DELETE':
@@ -328,7 +333,7 @@ def cruise_show(request):
             'doc_pdf': getAttr(cruise_obj, 'doc_pdf'),
         }
 
-        history = models.Attr.map_mongo(cruise_obj.attrs.history())
+        history = models.Attr.map_mongo(cruise_obj.attrs.history(accepted=True))
 
     return {
         'cruise': cruise,

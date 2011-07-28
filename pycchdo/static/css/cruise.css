@@ -13,15 +13,12 @@
 .cruise-page .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
 .cruise-page .thumb img { width: 80px; height: 80px; }
 
-.cruise-page #preliminary { color: #ff0900; font-size: 1.2em; margin: 0.5em 0; }
-.cruise-page #data_access_history { max-height: 37em; overflow-y: auto; }
-.cruise-page #right table { width: 100%; }
-.cruise-page #right td { vertical-align: top;}
-.cruise-page #right td.date { font-weight: bold; white-space: nowrap; }
-.cruise-page .note { width: 37em; }
-.cruise-page .note pre { overflow: auto; max-height: 10em; }
-.cruise-page .note .close { text-align: right; }
-.cruise-page .note .close a { text-decoration: none; }
+.cruise-page #preliminary {
+  color: #ff0900;
+  font-size: 1.2em;
+  margin: 0.5em 0;
+}
+
 .cruise-page #updates table { width: 100%; }
 .cruise-page #updates th { border-bottom: 1px solid #ddd; }
 .cruise-page #updates .date { width: 13em; }
@@ -40,9 +37,13 @@
   max-height: 37.4em;
   overflow-y: auto;
 }
+#notes table {
+  width: 100%;
+}
 #notes th,
 #notes td {
   padding: 0.2em;
+  vertical-align: top;
 }
 #notes th {
   border-bottom: 1px solid #DDDDDD;
@@ -60,6 +61,16 @@
 #notes .open {
   background: #FFFFEE;
 }
+
 #notes .open.odd {
   background: #DDDDCC;
+}
+
+#notes .date {
+  white-space: nowrap;
+  padding-right: 0.5em;
+}
+
+#notes .body .body {
+  letter-spacing: -1px;
 }

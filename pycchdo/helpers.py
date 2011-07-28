@@ -64,8 +64,47 @@ def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
     return whh.HTML.div(thumb_link, class_='thumb')
 
 
+def cruise_history_rows(change, i, hl):
+    """ Give the HTML table rows for a cruise history entry.
+        
+        i - The entry number
+        hl - even or odd class name
+    """
+
+    time = change.creation_stamp['timestamp'].strftime('%Y-%m-%d')
+    # TODO link to person?
+    person = change.creation_stamp.person.full_name()
+    if change.is_note():
+        note = change['note']
+        data_type = note['data_type']
+        action = note['action']
+        summary = note['subject']
+        body = note['body']
+    else:
+        data_type = change['key']
+        if change['deleted']:
+            action = 'Deleted'
+            summary = 'Deleted'
+        else:
+            action = 'Updated'
+            summary = change['value']
+        body = ''
+
+    return whh.HTML.tr(
+            whh.HTML.td(time, class_='date'),
+            whh.HTML.td(data_type, class_='data_type'),
+            whh.HTML.td(action, class_='action'),
+            whh.HTML.td(summary, class_='summary'),
+            class_="note{i} meta {hl}".format(i=i, hl=hl)
+        ) + whh.HTML.tr(
+            whh.HTML.td(person, class_='person'),
+            whh.HTML.td(whh.HTML.pre(body), colspan=3, class_='body'),
+            class_="note{i} body {hl}".format(i=i, hl=hl)
+        )
+
+
 def change_pretty(change):
-    person = models.Person.get_id(change['creation_stamp']['person'])
+    person = change.creation_stamp.person
     if change['deleted']:
         status = 'deleted'
     else:

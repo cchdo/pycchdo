@@ -84,15 +84,7 @@
             {% else %}
               {% set hl = 'odd' %}
             {%- endif %}
-            <tr class="note{{i}} meta {{hl}}">
-              <td>{{change['creation_stamp']['timestamp'].strftime('%Y-%m-%d')}}</td>
-              <td>{{ change['key'] }}</td>
-              <td>Edit</td>
-              <td>{{ change['value'] }}</td>
-            </tr>
-            <tr class="note{{i}} body {{hl}}">
-              <td colspan="4">{{ h.change_pretty(change) }}</td>
-            </tr>
+            {{ h.cruise_history_rows(change, i, hl) }}
             {% set i = i + 1 %}
           {% endfor %}
         </table>

@@ -23,48 +23,62 @@
     {% endfor %}
     </table>
 
-    <h2>Update value</h2>
+    <div class="editor">
+      <h2>Update value</h2>
+      <table>
+      <tr><th>Key</th><th>Value</th><th>Type</th></tr>
+      <tr>
+        {{ whh.tags.form(request.url) }}
+          <th><input type="text" name="key"></th>
+          <td><input type="text" name="value"></td>
+          <td>
+            <select name="type">
+              <option>text</option>
+              <option>datetime</option>
+              <option>list</option>
+              <option>id</option>
+            </select>
+          </td>
+          <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+        </form>
+      </tr>
+      </table>
 
-    <table>
-    <tr><th>Key</th><th>Value</th><th>Type</th></tr>
-    <tr>
-      {{ whh.tags.form(request.url) }}
-        <th><input type="text" name="key"></th>
-        <td><input type="text" name="value"></td>
-        <td>
-          <select name="type">
-            <option>text</option>
-            <option>datetime</option>
-            <option>list</option>
-            <option>id</option>
-          </select>
-        </td>
-        <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
-      </form>
-    </tr>
-    </table>
-
-    <ul>
-      <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
-      <li>Lists are ',' separated. Escape character is '\'.</li>
-    </ul>
+      <ul>
+        <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
+        <li>Lists are ',' separated. Escape character is '\'.</li>
+      </ul>
+    </div>
 
     <p>or</p>
 
-    <h2>Update file</h2>
+    <div class="editor">
+      <h2>Update file</h2>
+      <table>
+      <tr><th>Key</th><th>File</th></tr>
+      <tr>
+        {{ whh.tags.form(request.url, multipart=True) }}
+          <td><input type="text" name="key"></td>
+          <td><input type="file" name="value"></td>
+          <td></td>
+          <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+        </form>
+      </tr>
+      </table>
+    </div>
 
-    <table>
-    <tr><th>Key</th><th>File</th></tr>
-    <tr>
-      {{ whh.tags.form(request.url, multipart=True) }}
-        <td><input type="text" name="key"></td>
-        <td><input type="file" name="value"></td>
-        <td></td>
-        <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+    <div class="editor">
+      <h2>Add Note</h2>
+      {{ whh.tags.form(request.url) }}
+      <table>
+        <tr><th>Summary</th><td><input type="text" name="note_subject"></td><td class="explanation"></td></tr>
+        <tr><th>Action</th><td><input type="text" name="note_action"></td><td class="explanation">The action taken</td></tr>
+        <tr><th>Data Type</th><td><input type="text" name="note_data_type"></td><td class="explanation">The type of data (CTD, BOT, DOC)</td></tr>
+        <tr><th>Note</th><td><textarea name="note_body"></textarea></td><td class="explanation"></td></tr>
+      </table>
+      <input type="submit" value="Add">
       </form>
-    </tr>
-
-    </table>
+    </div>
 
     <h2>Unacknowledged changes</h2>
     <ul>
@@ -77,5 +91,7 @@
     </li>
     {% endfor %}
     </ul>
+
+    <p><a href="../{{ obj['_id'] }}">Back to obj</a>
   {%- endcall %}
 {% endblock %}

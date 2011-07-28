@@ -129,13 +129,13 @@ class Stamp(mongodoc):
 
 
 class Note(mongodoc):
-    def __init__(self, action=None, data_type=None, subject=None, body=None):
+    def __init__(self, body=None, action=None, data_type=None, subject=None):
         """ A Note that can be attached to any _Change 
 
+            body - the actual note
             action - the action taken
             data_type - the type of data that was changed
             subject - a nice summary
-            body - the actual note
         """
         self['action'] = action
         self['data_type'] = data_type
@@ -303,6 +303,9 @@ class Attr(_Change):
     def is_data(self):
         return self['file']
 
+    def is_note(self):
+        return self['key'] is None and self['value'] is None and self['note'] is not None
+
     @property
     def file(self):
         if not self.is_data():
@@ -349,6 +352,9 @@ class _Attrs(dict):
             {'obj': self._obj['_id'], 'accepted': True}).sort(
             'judgment_stamp.timestamp', pymongo.DESCENDING))
 
+    def notes(self):
+        return [x for x in self.accepted_changes if x.is_note()]
+
     @property
     def current_pairs(self):
         curr = {}
@@ -389,6 +395,9 @@ class _Attrs(dict):
         attr.save()
         return attr
 
+    def add_note(self, note, person):
+        return self.set(None, None, person, note)
+
     def __delitem__(self, key):
         raise NotImplementedError()
 
@@ -424,6 +433,12 @@ class Obj(_Change):
         except KeyError:
             self['_attrs'] = _Attrs(self)
             return self['_attrs']
+
+    def notes(self):
+        return self.attrs.notes()
+
+    def add_note(self, note, person):
+        return self.attrs.add_note(note, person)
 
     def remove(self):
         super(Obj, self).remove()

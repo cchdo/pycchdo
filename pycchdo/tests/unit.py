@@ -52,7 +52,7 @@ class TestModel(unittest.TestCase):
         self.assertTrue(change['note'] is None)
 
         from pycchdo.models import Note
-        change1 = _Change(self.testPerson, note=Note('action', 'data_type', 'subject', 'body'))
+        change1 = _Change(self.testPerson, note=Note('body', 'action', 'data_type', 'subject'))
         self.assertEqual(change1['note']['action'], 'action')
         self.assertEqual(change1['note']['data_type'], 'data_type')
         self.assertEqual(change1['note']['subject'], 'subject')
@@ -254,6 +254,28 @@ class TestModel(unittest.TestCase):
         self.assertEqual(Obj.__name__, obj['_obj_type'])
         obj.remove()
         self.assertEqual(Person.__name__, self.testPerson['_obj_type'])
+
+    def test_Obj_has_notes(self):
+        """ A generic Obj can have notes added about it.
+
+        Consider a Cruise gets email or someone would like to make an arbitrary
+        note about an Institution but aren't sure of its validity.
+        """
+        from pycchdo.models import Obj, Attr, Note
+        obj = Obj(self.testPerson)
+        obj.save()
+        try:
+            self.assertTrue(hasattr(obj, 'notes'))
+            note = obj.add_note(Note('test note'), self.testPerson)
+            self.assertEqual(len(obj.notes()), 0)
+            note.accept(self.testPerson)
+            self.assertEqual(len(obj.notes()), 1)
+            all_attrs = filter(lambda x: not x, [isinstance(x, Attr) for x in obj.notes()])
+            self.assertTrue(len(all_attrs) is 0)
+            all_notes = filter(lambda x: not x, [x.is_note() for x in obj.notes()])
+            self.assertTrue(len(all_notes) is 0)
+        finally:
+            obj.remove()
 
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """

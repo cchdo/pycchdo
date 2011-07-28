@@ -7,7 +7,7 @@ import datetime
 from pyramid.view import view_config
 from pyramid.response import Response
 from pyramid.security import remember, forget
-from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPInternalServerError
+from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest, HTTPInternalServerError
 
 import paste.fileapp
 
@@ -342,6 +342,44 @@ def cruise_show(request):
         }
 
 
+def advanced_search(request):
+    """ The advanced search form """
+    return {}
+
+
+def search_results(request):
+    query = request.params.get('query', None)
+    if not query:
+        return HTTPBadRequest()
+    return Response(str(query))
+
+
+def search(request):
+    params = request.str_params
+
+    if not params: 
+        return HTTPMovedPermanently(location='/search/advanced') 
+
+    query = ''
+    if 'query' in params:
+        return HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
+    if params.get('line'): 
+        query = query + "line:" + urllib.quote_plus(params['line']) + '+'
+    if params.get('expocode'): 
+        query = query + "expocode:" + urllib.quote_plus(params['expocode']) + '+'
+    if params.get('ship'):
+        query = query + "ship:" + urllib.quote_plus(params['ship']) + '+'
+    if params.get('people'):
+        query = query + "people:" + urllib.quote_plus(params['people']) + '+'
+    if params.get('country'):
+        query = query + "country:" + urllib.quote_plus(params['country']) + '+'
+    if params.get('search_date_min'):
+        query = query + "from:" + urllib.quote_plus(params['search_date_min']) + '+'
+    if params.get('search_date_max'):
+        query = query + "to:" + urllib.quote_plus(params['search_date_min']) + '+'
+    return HTTPSeeOther(location='/search/results?query=%s'%(query))
+
+
 def data(request):
     """ Returns data """
     id = request.matchdict['data_id']
@@ -373,34 +411,3 @@ def catchall_static(request):
     if os.path.isfile(path):
         return {'_static': relpath}
     return HTTPNotFound()
-
-
-def advanced_search(request):
-    return {}
-
-def search_results(request):
-    str = request.params['query']
-    return Response("%s"%(str))
-
-def search(request):
-    params = request.str_params
-    if params: 
-        query = ''
-        if 'query' in params:
-            return HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
-        if params.get('line'): 
-            query = query + "line:" + urllib.quote_plus(params['line']) + '+'
-        if params.get('expocode'): 
-            query = query + "expocode:" + urllib.quote_plus(params['expocode']) + '+'
-        if params.get('ship'):
-            query = query + "ship:" + urllib.quote_plus(params['ship']) + '+'
-        if params.get('people'):
-            query = query + "people:" + urllib.quote_plus(params['people']) + '+'
-        if params.get('country'):
-            query = query + "country:" + urllib.quote_plus(params['country']) + '+'
-        if params.get('search_date_min'):
-            query = query + "from:" + urllib.quote_plus(params['search_date_min']) + '+'
-        if params.get('search_date_max'):
-            query = query + "to:" + urllib.quote_plus(params['search_date_min']) + '+'
-        return HTTPSeeOther(location='/search/results?query=%s'%(query))
-    return HTTPSeeOther(location='/search/advanced') 

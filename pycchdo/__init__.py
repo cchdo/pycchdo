@@ -93,7 +93,7 @@ def main(global_config, **settings):
     config.add_route('cruise_show', '/cruise/{cruise_id}')
     config.add_view('pycchdo.views.cruise_show', route_name='cruise_show', renderer='templates/cruise/show.jinja2')
 
-	# Seach routes
+	# Search routes
     config.add_route('search','/search')
     config.add_view('pycchdo.views.search', route_name='search')
 
@@ -101,14 +101,17 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search_results', route_name='search_results')
 
     config.add_route('advanced_search','/search/advanced')
-    config.add_route('data_access','/data_access') #maintain legacy URLs
+
+    # maintain legacy URLs
+    config.add_route('data_access','/data_access')
     config.add_view('pycchdo.views.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
     config.add_view('pycchdo.views.advanced_search', route_name='data_access', renderer='templates/search/advanced.jinja2') #maintain legacy URLs
 
+    # Serve data blobs
     config.add_route('data', '/data/{data_id}')
     config.add_view('pycchdo.views.data', route_name='data')
 
-	# catchall_static must be last row 
+	# catchall_static must be last route
     config.add_route('catchall_static', '/*subpath')
     config.add_view('pycchdo.views.catchall_static', route_name='catchall_static', renderer='templates/base.jinja2')
 

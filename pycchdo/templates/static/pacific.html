@@ -1,81 +1,169 @@
-<div class='boxed'>
-<h1>Pacific Cruises</h1>
-<div class='box_content'>
-<h2>Maps</h2>
-<ul>
-<li><a href="maps/pac_map.html">Entire Pacific</a></li>
-<li><a href="maps/pac_asia.html">West Pacific</a></li>
-<li><a href="maps/pac_aust.html">Southwest Pacific</a></li>
-<li><a href="maps/pac_amer.html">East Pacific</a></li>
-</ul>
-
-<h2><strong>Tables</strong> - Grouped by WOCE-era designation</h2>
+{% call h.boxed('Pacific Cruises', class="by-ocean pacific") -%}
+<h2>Tables</h2>
+<p>Grouped by WOCE-era designation.</p>
 
 <h3><a href="/groups?id=Pacific+Onetime">Pacific WHP Onetime</a></h3>
-<a href="/groups?id=p01">P01</a> |
-<a href="/groups?id=p02">P02</a> |
-<a href="/groups?id=p03">P03</a> |
-<a href="/groups?id=p04">P04</a> |
-<!--		<a href="/groups?id=p05">P05</a> | -->
-<a href="/groups?id=p06">P06</a> |
-<a href="/groups?id=p08">P08</a> |
-<a href="/groups?id=p09">P09</a> |
-<a href="/groups?id=p10">P10</a> |
-<a href="/groups?id=p11">P11</a>
-<br />
-<a href="/groups?id=p13">P13</a> |
-<a href="/groups?id=p14">P14</a> |
-<a href="/groups?id=p15">P15</a> |
-<a href="/groups?id=p16">P16</a> |
-<a href="/groups?id=p17">P17</a> |
-<a href="/groups?id=p18">P18</a> |
-<a href="/groups?id=p19">P19</a> |
-<a href="/groups?id=p21">P21</a> |
-<a href="/groups?id=p24">P24</a> |
-<a href="/groups?id=p31">P31</a>
+<ol>
+  <li><a href="/groups?id=p01">P01</a></li>
+  <li><a href="/groups?id=p02">P02</a></li>
+  <li><a href="/groups?id=p03">P03</a></li>
+  <li><a href="/groups?id=p04">P04</a></li>
+  <li><a href="/groups?id=p06">P06</a></li>
+  <li><a href="/groups?id=p08">P08</a></li>
+  <li><a href="/groups?id=p09">P09</a></li>
+  <li class="break"></li>
+  <li><a href="/groups?id=p10">P10</a></li>
+  <li><a href="/groups?id=p11">P11</a></li>
+  <li><a href="/groups?id=p13">P13</a></li>
+  <li><a href="/groups?id=p14">P14</a></li>
+  <li><a href="/groups?id=p15">P15</a></li>
+  <li><a href="/groups?id=p16">P16</a></li>
+  <li><a href="/groups?id=p17">P17</a></li>
+  <li><a href="/groups?id=p18">P18</a></li>
+  <li><a href="/groups?id=p19">P19</a></li>
+  <li class="break"></li>
+  <li><a href="/groups?id=p21">P21</a></li>
+  <li><a href="/groups?id=p24">P24</a></li>
+  <li><a href="/groups?id=p31">P31</a></li>
+</ol>
 
 <h3><a href="/groups?id=Pacific+Repeat">Pacific WHP Repeat</a></h3>
-<a href="/groups?id=pr01">PR01</a> |
-<a href="/groups?id=pr02">PR02</a> |
-<a href="/groups?id=pr03">PR03</a> |
-<a href="/groups?id=pr04">PR04</a> |
-<a href="/groups?id=pr05">PR05</a> |
-<a href="/groups?id=pr06">PR06 (Station P)</a> |
-<a href="/groups?id=pr11">PR11</a> |
-<a href="/groups?id=pr13">PR13</a> |
-<a href="/groups?id=pr14">PR14</a>
-<br />
-<a href="/groups?id=pr15">PR15</a> |
-<a href="/groups?id=pr16">PR16</a> |
-<a href="/groups?id=pr17">PR17</a> |
-<a href="/groups?id=pr18">PR18</a> |
-<a href="/groups?id=pr19">PR19</a> |
-<a href="/groups?id=pr20">PR20</a> |
-<a href="/groups?id=pr21">PR21</a> |
-<a href="/groups?id=pr22">PR22</a> |
-<a href="/groups?id=pr23">PR23</a>
-<br />
-<a href="/groups?id=pr24">PR24</a> |
-<a href="/groups?id=pr25">PR25</a> |
-<a href="/groups?id=pr26">PR26</a> |
-<a href="/groups?id=pr27">PR27</a> |
-<a href="/groups?id=pr31">PR31</a> |
-<a href="/groups?id=pr32">PR32</a> |
-<a href="/groups?id=pr33">PR33</a>
+<ol>
+  <li><a href="/groups?id=pr01">PR01</a></li>
+  <li><a href="/groups?id=pr02">PR02</a></li>
+  <li><a href="/groups?id=pr03">PR03</a></li>
+  <li><a href="/groups?id=pr04">PR04</a></li>
+  <li><a href="/groups?id=pr05">PR05</a></li>
+  <li><a href="/groups?id=pr06">PR06 (Station P)</a></li>
+  <li class="break"></li>
+  <li><a href="/groups?id=pr11">PR11</a></li>
+  <li><a href="/groups?id=pr13">PR13</a></li>
+  <li><a href="/groups?id=pr14">PR14</a></li>
+  <li><a href="/groups?id=pr15">PR15</a></li>
+  <li><a href="/groups?id=pr16">PR16</a></li>
+  <li><a href="/groups?id=pr17">PR17</a></li>
+  <li><a href="/groups?id=pr18">PR18</a></li>
+  <li><a href="/groups?id=pr19">PR19</a></li>
+  <li class="break"></li>
+  <li><a href="/groups?id=pr20">PR20</a></li>
+  <li><a href="/groups?id=pr21">PR21</a></li>
+  <li><a href="/groups?id=pr22">PR22</a></li>
+  <li><a href="/groups?id=pr23">PR23</a></li>
+  <li><a href="/groups?id=pr24">PR24</a></li>
+  <li><a href="/groups?id=pr25">PR25</a></li>
+  <li><a href="/groups?id=pr26">PR26</a></li>
+  <li><a href="/groups?id=pr27">PR27</a></li>
+  <li class="break"></li>
+  <li><a href="/groups?id=pr31">PR31</a></li>
+  <li><a href="/groups?id=pr32">PR32</a></li>
+  <li><a href="/groups?id=pr33">PR33</a></li>
+</ol>
 
 <h3><a href="maps/metermap.html">Pacific Current Meter Associated WOCE Data</a></h3>
-PCM01 |
-PCM02 |
-<a href="/groups?id=pr11">PCM03</a> |
-<a href="/groups?id=pr17">PCM05</a> |
-PCM06 |
-PCM07 |
-<a href="/groups?id=p06">PCM09</a> |
-<a href="/data_access?ExpoCode=3250031_1">PCM11</a> |
-<a href="/groups?id=pr33">PCM15</a>
+<ol>
+  <li>PCM01</li>
+  <li>PCM02</li>
+  <li><a href="/groups?id=pr11">PCM03</a></li>
+  <li><a href="/groups?id=pr17">PCM05</a></li>
+  <li>PCM06</li>
+  <li>PCM07</li>
+  <li><a href="/groups?id=p06">PCM09</a></li>
+  <li class="break"></li>
+  <li><a href="/cruise/3250031_1">PCM11</a></li>
+  <li><a href="/groups?id=pr33">PCM15</a></li>
+</ol>
 
 <h3><a href="groups?id=HOT">Hawaiian Ocean Time Series </a></h3>
 
+<map name="pac_map">
+<area alt="" coords="272,533,367,550" href="/southern">
+<area alt="" coords="489,214,574,231" href="/atlantic.html#entire">
+<area alt="" coords="38,311,116,328"  href="/indian">
+<area alt="" coords="62,91,218,308"   href="#asia">
+<area alt="" coords="64,330,238,559"  href="#aust">
+<area alt="" coords="241,233,572,530" href="#amer">
+<area alt="" coords="225,92,486,327"  href="#amer">
+</map>
+<map name="pac_asia">
+<area alt="" coords="256,69,296,86"   href="/search?query=90BM9316_1">
+<area alt="" coords="364,196,395,215" href="/search?query=31TTTPS47">
+<area alt="" coords="414,260,445,277" href="/search?query=p13">
+<area alt="" coords="375,334,406,352" href="/search?query=p02">
+<area alt="" coords="374,378,405,399" href="/search?query=31TTTPS24_1">
+<area alt="" coords="373,491,413,509" href="/search?query=32MW893_1">
+<area alt="" coords="304,433,335,450" href="/search?query=3250TN026_1">
+<area alt="" coords="244,524,274,542" href="/search?query=49RY9407_1">
+<area alt="" coords="189,357,220,374" href="/search?query=49RY9511_2">
+<area alt="" coords="148,461,179,479" href="/search?query=p08">
+<area alt="" coords="412,610,452,627" href="/search?query=pr15">
+<area alt="" coords="337,548,376,565" href="/search?query=pr04">
+<area alt="" coords="183,549,222,567" href="/search?query=pr24">
+<area alt="" coords="188,452,227,469" href="/search?query=pr02">
+<area alt="" coords="133,529,173,547" href="/search?query=pr23">
+<area alt="" coords="127,412,166,429" href="/search?query=pr20">
+<area alt="" coords="274,258,314,275" href="/search?query=pr03">
+<area alt="" coords="151,318,190,335" href="/search?query=pr17">
+<area alt="" coords="126,340,165,357" href="/search?query=pr18">
+<area alt="" coords="110,366,149,383" href="/search?query=pr19">
+<area alt="" coords="69,412,108,429"  href="/search?query=pr21">
+</map>
+<map name="pac_aust">
+<area alt="" coords="287,115,327,133" href="/search?query=09FA693">
+<area alt="" coords="292,440,331,458" href="/search?query=09AR9391_2">
+<area alt="" coords="325,207,364,225" href="/search?query=316N138_5">
+<area alt="" coords="409,122,440,141" href="/search?query=318MWESTW_4">
+<area alt="" coords="422,157,461,174" href="/search?query=316N138_7">
+<area alt="" coords="329,309,369,325" href="/search?query=pr11">
+<area alt="" coords="365,261,404,278" href="/search?query=pr13">
+<area alt="" coords="362,178,402,196" href="/search?query=pr31">
+<area alt="" coords="352,43,392,61"   href="/search?query=pr15">
+</map>
+<map name="pac_amer">
+<area alt="" coords="190,53,231,70"   href="/search?query=pr05">
+<area alt="" coords="204,72,243,89"   href="/search?query=pr06">
+<area alt="" coords="321,254,360,271" href="/search?query=35NTALIZE2_1">
+<area alt="" coords="264,241,303,258" href="/search?query=pr16">
+<area alt="" coords="181,267,220,284" href="/search?query=pr33">
+<area alt="" coords="121,267,160,284" href="/search?query=pr32">
+<area alt="" coords="383,406,422,423" href="/search?query=pr14">
+<area alt="" coords="88,84,118,101"   href="/search?query=31TTTPS47">
+<area alt="" coords="88,153,118,170"  href="/search?query=p02">
+<area alt="" coords="247,173,277,190" href="/search?query=31TTTPS24_1">
+<area alt="" coords="183,225,213,242" href="/search?query=p04">
+<area alt="" coords="121,296,151,313" href="/search?query=3250031_1">
+<area alt="" coords="262,307,292,324" href="/search?query=318MWESTW_4">
+<area alt="" coords="363,335,393,352" href="/search?query=p19">
+<area alt="" coords="261,364,292,381" href="/search?query=p06">
+<area alt="" coords="315,406,345,423" href="/search?query=p18">
+<area alt="" coords="211,421,241,438" href="/search?query=p17">
+<area alt="" coords="237,514,276,532" href="/search?query=316N138_10">
+<area alt="" coords="162,478,192,495" href="/search?query=p16">
+<area alt="" coords="98,477,129,494"  href="/search?query=p15">
+<area alt="" coords="45,435,75,452"   href="/search?query=p14">
+</map>
+
+<h2>Maps</h2>
+<p>Click on any region.</p>
+
+<ul>
+<li><a href="#entire">Entire Pacific</a></li>
+<li><a href="#asia">West Pacific</a></li>
+<li><a href="#aust">Southwest Pacific</a></li>
+<li><a href="#amer">East Pacific</a></li>
+</ul>
+
+<h3 id="entire">Entire</h3>
+
+<div class="mapimg">
+  <img src="/static/img/basin_maps/pac_map.jpg" usemap="#pac_map" style="width: 610px; height: 581px;">
 </div>
-<div class='box_bottom'></div>
-</div>
+
+<h3 id="asia">West</h3>
+<div class='mapimg'><img src="/static/img/basin_maps/pac_asia.jpg" usemap="#pac_asia" style='width: 501px; height: 655px;' /></div>
+
+<h3 id="aust">Southwest</h3>
+<div class='mapimg'><img src="/static/img/basin_maps/pac_aust.jpg" usemap="#pac_aust" style='width: 496px; height: 649px;' /></div>
+
+<h3 id="amer">East</h3>
+<div class='mapimg'><img src="/static/img/basin_maps/pac_amer.jpg" usemap="#pac_amer" style='width: 500px; height: 597px;' /></div>
+{%- endcall %}

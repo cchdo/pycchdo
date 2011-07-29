@@ -451,6 +451,19 @@ class TestModel(unittest.TestCase):
         self.assertEquals(d.file.read(), file.file.read())
         d.remove()
 
+    def test_Cruise_has_country(self):
+        """ Get a Cruise's country """
+        from pycchdo.models import Cruise, Country
+        c = Cruise(self.testPerson)
+        c.save()
+        country = Country(self.testPerson)
+        country.save()
+        c.attrs.set('country', country['_id'], self.testPerson).accept(self.testPerson)
+        self.assertTrue(c.country is not None)
+        self.assertTrue(c.country['_id'], country['_id'])
+        country.remove()
+        c.remove()
+
 
 class TestHelper(unittest.TestCase):
     setUp = global_setUp

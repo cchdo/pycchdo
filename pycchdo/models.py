@@ -45,11 +45,14 @@ def timestamp():
     return datetime.datetime.utcnow()
 
 
-def ensure_objectid(id):
-    if type(id) is not ObjectId:
-        return ObjectId(id)
-    return id
+def ensure_objectid(idobj):
+    if type(idobj) is not ObjectId:
+        return ObjectId(idobj)
+    return idobj
 
+
+def _sort_by_creation(query):
+    return query.sort('creation_stamp.timestamp', pymongo.DESCENDING)
 
 class mongodoc(dict):
     def copy_keys_from(self, o, keys):
@@ -172,16 +175,16 @@ class collectablemongodoc(mongodoc):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
-    def find_id(cls, id):
+    def find_id(cls, idobj):
         try:
-            id = ensure_objectid(id)
+            idobj = ensure_objectid(idobj)
         except pymongo.objectid.InvalidId:
             raise ValueError()
-        return cls.find_one({'_id': id})
+        return cls.find_one({'_id': idobj})
 
     @classmethod
-    def get_id(cls, id):
-        return cls.map_mongo(cls.find_id(id))
+    def get_id(cls, idobj):
+        return cls.map_mongo(cls.find_id(idobj))
 
 
 class _Change(collectablemongodoc):
@@ -335,10 +338,9 @@ class _Attrs(dict):
 
     @property
     def unacknowledged_changes(self):
-        return Attr.map_mongo(Attr.find({
+        return Attr.map_mongo(_sort_by_creation(Attr.find({
             'obj': self._obj['_id'], 'pending_stamp': None,
-            'judgment_stamp': None}).sort(
-            'creation_stamp.timestamp', pymongo.DESCENDING))
+            'judgment_stamp': None})))
 
     @property
     def pending_changes(self):
@@ -348,9 +350,8 @@ class _Attrs(dict):
 
     @property
     def accepted_changes(self):
-        return Attr.map_mongo(Attr.find(
-            {'obj': self._obj['_id'], 'accepted': True}).sort(
-            'judgment_stamp.timestamp', pymongo.DESCENDING))
+        return Attr.map_mongo(_sort_by_creation(Attr.find(
+            {'obj': self._obj['_id'], 'accepted': True})))
 
     def notes(self):
         return [x for x in self.accepted_changes if x.is_note()]
@@ -372,8 +373,7 @@ class _Attrs(dict):
         return self.current_pairs.keys()
 
     def __getitem__(self, key):
-        attrs = self.history(key, accepted=True).sort(
-            'judgment_stamp.timestamp', pymongo.DESCENDING)
+        attrs = _sort_by_creation(self.history(key, accepted=True))
         if attrs.count(True) > 0:
             attr = Attr.map_mongo(attrs.limit(1))[0]
             if attr['deleted']:
@@ -479,15 +479,15 @@ class Obj(_Change):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
-    def find_id(cls, id):
-        if type(id) is not ObjectId:
+    def find_id(cls, idobj):
+        if type(idobj) is not ObjectId:
             try:
-                id = ObjectId(id)
+                idobj = ObjectId(idobj)
             except pymongo.objectid.InvalidId:
                 return None
         if cls is Obj:
-            return cls.find_one({'_id': id})
-        return cls.find_one({'_id': id, '_obj_type': cls.__name__})
+            return cls.find_one({'_id': idobj})
+        return cls.find_one({'_id': idobj, '_obj_type': cls.__name__})
 
     def __str__(self):
         copy = {}
@@ -545,3 +545,117 @@ class Person(Obj):
 class Cruise(Obj):
     def __init__(self, person):
         super(Cruise, self).__init__(person)
+
+    def expocode(self):
+        try:
+            return self.attrs['expocode']
+        except KeyError:
+            return None
+
+    def statuses(self):
+        try:
+            return self.attrs['statuses']
+        except KeyError:
+            return []
+
+    def date_start(self):
+        try:
+            return self.attrs['date_start']
+        except KeyError:
+            return None
+
+    def date_end(self):
+        try:
+            return self.attrs['date_end']
+        except KeyError:
+            return None
+
+    def collections(self):
+        # TODO
+        return []
+
+    def ship(self):
+        ship = self.attrs.get('ship', None)
+        if ship:
+            return Ship.get_id(ship)
+        return None
+
+    def country(self):
+        country = self.attrs.get('country', None)
+        if country:
+            return Country.get_id(country)
+        return None
+
+    def participants(self, role=None):
+        # TODO
+        participant = (Person, 'role')
+        participants = []
+        if role:
+            return [p for p, role in participants if role == role]
+        else:
+            return participants
+
+    def chief_scientists(self):
+        return self.participants('chief_scientist')
+
+    @classmethod
+    def get_by_expocode(cls, expocode):
+        attrs = _sort_by_creation(Attr.find({'key': 'expocode'}))
+        # Get Attrs that represent most current key value for objs
+        obj_expocodes = {}
+        for attr in attrs:
+            obj_id = attr['obj']
+            if obj_id not in obj_expocodes:
+                obj_expocodes[obj_id] = attr['value']
+        # Don't return a cruise if the current value of expocode isn't
+        obj_ids = [o for o, e in obj_expocodes.items() if e == expocode]
+
+        # 1. Multiple cruises might have the same expocode
+        return Cruise.map_mongo(Cruise.find({'_id': {'$in': obj_ids}}))
+
+
+class Institution(Obj):
+    pass
+
+
+class Ship(Obj):
+    def name(self):
+        try:
+            return self.attrs['name']
+        except KeyError:
+            return None
+
+
+class Country(Obj):
+    def name(self):
+        try:
+            return self.attrs['iso_3166-1']
+        except KeyError:
+            return None
+
+    def iso_code(self):
+        try:
+            return self.attrs['iso_3166-1_alpha-2']
+        except KeyError:
+            return None
+
+
+class Collection(Obj):
+    def names(self):
+        try:
+            return self.attrs['names']
+        except KeyError:
+            return []
+
+    def name(self):
+        try:
+            return self.names()[0]
+        except IndexError:
+            return None
+
+    def cruises(self):
+        attr_obj_ids = [x['obj'] for x in Attr.find({'key': 'collections',
+                                                     'value': str(self['_id'])})]
+        objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
+        return Cruise.map_mongo(
+            filter(lambda x: x['_obj_type'] == Cruise.__name__, objs))

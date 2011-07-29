@@ -7,6 +7,18 @@
       <li><a href="/obj/{{ obj['_id'] }}">Go</a> {{obj}}</li>
     {%- endfor %}
     </ul>
-    <a href="/objs/new">New obj</a>
+    {{ whh.tags.form('/objs/new', method="GET") }}
+      <p>
+        New
+        <select name="_obj_type">
+          <option>Cruise</option>
+          <option>Ship</option>
+          <option>Institution</option>
+          <option>Country</option>
+          <option>Collection</option>
+        </select>
+        <input type="submit" value="Make">
+      </p>
+    </form>
   {%- endcall %}
 {% endblock %}

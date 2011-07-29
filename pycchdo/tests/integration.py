@@ -19,4 +19,4 @@ class ViewTests(unittest.TestCase):
     result = home(request)
     print dir(result)
     print "done\n"
-    self.assertEqual(result, {'project': 'pycchdo'})
+    self.assertEqual(result, {})

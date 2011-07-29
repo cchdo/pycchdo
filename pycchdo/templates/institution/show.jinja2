@@ -1,0 +1,7 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Institution {{ institution.name() }}{% endblock %}
+{% block content -%}
+  {% call h.boxed('Institution ' + (institution.name() or '')) -%}
+    {{ institution.cruises() }}
+  {%- endcall %}
+{%- endblock %}

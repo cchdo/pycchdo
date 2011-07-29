@@ -1,0 +1,7 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Country {{ country.name() }}{% endblock %}
+{% block content -%}
+  {% call h.boxed('Country ' + (country.name() or '')) -%}
+    {{ country.cruises() }}
+  {%- endcall %}
+{%- endblock %}

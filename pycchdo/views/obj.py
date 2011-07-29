@@ -72,8 +72,8 @@ def obj_attrs(request):
     if note_body or note_action or note_data_type or note_subject:
         note = models.Note(note_body, note_action, note_data_type, note_subject)
 
+    key = request.params.get('key', None)
     if method == 'POST':
-        key = request.params.get('key', None)
         value = request.params.get('value', None)
         if not key and value:
             return HTTPBadRequest('Attr key required if setting value')
@@ -89,7 +89,7 @@ def obj_attrs(request):
         elif type == 'list':
             value = [_unescape(x) for x in value.split(',')]
         elif type == 'id':
-            value = models.Obj.get_id(id)
+            value = models.Obj.get_id(value)
             if value:
                 value = value['_id']
         else:

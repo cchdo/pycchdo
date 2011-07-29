@@ -1,0 +1,7 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Collection {{ collection.name() }}{% endblock %}
+{% block content -%}
+  {% call h.boxed('Collection ' + (collection.name() or '')) -%}
+    {{ collection.cruises() }}
+  {%- endcall %}
+{%- endblock %}

@@ -32,6 +32,19 @@ def add_renderer_globals(event):
     event['h'] = helpers
 
 
+def obj_routes(config, obj, plural_obj=None):
+    if not plural_obj:
+        plural_obj = obj + 's'
+    config.add_route(plural_obj, '/' + plural_obj)
+    config.add_view('pycchdo.views.{obj}.{plural_obj}_index'.format(
+        obj=obj, plural_obj=plural_obj), route_name=plural_obj,
+        renderer='templates/{obj}/index.jinja2'.format(obj=obj))
+    config.add_route('{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
+    config.add_view('pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
+                    route_name='{obj}_show'.format(obj=obj),
+                    renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+
+
 def main(global_config, **settings):
     """ This function returns a Pyramid WSGI application.
     """
@@ -87,11 +100,11 @@ def main(global_config, **settings):
     config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
     config.add_view('pycchdo.views.obj.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
 
-    config.add_route('cruises', '/cruises')
-    config.add_view('pycchdo.views.cruise.cruises_index', route_name='cruises', renderer='templates/cruise/index.jinja2')
-
-    config.add_route('cruise_show', '/cruise/{cruise_id}')
-    config.add_view('pycchdo.views.cruise.cruise_show', route_name='cruise_show', renderer='templates/cruise/show.jinja2')
+    obj_routes(config, 'cruise')
+    obj_routes(config, 'collection')
+    obj_routes(config, 'country', 'countries')
+    obj_routes(config, 'institution')
+    obj_routes(config, 'ship')
 
 	# Search routes
     config.add_route('search','/search')

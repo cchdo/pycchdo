@@ -1,0 +1,7 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Ship {{ ship.name() }}{% endblock %}
+{% block content -%}
+  {% call h.boxed('Ship ' + (ship.name() or '')) -%}
+    {{ ship.cruises() }}
+  {%- endcall %}
+{%- endblock %}

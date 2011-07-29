@@ -21,29 +21,10 @@ def cruise_show(request):
     cruise = {}
     history = []
     if cruise_obj:
-        cruise['expocode'] = cruise_obj.attrs.get('expocode', '')
-        cruise['collections'] = None # TODO
-        cruise['ship'] = cruise_obj.attrs.get('ship', None)
-        try:
-            cruise['ship_name'] = cruise['ship']['name']
-        except TypeError:
-            cruise['ship_name'] = ''
-        except KeyError:
-            cruise['ship_name'] = ''
-        cruise['country'] = cruise_obj.attrs.get('country', None)
-        try:
-            cruise['country_name'] = cruise['country']['name']
-        except TypeError:
-            cruise['country_name'] = ''
-        except KeyError:
-            cruise['country_name'] = ''
-        cruise['chief_scientists'] = [{'name_first': 'ALICE'}, {'name_first': 'BOB'}]
-        cruise['date_start'] = cruise_obj.attrs.get('date_start')
-        cruise['date_end'] = cruise_obj.attrs.get('date_end')
-        cruise['cruise_dates'] = ''
+        cruise['date_start'] = cruise_obj.date_start()
+        cruise['date_end'] = cruise_obj.date_end()
         if cruise['date_start'] and cruise['date_end']:
             cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'], cruise['date_end'])))
-        cruise['statuses'] = cruise_obj.attrs.get('statuses', [])
 
         def getAttr(cruise_obj, type):
             id = None
@@ -78,7 +59,8 @@ def cruise_show(request):
         history = models.Attr.map_mongo(cruise_obj.attrs.history(accepted=True))
 
     return {
-        'cruise': cruise,
+        'cruise': cruise_obj,
+        'cruise_dict': cruise,
         'data_files': _collapsed_dict(data_files) or {},
         'history': history,
         }

@@ -45,8 +45,11 @@ def home(request):
 
 def clear_db(request):
     # XXX REMOVE
-    models.cchdo().objs.drop()
-    models.cchdo().attrs.drop()
+    cchdo = models.cchdo()
+    for obj in cchdo.objs.find():
+        if obj['_obj_type'] != 'Person':
+            cchdo.objs.remove(obj)
+    cchdo.attrs.drop()
     return Response('OK')
 
 

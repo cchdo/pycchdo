@@ -68,6 +68,12 @@ def main(global_config, **settings):
     config.include('pyramid_jinja2')
     config.add_subscriber(add_renderer_globals, BeforeRender)
 
+    # Serve static files from root
+    config.add_route('favicon', '/favicon.ico')
+    config.add_view('pycchdo.views.favicon', route_name='favicon')
+    config.add_route('robots', '/robots.txt')
+    config.add_view('pycchdo.views.robots', route_name='robots')
+
     config.add_static_view('static', 'pycchdo:static')
 
     config.add_route('home', '/')

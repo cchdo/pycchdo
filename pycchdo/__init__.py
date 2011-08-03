@@ -117,7 +117,7 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search.search', route_name='search')
 
     config.add_route('search_results', '/search/results')
-    config.add_view('pycchdo.views.search.search_results', route_name='search_results')
+    config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
 
     config.add_route('advanced_search','/search/advanced')
 

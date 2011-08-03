@@ -82,7 +82,7 @@
 
     <h2>Unacknowledged changes</h2>
     <ul>
-    {% for change in obj.attrs.unacknowledged_changes %}
+    {% for change in obj.attrs.unacknowledged_changes() %}
     <li>
       <code>{{ change }}</code>
       <form action="{{ request.url }}/{{ change['_id'] }}" method="POST"><input type="submit" name="action" value="Accept"></form>

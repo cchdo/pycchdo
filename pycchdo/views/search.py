@@ -3,6 +3,8 @@ import urllib
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest
 
+from ..models import search as searcher
+
 
 def advanced_search(request):
     """ The advanced search form """
@@ -11,9 +13,13 @@ def advanced_search(request):
 
 def search_results(request):
     query = request.params.get('query', None)
+
+    request.session['query'] = query
+
     if not query:
-        return HTTPBadRequest()
-    return Response(str(query))
+        return HTTPSeeOther(location='/search/advanced')
+    return {'query': query,
+            'results': searcher.search(unicode(query))}
 
 
 def search(request):

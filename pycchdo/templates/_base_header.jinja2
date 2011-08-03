@@ -7,7 +7,8 @@
   {%- endif %}
   <div id="gsearch">
     <form action="/search" method="GET">
-      <input id="query" name="query" type="search" x-webkit-speech>
+      {% set query = request.session.get('query', '') %}
+      <input id="query" name="query" type="search" {% if query %}value="{{query}}" {% endif %}x-webkit-speech>
       <input type="submit" value="Search Data">
     </form>
     <p><a href="/search/advanced">Advanced Search</a></p>

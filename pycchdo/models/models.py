@@ -6,6 +6,8 @@ from pymongo.son_manipulator import SONManipulator
 
 import gridfs
 
+import triggers
+
 
 mongo_conn = None
 grid_fs = None
@@ -54,6 +56,7 @@ def ensure_objectid(idobj):
 def _sort_by_creation(query):
     return query.sort('creation_stamp.timestamp', pymongo.DESCENDING)
 
+
 class mongodoc(dict):
     def copy_keys_from(self, o, keys):
         if not o:
@@ -97,7 +100,7 @@ class mongodoc(dict):
                 return cls(identifier='placeholder').from_mongo(d)
             elif cls is Stamp:
                 p = Person(identifier='placeholder')
-                p['_id'] = 'fake'
+                p.id = 'fake'
                 return cls(person=p).from_mongo(d)
             else:
                 return cls(get_person(d)).from_mongo(d)
@@ -117,7 +120,7 @@ class Stamp(mongodoc):
                 raise TypeError('%r (%s) is not a Person object' % \
                                 (person, type(person)))
             try:
-                self['person'] = person['_id']
+                self['person'] = person.id
             except KeyError:
                 raise ValueError('Person object must be saved first')
 
@@ -130,6 +133,10 @@ class Stamp(mongodoc):
     def person(self):
         return Person.get_id(self['person'])
 
+    @property
+    def timestamp(self):
+        return self['timestamp']
+
 
 class Note(mongodoc):
     def __init__(self, body=None, action=None, data_type=None, subject=None):
@@ -140,10 +147,10 @@ class Note(mongodoc):
             data_type - the type of data that was changed
             subject - a nice summary
         """
+        self['body'] = body
         self['action'] = action
         self['data_type'] = data_type
         self['subject'] = subject
-        self['body'] = body
 
 
 class collectablemongodoc(mongodoc):
@@ -156,11 +163,29 @@ class collectablemongodoc(mongodoc):
     def _mongo_collection(cls):
         return cchdo().collectables
 
+    @property
+    def id(self):
+        try:
+            return self['_id']
+        except KeyError:
+            return None
+
+    @id.setter
+    def id(self, value):
+        self['_id'] = value
+
+    @id.deleter
+    def id(self):
+        try:
+            del self['_id']
+        except KeyError:
+            pass
+
     def save(self):
-        self['_id'] = self._mongo_collection().save(self)
+        self.id = self._mongo_collection().save(self)
 
     def remove(self):
-        self._mongo_collection().remove(self['_id'])
+        self._mongo_collection().remove(self.id)
 
     @classmethod
     def all(cls):
@@ -263,6 +288,9 @@ class _Change(collectablemongodoc):
         self['accepted'] = False
         self.save()
 
+    def mtime(self):
+        return self.creation_stamp.timestamp
+
 
 class Attr(_Change):
     @classmethod
@@ -309,6 +337,14 @@ class Attr(_Change):
     def is_note(self):
         return self['key'] is None and self['value'] is None and self['note'] is not None
 
+    @classmethod
+    def all_data(cls):
+        return cls.find({'file': {'$exists': True}})
+
+    @classmethod
+    def all_notes(cls):
+        return cls.find({'key': None, 'value': None, 'note': {'$exists': True}})
+
     @property
     def file(self):
         if not self.is_data():
@@ -330,37 +366,34 @@ class _Attrs(dict):
         self._obj = obj
 
     def history(self, key=None, **kwargs):
-        query = {'obj': self._obj['_id']}
+        query = {'obj': self._obj.id}
         query.update(**kwargs)
         if key:
             query['key'] = key
         return Attr.find(query)
 
-    @property
     def unacknowledged_changes(self):
         return Attr.map_mongo(_sort_by_creation(Attr.find({
-            'obj': self._obj['_id'], 'pending_stamp': None,
+            'obj': self._obj.id, 'pending_stamp': None,
             'judgment_stamp': None})))
 
-    @property
     def pending_changes(self):
         return Attr.map_mongo(Attr.find({
-            'obj': self._obj['_id'], 'judgment_stamp': None,
+            'obj': self._obj.id, 'judgment_stamp': None,
             'accepted': False}))
 
-    @property
     def accepted_changes(self):
         return Attr.map_mongo(_sort_by_creation(Attr.find(
-            {'obj': self._obj['_id'], 'accepted': True})))
+            {'obj': self._obj.id, 'accepted': True})))
 
     def notes(self):
-        return [x for x in self.accepted_changes if x.is_note()]
+        return [x for x in self.accepted_changes() if x.is_note()]
 
     @property
     def current_pairs(self):
         curr = {}
         deleted = []
-        for change in self.accepted_changes:
+        for change in self.accepted_changes():
             k = change['key']
             if k not in curr and k not in deleted:
                 if change['deleted']:
@@ -391,7 +424,7 @@ class _Attrs(dict):
         raise NotImplementedError()
 
     def set(self, key, value, person, note=None):
-        attr = Attr(person, key, value, self._obj['_id'], note)
+        attr = Attr(person, key, value, self._obj.id, note)
         attr.save()
         return attr
 
@@ -402,13 +435,21 @@ class _Attrs(dict):
         raise NotImplementedError()
 
     def delete(self, key, person, note=None):
-        attr = Attr(person, key, None, self._obj['_id'], note, deleted=True)
+        attr = Attr(person, key, None, self._obj.id, note, deleted=True)
         attr.save()
         return attr
 
+    def save(self):
+        super(Attr, self).save()
+        if self.is_note():
+            triggers.saved_note(self)
+
     def remove(self):
+        super(Attr, self).remove()
         for attr in Attr.map_mongo(self.history()):
             attr.remove()
+        if self.is_note():
+            triggers.saved_note(self)
 
 
 class Obj(_Change):
@@ -427,6 +468,10 @@ class Obj(_Change):
         return self
 
     @property
+    def type(self):
+        return self['_obj_type']
+
+    @property
     def attrs(self):
         try:
             return self['_attrs']
@@ -440,9 +485,22 @@ class Obj(_Change):
     def add_note(self, note, person):
         return self.attrs.add_note(note, person)
 
+    def mtime(self):
+        creation_time = super(Obj, self).mtime()
+        accepted = self.attrs.accepted_changes()
+        if not accepted:
+            return creation_time
+        last_attr_creation_time = accepted[0].creation_stamp.timestamp
+        return max(creation_time, last_attr_creation_time)
+
+    def save(self):
+        super(Obj, self).save()
+        triggers.saved_obj(self)
+
     def remove(self):
         super(Obj, self).remove()
         self.attrs.remove()
+        triggers.removed_obj(self)
 
     @classmethod
     def all(cls):
@@ -504,9 +562,9 @@ class Person(Obj):
     """
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
-        self['_id'] = 'self'
+        self.id = 'self'
         super(Person, self).__init__(self)
-        del self['_id']
+        del self.id
 
         self['identifier'] = identifier
         self['name_first'] = name_first
@@ -534,7 +592,7 @@ class Person(Obj):
 
     def save(self):
         super(Person, self).save()
-        self['creation_stamp']['person'] = self['_id']
+        self['creation_stamp']['person'] = self.id
         super(Person, self).save()
 
     def __repr__(self):
@@ -633,9 +691,11 @@ class Country(Obj):
         except KeyError:
             return None
 
-    def iso_code(self):
+    def iso_code(self, length=2):
+        if length != 2:
+            length = 3
         try:
-            return self.attrs['iso_3166-1_alpha-2']
+            return self.attrs['iso_3166-1_alpha-' + str(length)]
         except KeyError:
             return None
 
@@ -655,7 +715,7 @@ class Collection(Obj):
 
     def cruises(self):
         attr_obj_ids = [x['obj'] for x in Attr.find({'key': 'collections',
-                                                     'value': str(self['_id'])})]
+                                                     'value': str(self.id)})]
         objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
         return Cruise.map_mongo(
             filter(lambda x: x['_obj_type'] == Cruise.__name__, objs))

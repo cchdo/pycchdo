@@ -4,13 +4,28 @@ import pymongo
 from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
+import gridfs
+
 
 mongo_conn = None
+grid_fs = None
+
+
+data_file_descriptions = {
+    'bottle_exchange': 'ASCII .csv bottle data with station information',
+    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station information',
+    'ctdzip_netcdf': 'ZIP archive of binary CTD data with station information',
+    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station information',
+    'sum_woce': 'ASCII station/cast information',
+}
 
 
 def init_conn(settings):
     global mongo_conn
-    mongo_conn = pymongo.Connection(settings['db_uri'])
+    try:
+        mongo_conn = pymongo.Connection(settings['db_uri'])
+    except pymongo.errors.AutoReconnect:
+        raise IOError('Unable to connect to database. Check that the database server is running.')
 
 
 def cchdo():
@@ -19,15 +34,25 @@ def cchdo():
     return mongo_conn.cchdo
 
 
+def fs():
+    global grid_fs
+    if not grid_fs:
+        grid_fs = gridfs.GridFS(cchdo())
+    return grid_fs
+
+
 def timestamp():
     return datetime.datetime.utcnow()
 
 
-def ensure_objectid(id):
-    if type(id) is not ObjectId:
-        return ObjectId(id)
-    return id
+def ensure_objectid(idobj):
+    if type(idobj) is not ObjectId:
+        return ObjectId(idobj)
+    return idobj
 
+
+def _sort_by_creation(query):
+    return query.sort('creation_stamp.timestamp', pymongo.DESCENDING)
 
 class mongodoc(dict):
     def copy_keys_from(self, o, keys):
@@ -63,9 +88,9 @@ class mongodoc(dict):
 
         def get_person(obj_doc):
             try:
-                return Stamp.map_mongo(obj_doc['creation_stamp']).person
+                return obj_doc['creation_stamp']['person']
             except KeyError:
-                return cls(None)
+                return None
 
         def get_instance(d):
             if cls is Person:
@@ -82,7 +107,51 @@ class mongodoc(dict):
         return map(get_instance, cursor_or_dict)
 
 
+class Stamp(mongodoc):
+    def __init__(self, person):
+        self['timestamp'] = timestamp()
+        if type(person) is pymongo.objectid.ObjectId:
+            self['person'] = person
+        else:
+            if type(person) is not Person:
+                raise TypeError('%r (%s) is not a Person object' % \
+                                (person, type(person)))
+            try:
+                self['person'] = person['_id']
+            except KeyError:
+                raise ValueError('Person object must be saved first')
+
+    def from_mongo(self, doc):
+        super(Stamp, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('timestamp', 'person', ))
+        return self
+
+    @property
+    def person(self):
+        return Person.get_id(self['person'])
+
+
+class Note(mongodoc):
+    def __init__(self, body=None, action=None, data_type=None, subject=None):
+        """ A Note that can be attached to any _Change 
+
+            body - the actual note
+            action - the action taken
+            data_type - the type of data that was changed
+            subject - a nice summary
+        """
+        self['action'] = action
+        self['data_type'] = data_type
+        self['subject'] = subject
+        self['body'] = body
+
+
 class collectablemongodoc(mongodoc):
+    """ A top level document in collections.
+
+    These documents have _ids versus noncollectable ones which should only be
+    stored inside these.
+    """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().collectables
@@ -106,45 +175,16 @@ class collectablemongodoc(mongodoc):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
-    def find_id(cls, id):
+    def find_id(cls, idobj):
         try:
-            id = ensure_objectid(id)
+            idobj = ensure_objectid(idobj)
         except pymongo.objectid.InvalidId:
-            return None
-        return cls.find_one({'_id': id})
+            raise ValueError()
+        return cls.find_one({'_id': idobj})
 
     @classmethod
-    def get_id(cls, id):
-        return cls.map_mongo(cls.find_id(id))
-
-
-class Stamp(mongodoc):
-    def __init__(self, person):
-        self['timestamp'] = timestamp()
-        if type(person) is not Person:
-            raise TypeError('%r (%s) is not a Person object' % \
-                            (person, type(person)))
-        try:
-            self['person'] = person['_id']
-        except KeyError:
-            raise ValueError('Person object must be saved first')
-
-    def from_mongo(self, doc):
-        super(Stamp, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('timestamp', 'person', ))
-        return self
-
-    @property
-    def person(self):
-        return Person.get_id(self['person'])
-
-
-class Note(mongodoc):
-    def __init__(self, action=None, data_type=None, subject=None, body=None):
-        self['action'] = action
-        self['data_type'] = data_type
-        self['subject'] = subject
-        self['body'] = body
+    def get_id(cls, idobj):
+        return cls.map_mongo(cls.find_id(idobj))
 
 
 class _Change(collectablemongodoc):
@@ -224,16 +264,7 @@ class _Change(collectablemongodoc):
         self.save()
 
 
-class _AttrList(list):
-    def __init__(self, L=None):
-        if L:
-            # TODO
-            pass
-
-
 class Attr(_Change):
-    accepted_value = None
-
     @classmethod
     def _mongo_collection(cls):
         return cchdo().attrs
@@ -241,16 +272,57 @@ class Attr(_Change):
     def __init__(self, person, key=None, value=None, obj=None, note=None,
                  deleted=False):
         super(Attr, self).__init__(person)
-        self['key'] = key
-        self['value'] = value
+        self.set(key, value)
         self['deleted'] = deleted
         self['obj'] = obj
         self['note'] = note
 
     def from_mongo(self, doc):
         super(Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('key', 'value', 'obj', 'note', 'deleted', ))
+        self.copy_keys_from(doc, ('key', 'value', 'file', 'obj', 'note', 'deleted', ))
         return self
+
+    def set(self, key, value):
+        """ Sets the key and value. Special case when value is a file-like
+        object.
+
+        Attempts to store the file in the filesystem and stores the id in the
+        'file' attribute
+        """
+        self['key'] = key
+        self['file'] = False
+        self['value'] = None
+        try:
+            value.filename
+            try:
+                gridfile = fs().put(value.file, filename=value.filename, contentType=value.type)
+            except Exception, e:
+                raise e
+            self['value'] = gridfile
+            self['file'] = True
+        except AttributeError:
+            self['value'] = value
+
+    def is_data(self):
+        return self['file']
+
+    def is_note(self):
+        return self['key'] is None and self['value'] is None and self['note'] is not None
+
+    @property
+    def file(self):
+        if not self.is_data():
+            return None
+        return fs().get(self['value'])
+
+    def delete_file(self):
+        if not self.is_data():
+            return
+        fs().delete(self['value'])
+
+    def remove(self):
+        self.delete_file()
+        super(Attr, self).remove()
 
 
 class _Attrs(dict):
@@ -266,10 +338,9 @@ class _Attrs(dict):
 
     @property
     def unacknowledged_changes(self):
-        return Attr.map_mongo(Attr.find({
+        return Attr.map_mongo(_sort_by_creation(Attr.find({
             'obj': self._obj['_id'], 'pending_stamp': None,
-            'judgment_stamp': None}).sort(
-            'creation_stamp.timestamp', pymongo.DESCENDING))
+            'judgment_stamp': None})))
 
     @property
     def pending_changes(self):
@@ -279,24 +350,30 @@ class _Attrs(dict):
 
     @property
     def accepted_changes(self):
-        return Attr.map_mongo(Attr.find(
-            {'obj': self._obj['_id'], 'accepted': True}).sort(
-            'judgment_stamp.timestamp', pymongo.DESCENDING))
+        return Attr.map_mongo(_sort_by_creation(Attr.find(
+            {'obj': self._obj['_id'], 'accepted': True})))
+
+    def notes(self):
+        return [x for x in self.accepted_changes if x.is_note()]
 
     @property
     def current_pairs(self):
         curr = {}
+        deleted = []
         for change in self.accepted_changes:
-            if change['key'] not in curr:
-                curr[change['key']] = change['value']
+            k = change['key']
+            if k not in curr and k not in deleted:
+                if change['deleted']:
+                    deleted.append(k)
+                else:
+                    curr[k] = change['value']
         return curr
 
     def keys(self):
         return self.current_pairs.keys()
 
     def __getitem__(self, key):
-        attrs = self.history(key, accepted=True).sort(
-            'judgment_stamp.timestamp', pymongo.DESCENDING)
+        attrs = _sort_by_creation(self.history(key, accepted=True))
         if attrs.count(True) > 0:
             attr = Attr.map_mongo(attrs.limit(1))[0]
             if attr['deleted']:
@@ -314,13 +391,12 @@ class _Attrs(dict):
         raise NotImplementedError()
 
     def set(self, key, value, person, note=None):
-        if type(value) == _AttrList:
-            pass
-        elif type(value) == list:
-            value = _AttrList(value)
-
         attr = Attr(person, key, value, self._obj['_id'], note)
         attr.save()
+        return attr
+
+    def add_note(self, note, person):
+        return self.set(None, None, person, note)
 
     def __delitem__(self, key):
         raise NotImplementedError()
@@ -328,6 +404,11 @@ class _Attrs(dict):
     def delete(self, key, person, note=None):
         attr = Attr(person, key, None, self._obj['_id'], note, deleted=True)
         attr.save()
+        return attr
+
+    def remove(self):
+        for attr in Attr.map_mongo(self.history()):
+            attr.remove()
 
 
 class Obj(_Change):
@@ -340,6 +421,11 @@ class Obj(_Change):
         self['_obj_type'] = type(self).__name__
         self.copy_keys_from(doc, ('_obj_type', ))
 
+    def from_mongo(self, doc):
+        super(Obj, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('_obj_type', '_attrs',))
+        return self
+
     @property
     def attrs(self):
         try:
@@ -348,10 +434,15 @@ class Obj(_Change):
             self['_attrs'] = _Attrs(self)
             return self['_attrs']
 
+    def notes(self):
+        return self.attrs.notes()
+
+    def add_note(self, note, person):
+        return self.attrs.add_note(note, person)
+
     def remove(self):
         super(Obj, self).remove()
-        for attr in Attr.map_mongo(self.attrs.history()):
-            attr.remove()
+        self.attrs.remove()
 
     @classmethod
     def all(cls):
@@ -388,15 +479,23 @@ class Obj(_Change):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
-    def find_id(cls, id):
-        if type(id) is not ObjectId:
+    def find_id(cls, idobj):
+        if type(idobj) is not ObjectId:
             try:
-                id = ObjectId(id)
+                idobj = ObjectId(idobj)
             except pymongo.objectid.InvalidId:
                 return None
         if cls is Obj:
-            return cls.find_one({'_id': id})
-        return cls.find_one({'_id': id, '_obj_type': cls.__name__})
+            return cls.find_one({'_id': idobj})
+        return cls.find_one({'_id': idobj, '_obj_type': cls.__name__})
+
+    def __str__(self):
+        copy = {}
+        for key, value in self.items():
+            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp', ):
+                continue
+            copy[key] = value
+        return str(copy)
 
 
 class Person(Obj):
@@ -422,7 +521,7 @@ class Person(Obj):
                              'identifier or attributes.')
 
     def from_mongo(self, doc):
-        super(Obj, self).from_mongo(doc)
+        super(Person, self).from_mongo(doc)
         self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last',
                                   'institution', 'country', 'email', ))
         return self
@@ -443,11 +542,120 @@ class Person(Obj):
                                                  first=self['name_first'])
 
 
-class Data(Attr):
-    """ Specific type of attribute that stores large amounts of data """
-    pass
-
-
 class Cruise(Obj):
     def __init__(self, person):
         super(Cruise, self).__init__(person)
+
+    def expocode(self):
+        try:
+            return self.attrs['expocode']
+        except KeyError:
+            return None
+
+    def statuses(self):
+        try:
+            return self.attrs['statuses']
+        except KeyError:
+            return []
+
+    def date_start(self):
+        try:
+            return self.attrs['date_start']
+        except KeyError:
+            return None
+
+    def date_end(self):
+        try:
+            return self.attrs['date_end']
+        except KeyError:
+            return None
+
+    def collections(self):
+        # TODO
+        return []
+
+    def ship(self):
+        ship = self.attrs.get('ship', None)
+        if ship:
+            return Ship.get_id(ship)
+        return None
+
+    def country(self):
+        country = self.attrs.get('country', None)
+        if country:
+            return Country.get_id(country)
+        return None
+
+    def participants(self, role=None):
+        # TODO
+        participant = (Person, 'role')
+        participants = []
+        if role:
+            return [p for p, role in participants if role == role]
+        else:
+            return participants
+
+    def chief_scientists(self):
+        return self.participants('chief_scientist')
+
+    @classmethod
+    def get_by_expocode(cls, expocode):
+        attrs = _sort_by_creation(Attr.find({'key': 'expocode'}))
+        # Get Attrs that represent most current key value for objs
+        obj_expocodes = {}
+        for attr in attrs:
+            obj_id = attr['obj']
+            if obj_id not in obj_expocodes:
+                obj_expocodes[obj_id] = attr['value']
+        # Don't return a cruise if the current value of expocode isn't
+        obj_ids = [o for o, e in obj_expocodes.items() if e == expocode]
+
+        # 1. Multiple cruises might have the same expocode
+        return Cruise.map_mongo(Cruise.find({'_id': {'$in': obj_ids}}))
+
+
+class Institution(Obj):
+    pass
+
+
+class Ship(Obj):
+    def name(self):
+        try:
+            return self.attrs['name']
+        except KeyError:
+            return None
+
+
+class Country(Obj):
+    def name(self):
+        try:
+            return self.attrs['iso_3166-1']
+        except KeyError:
+            return None
+
+    def iso_code(self):
+        try:
+            return self.attrs['iso_3166-1_alpha-2']
+        except KeyError:
+            return None
+
+
+class Collection(Obj):
+    def names(self):
+        try:
+            return self.attrs['names']
+        except KeyError:
+            return []
+
+    def name(self):
+        try:
+            return self.names()[0]
+        except IndexError:
+            return None
+
+    def cruises(self):
+        attr_obj_ids = [x['obj'] for x in Attr.find({'key': 'collections',
+                                                     'value': str(self['_id'])})]
+        objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
+        return Cruise.map_mongo(
+            filter(lambda x: x['_obj_type'] == Cruise.__name__, objs))

@@ -1,15 +1,84 @@
 {% extends "templates/base.jinja2" %}
 {% block title %}Obj Attrs{% endblock %}
 {% block content %}
-  {% call h.boxed('%s attrs' % obj['_id']) -%}
+  {% call h.boxed('Obj %s attrs' % obj['_id']) -%}
     <p>{{obj}}</p>
 
     <h2>Attrs</h2>
-    <ul>
+    <table>
     {% for k, v in obj.attrs.current_pairs.items() %}
-      <li>{{ k }}: {{ v }}</li>
+      <tr>
+        <th>{{ k }}</th>
+        <td>{{ v }}</td>
+        <td>{{ type(v) }}</td>
+        <td>
+          {{ whh.tags.form(request.url, method="DELETE") }}
+            <input type="hidden" name="key" value="{{ k }}">
+            <input type="submit" value="Delete">
+            <label for="note">Note (optional)</label>
+            <input type="text" name="note">
+          </form>
+        </td>
+      </tr>
     {% endfor %}
-    </ul>
+    </table>
+
+    <div class="editor">
+      <h2>Update value</h2>
+      <table>
+      <tr><th>Key</th><th>Value</th><th>Type</th></tr>
+      <tr>
+        {{ whh.tags.form(request.url) }}
+          <th><input type="text" name="key"></th>
+          <td><input type="text" name="value"></td>
+          <td>
+            <select name="type">
+              <option>text</option>
+              <option>datetime</option>
+              <option>list</option>
+              <option>id</option>
+            </select>
+          </td>
+          <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+        </form>
+      </tr>
+      </table>
+
+      <ul>
+        <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
+        <li>Lists are ',' separated. Escape character is '\'.</li>
+      </ul>
+    </div>
+
+    <p>or</p>
+
+    <div class="editor">
+      <h2>Update file</h2>
+      <table>
+      <tr><th>Key</th><th>File</th></tr>
+      <tr>
+        {{ whh.tags.form(request.url, multipart=True) }}
+          <td><input type="text" name="key"></td>
+          <td><input type="file" name="value"></td>
+          <td></td>
+          <td><input type="submit" value="Update"><label for="note">Note (optional)</label><input type="text" name="note"></td>
+        </form>
+      </tr>
+      </table>
+    </div>
+
+    <div class="editor">
+      <h2>Add Note</h2>
+      {{ whh.tags.form(request.url) }}
+      <table>
+        <tr><th>Summary</th><td><input type="text" name="note_subject"></td><td class="explanation"></td></tr>
+        <tr><th>Action</th><td><input type="text" name="note_action"></td><td class="explanation">The action taken</td></tr>
+        <tr><th>Data Type</th><td><input type="text" name="note_data_type"></td><td class="explanation">The type of data (CTD, BOT, DOC)</td></tr>
+        <tr><th>Note</th><td><textarea name="note_body"></textarea></td><td class="explanation"></td></tr>
+      </table>
+      <input type="submit" value="Add">
+      </form>
+    </div>
 
     <h2>Unacknowledged changes</h2>
     <ul>
@@ -23,27 +92,6 @@
     {% endfor %}
     </ul>
 
-    <h2>New</h2>
-    <form action="{{ request.url }}" method="POST">
-      <ul>
-        <li>datetime format is YYYY-mm-dd HH:MM:SS. UTC please!</li>
-        <li>Lists are ',' separated. Escape character is '\'.</li>
-      </ul>
-      <table>
-        <tr><td>{{ whh.HTML.label('Key', for='key') }}</td><td><input type="text" name="key"></td></tr>
-        <tr><td>{{ whh.HTML.label('Value', for='value') }}</td><td><input type="text" name="value"></td>
-          <td>
-            <select name="type">
-              <option>text</option>
-              <option>datetime</option>
-              <option>list</option>
-              <option>id</option>
-            </select>
-          </td>
-        </tr>
-        <tr><td>{{ whh.HTML.label('Note', for='note') }}</td><td><input type="text" name="note"></td></tr>
-        <tr><td colspan=2><input type="submit" value="Add"></td></tr>
-      </table>
-    </form>
+    <p><a href="../{{ obj['_id'] }}">Back to obj</a>
   {%- endcall %}
 {% endblock %}

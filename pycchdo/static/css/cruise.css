@@ -6,25 +6,72 @@
 
 .cruise-page .subsection { margin-top: 1em; }
 
-.cruise-page h2 { border-bottom: 1px solid #006f89; }
+.cruise-page h2 { border-bottom: 1px solid #006f89; color: #006F89; font-size: 1.2em; }
 .cruise-page h3 { margin: 0.5em 0 0.25em 0; }
 
 .cruise-page .thumb { margin-top: 1em; float: right; text-align: right; }
 .cruise-page .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
 .cruise-page .thumb img { width: 80px; height: 80px; }
 
-.cruise-page #preliminary { color: #ff0900; font-size: 1.3em; font-weight: bold; }
-.cruise-page #data_access_history { max-height: 37em; overflow-y: auto; }
-.cruise-page #right table { width: 100%; }
-.cruise-page #right table th { border-bottom: 1px solid #aaa; }
-.cruise-page #right td { vertical-align: top;}
-.cruise-page #right td.date { font-weight: bold; white-space: nowrap; }
-.cruise-page .note { width: 37em; }
-.cruise-page .note pre { overflow: auto; max-height: 10em; }
-.cruise-page .note .close { text-align: right; }
-.cruise-page .note .close a { text-decoration: none; }
+.cruise-page #preliminary {
+  color: #ff0900;
+  font-size: 1.2em;
+  margin: 0.5em 0;
+}
+
 .cruise-page #updates table { width: 100%; }
 .cruise-page #updates th { border-bottom: 1px solid #ddd; }
 .cruise-page #updates .date { width: 13em; }
 .cruise-page #updates .merged td { background-color: #d9eaed; }
 .cruise-page #updates .notes { width: 70%; }
+
+.cruise-page .subsection.data-files th,
+.cruise-page .subsection.data-files td {
+  text-align: left;
+  vertical-align: top;
+}
+.cruise-page .subsection.data-files th {
+  width: 5em;
+}
+
+#notes {
+  max-height: 37.4em;
+  overflow-y: auto;
+}
+#notes table {
+  width: 100%;
+}
+#notes th,
+#notes td {
+  padding: 0.2em;
+  vertical-align: top;
+}
+#notes th {
+  border-bottom: 1px solid #DDDDDD;
+  font-size: 1.2em;
+}
+
+#notes tr.odd {
+  background: #EEEEEE;
+}
+
+#notes .body {
+  font-size: 0.9em;
+}
+
+#notes .open {
+  background: #FFFFEE;
+}
+
+#notes .open.odd {
+  background: #DDDDCC;
+}
+
+#notes .date {
+  white-space: nowrap;
+  padding-right: 0.5em;
+}
+
+#notes .body .body {
+  letter-spacing: -1px;
+}

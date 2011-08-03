@@ -1,5 +1,5 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Cruise {{cruise['expocode']}}{% endblock %}
+{% block title %}Cruise {{cruise.expocode()}}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
 {%- endblock %}
@@ -9,52 +9,127 @@
   {% endif %}
 {%- endmacro %}
 {% block content_attrs %} class="cruise-page"{% endblock %}
-{% block content %}
+{% block content -%}
   {% call h.boxed('General Information and Files', id='left', class='upper') -%}
     <div class="subsection general-information">
       <h2>General Information</h2>
 
-      <div class="thumb"> 
-        <p><a href="{{maps['full']}}"><img src="{{maps['thumb']}}"></a></p>
-        <p class="caption"><a href="{{link}}">Full Size</a></p>
-      </div> 
+      {% if 'map' in data_files -%}
+        {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
+      {%- endif %}
 
-      {{ cruise_attr('ExpoCode', cruise['expocode']) }}
-      {{ cruise_attr('Collections', cruise['collections']) }}
-      {{ cruise_attr('Ship', cruise['ship_name']) }}
-      {{ cruise_attr('Country', cruise['country_name']) }}
-      {#{ cruise_attr('Chief Scientists', ', '.join([x['name_first'] for x in cruise['chief_scientists']])) }#}
-      {{ cruise_attr('Chief Scientists', 'SCIS') }}
-      {{ cruise_attr('Cruise Dates', cruise['cruise_dates']) }}
+      {{ cruise_attr('ExpoCode', cruise.expocode()) }}
+      {{ cruise_attr('Collections', cruise.collections()) }}
+      {% if cruise.ship() -%}
+        {{ cruise_attr('Ship', cruise.ship().name()) }}
+      {%- endif %}
+      {% if cruise.country() -%}
+        {{ cruise_attr('Country', cruise.country().name()) }}
+      {%- endif %}
+      {{ cruise_attr('Chief Scientists', cruise.chief_scientists()) }}
+      {{ cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
     </div>
     <div class="clear"></div>
     <div class="subsection data-files">
       <h2>Data Files</h2>
 
-      {% if 'preliminary' in cruise['statuses'] %}
+      {% if 'preliminary' in cruise.statuses() %}
         <p id="preliminary">These data are preliminary (Please see <a href="">data history</a>)</p> 
       {% endif %}
-       
+
+      {% if 'exchange' in data_files %}
       <h3>Exchange</h3>
-      <p><a href="/data/onetime/atlantic/a20/a20_ct1.zip">CTD</a> - ZIP archive of ASCII .csv CTD data with station information</p> 
-      <p><a href="/data/onetime/atlantic/a20/a20_hy1.csv">BOT</a> - ASCII .csv bottle data with station information</p> 
+      <table>
+      {% for type, df in data_files.get('exchange').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
 
+      {% if 'netcdf' in data_files %}
       <h3>NetCDF</h3>
-      <p><a href="/data/onetime/atlantic/a20/a20_nc_ctd.zip">CTD</a> - ZIP archive of binary CTD data with station information</p> 
-      <p><a href="/data/onetime/atlantic/a20/a20_nc_hyd.zip">BOT</a> - Binary bottle data with station information</p> 
+      <table>
+      {% for type, df in data_files.get('netcdf').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
 
+      {% if 'woce' in data_files %}
       <h3>WOCE</h3>
-      <p><a href="/data/onetime/atlantic/a20/a20su.txt">SUM</a> - ASCII station/cast information</p> 
+      <table>
+      {% for type, df in data_files.get('woce').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
+
+      {% if 'doc' in data_files %}
+      <h3>Documentation</h3>
+      <table>
+      {% for type, df in data_files.get('doc').items() -%}
+        {{ h.data_file_link(type, df) }}
+      {%- endfor %}
+      </table>
+      {% endif %}
     </div>
   {%- endcall %}
   {% call h.boxed('Data Histories and Notes', id='right', class='upper') -%}
     <div class="subsection">
-      <ol>
-      {% for change in history %}
-        <li>{{ h.change_pretty(change) }}</li>
-      {% endfor %}
-      </ol>
-      <a href="{{request.url}}/a">Attrs</a>
+      <h2>History</h2>
+      <div id="notes">
+        <table>
+          <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
+          {% set i = 0 %}
+          {% for change in history %}
+            {% if i % 2 == 0 -%}
+              {% set hl = 'even' %}
+            {% else %}
+              {% set hl = 'odd' %}
+            {%- endif %}
+            {{ h.cruise_history_rows(change, i, hl) }}
+            {% set i = i + 1 %}
+          {% endfor %}
+        </table>
+      </div>
     </div>
   {%- endcall %}
-{% endblock %}
+{%- endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  <script>
+    (function togglifyNoteBodies () {
+      var notes = $('#notes');
+      notes.find('tr').each(function () {
+        var prepend = '';
+        if ($(this).hasClass('header')) {
+          prepend = $('<th class="expander"></th>');
+        } else {
+          if ($(this).hasClass('body')) {
+            prepend = $('<td class="expander"></td>');
+          } else {
+            prepend = $('<td class="expander">&#x25B8;</td>');
+          }
+        }
+        $(this).prepend($(prepend).css({cursor: 'pointer', width: '0.5em'}));
+      });
+      notes.find('tr.body').hide();
+      notes.find('tr.meta').each(function () {
+        $(this).click(function () {
+          $(this).data('open', !$(this).data('open'));
+
+          var noteClass = /(note\d+)/.exec($(this).attr('class'));
+          var body = notes.find('.body.' + noteClass);
+
+          if ($(this).data('open')) {
+            $(this).addClass('open').find('.expander').html('&#x25BE;');
+            body.addClass('open').show('fast');
+          } else {
+            $(this).removeClass('open').find('.expander').html('&#x25B8;');
+            body.removeClass('open').hide('fast').css('display', 'none');
+          }
+        });
+      });
+    })();
+  </script>
+{%- endblock %}

@@ -5,19 +5,31 @@ from pyramid.config import Configurator
 from pyramid import testing
 
 
-class TestModel(unittest.TestCase):
-    def setUp(self):
-        from pycchdo.models import Person
-        import pycchdo.models
-        pycchdo.models.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018'})
-        self.config = testing.setUp()
-        self.testPerson = Person(identifier='testid')
-        self.testPerson.save()
+def global_setUp(self):
+    from pycchdo.models import Person
+    import pycchdo.models
+    pycchdo.models.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018'})
+    self.config = testing.setUp()
+    self.testPerson = Person(identifier='testid')
+    self.testPerson.save()
 
-    def tearDown(self):
-        self.testPerson.remove()
-        del self.testPerson
-        testing.tearDown()
+
+def global_tearDown(self):
+    self.testPerson.remove()
+    del self.testPerson
+    testing.tearDown()
+
+
+class _mock_FieldStorage:
+    def __init__(self, filename, file, contentType):
+        self.filename = filename
+        self.file = file
+        self.type = contentType
+
+
+class TestModel(unittest.TestCase):
+    setUp = global_setUp
+    tearDown = global_tearDown
 
     def test_Stamp_requires_saved_Person(self):
         """ Stamp requires a saved Person. """
@@ -40,7 +52,7 @@ class TestModel(unittest.TestCase):
         self.assertTrue(change['note'] is None)
 
         from pycchdo.models import Note
-        change1 = _Change(self.testPerson, note=Note('action', 'data_type', 'subject', 'body'))
+        change1 = _Change(self.testPerson, note=Note('body', 'action', 'data_type', 'subject'))
         self.assertEqual(change1['note']['action'], 'action')
         self.assertEqual(change1['note']['data_type'], 'data_type')
         self.assertEqual(change1['note']['subject'], 'subject')
@@ -197,6 +209,24 @@ class TestModel(unittest.TestCase):
 
         obj.remove()
 
+    def test_Attrs_delete(self):
+        """ Deleting an Attr will write a new Attr with its deleted attribute
+        True. It will no longer appear in the current key value pairs.
+
+        This maintains the history of the Attr and differentiates a None
+        value and deletion.
+        """
+        from pycchdo.models import _Attrs
+        a = _Attrs({'_id': 'testid'})
+
+        a.set('a', 'b', self.testPerson).accept(self.testPerson)
+        self.assertTrue('a' in a.keys())
+        a.delete('a', self.testPerson).accept(self.testPerson)
+        self.assertFalse('a' in a.current_pairs)
+        self.assertFalse('a' in a.keys())
+
+        a.remove()
+
     def test_new_Obj(self):
         """ New Objs are instances of _Change """
         from pycchdo.models import Obj, _Change
@@ -224,6 +254,28 @@ class TestModel(unittest.TestCase):
         self.assertEqual(Obj.__name__, obj['_obj_type'])
         obj.remove()
         self.assertEqual(Person.__name__, self.testPerson['_obj_type'])
+
+    def test_Obj_has_notes(self):
+        """ A generic Obj can have notes added about it.
+
+        Consider a Cruise gets email or someone would like to make an arbitrary
+        note about an Institution but aren't sure of its validity.
+        """
+        from pycchdo.models import Obj, Attr, Note
+        obj = Obj(self.testPerson)
+        obj.save()
+        try:
+            self.assertTrue(hasattr(obj, 'notes'))
+            note = obj.add_note(Note('test note'), self.testPerson)
+            self.assertEqual(len(obj.notes()), 0)
+            note.accept(self.testPerson)
+            self.assertEqual(len(obj.notes()), 1)
+            all_attrs = filter(lambda x: not x, [isinstance(x, Attr) for x in obj.notes()])
+            self.assertTrue(len(all_attrs) is 0)
+            all_notes = filter(lambda x: not x, [x.is_note() for x in obj.notes()])
+            self.assertTrue(len(all_notes) is 0)
+        finally:
+            obj.remove()
 
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """
@@ -301,10 +353,17 @@ class TestModel(unittest.TestCase):
         self.assertRaises(TypeError, lambda: Stamp(None))
         Stamp(self.testPerson)
 
-    def test_collectablemongodoc_find_id_with_invalid_id_returns_None(self):
-        """ Attempting to find an invalid collectablemongodoc returns None. """
+    def test_collectablemongodoc_find_id_with_invalid_id_raises_ValueError(self):
+        """ Attempting to find an invalid collectablemongodoc raises ValueError. """
         from pycchdo.models import collectablemongodoc
-        self.assertEquals(None, collectablemongodoc.find_id('invalid_object_id'))
+        self.assertRaises(ValueError, lambda: collectablemongodoc.find_id('invalid_object_id'))
+
+    def test_Obj_map_mongo(self):
+        """ An Obj mapped from a mongo doc will have the correct _obj_type """
+        from pycchdo.models import Obj
+        id = self.testPerson['_id']
+        o = Obj.get_id(id)
+        self.assertEquals(o['_obj_type'], 'Person')
 
     def test_Obj_find_id_with_invalid_id_returns_None(self):
         """ Attempting to find an invalid ObjectId returns None. """
@@ -333,4 +392,122 @@ class TestModel(unittest.TestCase):
         obj.accept(self.testPerson)
         self.assertTrue(type(obj.judgment_stamp) is Stamp)
         obj.remove()
+
+    def test_new_Attr_returns_Attr(self):
+        from pycchdo.models import Obj, Attr
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertTrue(type(obj.attrs.set('a', 'v', self.testPerson)) is Attr)
+        obj.remove()
+
+    def test_Attr_list(self):
+        """ Setting a list on an Obj's attrs stores a list """
+        from pycchdo.models import Obj
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.attrs.set('a', [], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a['value']) is list)
+        a = obj.attrs.set('a', ['b'], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a['value']) is list)
+        self.assertTrue(a['value'] == ['b'])
+
+        obj.remove()
+
+    def test_Attr_file_suggesting(self):
+        """ Setting an Attr to some binary data adds a Attr that has file set
+        to True. Such an object must be given some data. It may optionally be
+        given
+            a MIME type.
+        """
+        from pycchdo.models import Obj, Attr
+        from StringIO import StringIO
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        file_data = StringIO('this is a test file object\nwith two lines')
+        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
+
+        a = obj.attrs.set('a', file, self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a) is Attr)
+        self.assertTrue(a['file'])
+        obj.remove()
+
+    def test_Attr_file_creation(self):
+        """ Creating a Attr with a file stores the file in an object store. """
+        from pycchdo.models import Attr
+        from StringIO import StringIO
+        file_data = StringIO('this is a test file object\nwith two lines')
+        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
+        note = None
+
+        d = Attr(self.testPerson, 'a', file, 'testid', note)
+        d.save()
+
+        file.file.seek(0)
+        self.assertEquals(d.file.read(), file.file.read())
+        d.remove()
+
+    def test_Cruise_has_country(self):
+        """ Get a Cruise's country """
+        from pycchdo.models import Cruise, Country
+        c = Cruise(self.testPerson)
+        c.save()
+        country = Country(self.testPerson)
+        country.save()
+        c.attrs.set('country', country['_id'], self.testPerson).accept(self.testPerson)
+        self.assertTrue(c.country is not None)
+        self.assertTrue(c.country['_id'], country['_id'])
+        country.remove()
+        c.remove()
+
+
+class TestHelper(unittest.TestCase):
+    setUp = global_setUp
+    tearDown = global_tearDown
+
+    def test_helper_data_file_link(self):
+        """ Given an Attr with a file, provide a link to a file next to its description """
+        from pycchdo.models import Attr
+        from pycchdo.helpers import data_file_link
+        from StringIO import StringIO
+        file_data = StringIO('')
+        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
+        data = Attr(self.testPerson, 'a', file, 'testid')
+        data.save()
+        id = data['_id']
+        answer = ('<tr class="bottle exchange"><th><a href="/data/{id}">BOT'
+                  '</a></th><td>ASCII .csv bottle data with station '
+                  'information</td></tr>').format(id=id)
+        self.assertEquals(data_file_link('bottle_exchange', data), answer)
+        answer = ('<tr class="ctdzip exchange"><th><a href="/data/{id}">CTD'
+                  '</a></th><td>ZIP archive of ASCII .csv CTD data with '
+                  'station information</td></tr>').format(id=id)
+        self.assertEquals(data_file_link('ctdzip_exchange', data), answer)
+        data.remove()
+
+        data = Attr(self.testPerson, 'a', 'b', 'testid')
+        data.save()
+        self.assertRaises(ValueError, lambda: data_file_link('ctdzip_exchange', data))
+        data.remove()
+
+
+class TestView(unittest.TestCase):
+    def tearDown(self):
+        testing.tearDown()
+
+    def test__collapse_dict(self):
+        """ Collapse a dictionary tree based on a given value being invalid. """
+        from pycchdo.views import _collapsed_dict
+        d = {}
+        self.assertEquals(_collapsed_dict(d, 1), 1)
+        d = {'a': 1, 'b': None}
+        self.assertEquals(_collapsed_dict(d), {'a': 1})
+        d = {'a': 1, 'b': None, 'c': {'d': None, 'e': 2}}
+        self.assertEquals(_collapsed_dict(d), {'a': 1, 'c': {'e': 2}})
+        d = {'a': 1, 'b': 1, 'c': {'d': 1, 'e': 1}}
+        self.assertEquals(_collapsed_dict(d, 1), 1)
 

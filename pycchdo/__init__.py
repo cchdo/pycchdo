@@ -7,13 +7,7 @@ from pyramid.decorator import reify
 from pyramid.request import Request
 from pyramid.security import unauthenticated_userid
 
-import webhelpers
-import webhelpers.html
-import webhelpers.html.tags
-
-import helpers
 import models
-from models import init_conn
 
 
 class RequestWithUserAttribute(Request):
@@ -27,9 +21,28 @@ class RequestWithUserAttribute(Request):
 
 
 def add_renderer_globals(event):
+    import webhelpers
+    import webhelpers.html
+    import webhelpers.html.tags
+
+    import helpers
+
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
     event['h'] = helpers
+
+
+def obj_routes(config, obj, plural_obj=None):
+    if not plural_obj:
+        plural_obj = obj + 's'
+    config.add_route(plural_obj, '/' + plural_obj)
+    config.add_view('pycchdo.views.{obj}.{plural_obj}_index'.format(
+        obj=obj, plural_obj=plural_obj), route_name=plural_obj,
+        renderer='templates/{obj}/index.jinja2'.format(obj=obj))
+    config.add_route('{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
+    config.add_view('pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
+                    route_name='{obj}_show'.format(obj=obj),
+                    renderer='templates/{obj}/show.jinja2'.format(obj=obj))
 
 
 def main(global_config, **settings):
@@ -60,37 +73,63 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_view('pycchdo.views.home', route_name='home', renderer='templates/base.jinja2')
 
+    config.add_route('submit', '/submit')
+    config.add_view('pycchdo.views.submit', route_name='submit', renderer='templates/submit.jinja2')
+
     config.add_route('clear', '/clear')
     config.add_view('pycchdo.views.clear_db', route_name='clear')
 
     config.add_route('session', '/session')
-    config.add_view('pycchdo.views.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
+    config.add_view('pycchdo.views.session.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
     config.add_route('session_identify', '/session/identify')
-    config.add_view('pycchdo.views.session_identify', route_name='session_identify', renderer='templates/sessions/identify.jinja2')
+    config.add_view('pycchdo.views.session.session_identify', route_name='session_identify', renderer='templates/sessions/identify.jinja2')
     config.add_route('session_new', '/session/new')
-    config.add_view('pycchdo.views.session_new', route_name='session_new')
+    config.add_view('pycchdo.views.session.session_new', route_name='session_new')
     config.add_route('session_delete', '/session/delete')
-    config.add_view('pycchdo.views.session_delete', route_name='session_delete')
+    config.add_view('pycchdo.views.session.session_delete', route_name='session_delete')
 
     config.add_route('objs', '/objs')
-    config.add_view('pycchdo.views.objs', route_name='objs', renderer='templates/objs/index.jinja2')
+    config.add_view('pycchdo.views.obj.objs', route_name='objs', renderer='templates/objs/index.jinja2')
     config.add_route('obj_new', '/objs/new')
-    config.add_view('pycchdo.views.obj_new', route_name='obj_new', renderer='templates/objs/new.jinja2')
+    config.add_view('pycchdo.views.obj.obj_new', route_name='obj_new', renderer='templates/objs/new.jinja2')
     config.add_route('obj_show', '/obj/{obj_id}')
-    config.add_view('pycchdo.views.obj_show', route_name='obj_show', renderer='templates/objs/show.jinja2')
+    config.add_view('pycchdo.views.obj.obj_show', route_name='obj_show', renderer='templates/objs/show.jinja2')
     config.add_route('obj_attrs', '/obj/{obj_id}/a')
-    config.add_view('pycchdo.views.obj_attrs', route_name='obj_attrs', renderer='templates/objs/attrs.jinja2')
+    config.add_view('pycchdo.views.obj.obj_attrs', route_name='obj_attrs', renderer='templates/objs/attrs.jinja2')
 
     config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
-    config.add_view('pycchdo.views.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
+    config.add_view('pycchdo.views.obj.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
 
-    config.add_route('cruises', '/cruises')
-    config.add_view('pycchdo.views.cruises_index', route_name='cruises', renderer='templates/cruise/index.jinja2')
+    obj_routes(config, 'cruise')
+    obj_routes(config, 'collection')
+    obj_routes(config, 'country', 'countries')
+    obj_routes(config, 'institution')
+    obj_routes(config, 'ship')
 
-    config.add_route('cruise_show', '/cruise/{cruise_id}')
-    config.add_view('pycchdo.views.cruise_show', route_name='cruise_show', renderer='templates/cruise/show.jinja2')
+	# Search routes
+    config.add_route('search','/search')
+    config.add_view('pycchdo.views.search.search', route_name='search')
 
+    config.add_route('search_results', '/search/results')
+    config.add_view('pycchdo.views.search.search_results', route_name='search_results')
+
+    config.add_route('advanced_search','/search/advanced')
+
+    # maintain legacy URLs
+    config.add_route('data_access','/data_access')
+    config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
+    config.add_view('pycchdo.views.search.advanced_search', route_name='data_access', renderer='templates/search/advanced.jinja2') #maintain legacy URLs
+
+    # Serve data blobs
+    config.add_route('data', '/data/{data_id}')
+    config.add_view('pycchdo.views.data', route_name='data')
+
+	# catchall_static must be last route
     config.add_route('catchall_static', '/*subpath')
     config.add_view('pycchdo.views.catchall_static', route_name='catchall_static', renderer='templates/base.jinja2')
+
+    #XXX 2011-08-01 12:04:11 ayshen +4a
+    config.add_route('by_ocean_show', '/by_ocean/*basin')
+    config.add_view('pycchdo.views.by_ocean.by_ocean_show', route_name='by_ocean_show', renderer='templates/base.jinja2')
 
     return config.make_wsgi_app()

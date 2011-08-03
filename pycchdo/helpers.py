@@ -48,21 +48,127 @@ def boxed(title='', bottom='', **attrs):
             ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
 
 
+def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
+    thumb_link = ''
+    thumb_img = whh.tags.image(data_uri(thumb), 'Cruise Map thumbnail')
+    if full:
+        full_uri = data_uri(full)
+        if thumb:
+            thumb_link = whh.HTML.p(
+                whh.tags.link_to(thumb_img, full_uri))
+        thumb_link += whh.HTML.p(whh.tags.link_to('Full Map', full_uri),
+                                 class_='caption')
+    else:
+        if thumb:
+            thumb_link = whh.HTML.p(thumb_img)
+    return whh.HTML.div(thumb_link, class_='thumb')
+
+
+def cruise_history_rows(change, i, hl):
+    """ Give the HTML table rows for a cruise history entry.
+        
+        i - The entry number
+        hl - even or odd class name
+    """
+
+    time = change.creation_stamp['timestamp'].strftime('%Y-%m-%d')
+    # TODO link to person?
+    person = change.creation_stamp.person.full_name()
+    if change.is_note():
+        note = change['note']
+        data_type = note['data_type']
+        action = note['action']
+        summary = note['subject']
+        body = note['body']
+    else:
+        data_type = change['key']
+        if change['deleted']:
+            action = 'Deleted'
+            summary = 'Deleted'
+        else:
+            action = 'Updated'
+            summary = change['value']
+        body = ''
+
+    return whh.HTML.tr(
+            whh.HTML.td(time, class_='date'),
+            whh.HTML.td(data_type, class_='data_type'),
+            whh.HTML.td(action, class_='action'),
+            whh.HTML.td(summary, class_='summary'),
+            class_="note{i} meta {hl}".format(i=i, hl=hl)
+        ) + whh.HTML.tr(
+            whh.HTML.td(person, class_='person'),
+            whh.HTML.td(whh.HTML.pre(body), colspan=3, class_='body'),
+            class_="note{i} body {hl}".format(i=i, hl=hl)
+        )
+
+
 def change_pretty(change):
-    person = models.Person.get_id(change['creation_stamp']['person'])
-    status = 'changed'
+    person = change.creation_stamp.person
+    if change['deleted']:
+        status = 'deleted'
+    else:
+        status = 'changed'
     if not change.is_accepted():
         if change.is_acknowledged():
-            status = 'has a pending suggestion for'
+            if change['deleted']:
+                status = 'wants to delete'
+            else:
+                status = 'wants to change'
         elif change.is_rejected():
-            status = 'could not change'
+            if change['deleted']:
+                status = 'could not delete'
+            else:
+                status = 'could not change'
         else:
-            status = 'suggested changing'
+            if change['deleted']:
+                status = 'suggested deleting'
+            else:
+                status = 'suggested changing'
     status = ' %s ' % status
     span = whh.HTML.span
     return whh.HTML.p(
         span(person.full_name(), class_='person'), status,
         span(change['key'], class_='key'), ' to ',
         span(change['value'], class_='value'), ' at ',
-        span(change['creation_stamp']['timestamp'], class_='date'), ' ',
-        whh.tags.link_to('Details', ''), class_='change')
+        span(change['creation_stamp']['timestamp'], class_='date'),
+        class_='change')
+
+def data_uri(data):
+    """ Given a Attr with a file, provides a link to a file. """
+    if not data.is_data():
+        raise ValueError('Cannot link to a non file')
+
+    return '/data/{id}'.format(id=data['_id'])
+
+
+def data_file_link(type, data):
+    """ Given a Attr with a file, provides a link to a file next to its
+        description as a table row
+
+        type - a short form of the file format e.g. ctdzip_exchange,
+               bottlezip_netcdf
+        data - the Attr with file
+    """
+    try:
+        link = data_uri(data)
+    except KeyError:
+        return ''
+
+    data_type = ''
+    if 'ctd' in type:
+        data_type = 'CTD'
+    elif 'bot' in type:
+        data_type = 'BOT'
+    elif 'sum' in type:
+        data_type = 'SUM'
+    elif 'doc' in type:
+        if 'pdf' in type:
+            data_type = 'PDF'
+        elif 'txt' in type or 'text' in type:
+            data_type = 'TXT'
+
+    description = models.data_file_descriptions.get(type, '')
+    return whh.HTML.tr(
+        whh.HTML.th(whh.tags.link_to(data_type, link)) + \
+                    whh.HTML.td(description), class_=type.replace('_', ' '))

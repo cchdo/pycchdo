@@ -1,0 +1,128 @@
+{% extends "templates/base.jinja2" %}
+{% block head %}<link rel='stylesheet' href="/static/css/dateRangeSlider.css"> {% endblock %}
+{% block title %}Advanced Search{% endblock %}
+{% block js %}
+<script type="text/javascript" src="/static/js/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="/static/js/jquery-ui-1.8.14.custom.min.js"></script>
+<script type="text/javascript" src="/static/js/jQRangeSlider.js"></script>
+<script type="text/javascript" src="/static/js/jQDateRangeSlider.js"></script>
+<script type="text/javascript">
+var currentMinDate = "";
+var currentMaxDate = "";
+function updateValues(event, ui){
+	displayValues(ui.label, ui.values)
+}
+function formatDate(date_obj){
+	var month = date_obj.getUTCMonth() + 1;
+	var day = date_obj.getUTCDate();
+	return "" + date_obj.getFullYear() + "-" + (month < 10 ? "0" + month : month) + "-" + (day < 10 ? "0" + day : day);
+}
+function displayValues(slider, values){
+	if (values.min instanceof Date) {
+    	slider.parents("form").find("input[name=search_date_min]").val(formatDate(values.min));
+    	slider.parents("form").find("input[name=search_date_max]").val(formatDate(values.max));
+		currentMinDate = $("input[name=search_date_min]").val();
+		currentMaxDate = $("input[name=search_date_max]").val();
+    }
+}
+
+var upperBound = new Date();
+var lowerBound = new Date(1980,0,1);
+upperBound.setDate(upperBound.getDate() + 1095);
+var yearsApart = $.datepicker.formatDate("yy",upperBound) - $.datepicker.formatDate("yy", lowerBound);
+$(document).ready(function() {
+        $("#defaultDateSlider").dateRangeSlider({
+			defaultValues:{min:new Date(1982,0,1), max:new Date()},
+			bounds:{min: lowerBound, max: upperBound},
+            valueLabels: "hide",
+			arrows: false,
+			formatter: function(value){
+    			var month = value.getMonth() + 1;
+    			return "" + value.getFullYear() + "-" + (month < 10 ? "0" + month : month);
+  			},
+		})
+		.bind("valuesChanging", function(event, ui){updateValues(event, ui)});
+
+		$("input[name=search_date_min]").focus(function(even, ui){
+			currentMinDate = $(this).val();
+		});
+		$("input[name=search_date_max]").focus(function(even, ui){
+			currentMaxDate = $(this).val();
+		});
+		$("input[name=search_date_min]").change(function(event, ui){
+			var newDate = new Date($(this).val());
+			if (newDate < upperBound && newDate > lowerBound){
+				$("#defaultDateSlider").dateRangeSlider("min", newDate);
+			}else{
+				$(this).val(currentMinDate);
+			}
+		});
+			
+		$("input[name=search_date_max]").change(function(event, ui){
+			newDate = new Date($(this).val());
+			if (newDate < upperBound && newDate > lowerBound){
+				$("#defaultDateSlider").dateRangeSlider("max", newDate);
+			}else{
+				$(this).val(currentMaxDate);
+			}
+		});
+
+		$("#timeline1").html($.datepicker.formatDate("yy",lowerBound));
+		$("#timeline2").html($.datepicker.formatDate("yy",lowerBound) - - Math.ceil(yearsApart*0.2));
+		$("#timeline3").html($.datepicker.formatDate("yy",lowerBound) - - Math.ceil(yearsApart*0.45));
+		$("#timeline4").html($.datepicker.formatDate("yy",lowerBound) - - Math.ceil(yearsApart*0.70));
+		$("#timeline5").html($.datepicker.formatDate("yy",upperBound));
+});
+		</script>
+{% endblock %}
+{% block content %}
+  {% call h.boxed('Advanced Search') -%}
+<div id="search_advanced">
+<h2>Find things that contain the following:</h2>
+  <form name="advanced_search" action="/search" method="POST">
+    <table>
+      <tr>
+        <td><label for="search_line">Line Number</label></td>
+        <td><input type="text" placeholder="ALL" size="35" name="line" id="search_line" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_expocode">ExpoCode</label></td>
+        <td><input type="text" placeholder="ALL" size="35" name="expocode" id="search_expocode" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_ship">Ship</label></td>
+        <td><input type="text" placeholder="ALL" size="35" name="ship" id="search_ship" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_people">People</label></td>
+        <td><input type="text" placeholder="ALL" size="35" name="people" id="search_people" /></td>
+      </tr>
+      <tr>
+        <td><label for="search_country">Country</label></td>
+        <td><input type="text" placeholder="ALL" size="35" name="country" id="search_country" /></td>
+      </tr>
+    </table>
+    <h2>Between the following dates:</h2>
+<div id="search_advanced_date" style="position:relative; left:10px">
+	<span>
+		<input type="text" name="search_date_min" value="1982-01-01"/>
+	</span>
+	<span id="date_to_date">TO</span>
+	<span style="position:absolute;right:0px;">
+		<input type="text" name="search_date_max" value="2011-07-15"/>
+	</span>
+	<br /><br />
+   <div id="defaultDateSlider" class="dateSlider"></div> 
+		<span id="timeline1"></span>
+		<span id="timeline2" style="position:absolute; right:75%"></span>
+		<span id="timeline3" style="position:absolute; right:50%;"></span>
+		<span id="timeline4" style="position:absolute; right:25%"></span>
+		<span id="timeline5" style="position:absolute; right:0px;"></span>
+	</div>
+    <br />
+    <input type="submit" value="Search" />
+   </form>
+Some better text here
+</div>
+  {%- endcall %}
+{% endblock %}

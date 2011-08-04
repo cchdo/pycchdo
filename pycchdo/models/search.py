@@ -9,7 +9,8 @@ import logging
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME
 from whoosh.writing import BufferedWriter
-from whoosh.qparser import QueryParser, MultifieldParser, OrGroup
+from whoosh.qparser import QueryParser, MultifieldParser, OrGroup, FieldAliasPlugin
+from whoosh.qparser.dateparse import DateParserPlugin
 
 import triggers
 import models
@@ -41,10 +42,10 @@ _name_model = {
 
 _schemas = {
     'cruise': Schema(
-        names=KEYWORD(lowercase=True),
+        names=KEYWORD(lowercase=True, commas=True),
         date_start=DATETIME,
         date_end=DATETIME,
-        status=KEYWORD(lowercase=True),
+        status=KEYWORD(lowercase=True, commas=True),
         mtime=STORED,
         id=ID(stored=True, unique=True),
         ),
@@ -60,7 +61,7 @@ _schemas = {
         id=ID(stored=True, unique=True),
         ),
     'country': Schema(
-        names=KEYWORD(lowercase=True),
+        names=KEYWORD(lowercase=True, commas=True),
         mtime=STORED,
         id=ID(stored=True, unique=True),
         ),
@@ -71,7 +72,7 @@ _schemas = {
         id=ID(stored=True, unique=True),
         ),
     'collection': Schema(
-        names=KEYWORD(lowercase=True),
+        names=KEYWORD(lowercase=True, commas=True),
         mtime=STORED,
         id=ID(stored=True, unique=True),
         ),
@@ -84,6 +85,37 @@ _schemas = {
         id=ID(stored=True, unique=True),
         ),
 }
+
+
+_field_aliases = {
+    'cruise': {'names': ['expocode', 'alias', 'aliases'], 'date_start': ['from'], 'date_end': ['to']},
+    'person': {'name': ['people', 'person']},
+    'ship': {'name': ['ship']},
+    'country': {'names': ['country']},
+    'institution': {'name': ['institution']},
+    'collection': {'names': ['group', 'line', 'collection']},
+    'note': {},
+}
+
+
+def _create_parsers(schemas):
+    parsers = {}
+    for name, schema in schemas.items():
+        fields = list(set(schema.names()) - set(('id', 'mtime', )))
+        if len(fields) > 1:
+            parser = MultifieldParser(fields, schema=schema, group=OrGroup)
+        elif len(fields) is 1:
+            parser = QueryParser(fields[0], schema=schema, group=OrGroup)
+        else:
+            continue
+        parser.add_plugin(FieldAliasPlugin(_field_aliases[name]))
+        if name == 'cruise':
+            parser.add_plugin(DateParserPlugin())
+        parsers[name] = parser
+    return parsers
+
+
+_parsers = _create_parsers(_schemas)
 
 
 def _ensure_index_dir():
@@ -302,14 +334,7 @@ def search(query_string):
     """
     results = {}
     for name, schema in _schemas.items():
-        fields = list(set(schema.names()) - set(('id', 'mtime', )))
-        if len(fields) > 1:
-            parser = MultifieldParser(fields, schema=schema, group=OrGroup)
-        elif len(fields) is 1:
-            parser = QueryParser(fields[0], schema=schema, group=OrGroup)
-        else:
-            return None
-        q = parser.parse(query_string)
+        q = _parsers[name].parse(query_string)
         ix = open_or_create_index(name)
         with ix.searcher() as searcher:
             try:

@@ -10,8 +10,8 @@ CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 requires = [
     'pyramid',
     'pyramid_jinja2',
-    'webhelpers',
     'transaction',
+    'webhelpers',
     'repoze.tm2>=1.0b1', # default_commit_veto
     'WebError',
     ]

@@ -1,9 +1,6 @@
 .DS_Store
 *.pyc
-<<<<<<< HEAD
 .idea
-.gitignore
-=======
 *.pyo
 *.egg-info
 *.egg
@@ -20,4 +17,3 @@ dist
 .installed.cfg
 .mr.developer.cfg
 *.tmp*
->>>>>>> a12817ec2c9756807dbc3744b31c822e139f3d76

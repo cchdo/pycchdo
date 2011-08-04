@@ -106,6 +106,10 @@ def main(global_config, **settings):
     obj_routes(config, 'institution')
     obj_routes(config, 'ship')
 
+    # Ocean lists
+    config.add_route('by_ocean_show', '/by_ocean/*basin')
+    config.add_view('pycchdo.views.by_ocean.by_ocean_show', route_name='by_ocean_show', renderer='templates/base.jinja2')
+
 	# Search routes
     config.add_route('search','/search')
     config.add_view('pycchdo.views.search.search', route_name='search')
@@ -127,9 +131,5 @@ def main(global_config, **settings):
 	# catchall_static must be last route
     config.add_route('catchall_static', '/*subpath')
     config.add_view('pycchdo.views.catchall_static', route_name='catchall_static', renderer='templates/base.jinja2')
-
-    #XXX 2011-08-01 12:04:11 ayshen +4a
-    config.add_route('by_ocean_show', '/by_ocean/*basin')
-    config.add_view('pycchdo.views.by_ocean.by_ocean_show', route_name='by_ocean_show', renderer='templates/base.jinja2')
 
     return config.make_wsgi_app()

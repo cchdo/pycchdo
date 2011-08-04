@@ -1,7 +1,7 @@
 #XXX 2011-08-01 11:37:33 ayshen
 import os
 
-import pyramid.httpexceptions.HTTPNotFound
+from pyramid.httpexceptions import HTTPNotFound
 import pycchdo.models
 
 

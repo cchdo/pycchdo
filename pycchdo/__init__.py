@@ -107,17 +107,17 @@ def main(global_config, **settings):
     obj_routes(config, 'ship')
 
     # Ocean lists
-    config.add_route('by_ocean_show', '/by_ocean/*basin')
+    config.add_route('by_ocean_show', '/ocean/*basin') # /basin/*basin ?
     config.add_view('pycchdo.views.by_ocean.by_ocean_show', route_name='by_ocean_show', renderer='templates/base.jinja2')
 
 	# Search routes
-    config.add_route('search','/search')
+    config.add_route('search', '/search')
     config.add_view('pycchdo.views.search.search', route_name='search')
 
     config.add_route('search_results', '/search/results')
     config.add_view('pycchdo.views.search.search_results', route_name='search_results')
 
-    config.add_route('advanced_search','/search/advanced')
+    config.add_route('advanced_search', '/search/advanced')
 
     # maintain legacy URLs
     config.add_route('data_access','/data_access')

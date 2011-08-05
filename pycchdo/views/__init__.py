@@ -6,8 +6,11 @@ from pyramid.httpexceptions import HTTPNotFound
 import pycchdo.models as models
 
 
-__all__ = ['_collapsed_dict', '_http_method', '_unescape'] + \
-          ['home', 'clear_db', 'submit', 'data', 'catchall_static']
+__all__ = [
+    '_collapsed_dict', '_http_method', '_unescape',
+    'favicon', 'robots', 'home', 'clear_db', 'submit', 'data',
+    'catchall_static', 
+    ]
 
 
 def _collapsed_dict(d, n=None):
@@ -39,14 +42,40 @@ def _unescape(s, escape='\\'):
     return s
 
 
+_static_root = os.path.join(os.path.dirname(__file__), '..', 'static')
+
+try:
+    _favicon = open(os.path.join(_static_root, 'favicon.ico')).read()
+    _favicon_response = Response(content_type='image/x-icon', body=_favicon)
+except IOError:
+    _favicon_response = HTTPNotFound()
+
+try:
+    _robots = open(os.path.join(_static_root, 'robots.txt')).read()
+    _robots_response = Response(content_type='text/plain', body=_robots)
+except IOError:
+    _robots_response = HTTPNotFound()
+
+
+def favicon(context, request):
+    return _favicon_response
+
+
+def robots(context, request):
+    return _favicon_response
+
+
 def home(request):
     return {}
 
 
 def clear_db(request):
     # XXX REMOVE
-    models.cchdo().objs.drop()
-    models.cchdo().attrs.drop()
+    cchdo = models.cchdo()
+    for obj in cchdo.objs.find():
+        if obj['_obj_type'] != 'Person':
+            cchdo.objs.remove(obj)
+    cchdo.attrs.drop()
     return Response('OK')
 
 

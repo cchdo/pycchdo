@@ -28,7 +28,7 @@ def cruise_show(request):
 
         def getAttr(cruise_obj, type):
             id = None
-            for c in cruise_obj.attrs.accepted_changes:
+            for c in cruise_obj.attrs.accepted_changes():
                 if c['key'] == type:
                     id = c['_id']
             return models.Attr.get_id(id)

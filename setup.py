@@ -12,6 +12,7 @@ requires = [
     'pyramid_jinja2',
     'transaction',
     'webhelpers',
+    'whoosh',
     'repoze.tm2>=1.0b1', # default_commit_veto
     'WebError',
     ]

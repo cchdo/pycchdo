@@ -90,11 +90,11 @@ class TestModel(unittest.TestCase):
         from pycchdo.models import Obj, Attr
         o = Obj(self.testPerson)
         o.save()
-        self.assertEquals([], o.attrs.accepted_changes)
+        self.assertEquals([], o.attrs.accepted_changes())
         o.attrs.set('a', 'b', self.testPerson)
-        self.assertEquals([], o.attrs.accepted_changes)
+        self.assertEquals([], o.attrs.accepted_changes())
         Attr.map_mongo(o.attrs.history()[0]).accept(self.testPerson)
-        self.assertEquals([o.attrs.history()[0]], o.attrs.accepted_changes)
+        self.assertEquals([o.attrs.history()[0]], o.attrs.accepted_changes())
         o.remove()
 
     def test_Attrs_keys(self):
@@ -158,7 +158,7 @@ class TestModel(unittest.TestCase):
         Attr.map_mongo(attrs.history(key, value='0'))[0].accept(self.testPerson)
         self.assertEquals(attrs[key], '0')
         attrs.delete(key, self.testPerson)
-        attrs.unacknowledged_changes[0].accept(self.testPerson)
+        attrs.unacknowledged_changes()[0].accept(self.testPerson)
         self.assertRaises(KeyError, lambda: attrs[key])
 
         obj.remove()
@@ -199,12 +199,12 @@ class TestModel(unittest.TestCase):
         value1 = '1'
         attrs.set(key, value1, self.testPerson)
         self.assertEquals(attrs[key], value)
-        attrs.unacknowledged_changes[0].accept(self.testPerson)
+        attrs.unacknowledged_changes()[0].accept(self.testPerson)
         self.assertEquals(attrs[key], value1)
 
         attrs.delete(key, self.testPerson)
         self.assertEquals(attrs[key], value1)
-        attrs.unacknowledged_changes[0].accept(self.testPerson)
+        attrs.unacknowledged_changes()[0].accept(self.testPerson)
         self.assertRaises(KeyError, lambda: attrs[key])
 
         obj.remove()

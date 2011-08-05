@@ -68,6 +68,12 @@ def main(global_config, **settings):
     config.include('pyramid_jinja2')
     config.add_subscriber(add_renderer_globals, BeforeRender)
 
+    # Serve static files from root
+    config.add_route('favicon', '/favicon.ico')
+    config.add_view('pycchdo.views.favicon', route_name='favicon')
+    config.add_route('robots', '/robots.txt')
+    config.add_view('pycchdo.views.robots', route_name='robots')
+
     config.add_static_view('static', 'pycchdo:static')
 
     config.add_route('home', '/')
@@ -115,7 +121,7 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search.search', route_name='search')
 
     config.add_route('search_results', '/search/results')
-    config.add_view('pycchdo.views.search.search_results', route_name='search_results')
+    config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
 
     config.add_route('advanced_search', '/search/advanced')
 

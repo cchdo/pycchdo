@@ -1,7 +1,10 @@
 import urllib
+import re
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest
+
+from ..models import search as searcher
 
 
 def advanced_search(request):
@@ -11,9 +14,20 @@ def advanced_search(request):
 
 def search_results(request):
     query = request.params.get('query', None)
+
+    request.session['query'] = query
+
     if not query:
-        return HTTPBadRequest()
-    return Response(str(query))
+        return HTTPSeeOther(location='/search/advanced')
+    return {'query': query,
+            'results': searcher.search(unicode(query))}
+
+
+def _quote(str):
+    """ URL quoted keyword argument for query """
+    if re.search('\s', str):
+        str = '"%s"' % str
+    return urllib.quote_plus(str)
 
 
 def search(request):
@@ -22,22 +36,23 @@ def search(request):
     if not params: 
         return HTTPMovedPermanently(location='/search/advanced') 
 
-    query = ''
+    queries = []
     if 'query' in params:
         return HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
     if params.get('line'): 
-        query = query + "line:" + urllib.quote_plus(params['line']) + '+'
+        queries.append("line:" + _quote(params['line']))
     if params.get('expocode'): 
-        query = query + "expocode:" + urllib.quote_plus(params['expocode']) + '+'
+        queries.append("expocode:" + _quote(params['expocode']))
     if params.get('ship'):
-        query = query + "ship:" + urllib.quote_plus(params['ship']) + '+'
+        queries.append("ship:" + _quote(params['ship']))
     if params.get('people'):
-        query = query + "people:" + urllib.quote_plus(params['people']) + '+'
+        queries.append("people:" + _quote(params['people']))
     if params.get('country'):
-        query = query + "country:" + urllib.quote_plus(params['country']) + '+'
+        queries.append("country:" + _quote(params['country']))
     if params.get('search_date_min'):
-        query = query + "from:" + urllib.quote_plus(params['search_date_min']) + '+'
+        queries.append("from:" + _quote(params['search_date_min']))
     if params.get('search_date_max'):
-        query = query + "to:" + urllib.quote_plus(params['search_date_min']) + '+'
+        queries.append("to:" + _quote(params['search_date_max']))
+    query = '+'.join(queries)
     return HTTPSeeOther(location='/search/results?query=%s'%(query))
 

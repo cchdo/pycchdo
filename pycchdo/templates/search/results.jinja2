@@ -1,0 +1,10 @@
+{% extends "templates/base.jinja2" %}
+{% block content -%}
+  {% call h.boxed('Search results for "%s"' % query) -%}
+    <table>
+    {% for k, v in results.items() -%}
+      <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+    {% endfor %}
+    </table>
+  {%- endcall %}
+{%- endblock %}

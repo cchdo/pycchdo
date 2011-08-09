@@ -4,12 +4,18 @@ import datetime
 from pyramid.config import Configurator
 from pyramid import testing
 
+import shapely.geometry.linestring
+import shapely.geometry.polygon
+
+import pycchdo.models as M
+from pycchdo.models.models import collectablemongodoc, Stamp, Obj, _Change, \
+                                  _Attrs, Attr, Note, Country, Cruise, Person
 
 def global_setUp(self):
-    from pycchdo.models import Person
-    import pycchdo.models
-    pycchdo.models.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018'})
     self.config = testing.setUp()
+    M.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018/?journal=true&wtimeout=300'})
+    M.cchdo().objs.drop()
+    M.cchdo().attrs.drop()
     self.testPerson = Person(identifier='testid')
     self.testPerson.save()
 
@@ -33,14 +39,12 @@ class TestModel(unittest.TestCase):
 
     def test_Stamp_requires_saved_Person(self):
         """ Stamp requires a saved Person. """
-        from pycchdo.models import Stamp, Person
         p = Person(identifier='testid1')
         Stamp(self.testPerson)
         self.assertRaises(ValueError, lambda: Stamp(p))
 
     def test_new_Change(self):
         """ Newly created objects have correct values for stamps and notes """
-        from pycchdo.models import _Change
         before = datetime.datetime.utcnow()
         change = _Change(self.testPerson)
         after = datetime.datetime.utcnow()
@@ -51,7 +55,6 @@ class TestModel(unittest.TestCase):
         self.assertFalse(change['accepted'])
         self.assertTrue(change['note'] is None)
 
-        from pycchdo.models import Note
         change1 = _Change(self.testPerson, note=Note('body', 'action', 'data_type', 'subject'))
         self.assertEqual(change1['note']['action'], 'action')
         self.assertEqual(change1['note']['data_type'], 'data_type')
@@ -60,7 +63,6 @@ class TestModel(unittest.TestCase):
 
     def test_accept_Change(self):
         """ Acceptance of _Change """
-        from pycchdo.models import _Change, Person
         change = _Change(self.testPerson)
         change.accept(self.testPerson)
         self.assertTrue(change.is_accepted())
@@ -69,7 +71,6 @@ class TestModel(unittest.TestCase):
 
     def test_reject_Change(self):
         """ Rejection of _Change """
-        from pycchdo.models import _Change, Person
         change = _Change(self.testPerson)
         change.reject(self.testPerson)
         self.assertTrue(change.is_rejected())
@@ -78,7 +79,6 @@ class TestModel(unittest.TestCase):
 
     def test_acknowledge_Change(self):
         """ Acknowledgement of _Change """
-        from pycchdo.models import _Change
         change = _Change(self.testPerson)
         change.acknowledge(self.testPerson)
         self.assertTrue(change.is_acknowledged())
@@ -87,7 +87,6 @@ class TestModel(unittest.TestCase):
 
     def test_Attrs_accepted_changes(self):
         """ Accepted changes """
-        from pycchdo.models import Obj, Attr
         o = Obj(self.testPerson)
         o.save()
         self.assertEquals([], o.attrs.accepted_changes())
@@ -99,7 +98,6 @@ class TestModel(unittest.TestCase):
 
     def test_Attrs_keys(self):
         """ Accepted keys """
-        from pycchdo.models import Obj, Attr
         o = Obj(self.testPerson)
         o.save()
         self.assertEquals([], o.attrs.keys())
@@ -110,7 +108,6 @@ class TestModel(unittest.TestCase):
 
     def test_get_Obj_Attrs(self):
         """ Obj should always return an _Attrs dict """
-        from pycchdo.models import Obj, _Attrs
         obj = Obj(self.testPerson)
         attrs = obj.attrs
         self.assertTrue(isinstance(attrs, _Attrs))
@@ -120,7 +117,6 @@ class TestModel(unittest.TestCase):
         responsible (i.e. using Python data model) to prevent misleading.
         
         """
-        from pycchdo.models import Obj, Attr
         obj = Obj(self.testPerson)
         obj.save()
 
@@ -139,7 +135,6 @@ class TestModel(unittest.TestCase):
         value.
 
         """
-        from pycchdo.models import Obj, Attr
         obj = Obj(self.testPerson)
         obj.save()
 
@@ -165,7 +160,6 @@ class TestModel(unittest.TestCase):
 
     def test_Attrs_get_default(self):
         """ Getting a non-existant value should return default. """
-        from pycchdo.models import Obj, Attr
         obj = Obj(self.testPerson)
         obj.save()
 
@@ -182,7 +176,6 @@ class TestModel(unittest.TestCase):
         The latest accepted key value pair should be the value.
         
         """
-        from pycchdo.models import Obj, Attr
         obj = Obj(self.testPerson)
         obj.save()
         attrs = obj.attrs
@@ -216,27 +209,27 @@ class TestModel(unittest.TestCase):
         This maintains the history of the Attr and differentiates a None
         value and deletion.
         """
-        from pycchdo.models import _Attrs
-        a = _Attrs({'_id': 'testid'})
+        obj = Obj(self.testPerson)
+        obj.save()
+        a = obj.attrs
 
         a.set('a', 'b', self.testPerson).accept(self.testPerson)
         self.assertTrue('a' in a.keys())
         a.delete('a', self.testPerson).accept(self.testPerson)
+        # TODO intermittent error
         self.assertFalse('a' in a.current_pairs)
         self.assertFalse('a' in a.keys())
 
-        a.remove()
+        obj.remove()
 
     def test_new_Obj(self):
         """ New Objs are instances of _Change """
-        from pycchdo.models import Obj, _Change
         obj = Obj(self.testPerson)
         self.assertTrue(isinstance(obj, _Change))
         self.assertEqual(obj['_obj_type'], 'Obj')
 
     def test_remove_Obj(self):
         """ Removing an Obj also removes all Attrs it is associated with. """
-        from pycchdo.models import Obj, Attr
         obj = Obj(self.testPerson)
         obj.save()
         attr = Attr(self.testPerson, 'a', '0', obj['_id'])
@@ -248,7 +241,6 @@ class TestModel(unittest.TestCase):
     def test_Obj_has_obj_type(self):
         """ Objs are required to have an _obj_type key that is just the class
         name """
-        from pycchdo.models import Obj, Person
         obj = Obj(self.testPerson)
         obj.save()
         self.assertEqual(Obj.__name__, obj['_obj_type'])
@@ -261,7 +253,6 @@ class TestModel(unittest.TestCase):
         Consider a Cruise gets email or someone would like to make an arbitrary
         note about an Institution but aren't sure of its validity.
         """
-        from pycchdo.models import Obj, Attr, Note
         obj = Obj(self.testPerson)
         obj.save()
         try:
@@ -279,13 +270,11 @@ class TestModel(unittest.TestCase):
 
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """
-        from pycchdo.models import Attr, _Change
         attr = Attr(self.testPerson)
         self.assertTrue(isinstance(attr, _Change))
 
     def test_Person_new(self):
         """ New people are Objs """
-        from pycchdo.models import Person, Obj
         p = Person(name_first="Ryan", name_last="Tester",
                    institution="Test University", country="Testland",
                    email="test@test.com")
@@ -295,7 +284,6 @@ class TestModel(unittest.TestCase):
         """ A new Person without an ID must supply their first and last name,
         institution, country, and email.
         """
-        from pycchdo.models import Person
         # Missing name_first
         self.assertRaises(ValueError, lambda: Person(
             name_last="Tester",
@@ -324,7 +312,6 @@ class TestModel(unittest.TestCase):
 
     def test_Person_new_with_id(self):
         """ A Person with an ID can supply their own information """
-        from pycchdo.models import Person
         p = Person(identifier='testid', name_first="Ryan", name_last="Tester",
                    institution="Test University", country="Testland",
                    email="test@test.com")
@@ -338,7 +325,6 @@ class TestModel(unittest.TestCase):
     def test_Person_is_verified(self):
         """ If they are associated with an ID provider then they are verified
         """
-        from pycchdo.models import Person
         p = Person(name_first="Ryan", name_last="Tester",
                    institution="Test University", country="Testland",
                    email="test@test.com")
@@ -348,31 +334,26 @@ class TestModel(unittest.TestCase):
 
     def test_Person_is_required_for_stamp(self):
         """ Stamps are required to be signed off by a Person """
-        from pycchdo.models import Person, Stamp
         self.assertRaises(TypeError, lambda: Stamp())
         self.assertRaises(TypeError, lambda: Stamp(None))
         Stamp(self.testPerson)
 
     def test_collectablemongodoc_find_id_with_invalid_id_raises_ValueError(self):
         """ Attempting to find an invalid collectablemongodoc raises ValueError. """
-        from pycchdo.models import collectablemongodoc
         self.assertRaises(ValueError, lambda: collectablemongodoc.find_id('invalid_object_id'))
 
     def test_Obj_map_mongo(self):
         """ An Obj mapped from a mongo doc will have the correct _obj_type """
-        from pycchdo.models import Obj
         id = self.testPerson['_id']
         o = Obj.get_id(id)
         self.assertEquals(o['_obj_type'], 'Person')
 
     def test_Obj_find_id_with_invalid_id_returns_None(self):
         """ Attempting to find an invalid ObjectId returns None. """
-        from pycchdo.models import Obj
         self.assertEquals(None, Obj.find_id('invalid_object_id'))
 
     def test_Obj_finders_find_Objs(self):
         """ Obj finders should find Objs based on their class """
-        from pycchdo.models import Obj, Person
         obj = Obj(self.testPerson)
         obj.save()
         self.assertTrue(Obj.find_one({'_id': obj['_id']}) != None)
@@ -381,7 +362,6 @@ class TestModel(unittest.TestCase):
 
     def test_Change_stamp_properties(self):
         """ The properties for _Changes corresponding to stamps should return a mapped object """
-        from pycchdo.models import Obj, Stamp
         obj = Obj(self.testPerson)
         obj.save()
         self.assertTrue(type(obj.creation_stamp) is Stamp)
@@ -394,7 +374,6 @@ class TestModel(unittest.TestCase):
         obj.remove()
 
     def test_new_Attr_returns_Attr(self):
-        from pycchdo.models import Obj, Attr
         obj = Obj(self.testPerson)
         obj.save()
         self.assertTrue(type(obj.attrs.set('a', 'v', self.testPerson)) is Attr)
@@ -402,7 +381,6 @@ class TestModel(unittest.TestCase):
 
     def test_Attr_list(self):
         """ Setting a list on an Obj's attrs stores a list """
-        from pycchdo.models import Obj
         obj = Obj(self.testPerson)
         obj.save()
 
@@ -422,7 +400,6 @@ class TestModel(unittest.TestCase):
         given
             a MIME type.
         """
-        from pycchdo.models import Obj, Attr
         from StringIO import StringIO
         obj = Obj(self.testPerson)
         obj.save()
@@ -438,7 +415,6 @@ class TestModel(unittest.TestCase):
 
     def test_Attr_file_creation(self):
         """ Creating a Attr with a file stores the file in an object store. """
-        from pycchdo.models import Attr
         from StringIO import StringIO
         file_data = StringIO('this is a test file object\nwith two lines')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
@@ -451,18 +427,64 @@ class TestModel(unittest.TestCase):
         self.assertEquals(d.file.read(), file.file.read())
         d.remove()
 
+    def test_Attr_track_suggesting(self):
+        """ Setting an Attr to a track saves the value in track.
+        """
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.attrs.set('track', [[32, -117], [33, 118]], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a) is Attr)
+        self.assertTrue(a['track'])
+        obj.remove()
+
     def test_Cruise_has_country(self):
         """ Get a Cruise's country """
-        from pycchdo.models import Cruise, Country
         c = Cruise(self.testPerson)
         c.save()
         country = Country(self.testPerson)
         country.save()
-        c.attrs.set('country', country['_id'], self.testPerson).accept(self.testPerson)
+        c.attrs.set('country', country.id, self.testPerson).accept(self.testPerson)
         self.assertTrue(c.country is not None)
-        self.assertTrue(c.country['_id'], country['_id'])
+        self.assertTrue(c.country().id, country.id)
         country.remove()
         c.remove()
+
+    def test_Cruise_track(self):
+        """ Getting a Cruise's track either gives None or a
+        shapely.geometry.linestring.LineString
+        
+        """
+        c = Cruise(self.testPerson)
+        c.save()
+        t = c.track()
+        self.assertTrue(t is None)
+        c.attrs.set('track', [[0, 0], [1, 1]], self.testPerson).accept(self.testPerson)
+        t = c.track()
+        self.assertTrue(t is not None)
+        self.assertTrue(type(t) is shapely.geometry.linestring.LineString)
+        c.remove()
+
+    def test_Cruise_filter_geo(self):
+        """ Filter a list of Cruises by a geo function """
+        c0 = Cruise(self.testPerson)
+        c0.save()
+        c0.attrs.set('track', [[0, 0], [0, 1]], self.testPerson).accept(self.testPerson)
+        c1 = Cruise(self.testPerson)
+        c1.save()
+        c1.attrs.set('track', [[2, 0], [3, 1]], self.testPerson).accept(self.testPerson)
+
+        cs = Cruise.map_mongo(Cruise.all())
+
+        p0 = shapely.geometry.polygon.Polygon([[-1, -1], [-1, 2], [4, 2], [4, -1], [-1, -1]])
+        p1 = shapely.geometry.polygon.Polygon([[1, -1], [1, 2], [4, 2], [4, -1], [1, -1]])
+
+        self.assertEquals(Cruise.filter_geo(p0.intersects, cs), cs)
+        self.assertEquals(Cruise.filter_geo(p1.intersects, cs), [cs[1]])
+
+        c0.remove()
+        c1.remove()
 
 
 class TestHelper(unittest.TestCase):
@@ -471,7 +493,6 @@ class TestHelper(unittest.TestCase):
 
     def test_helper_data_file_link(self):
         """ Given an Attr with a file, provide a link to a file next to its description """
-        from pycchdo.models import Attr
         from pycchdo.helpers import data_file_link
         from StringIO import StringIO
         file_data = StringIO('')

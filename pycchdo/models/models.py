@@ -4,6 +4,9 @@ import pymongo
 from pymongo.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
+from shapely.geometry import linestring
+from geojson import LineString
+
 import gridfs
 
 import triggers
@@ -22,12 +25,15 @@ data_file_descriptions = {
 }
 
 
-def init_conn(settings):
+def init_conn(settings, **kwargs):
     global mongo_conn
     try:
-        mongo_conn = pymongo.Connection(settings['db_uri'])
+        mongo_conn = pymongo.Connection(settings['db_uri'], **kwargs)
     except pymongo.errors.AutoReconnect:
         raise IOError('Unable to connect to database. Check that the database server is running.')
+
+    # TODO This requires MongoDB 1.9+
+    #cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
 
 
 def cchdo():
@@ -53,8 +59,8 @@ def ensure_objectid(idobj):
     return idobj
 
 
-def _sort_by_creation(query):
-    return query.sort('creation_stamp.timestamp', pymongo.DESCENDING)
+def _sort_by_stamp(query, stamp='creation'):
+    return query.sort('%s_stamp.timestamp' % stamp, pymongo.DESCENDING)
 
 
 class mongodoc(dict):
@@ -165,10 +171,7 @@ class collectablemongodoc(mongodoc):
 
     @property
     def id(self):
-        try:
-            return self['_id']
-        except KeyError:
-            return None
+        return self['_id']
 
     @id.setter
     def id(self, value):
@@ -307,32 +310,58 @@ class Attr(_Change):
 
     def from_mongo(self, doc):
         super(Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('key', 'value', 'file', 'obj', 'note', 'deleted', ))
+        self.copy_keys_from(doc, ('key', 'value', 'file', 'track', 'obj', 'note', 'deleted', ))
         return self
 
     def set(self, key, value):
-        """ Sets the key and value. Special case when value is a file-like
-        object.
+        """ Sets the key and value.
+        
+        Special cases:
+        
+        * value is a file-like object
+          Attempts to store the file in the filesystem and stores the id in the
+          'file' attribute.
+        * key is track
+          Stores the value (which must be a GeoJSON linestring coordinate list)
+          in the 'track' attribute.
 
-        Attempts to store the file in the filesystem and stores the id in the
-        'file' attribute
         """
         self['key'] = key
-        self['file'] = False
+        self['file'] = None
+        self['track'] = None
         self['value'] = None
+
+        if key == 'track':
+            if type(value) is LineString:
+                value = value.coordinates
+            else:
+                assert not isinstance(value, str)
+                for i, c in enumerate(value):
+                    assert not isinstance(c, str)
+                    assert len(c) is 2
+                    try:
+                        float(c[0])
+                        float(c[1])
+                    except ValueError:
+                        raise TypeError('Coordinate list must contain numbers.'
+                                        ' Element %d does not' % i)
+            self['track'] = value
+            return
         try:
-            value.filename
             try:
                 gridfile = fs().put(value.file, filename=value.filename, contentType=value.type)
             except Exception, e:
                 raise e
-            self['value'] = gridfile
-            self['file'] = True
+            self['file'] = gridfile
         except AttributeError:
             self['value'] = value
 
+    # TODO instead of is_data just check for presence of data
     def is_data(self):
         return self['file']
+
+    def is_track(self):
+        return self['track']
 
     def is_note(self):
         return self['key'] is None and self['value'] is None and self['note'] is not None
@@ -342,23 +371,46 @@ class Attr(_Change):
         return cls.find({'file': {'$exists': True}})
 
     @classmethod
+    def all_track(cls):
+        return cls.find({'track': {'$exists': True}})
+
+    @classmethod
     def all_notes(cls):
         return cls.find({'key': None, 'value': None, 'note': {'$exists': True}})
+
+    @property
+    def track(self):
+        if not self.is_track():
+            return None
+        return self['track']
 
     @property
     def file(self):
         if not self.is_data():
             return None
-        return fs().get(self['value'])
+        return fs().get(self['file'])
+
+    @property
+    def value(self):
+        if self['deleted']:
+            raise KeyError(self['key'])
+        if self.is_data():
+            return self['file']
+        elif self.is_track():
+            return self['track']
+        else:
+            return self['value']
 
     def delete_file(self):
         if not self.is_data():
             return
-        fs().delete(self['value'])
+        fs().delete(self['file'])
 
     def remove(self):
         self.delete_file()
         super(Attr, self).remove()
+        if self.is_note():
+            triggers.saved_note(self)
 
 
 class _Attrs(dict):
@@ -373,7 +425,7 @@ class _Attrs(dict):
         return Attr.find(query)
 
     def unacknowledged_changes(self):
-        return Attr.map_mongo(_sort_by_creation(Attr.find({
+        return Attr.map_mongo(_sort_by_stamp(Attr.find({
             'obj': self._obj.id, 'pending_stamp': None,
             'judgment_stamp': None})))
 
@@ -383,7 +435,7 @@ class _Attrs(dict):
             'accepted': False}))
 
     def accepted_changes(self):
-        return Attr.map_mongo(_sort_by_creation(Attr.find(
+        return Attr.map_mongo(_sort_by_stamp(Attr.find(
             {'obj': self._obj.id, 'accepted': True})))
 
     def notes(self):
@@ -405,14 +457,14 @@ class _Attrs(dict):
     def keys(self):
         return self.current_pairs.keys()
 
-    def __getitem__(self, key):
-        attrs = _sort_by_creation(self.history(key, accepted=True))
+    def get_attr(self, key):
+        attrs = _sort_by_stamp(self.history(key, accepted=True), stamp='judgment')
         if attrs.count(True) > 0:
-            attr = Attr.map_mongo(attrs.limit(1))[0]
-            if attr['deleted']:
-                raise KeyError(key)
-            return attr['value']
+            return Attr.map_mongo(attrs.limit(1))[0]
         raise KeyError(key)
+
+    def __getitem__(self, key):
+        return self.get_attr(key).value
 
     def get(self, key, default=None):
         try:
@@ -445,11 +497,8 @@ class _Attrs(dict):
             triggers.saved_note(self)
 
     def remove(self):
-        super(Attr, self).remove()
         for attr in Attr.map_mongo(self.history()):
             attr.remove()
-        if self.is_note():
-            triggers.saved_note(self)
 
 
 class Obj(_Change):
@@ -656,9 +705,19 @@ class Cruise(Obj):
     def chief_scientists(self):
         return self.participants('chief_scientist')
 
+    def track(self):
+        track = self.attrs.get('track', None)
+        if not track:
+            return track
+        return linestring.LineString(track)
+
+    @classmethod
+    def filter_geo(cls, fn, cruises):
+        return filter(lambda x: fn(x.track()), cruises)
+
     @classmethod
     def get_by_expocode(cls, expocode):
-        attrs = _sort_by_creation(Attr.find({'key': 'expocode'}))
+        attrs = _sort_by_stamp(Attr.find({'key': 'expocode'}))
         # Get Attrs that represent most current key value for objs
         obj_expocodes = {}
         for attr in attrs:

@@ -112,6 +112,14 @@ def main(global_config, **settings):
     obj_routes(config, 'institution')
     obj_routes(config, 'ship')
 
+    # Argo Secure File Repository
+    config.add_route('argo_index', '/argo')
+    config.add_view('pycchdo.views.argo.index', route_name='argo_index', renderer='templates/argo/index.jinja2')
+    config.add_route('argo_new', '/argo/new')
+    config.add_view('pycchdo.views.argo.new', route_name='argo_new', renderer='templates/argo/new.jinja2')
+    config.add_route('argo_entity', '/argo/{id}')
+    config.add_view('pycchdo.views.argo.entity', route_name='argo_entity', renderer='templates/argo/show.jinja2')
+
     # Ocean lists
     config.add_route('by_ocean_show', '/ocean/*basin') # /basin/*basin ?
     config.add_view('pycchdo.views.by_ocean.by_ocean_show', route_name='by_ocean_show', renderer='templates/base.jinja2')

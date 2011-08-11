@@ -395,9 +395,9 @@ class Attr(_Change):
         if self['deleted']:
             raise KeyError(self['key'])
         if self.is_data():
-            return self['file']
+            return self.file
         elif self.is_track():
-            return self['track']
+            return self.track
         else:
             return self['value']
 
@@ -778,3 +778,34 @@ class Collection(Obj):
         objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
         return Cruise.map_mongo(
             filter(lambda x: x['_obj_type'] == Cruise.__name__, objs))
+
+
+class AutoAcceptingObj(Obj):
+    def save(self):
+        super(AutoAcceptingObj, self).save()
+        if not self.judgment_stamp:
+            self.accept(self.creation_stamp.person)
+
+
+class ArgoFile(AutoAcceptingObj):
+    """ Files that are given to the CCHDO for Argo calibration only.
+
+    THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure File
+    Repository.
+
+    """
+    @property
+    def text_identifier(self):
+        return self.attrs.get('text_identifier', None)
+
+    @property
+    def file(self):
+        return self.attrs.get('file', None)
+
+    @property
+    def description(self):
+        return self.attrs.get('description', None)
+
+    @property
+    def display(self):
+        return self.attrs.get('display', False)

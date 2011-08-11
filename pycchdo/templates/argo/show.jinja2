@@ -1,0 +1,18 @@
+{% set subtitle = 'Edit file' %}
+{% extends "templates/argo/base.jinja2" %}
+{% block argo_content -%}
+  {{ whh.tags.form(request.url, method='PUT') }}
+    <h2>{{ whh.tags.title('Identifier', label_for='expocode') }}</h2>
+    <p>{{ whh.tags.text('expocode', argo_file.text_identifier) }}</p>
+
+    <h2>{{ whh.tags.title('Description', label_for='description') }}</h2>
+    <p>{{ whh.tags.textarea('description', argo_file.description, cols=100, rows=8) }}</p>
+
+    <p>
+      {{ whh.tags.title('Display in file index', label_for='display') }}
+      {{ whh.tags.checkbox('display', checked=argo_file.display) }}
+    </p>
+
+    <p>{{ whh.tags.submit('action', 'Update') }}</p>
+  {{ whh.tags.end_form() }}
+{%- endblock %}

@@ -1,0 +1,33 @@
+{% set subtitle = 'New File' %}
+{% extends "templates/argo/base.jinja2" %}
+{% block argo_content %}
+  {{ whh.tags.form('/argo', multipart=True) }}
+    <h2>Identifier</h2>
+    <table>
+      <tr>
+        <th>{{ whh.tags.title('ExpoCode', label_for='expocode') }}</th><td>{{ whh.tags.text('expocode', h.form_entered(request, 'argo_expocode')) }}</td>
+        <td>or</td>
+        <td>
+          <table>
+            <tr><th>{{ whh.tags.title('Date', label_for='date') }}</th><td>{{ whh.tags.text('date', h.form_entered(request, 'argo_date'), type='date') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Ship', label_for='ship') }}</th><td>{{ whh.tags.text('ship', h.form_entered(request, 'argo_ship')) }}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <h2>{{ whh.tags.title('Description', label_for='description') }}</h2>
+    <p>{{ whh.tags.textarea('description', h.form_entered(request, 'argo_description'), cols=100, rows=8) }}</p>
+
+    <p>
+      {{ whh.tags.title('Display in file index', label_for='display') }}
+      {{ whh.tags.checkbox('display', checked=h.form_entered(request, 'argo_display')) }}
+    </p>
+
+    <h2>{{ whh.tags.title('File to upload', required=True, label_for='file') }}</h2>
+    <p>{{ whh.tags.file('file') }} {{ h.form_errors_for(request, 'argo_file') }}</p>
+
+    <p>{{ whh.tags.submit('action', 'Create') }}</p>
+    <p>{{ whh.tags.required_legend() }}</p>
+  {{ whh.tags.end_form() }}
+{% endblock %}

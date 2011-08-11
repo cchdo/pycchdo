@@ -1,0 +1,32 @@
+{% extends "templates/argo/base.jinja2" %}
+{% block argo_content -%}
+  {% if argo_files %}
+    <table>
+      <tr>
+        <th>ExpoCode</th>
+        <th>File</th>
+        <th>Added by</th>
+        <th>Added at</th>
+        <th>Description</th>
+        <th>Display</th>
+        <th></th>
+      </tr>
+      {% for file in argo_files %}
+        <tr class="{{ loop.cycle('even', 'odd') }}">
+          <td>{{ file.text_identifier }}</td>
+          <td class="filename"><a href="{{ h.data_uri(file.attrs.get_attr('file')) }}">{{ file.file.name }}</a></td>
+          <td>{{ file.creation_stamp.person.full_name() }}</td>
+          <td class="time">{{ file.creation_stamp.timestamp.strftime('%Y-%m-%d %H:%M %Z') }}</td>
+          <td class="description"><pre>{{ file.description }}</pre></td>
+          <td>{{ file.display }}</td>
+          <td>
+            <p><a href="/argo/{{ file.id }}">Edit</a></p>
+            <p><a href="/argo/{{ file.id }}?_method=DELETE">Delete</a></p>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>There are no stored files.</p>
+  {% endif %}
+{%- endblock %}

@@ -1,8 +1,3 @@
-.required {
-  vertical-align: top;
-  color: red;
-}
-
 #step1 input[type="text"], 
 #step1 input[type="email"] {
   width: 12em;

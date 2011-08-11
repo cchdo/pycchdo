@@ -13,6 +13,29 @@ pre {
   font-family: Andale Mono, Courier New, Courier, Fixed, monospace;
 }
 
+/* Flash messages */
+.flash {
+  font-size: 1.1em;
+  padding: 0.5em;
+  border: 1px solid #A0A0A0;
+  border-bottom: 0;
+}
+.flash.action_taken {
+  background: #EEC591;
+}
+
+/* Required form fields */
+.required-symbol {
+  vertical-align: top;
+  color: red;
+}
+
+/* Form errors */
+.form-error {
+  color: #FF0000;
+  background: #FFEEEE;
+}
+
 /* Used to hide Microformat specific tags */
 .hidden { display: none; }
 

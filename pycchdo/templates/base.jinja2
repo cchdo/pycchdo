@@ -17,8 +17,11 @@
   <div id="centering">
     {% include 'templates/_base_header.jinja2' %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
-      {%- if request.session.peek_flash('action_taken') -%}
-        <h1 class="flash action_taken">{{ request.session.pop_flash('action_taken') }}</h1>
+      {% if request.session.peek_flash('action_taken') -%}
+        {% set actions_taken = request.session.pop_flash('action_taken') %}
+        {% for action in actions_taken %}
+          <h1 class="flash action_taken">{{ action }}</h1>
+        {% endfor %}
       {%- endif -%}
       {% block content -%}
         {% if _static -%}{% include _static %}{%- endif %}

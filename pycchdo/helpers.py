@@ -13,6 +13,22 @@ def title(**kwargs):
     return ''
 
 
+def form_entered(request, key):
+    entered_key = 'form_entered_' + key
+    if request.session.peek_flash(entered_key):
+        return request.session.pop_flash(entered_key)[0]
+    return ''
+
+
+def form_errors_for(request, key):
+    error_key = 'form_error_' + key
+    if request.session.peek_flash(error_key):
+        errors = [whh.HTML.span(x, class_='form-error') for x in \
+                  request.session.pop_flash(error_key)]
+        return whh.literal(''.join(errors))
+    return ''
+
+
 def email_link(email, microformat_type=None, microformat_classes=[], content=None):
     """ Gives back a mailto link that is slightly obfuscated. """
     obfuscator = '+anti spam'
@@ -42,7 +58,7 @@ def boxed(title='', bottom='', **attrs):
     except KeyError:
         pass
     return whh.HTML.div(whh.HTML(
-                whh.HTML.h1(title),
+                whh.HTML.h1(whh.HTML.literal(title)),
                 whh.HTML.div(caller(), class_='box_content'),
                 whh.HTML.div(bottom, class_='box_bottom')
             ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
@@ -134,9 +150,10 @@ def change_pretty(change):
         span(change['creation_stamp']['timestamp'], class_='date'),
         class_='change')
 
+
 def data_uri(data):
     """ Given a Attr with a file, provides a link to a file. """
-    if not data.is_data():
+    if not data or not data.is_data():
         raise ValueError('Cannot link to a non file')
 
     return '/data/{id}'.format(id=data['_id'])

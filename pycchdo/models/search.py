@@ -171,7 +171,10 @@ _model_id_to_index_id = unicode
 def save_obj(obj, writer=None):
     name = obj.type.lower()
     if not writer:
-        ix = open_or_create_index(name)
+        try:
+            ix = open_or_create_index(name)
+        except ValueError:
+            return
         ixw = ix.writer()
     else:
         ixw = writer
@@ -231,7 +234,10 @@ def save_note(note, writer=None):
 def remove_obj(obj, writer=None):
     name = obj.type.lower()
     if not writer:
-        ix = open_or_create_index(name)
+        try:
+            ix = open_or_create_index(name)
+        except ValueError:
+            return
         ixw = ix.writer()
     else:
         ixw = writer

@@ -1,11 +1,7 @@
 {% extends "templates/base.jinja2" %}
 {% block head -%}
- {{ whh.tags.stylesheet_link('/static/css/submit.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/submit.css') }}
 {%- endblock %}
-{% macro required() -%}<sup class="required">*</sup>{%- endmacro %}
-{% macro required_label(name='', label='') -%}
-<label for="{{name}}">{{label}} {{required()}}</label>
-{%- endmacro %}
 {% macro step(number, text='') -%}
   <div id="step{{number}}">
     <h2 class="step-title">Step <em>{{number}}</em>: <span>{{text}}</span></h2>
@@ -19,22 +15,22 @@
   {% call step(1, 'Contact Information') -%}
     <table>
       <tr>
-        <th>{{required_label('name', 'Name (Last, First)')}}</th> 
+        <th>{{ whh.tags.title('Name (Last, First)', True, 'name') }}</th> 
         <td>{{whh.tags.text('name')}}</td>
         <td>{#error_message_on['name']#}</td>
       </tr>
       <tr>
-        <th>{{required_label('institute', 'Institution')}}</th>
+        <th>{{ whh.tags.title('Institution', True, 'institute') }}</th>
         <td>{{whh.tags.text('institute')}}</td>
         <td>{#error_message_on['institute']#}</td>
       </tr>
       <tr>
-        <th>{{required_label('country', 'Country')}}</th>
+        <th>{{ whh.tags.title('Country', True, 'country')}}</th>
         <td>{{whh.tags.text('country')}}</td>
         <td>{#error_message_on['country']#}</td>
       </tr>
       <tr>
-        <th>{{required_label('email', 'Email')}}</th>
+        <th>{{ whh.tags.title('Email', True, 'email')}}</th>
         <td>{{whh.tags.text('email', type="email")}}</td>
         <td>{#error_message_on['email']#}</td>
       </tr>
@@ -125,7 +121,7 @@
   {{ whh.tags.submit('Submit', 'Submit') }}
   
   <div id="guides">
-    <p>{{required()}} Indicates a required field</p>
+    <p>{{ whh.tags.required_legend() }}</p>
     <p>
       <a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Submission Guide</a> |
       <a href="/argo_submission_info.html">Argo Submission Guide</a>

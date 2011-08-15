@@ -7,6 +7,11 @@ here = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.txt')).read()
 CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
+_importer_requires = [
+    'libcchdo',
+    'paramiko',
+    ]
+
 requires = [
     'pyramid',
     'pyramid_jinja2',
@@ -16,7 +21,7 @@ requires = [
     'whoosh',
     'repoze.tm2>=1.0b1', # default_commit_veto
     'WebError',
-    ]
+    ] + _importer_requires
 
 if sys.version_info[:3] < (2,5,0):
     requires.append('pysqlite')

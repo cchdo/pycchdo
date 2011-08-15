@@ -596,6 +596,23 @@ class Obj(_Change):
             return cls.find_one({'_id': idobj})
         return cls.find_one({'_id': idobj, '_obj_type': cls.__name__})
 
+    @classmethod
+    def get_by_attrs(cls, **kwargs):
+        query = [{'key': unicode(k), 'value': unicode(v)} for k, v in kwargs.items()]
+        attrs_matching_query = _sort_by_stamp(Attr.find({'$or': query}))
+
+        # Now filter the matched objs for the attrs for the correct
+        # combination of attrs.
+        if not attrs_matching_query:
+            return []
+        objs = map(cls.get_id, set([a['obj'] for a in attrs_matching_query]))
+        def matches_attr_query(obj):
+            for k, v in kwargs.items():
+                if obj.attrs.get(k, None) is not v:
+                    return False
+            return True
+        return filter(matches_attr_query, objs)
+
     def __str__(self):
         copy = {}
         for key, value in self.items():
@@ -622,15 +639,14 @@ class Person(Obj):
         self['country'] = country
         self['email'] = email
 
-        if identifier is None and None in (name_first, name_last, institution,
-                                           country, email):
+        if identifier is None and None in (name_first, name_last,
+                                           institution, email):
             raise ValueError('Person must be initialized either with '
                              'identifier or attributes.')
 
     def from_mongo(self, doc):
         super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last',
-                                  'institution', 'country', 'email', ))
+        self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last', ))
         return self
 
     def full_name(self):
@@ -794,6 +810,12 @@ class ArgoFile(AutoAcceptingObj):
     Repository.
 
     """
+
+    def from_mongo(self, doc):
+        super(ArgoFile, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('text_identifier', 'file', 'description', 'display', ))
+        return self
+
     @property
     def text_identifier(self):
         return self.attrs.get('text_identifier', None)

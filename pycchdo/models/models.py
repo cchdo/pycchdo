@@ -86,6 +86,32 @@ class mongodoc(dict):
     def from_mongo(cls, doc):
         return None
 
+    # Allow referring to attributes of the mongodoc rather than accessing as
+    # keys.
+
+    def __getattr__(self, name):
+        try:
+            return self[self.attribute_map(name)]
+        except KeyError:
+            raise AttributeError(
+                '%r has no attribute %s' % (self, self.attribute_map(name)))
+
+    def __setattr__(self, name, value):
+        self[self.attribute_map(name)] = value
+
+    def __delattr__(self, name):
+        try:
+            del self[self.attribute_map(name)]
+        except KeyError:
+            pass
+
+    def attribute_map(self, name):
+        """ Allow for aliases of attributes.
+        Override to add aliases.
+
+        """
+        return name
+
     @classmethod
     def map_mongo(cls, cursor_or_dict):
         """ If the input is a cursor, returns a list. Else returns the mapped
@@ -118,16 +144,16 @@ class mongodoc(dict):
 
 class Stamp(mongodoc):
     def __init__(self, person):
-        self['timestamp'] = timestamp()
+        self.timestamp = timestamp()
         if type(person) is pymongo.objectid.ObjectId:
-            self['person'] = person
+            self.person = person
         else:
             if type(person) is not Person:
                 raise TypeError('%r (%s) is not a Person object' % \
                                 (person, type(person)))
             try:
-                self['person'] = person.id
-            except KeyError:
+                self.person = person.id
+            except AttributeError:
                 raise ValueError('Person object must be saved first')
 
     def from_mongo(self, doc):
@@ -139,10 +165,6 @@ class Stamp(mongodoc):
     def person(self):
         return Person.get_id(self['person'])
 
-    @property
-    def timestamp(self):
-        return self['timestamp']
-
 
 class Note(mongodoc):
     def __init__(self, body=None, action=None, data_type=None, subject=None):
@@ -153,10 +175,10 @@ class Note(mongodoc):
             data_type - the type of data that was changed
             subject - a nice summary
         """
-        self['body'] = body
-        self['action'] = action
-        self['data_type'] = data_type
-        self['subject'] = subject
+        self.body = body
+        self.action = action
+        self.data_type = data_type
+        self.subject = subject
 
 
 class collectablemongodoc(mongodoc):
@@ -169,20 +191,19 @@ class collectablemongodoc(mongodoc):
     def _mongo_collection(cls):
         return cchdo().collectables
 
-    @property
-    def id(self):
-        return self['_id']
+    def attribute_map(self, attr):
+        # Attribute names with trailing '_' considered aliases.
+        # This is useful for properties that need to refer to themselves.
+        if attr.endswith('_'):
+            attr = attr[:-1]
+        if attr == 'id':
+            attr = '_id'
+        return super(collectablemongodoc, self).attribute_map(attr)
 
-    @id.setter
-    def id(self, value):
-        self['_id'] = value
-
-    @id.deleter
-    def id(self):
-        try:
-            del self['_id']
-        except KeyError:
-            pass
+    def from_mongo(self, doc):
+        super(collectablemongodoc, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('_id', ))
+        return self
 
     def save(self):
         self.id = self._mongo_collection().save(self)
@@ -221,74 +242,75 @@ class _Change(collectablemongodoc):
         return cchdo().changes
 
     def __init__(self, person, note=None):
-        self['creation_stamp'] = Stamp(person)
-        self['pending_stamp'] = None
-        self['judgment_stamp'] = None
-        self['accepted'] = False
-        self['note'] = note
+        self.creation_stamp = Stamp(person)
+        self.pending_stamp = None
+        self.judgment_stamp = None
+        self.accepted = False
+        self.note = note
 
     def from_mongo(self, doc):
         super(_Change, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('_id', 'creation_stamp', 'pending_stamp',
-                                  'judgment_stamp', 'accepted', 'note', ))
+        self.copy_keys_from(doc, (
+            'creation_stamp', 'pending_stamp', 'judgment_stamp', 'accepted',
+            'note', ))
         return self
 
     @property
     def creation_stamp(self):
-        v = self['creation_stamp']
+        v = self.creation_stamp_
         if type(v) is dict:
             return Stamp.map_mongo(v)
         return v
 
     @property
     def pending_stamp(self):
-        v = self['pending_stamp']
+        v = self.pending_stamp_
         if type(v) is dict:
             return Stamp.map_mongo(v)
         return v
 
     @property
     def judgment_stamp(self):
-        v = self['judgment_stamp']
+        v = self.judgment_stamp_
         if type(v) is dict:
             return Stamp.map_mongo(v)
         return v
 
     @property
     def note(self):
-        v = self['note']
+        v = self.note_
         if type(v) is dict:
             return Note.map_mongo(v)
         return v
 
     def is_judged(self):
-        return self['judgment_stamp'] is not None
+        return self.judgment_stamp_ is not None
 
     def is_acknowledged(self):
-        return self['pending_stamp'] is not None
+        return self.pending_stamp_ is not None
 
     def is_accepted(self):
-        return self.is_judged() and self['accepted']
+        return self.is_judged() and self.accepted
 
     def is_rejected(self):
-        return self.is_judged() and not self['accepted']
+        return self.is_judged() and not self.accepted
 
     def accept(self, person):
-        self['judgment_stamp'] = Stamp(person)
-        self['accepted'] = True
+        self.judgment_stamp = Stamp(person)
+        self.accepted = True
         self.save()
 
     def acknowledge(self, person):
-        if not self['pending_stamp']:
-            self['pending_stamp'] = Stamp(person)
+        if not self.pending_stamp_:
+            self.pending_stamp = Stamp(person)
             self.save()
             return True
         else:
             return False
 
     def reject(self, person):
-        self['judgment_stamp'] = Stamp(person)
-        self['accepted'] = False
+        self.judgment_stamp = Stamp(person)
+        self.accepted = False
         self.save()
 
     def mtime(self):
@@ -304,9 +326,9 @@ class Attr(_Change):
                  deleted=False):
         super(Attr, self).__init__(person)
         self.set(key, value)
-        self['deleted'] = deleted
-        self['obj'] = obj
-        self['note'] = note
+        self.deleted = deleted
+        self.obj = obj
+        self.note = note
 
     def from_mongo(self, doc):
         super(Attr, self).from_mongo(doc)
@@ -326,10 +348,10 @@ class Attr(_Change):
           in the 'track' attribute.
 
         """
-        self['key'] = key
-        self['file'] = None
-        self['track'] = None
-        self['value'] = None
+        self.key = key
+        self.file = None
+        self.track = None
+        self.value = None
 
         if key == 'track':
             if type(value) is LineString:
@@ -345,26 +367,27 @@ class Attr(_Change):
                     except ValueError:
                         raise TypeError('Coordinate list must contain numbers.'
                                         ' Element %d does not' % i)
-            self['track'] = value
+            self.track = value
             return
         try:
             try:
                 gridfile = fs().put(value.file, filename=value.filename, contentType=value.type)
             except Exception, e:
                 raise e
-            self['file'] = gridfile
+            self.file = gridfile
         except AttributeError:
-            self['value'] = value
+            self.value = value
 
     # TODO instead of is_data just check for presence of data
     def is_data(self):
-        return self['file']
+        return self.file_
 
     def is_track(self):
-        return self['track']
+        return self.track
 
     def is_note(self):
-        return self['key'] is None and self['value'] is None and self['note'] is not None
+        return self.key is None and self.value_ is None and \
+               self.note_ is not None
 
     @classmethod
     def all_data(cls):
@@ -379,32 +402,26 @@ class Attr(_Change):
         return cls.find({'key': None, 'value': None, 'note': {'$exists': True}})
 
     @property
-    def track(self):
-        if not self.is_track():
-            return None
-        return self['track']
-
-    @property
     def file(self):
         if not self.is_data():
             return None
-        return fs().get(self['file'])
+        return fs().get(self.file_)
 
     @property
     def value(self):
-        if self['deleted']:
-            raise KeyError(self['key'])
+        if self.deleted:
+            raise KeyError(self.key)
         if self.is_data():
             return self.file
         elif self.is_track():
             return self.track
         else:
-            return self['value']
+            return self.value_
 
     def delete_file(self):
         if not self.is_data():
             return
-        fs().delete(self['file'])
+        fs().delete(self.file_)
 
     def remove(self):
         self.delete_file()
@@ -446,9 +463,9 @@ class _Attrs(dict):
         curr = {}
         deleted = []
         for change in self.accepted_changes():
-            k = change['key']
+            k = change.key
             if k not in curr and k not in deleted:
-                if change['deleted']:
+                if change.deleted:
                     deleted.append(k)
                 else:
                     curr[k] = change['value']
@@ -460,7 +477,9 @@ class _Attrs(dict):
     def get_attr(self, key):
         attrs = _sort_by_stamp(self.history(key, accepted=True), stamp='judgment')
         if attrs.count(True) > 0:
-            return Attr.map_mongo(attrs.limit(1))[0]
+            attr = Attr.map_mongo(attrs.limit(1))[0]
+            if not attr.deleted:
+                return attr
         raise KeyError(key)
 
     def __getitem__(self, key):
@@ -508,7 +527,7 @@ class Obj(_Change):
 
     def __init__(self, person, doc=None):
         super(Obj, self).__init__(person, doc)
-        self['_obj_type'] = type(self).__name__
+        self._obj_type = type(self).__name__
         self.copy_keys_from(doc, ('_obj_type', ))
 
     def from_mongo(self, doc):
@@ -619,7 +638,7 @@ class Obj(_Change):
             if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp', ):
                 continue
             copy[key] = value
-        return str(copy)
+        return 'Obj(%s)' % copy
 
 
 class Person(Obj):
@@ -632,25 +651,28 @@ class Person(Obj):
         super(Person, self).__init__(self)
         del self.id
 
-        self['identifier'] = identifier
-        self['name_first'] = name_first
-        self['name_last'] = name_last
-        self['institution'] = institution
-        self['country'] = country
-        self['email'] = email
+        self.identifier = identifier
+        self.name_first = name_first
+        self.name_last = name_last
+        self.institution = institution
+        self.country = country
+        self.email = email
 
-        if identifier is None and None in (name_first, name_last,
-                                           institution, email):
-            raise ValueError('Person must be initialized either with '
-                             'identifier or attributes.')
+        if identifier is None and None in (
+                name_first, name_last, institution, email):
+            raise ValueError(
+                'Person must be initialized either with identifier '
+                'or attributes.')
 
     def from_mongo(self, doc):
         super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('identifier', 'name_first', 'name_last', ))
+        self.copy_keys_from(doc, (
+            'identifier', 'name_first', 'name_last', 'institution', 'country',
+            'email', ))
         return self
 
     def full_name(self):
-        return ' '.join((self['name_first'], self['name_last']))
+        return ' '.join((self.name_first, self.name_last))
 
     def is_verified(self):
         return self['identifier'] is not None
@@ -661,14 +683,14 @@ class Person(Obj):
         super(Person, self).save()
 
     def __repr__(self):
-        return 'Person ({last}, {first})'.format(last=self['name_last'],
-                                                 first=self['name_first'])
+        try:
+            return 'Person ({last}, {first})'.format(last=self.name_last,
+                                                     first=self.name_first)
+        except AttributeError:
+            return 'Person ()'
 
 
 class Cruise(Obj):
-    def __init__(self, person):
-        super(Cruise, self).__init__(person)
-
     def expocode(self):
         try:
             return self.attrs['expocode']

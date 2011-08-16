@@ -8,7 +8,7 @@ import shapely.geometry.linestring
 import shapely.geometry.polygon
 
 import pycchdo.models as M
-from pycchdo.models.models import collectablemongodoc, Stamp, Obj, _Change, \
+from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, _Change, \
                                   _Attrs, Attr, Note, Country, Cruise, Person
 
 def global_setUp(self):
@@ -298,10 +298,6 @@ class TestModel(unittest.TestCase):
         self.assertRaises(ValueError, lambda: Person(
             name_first="Ryan", name_last="Tester",
             country="Testland", email="test@test.com"))
-        # Missing country
-        self.assertRaises(ValueError, lambda: Person(
-            name_first="Ryan", name_last="Tester",
-            institution="Test University", email="test@test.com"))
         # Missing email
         self.assertRaises(ValueError, lambda: Person(
             name_first="Ryan", name_last="Tester",
@@ -337,6 +333,30 @@ class TestModel(unittest.TestCase):
         self.assertRaises(TypeError, lambda: Stamp())
         self.assertRaises(TypeError, lambda: Stamp(None))
         Stamp(self.testPerson)
+
+    def test_mongodoc_custom_attrs(self):
+        """ Custom attributes for mongodoc
+        Editing an attribute that is listed will edit the value as if the
+        attribute name were the dictionary key.
+
+        """
+        # Get
+        doc = mongodoc({'a': 1, 'b': 2})
+        self.assertEquals(doc.a, 1)
+        self.assertEquals(doc.b, 2)
+        self.assertRaises(AttributeError, lambda: doc.c)
+
+        # Set
+        doc = mongodoc({'a': 1, 'b': 2})
+        self.assertEquals(doc.a, 1)
+        doc.a = 3
+        self.assertEquals(doc.a, 3)
+
+        # Del
+        doc = mongodoc({'a': 1, 'b': 2})
+        self.assertEquals(doc.a, 1)
+        del doc.a
+        self.assertRaises(AttributeError, lambda: doc.a)
 
     def test_collectablemongodoc_find_id_with_invalid_id_raises_ValueError(self):
         """ Attempting to find an invalid collectablemongodoc raises ValueError. """

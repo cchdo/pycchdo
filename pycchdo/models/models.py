@@ -2,7 +2,6 @@ import datetime
 
 import pymongo
 from pymongo.objectid import ObjectId
-from pymongo.son_manipulator import SONManipulator
 
 from shapely.geometry import linestring
 from geojson import LineString
@@ -18,9 +17,11 @@ grid_fs = None
 
 data_file_descriptions = {
     'bottle_exchange': 'ASCII .csv bottle data with station information',
-    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station information',
+    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station '
+                       'information',
     'ctdzip_netcdf': 'ZIP archive of binary CTD data with station information',
-    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station information',
+    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station '
+                        'information',
     'sum_woce': 'ASCII station/cast information',
 }
 
@@ -30,7 +31,8 @@ def init_conn(settings, **kwargs):
     try:
         mongo_conn = pymongo.Connection(settings['db_uri'], **kwargs)
     except pymongo.errors.AutoReconnect:
-        raise IOError('Unable to connect to database. Check that the database server is running.')
+        raise IOError('Unable to connect to database (%s). Check that the '
+                      'database server is running.' % settings['db_uri'])
 
     # TODO This requires MongoDB 1.9+
     #cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
@@ -38,7 +40,8 @@ def init_conn(settings, **kwargs):
 
 def cchdo():
     if not mongo_conn:
-        raise IOError('No database connection. Check that the server .ini file contains the correct db_uri.')
+        raise IOError('No database connection. Check that the server .ini file '
+                      'contains the correct db_uri.')
     return mongo_conn.cchdo
 
 
@@ -134,6 +137,9 @@ class mongodoc(dict):
                 p = Person(identifier='placeholder')
                 p.id = 'fake'
                 return cls(person=p).from_mongo(d)
+            elif cls is Attr:
+                obj_id = d.get('obj', None)
+                return cls(get_person(d), obj_id).from_mongo(d)
             else:
                 return cls(get_person(d)).from_mongo(d)
 
@@ -241,7 +247,8 @@ class _Change(collectablemongodoc):
     def _mongo_collection(cls):
         return cchdo().changes
 
-    def __init__(self, person, note=None):
+    def __init__(self, person, note=None, *args, **kwargs):
+        super(_Change, self).__init__(*args, **kwargs)
         self.creation_stamp = Stamp(person)
         self.pending_stamp = None
         self.judgment_stamp = None
@@ -322,17 +329,18 @@ class Attr(_Change):
     def _mongo_collection(cls):
         return cchdo().attrs
 
-    def __init__(self, person, key=None, value=None, obj=None, note=None,
-                 deleted=False):
+    def __init__(self, person, obj, key=None, value=None,
+                 note=None, deleted=False):
         super(Attr, self).__init__(person)
-        self.set(key, value)
-        self.deleted = deleted
         self.obj = obj
+        self.deleted = deleted
         self.note = note
+        self.set(key, value)
 
     def from_mongo(self, doc):
         super(Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('key', 'value', 'file', 'track', 'obj', 'note', 'deleted', ))
+        self.copy_keys_from(doc, ('key', 'value', 'file', 'track', 'obj',
+                                  'note', 'deleted', ))
         return self
 
     def set(self, key, value):
@@ -371,7 +379,8 @@ class Attr(_Change):
             return
         try:
             try:
-                gridfile = fs().put(value.file, filename=value.filename, contentType=value.type)
+                gridfile = fs().put(value.file, filename=value.filename,
+                                    contentType=value.type)
             except Exception, e:
                 raise e
             self.file = gridfile
@@ -419,9 +428,14 @@ class Attr(_Change):
             return self.value_
 
     def delete_file(self):
-        if not self.is_data():
-            return
-        fs().delete(self.file_)
+       if not self.is_data():
+           return
+       fs().delete(self.file_)
+
+    def save(self):
+        super(Attr, self).save()
+        if self.is_note():
+            triggers.saved_note(self)
 
     def remove(self):
         self.delete_file()
@@ -430,97 +444,15 @@ class Attr(_Change):
             triggers.saved_note(self)
 
 
-class _Attrs(dict):
-    def __init__(self, obj):
-        self._obj = obj
-
-    def history(self, key=None, **kwargs):
-        query = {'obj': self._obj.id}
-        query.update(**kwargs)
-        if key:
-            query['key'] = key
-        return Attr.find(query)
-
-    def unacknowledged_changes(self):
-        return Attr.map_mongo(_sort_by_stamp(Attr.find({
-            'obj': self._obj.id, 'pending_stamp': None,
-            'judgment_stamp': None})))
-
-    def pending_changes(self):
-        return Attr.map_mongo(Attr.find({
-            'obj': self._obj.id, 'judgment_stamp': None,
-            'accepted': False}))
-
-    def accepted_changes(self):
-        return Attr.map_mongo(_sort_by_stamp(Attr.find(
-            {'obj': self._obj.id, 'accepted': True})))
-
-    def notes(self):
-        return [x for x in self.accepted_changes() if x.is_note()]
-
-    @property
-    def current_pairs(self):
-        curr = {}
-        deleted = []
-        for change in self.accepted_changes():
-            k = change.key
-            if k not in curr and k not in deleted:
-                if change.deleted:
-                    deleted.append(k)
-                else:
-                    curr[k] = change['value']
-        return curr
-
-    def keys(self):
-        return self.current_pairs.keys()
-
-    def get_attr(self, key):
-        attrs = _sort_by_stamp(self.history(key, accepted=True), stamp='judgment')
-        if attrs.count(True) > 0:
-            attr = Attr.map_mongo(attrs.limit(1))[0]
-            if not attr.deleted:
-                return attr
-        raise KeyError(key)
-
-    def __getitem__(self, key):
-        return self.get_attr(key).value
-
-    def get(self, key, default=None):
-        try:
-            return self.__getitem__(key)
-        except KeyError:
-            return default
-
-    def __setitem__(self, key, value):
-        raise NotImplementedError()
-
-    def set(self, key, value, person, note=None):
-        attr = Attr(person, key, value, self._obj.id, note)
-        attr.save()
-        return attr
-
-    def add_note(self, note, person):
-        return self.set(None, None, person, note)
-
-    def __delitem__(self, key):
-        raise NotImplementedError()
-
-    def delete(self, key, person, note=None):
-        attr = Attr(person, key, None, self._obj.id, note, deleted=True)
-        attr.save()
-        return attr
-
-    def save(self):
-        super(Attr, self).save()
-        if self.is_note():
-            triggers.saved_note(self)
-
-    def remove(self):
-        for attr in Attr.map_mongo(self.history()):
-            attr.remove()
-
-
 class Obj(_Change):
+    """ Base object for all tracked objects in the system.
+
+    Objs may have two types of attributes:
+    1. system attributes - written directly into the object
+    2. tracked attributes - written as Attrs which are _Changes themselves.
+       These can only be edited using the get, set, delete.
+
+    """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().objs
@@ -528,34 +460,133 @@ class Obj(_Change):
     def __init__(self, person, doc=None):
         super(Obj, self).__init__(person, doc)
         self._obj_type = type(self).__name__
-        self.copy_keys_from(doc, ('_obj_type', ))
+        self.from_mongo(doc)
 
     def from_mongo(self, doc):
         super(Obj, self).from_mongo(doc)
         self.copy_keys_from(doc, ('_obj_type', '_attrs',))
         return self
 
-    @property
-    def type(self):
-        return self['_obj_type']
+    def attribute_map(self, attr):
+        if attr == 'type':
+            attr = '_obj_type'
+        if attr == 'attrs':
+            attr = '_attrs'
+        return super(Obj, self).attribute_map(attr)
 
-    @property
-    def attrs(self):
+    def _find_attrs(self, query={}, **kwargs):
+        q = {'obj': self.id}
+        if query:
+            q.update(query)
+            return Attr.find(q, **kwargs)
+        else:
+            q.update(**kwargs)
+            return Attr.find(q)
+
+    def _find_attr(self, query={}, **kwargs):
+        q = {'obj': self.id}
+        if query:
+            q.update(query)
+            return Attr.find_one(q, **kwargs)
+        else:
+            q.update(**kwargs)
+            return Attr.find_one(q)
+
+    def history(self, key=None, **kwargs):
+        if key:
+            kwargs['key'] = key
+        return _sort_by_stamp(self._find_attrs(**kwargs))
+
+    def unacknowledged_tracked(self):
+        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(
+            {'judgment_stamp': None, 'pending_stamp': None})))
+
+    def pending_tracked(self):
+        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(
+            {'judgment_stamp': None, 'accepted': False})))
+
+    def accepted_tracked(self):
+        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(
+            {'accepted': True})))
+
+    def get_attr(self, key):
+        """ Returns the most recent Attr document for the given key """
+        attr = self._find_attr({'key': key, 'accepted': True},
+            sort=[('judgment_stamp.timestamp', pymongo.DESCENDING)])
+        if attr:
+            return Attr.map_mongo(attr)
+        raise KeyError(key)
+
+    def current_attrs(self):
+        curr = {}
+        deleted = set()
+        for attr in Attr.map_mongo(
+            self._find_attrs({'accepted': True},
+                             sort=[('judgment_stamp.timestamp',
+                                    pymongo.DESCENDING)])):
+            k = attr.key
+            if k not in curr and k not in deleted:
+                if attr.deleted:
+                    deleted.add(k)
+                else:
+                    curr[k] = attr
+        return curr
+
+    def attr_keys(self):
+        """ List of the tracked attributes present for this Obj
+
+            This list does not include attributes that previously existed but
+            are now deleted.
+
+        """
+        return self.current_attrs().keys()
+
+    def get(self, key, default=None):
         try:
-            return self['_attrs']
+            return super(Obj, self).__getitem__(key)
         except KeyError:
-            self['_attrs'] = _Attrs(self)
-            return self['_attrs']
+            try:
+                return self.get_attr(key).value
+            except KeyError:
+                return default
 
+    def set(self, key, value, person, note=None):
+        attr = Attr(person, self.id, key, value, note)
+        attr.save()
+        return attr
+
+    def set_accept(self, key, value, person, note=None):
+        attr = self.set(key, value, person, note)
+        attr.accept(person)
+        return attr
+
+    def delete(self, key, person, note=None):
+        attr = Attr(person, self.id, key, None, note, deleted=True)
+        attr.save()
+        return attr
+
+    def delete_accept(self, key, person, note=None):
+        attr = self.delete(key, person, note)
+        attr.accept(person)
+        return attr
+
+    @property
     def notes(self):
-        return self.attrs.notes()
+        return Attr.map_mongo(self._find_attrs({
+            'accepted': True,
+            'note': {'$exists': True}, 
+            'key': None,
+            'value': None,
+            'file': None,
+            'track': None,
+            }))
 
     def add_note(self, note, person):
-        return self.attrs.add_note(note, person)
+        return self.set(None, None, person, note)
 
     def mtime(self):
         creation_time = super(Obj, self).mtime()
-        accepted = self.attrs.accepted_changes()
+        accepted = self.accepted_tracked()
         if not accepted:
             return creation_time
         last_attr_creation_time = accepted[0].creation_stamp.timestamp
@@ -567,7 +598,8 @@ class Obj(_Change):
 
     def remove(self):
         super(Obj, self).remove()
-        self.attrs.remove()
+        for attr in Attr.map_mongo(self._find_attrs()):
+            attr.remove()
         triggers.removed_obj(self)
 
     @classmethod
@@ -605,6 +637,14 @@ class Obj(_Change):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
+    def get_all(cls, *args, **kwargs):
+        return cls.map_mongo(cls.find(*args, **kwargs))
+
+    @classmethod
+    def get_one(cls, *args, **kwargs):
+        return cls.map_mongo(cls.find_one(*args, **kwargs))
+
+    @classmethod
     def find_id(cls, idobj):
         if type(idobj) is not ObjectId:
             try:
@@ -627,18 +667,18 @@ class Obj(_Change):
         objs = map(cls.get_id, set([a['obj'] for a in attrs_matching_query]))
         def matches_attr_query(obj):
             for k, v in kwargs.items():
-                if obj.attrs.get(k, None) is not v:
+                if obj.get(k, None) is not v:
                     return False
             return True
         return filter(matches_attr_query, objs)
 
-    def __str__(self):
+    def __repr__(self):
         copy = {}
         for key, value in self.items():
             if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp', ):
                 continue
             copy[key] = value
-        return 'Obj(%s)' % copy
+        return '%s(%s)' % (type(self).__name__, copy)
 
 
 class Person(Obj):
@@ -647,6 +687,7 @@ class Person(Obj):
     """
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
+        # Pretend Person is already saved so Stamp can be set
         self.id = 'self'
         super(Person, self).__init__(self)
         del self.id
@@ -675,7 +716,7 @@ class Person(Obj):
         return ' '.join((self.name_first, self.name_last))
 
     def is_verified(self):
-        return self['identifier'] is not None
+        return self.identifier is not None
 
     def save(self):
         super(Person, self).save()
@@ -692,41 +733,29 @@ class Person(Obj):
 
 class Cruise(Obj):
     def expocode(self):
-        try:
-            return self.attrs['expocode']
-        except KeyError:
-            return None
+        return self.get('expocode')
 
     def statuses(self):
-        try:
-            return self.attrs['statuses']
-        except KeyError:
-            return []
+        return self.get('statuses', [])
 
     def date_start(self):
-        try:
-            return self.attrs['date_start']
-        except KeyError:
-            return None
+        return self.get('date_start')
 
     def date_end(self):
-        try:
-            return self.attrs['date_end']
-        except KeyError:
-            return None
+        return self.get('date_end')
 
     def collections(self):
         # TODO
         return []
 
     def ship(self):
-        ship = self.attrs.get('ship', None)
+        ship = self.get('ship', None)
         if ship:
             return Ship.get_id(ship)
         return None
 
     def country(self):
-        country = self.attrs.get('country', None)
+        country = self.get('country', None)
         if country:
             return Country.get_id(country)
         return None
@@ -744,7 +773,7 @@ class Cruise(Obj):
         return self.participants('chief_scientist')
 
     def track(self):
-        track = self.attrs.get('track', None)
+        track = self.get('track', None)
         if not track:
             return track
         return linestring.LineString(track)
@@ -775,24 +804,18 @@ class Institution(Obj):
 
 class Ship(Obj):
     def name(self):
-        try:
-            return self.attrs['name']
-        except KeyError:
-            return None
+        return self.get('name')
 
 
 class Country(Obj):
     def name(self):
-        try:
-            return self.attrs['iso_3166-1']
-        except KeyError:
-            return None
+        return self.get('iso_3166-1')
 
     def iso_code(self, length=2):
         if length != 2:
             length = 3
         try:
-            return self.attrs['iso_3166-1_alpha-' + str(length)]
+            return self.get('iso_3166-1_alpha-' + str(length))
         except KeyError:
             return None
 
@@ -800,7 +823,7 @@ class Country(Obj):
 class Collection(Obj):
     def names(self):
         try:
-            return self.attrs['names']
+            return self.get('names')
         except KeyError:
             return []
 
@@ -840,16 +863,16 @@ class ArgoFile(AutoAcceptingObj):
 
     @property
     def text_identifier(self):
-        return self.attrs.get('text_identifier', None)
+        return self.get('text_identifier', None)
 
     @property
     def file(self):
-        return self.attrs.get('file', None)
+        return self.get('file', None)
 
     @property
     def description(self):
-        return self.attrs.get('description', None)
+        return self.get('description', None)
 
     @property
     def display(self):
-        return self.attrs.get('display', False)
+        return self.get('display', False)

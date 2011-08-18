@@ -28,7 +28,7 @@ def cruise_show(request):
 
         def getAttr(cruise_obj, type):
             id = None
-            for c in cruise_obj.attrs.accepted_changes():
+            for c in cruise_obj.accepted_tracked():
                 if c['key'] == type:
                     id = c['_id']
             return models.Attr.get_id(id)
@@ -56,7 +56,7 @@ def cruise_show(request):
             'doc_pdf': getAttr(cruise_obj, 'doc_pdf'),
         }
 
-        history = models.Attr.map_mongo(cruise_obj.attrs.history(accepted=True))
+        history = models.Attr.map_mongo(cruise_obj.history(accepted=True))
 
     return {
         'cruise': cruise_obj,

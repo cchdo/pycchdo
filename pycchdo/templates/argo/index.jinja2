@@ -14,7 +14,7 @@
       {% for file in argo_files %}
         <tr class="{{ loop.cycle('even', 'odd') }}">
           <td>{{ file.text_identifier }}</td>
-          <td class="filename"><a href="{{ h.data_uri(file.attrs.get_attr('file')) }}">{{ file.file.name }}</a></td>
+          <td class="filename"><a href="{{ h.data_uri(file.get_attr('file')) }}">{{ file.file.name }}</a></td>
           <td>{{ file.creation_stamp.person.full_name() }}</td>
           <td class="time">{{ file.creation_stamp.timestamp.strftime('%Y-%m-%d %H:%M %Z') }}</td>
           <td class="description"><pre>{{ file.description }}</pre></td>

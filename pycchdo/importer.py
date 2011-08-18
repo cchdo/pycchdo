@@ -56,12 +56,12 @@ def import_users(session, importer):
             person = models.Person(identifier=user.username)
             person.creation_stamp['person'] = importer
             person.save()
-        if person.attrs.get('password_hash', None) != user.password_hash:
-            person.attrs.set('password_hash', user.password_hash, importer).accept(importer)
-        if person.attrs.get('password_salt', None) != user.password_salt:
-            person.attrs.set('password_salt', user.password_salt, importer).accept(importer)
-        if person.attrs.get('id', None) != user.id:
-            person.attrs.set('id', user.id, importer).accept(importer)
+        if person.get('password_hash', None) != user.password_hash:
+            person.set_accept('password_hash', user.password_hash, importer)
+        if person.get('password_salt', None) != user.password_salt:
+            person.set_accept('password_salt', user.password_salt, importer)
+        if person.get('id', None) != user.id:
+            person.set_accept('id', user.id, importer)
         map_users[user.id] = person.id
 
     return map_users
@@ -89,7 +89,7 @@ def _import_contacts(session, importer):
             logging.info("Importing Institution %s" % (institution_name))
             institution = models.Institution(importer)
             institution.save()
-            institution.attrs.set('name', institution_name, importer).accept(importer)
+            institution.set_accept('name', institution_name, importer)
 
         person = models.Person.map_mongo(models.Person.find_one({
             'name_first': _contact_unicode_to_utf8(contact.FirstName),
@@ -102,14 +102,14 @@ def _import_contacts(session, importer):
                 email=_contact_unicode_to_utf8(contact.email),
                 )
             person.save()
-        if contact.Address and not person.attrs.get('address', None):
-            person.attrs.set('address', _contact_unicode_to_utf8(contact.Address), importer).accept(importer)
-        if contact.telephone and not person.attrs.get('telephone', None):
-            person.attrs.set('telephone', contact.telephone, importer).accept(importer)
-        if contact.fax and not person.attrs.get('fax', None):
-            person.attrs.set('fax', contact.fax, importer).accept(importer)
-        if contact.title and not person.attrs.get('title', None):
-            person.attrs.set('title', contact.title, importer).accept(importer)
+        if contact.Address and not person.get('address', None):
+            person.set_accept('address', _contact_unicode_to_utf8(contact.Address), importer)
+        if contact.telephone and not person.get('telephone', None):
+            person.set_accept('telephone', contact.telephone, importer)
+        if contact.fax and not person.get('fax', None):
+            person.set_accept('fax', contact.fax, importer)
+        if contact.title and not person.get('title', None):
+            person.set_accept('title', contact.title, importer)
         map_persons[contact.id] = person.id
     return map_persons
 
@@ -141,11 +141,11 @@ def import_argo_files(session, importer, map_users, ssh_cchdo):
             argo_file.save()
 
         if argo_file.text_identifier != file.expocode:
-            argo_file.attrs.set('text_identifier', file.expocode, importer).accept(importer)
+            argo_file.set_accept('text_identifier', file.expocode, importer)
         if argo_file.description != file.description:
-            argo_file.attrs.set('description', file.description, importer).accept(importer)
+            argo_file.set_accept('description', file.description, importer)
         if argo_file.display != file.display:
-            argo_file.attrs.set('display', file.display, importer).accept(importer)
+            argo_file.set_accept('display', file.display, importer)
         if argo_file.file is None:
             # Special case for missing.txt because there is no actual file.
             if file.filename != 'missing.txt':
@@ -166,7 +166,7 @@ def import_argo_files(session, importer, map_users, ssh_cchdo):
                     actual_file.type = file.content_type
                     logging.debug(actual_file)
                     logging.debug(repr(actual_file))
-                    argo_file.attrs.set('file', actual_file, importer).accept(importer)
+                    argo_file.set_accept('file', actual_file, importer)
                     os.unlink(temp.name)
 
         logging.warn('downloads to import %r' % file.downloads)

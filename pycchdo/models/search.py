@@ -182,22 +182,22 @@ def save_obj(obj, writer=None):
     doc = {}
 
     if name == 'cruise':
-        names = filter(None, [obj.expocode()] + obj.attrs.get('aliases', []))
+        names = filter(None, [obj.expocode()] + obj.get('aliases', []))
         doc['names'] = ','.join(names)
         doc['date_start'] = obj.date_start()
         doc['date_end'] = obj.date_end()
-        doc['status'] = ','.join(obj.attrs.get('statuses', []))
+        doc['status'] = ','.join(obj.get('statuses', []))
     elif name == 'person':
         doc['name'] = obj.full_name()
-        doc['email'] = obj.attrs.get('email', None)
+        doc['email'] = obj.get('email', None)
     elif name == 'ship':
         doc['name'] = obj.name()
     elif name == 'country':
         names = filter(None, [obj.name(), obj.iso_code(), obj.iso_code(3)])
         doc['names'] = ','.join(names)
     elif name == 'institution':
-        doc['name'] = obj.attrs.get('name', None)
-        doc['uri'] = obj.attrs.get('uri', None)
+        doc['name'] = obj.get('name', None)
+        doc['uri'] = obj.get('uri', None)
     elif name == 'collection':
         doc['names'] = ','.join(obj.names())
     else:
@@ -241,7 +241,7 @@ def remove_obj(obj, writer=None):
         ixw = ix.writer()
     else:
         ixw = writer
-    ixw.delete_by_term('id', obj.id)
+    ixw.delete_by_term('id', _model_id_to_index_id(obj.id))
     if not writer:
         ixw.commit()
         ix.close()
@@ -253,7 +253,7 @@ def remove_note(note, writer=None):
         ixw = ix.writer()
     else:
         ixw = writer
-    ixw.delete_by_term('id', note.id)
+    ixw.delete_by_term('id', _model_id_to_index_id(note.id))
     if not writer:
         ixw.commit()
         ix.close()

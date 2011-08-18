@@ -9,11 +9,11 @@ import shapely.geometry.polygon
 
 import pycchdo.models as M
 from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, _Change, \
-                                  _Attrs, Attr, Note, Country, Cruise, Person
+                                  Attr, Note, Country, Cruise, Person
 
 def global_setUp(self):
     self.config = testing.setUp()
-    M.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018/?journal=true&wtimeout=300'})
+    M.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018/?w=true&wtimeout=1000&fsync=true'})
     M.cchdo().objs.drop()
     M.cchdo().attrs.drop()
     self.testPerson = Person(identifier='testid')
@@ -89,46 +89,22 @@ class TestModel(unittest.TestCase):
         """ Accepted changes """
         o = Obj(self.testPerson)
         o.save()
-        self.assertEquals([], o.attrs.accepted_changes())
-        o.attrs.set('a', 'b', self.testPerson)
-        self.assertEquals([], o.attrs.accepted_changes())
-        Attr.map_mongo(o.attrs.history()[0]).accept(self.testPerson)
-        self.assertEquals([o.attrs.history()[0]], o.attrs.accepted_changes())
+        self.assertEquals([], o.accepted_tracked())
+        o.set('a', 'b', self.testPerson)
+        self.assertEquals([], o.accepted_tracked())
+        Attr.map_mongo(o.history()[0]).accept(self.testPerson)
+        self.assertEquals([o.history()[0]], o.accepted_tracked())
         o.remove()
 
     def test_Attrs_keys(self):
         """ Accepted keys """
         o = Obj(self.testPerson)
         o.save()
-        self.assertEquals([], o.attrs.keys())
-        o.attrs.set('a', 'b', self.testPerson)
-        Attr.map_mongo(o.attrs.history()[0]).accept(self.testPerson)
-        self.assertEquals(['a'], o.attrs.keys())
+        self.assertEquals([], o.attr_keys())
+        o.set('a', 'b', self.testPerson)
+        Attr.map_mongo(o.history()[0]).accept(self.testPerson)
+        self.assertEquals(['a'], o.attr_keys())
         o.remove()
-
-    def test_get_Obj_Attrs(self):
-        """ Obj should always return an _Attrs dict """
-        obj = Obj(self.testPerson)
-        attrs = obj.attrs
-        self.assertTrue(isinstance(attrs, _Attrs))
-
-    def test_Attrs_data_model(self):
-        """ Disallow setting and deleting from _Attrs without giving a Person
-        responsible (i.e. using Python data model) to prevent misleading.
-        
-        """
-        obj = Obj(self.testPerson)
-        obj.save()
-
-        attrs = obj.attrs
-        def test_setter():
-            attrs['a'] = '1'
-        self.assertRaises(NotImplementedError, test_setter)
-        def test_deleter():
-            del attrs['a']
-        self.assertRaises(NotImplementedError, test_deleter)
-
-        obj.remove()
 
     def test_Attrs_get_scalar(self):
         """ Getting a scalar value in _Attr should return the latest accepted
@@ -138,23 +114,21 @@ class TestModel(unittest.TestCase):
         obj = Obj(self.testPerson)
         obj.save()
 
-        attrs = obj.attrs
         key = 'a'
+        obj.set(key, '0', self.testPerson)
+        obj.set(key, '1', self.testPerson)
+        obj.set(key, '2', self.testPerson)
 
-        attrs.set(key, '0', self.testPerson)
-        attrs.set(key, '1', self.testPerson)
-        attrs.set(key, '2', self.testPerson)
-
-        self.assertRaises(KeyError, lambda: attrs[key])
-        Attr.map_mongo(attrs.history(key, value='1'))[0].accept(self.testPerson)
-        self.assertEquals(attrs[key], '1')
-        Attr.map_mongo(attrs.history(key, value='2'))[0].accept(self.testPerson)
-        self.assertEquals(attrs[key], '2')
-        Attr.map_mongo(attrs.history(key, value='0'))[0].accept(self.testPerson)
-        self.assertEquals(attrs[key], '0')
-        attrs.delete(key, self.testPerson)
-        attrs.unacknowledged_changes()[0].accept(self.testPerson)
-        self.assertRaises(KeyError, lambda: attrs[key])
+        self.assertEquals(None, obj.get(key))
+        Attr.map_mongo(obj.history(key, value='1')[0]).accept(self.testPerson)
+        self.assertEquals(obj.get(key), '1')
+        Attr.map_mongo(obj.history(key, value='2')[0]).accept(self.testPerson)
+        self.assertEquals(obj.get(key), '2')
+        Attr.map_mongo(obj.history(key, value='0')[0]).accept(self.testPerson)
+        self.assertEquals(obj.get(key), '0')
+        obj.delete(key, self.testPerson)
+        obj.unacknowledged_tracked()[0].accept(self.testPerson)
+        self.assertEquals(None, obj.get(key))
 
         obj.remove()
 
@@ -163,10 +137,8 @@ class TestModel(unittest.TestCase):
         obj = Obj(self.testPerson)
         obj.save()
 
-        attrs = obj.attrs
-
-        self.assertEquals(attrs.get('a'), None)
-        self.assertEquals(attrs.get('a', 'b'), 'b')
+        self.assertEquals(obj.get('a'), None)
+        self.assertEquals(obj.get('a', 'b'), 'b')
 
         obj.remove()
 
@@ -178,27 +150,26 @@ class TestModel(unittest.TestCase):
         """
         obj = Obj(self.testPerson)
         obj.save()
-        attrs = obj.attrs
         key = 'a'
         value = '0'
-        attrs.set(key, value, self.testPerson)
-        self.assertRaises(KeyError, lambda: attrs[key])
-        history = attrs.history(key)
+        obj.set(key, value, self.testPerson)
+        self.assertEquals(None, obj.get(key))
+        history = obj.history(key)
         last_attr = Attr.map_mongo(history)[0]
         self.assertEquals(last_attr['value'], value)
         last_attr.accept(self.testPerson)
-        self.assertEquals(attrs[key], value)
+        self.assertEquals(obj.get(key), value)
 
         value1 = '1'
-        attrs.set(key, value1, self.testPerson)
-        self.assertEquals(attrs[key], value)
-        attrs.unacknowledged_changes()[0].accept(self.testPerson)
-        self.assertEquals(attrs[key], value1)
+        obj.set(key, value1, self.testPerson)
+        self.assertEquals(obj.get(key), value)
+        obj.unacknowledged_tracked()[0].accept(self.testPerson)
+        self.assertEquals(obj.get(key), value1)
 
-        attrs.delete(key, self.testPerson)
-        self.assertEquals(attrs[key], value1)
-        attrs.unacknowledged_changes()[0].accept(self.testPerson)
-        self.assertRaises(KeyError, lambda: attrs[key])
+        obj.delete(key, self.testPerson)
+        self.assertEquals(obj.get(key), value1)
+        obj.unacknowledged_tracked()[0].accept(self.testPerson)
+        self.assertEquals(None, obj.get(key))
 
         obj.remove()
 
@@ -211,14 +182,11 @@ class TestModel(unittest.TestCase):
         """
         obj = Obj(self.testPerson)
         obj.save()
-        a = obj.attrs
 
-        a.set('a', 'b', self.testPerson).accept(self.testPerson)
-        self.assertTrue('a' in a.keys())
-        a.delete('a', self.testPerson).accept(self.testPerson)
-        # TODO intermittent error
-        self.assertFalse('a' in a.current_pairs)
-        self.assertFalse('a' in a.keys())
+        obj.set('a', 'b', self.testPerson).accept(self.testPerson)
+        self.assertTrue('a' in obj.attr_keys())
+        obj.delete('a', self.testPerson).accept(self.testPerson)
+        self.assertFalse('a' in obj.attr_keys())
 
         obj.remove()
 
@@ -232,7 +200,7 @@ class TestModel(unittest.TestCase):
         """ Removing an Obj also removes all Attrs it is associated with. """
         obj = Obj(self.testPerson)
         obj.save()
-        attr = Attr(self.testPerson, 'a', '0', obj['_id'])
+        attr = Attr(self.testPerson, obj['_id'], 'a', '0')
         attr.save()
         self.assertEqual(Attr.map_mongo(Attr.find({'obj': obj['_id']}))[0]['_id'], attr['_id'])
         obj.remove()
@@ -258,20 +226,23 @@ class TestModel(unittest.TestCase):
         try:
             self.assertTrue(hasattr(obj, 'notes'))
             note = obj.add_note(Note('test note'), self.testPerson)
-            self.assertEqual(len(obj.notes()), 0)
+            self.assertEqual(len(obj.notes), 0)
             note.accept(self.testPerson)
-            self.assertEqual(len(obj.notes()), 1)
-            all_attrs = filter(lambda x: not x, [isinstance(x, Attr) for x in obj.notes()])
+            self.assertEqual(len(obj.notes), 1)
+            all_attrs = filter(lambda x: not x, [isinstance(x, Attr) for x in obj.notes])
             self.assertTrue(len(all_attrs) is 0)
-            all_notes = filter(lambda x: not x, [x.is_note() for x in obj.notes()])
+            all_notes = filter(lambda x: not x, [x.is_note() for x in obj.notes])
             self.assertTrue(len(all_notes) is 0)
         finally:
             obj.remove()
 
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """
-        attr = Attr(self.testPerson)
+        o = Obj(self.testPerson)
+        o.save()
+        attr = Attr(self.testPerson, o)
         self.assertTrue(isinstance(attr, _Change))
+        o.remove()
 
     def test_Person_new(self):
         """ New people are Objs """
@@ -396,7 +367,7 @@ class TestModel(unittest.TestCase):
     def test_new_Attr_returns_Attr(self):
         obj = Obj(self.testPerson)
         obj.save()
-        self.assertTrue(type(obj.attrs.set('a', 'v', self.testPerson)) is Attr)
+        self.assertTrue(type(obj.set('a', 'v', self.testPerson)) is Attr)
         obj.remove()
 
     def test_Attr_list(self):
@@ -404,10 +375,10 @@ class TestModel(unittest.TestCase):
         obj = Obj(self.testPerson)
         obj.save()
 
-        a = obj.attrs.set('a', [], self.testPerson)
+        a = obj.set('a', [], self.testPerson)
         a.accept(self.testPerson)
         self.assertTrue(type(a['value']) is list)
-        a = obj.attrs.set('a', ['b'], self.testPerson)
+        a = obj.set('a', ['b'], self.testPerson)
         a.accept(self.testPerson)
         self.assertTrue(type(a['value']) is list)
         self.assertTrue(a['value'] == ['b'])
@@ -427,7 +398,7 @@ class TestModel(unittest.TestCase):
         file_data = StringIO('this is a test file object\nwith two lines')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
 
-        a = obj.attrs.set('a', file, self.testPerson)
+        a = obj.set('a', file, self.testPerson)
         a.accept(self.testPerson)
         self.assertTrue(type(a) is Attr)
         self.assertTrue(a['file'])
@@ -440,7 +411,7 @@ class TestModel(unittest.TestCase):
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         note = None
 
-        d = Attr(self.testPerson, 'a', file, 'testid', note)
+        d = Attr(self.testPerson, 'testid', 'a', file, note)
         d.save()
 
         file.file.seek(0)
@@ -453,7 +424,7 @@ class TestModel(unittest.TestCase):
         obj = Obj(self.testPerson)
         obj.save()
 
-        a = obj.attrs.set('track', [[32, -117], [33, 118]], self.testPerson)
+        a = obj.set('track', [[32, -117], [33, 118]], self.testPerson)
         a.accept(self.testPerson)
         self.assertTrue(type(a) is Attr)
         self.assertTrue(a['track'])
@@ -465,7 +436,7 @@ class TestModel(unittest.TestCase):
         c.save()
         country = Country(self.testPerson)
         country.save()
-        c.attrs.set('country', country.id, self.testPerson).accept(self.testPerson)
+        c.set('country', country.id, self.testPerson).accept(self.testPerson)
         self.assertTrue(c.country is not None)
         self.assertTrue(c.country().id, country.id)
         country.remove()
@@ -480,7 +451,7 @@ class TestModel(unittest.TestCase):
         c.save()
         t = c.track()
         self.assertTrue(t is None)
-        c.attrs.set('track', [[0, 0], [1, 1]], self.testPerson).accept(self.testPerson)
+        c.set('track', [[0, 0], [1, 1]], self.testPerson).accept(self.testPerson)
         t = c.track()
         self.assertTrue(t is not None)
         self.assertTrue(type(t) is shapely.geometry.linestring.LineString)
@@ -490,10 +461,10 @@ class TestModel(unittest.TestCase):
         """ Filter a list of Cruises by a geo function """
         c0 = Cruise(self.testPerson)
         c0.save()
-        c0.attrs.set('track', [[0, 0], [0, 1]], self.testPerson).accept(self.testPerson)
+        c0.set('track', [[0, 0], [0, 1]], self.testPerson).accept(self.testPerson)
         c1 = Cruise(self.testPerson)
         c1.save()
-        c1.attrs.set('track', [[2, 0], [3, 1]], self.testPerson).accept(self.testPerson)
+        c1.set('track', [[2, 0], [3, 1]], self.testPerson).accept(self.testPerson)
 
         cs = Cruise.map_mongo(Cruise.all())
 
@@ -517,7 +488,7 @@ class TestHelper(unittest.TestCase):
         from StringIO import StringIO
         file_data = StringIO('')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
-        data = Attr(self.testPerson, 'a', file, 'testid')
+        data = Attr(self.testPerson, 'testid', 'a', file)
         data.save()
         id = data['_id']
         answer = ('<tr class="bottle exchange"><th><a href="/data/{id}">BOT'
@@ -530,7 +501,7 @@ class TestHelper(unittest.TestCase):
         self.assertEquals(data_file_link('ctdzip_exchange', data), answer)
         data.remove()
 
-        data = Attr(self.testPerson, 'a', 'b', 'testid')
+        data = Attr(self.testPerson, 'testid', 'a', 'b')
         data.save()
         self.assertRaises(ValueError, lambda: data_file_link('ctdzip_exchange', data))
         data.remove()

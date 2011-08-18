@@ -43,9 +43,9 @@ def entity(request):
         display = request.params.get('display', False)
         description = request.params.get('description', '')
 
-        argo_file.attrs.set('text_identifier', expocode, request.user).accept(request.user)
-        argo_file.attrs.set('display', bool(display), request.user).accept(request.user)
-        argo_file.attrs.set('description', description, request.user).accept(request.user)
+        argo_file.set('text_identifier', expocode, request.user).accept(request.user)
+        argo_file.set('display', bool(display), request.user).accept(request.user)
+        argo_file.set('description', description, request.user).accept(request.user)
 
         return HTTPSeeOther(location='/argo')
     elif method == 'DELETE':
@@ -82,10 +82,10 @@ def _create(request):
 
     argo_file = models.ArgoFile(request.user)
     argo_file.save()
-    argo_file.attrs.set('text_identifier', text_id, request.user).accept(request.user)
-    argo_file.attrs.set('description', description, request.user).accept(request.user)
-    argo_file.attrs.set('display', bool(display), request.user).accept(request.user)
-    argo_file.attrs.set('file', file, request.user).accept(request.user)
+    argo_file.set('text_identifier', text_id, request.user).accept(request.user)
+    argo_file.set('description', description, request.user).accept(request.user)
+    argo_file.set('display', bool(display), request.user).accept(request.user)
+    argo_file.set('file', file, request.user).accept(request.user)
 
     request.session.pop_flash('form_entered_argo_expocode')
     request.session.pop_flash('form_entered_argo_date')

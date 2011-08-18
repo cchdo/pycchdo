@@ -1,5 +1,5 @@
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest
+from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther
 
 import pycchdo.models as models
 
@@ -14,10 +14,15 @@ def objs(request):
 def obj_new(request):
     if not request.user:
         return require_signin(request)
-    obj = models.Obj(request.user)
-    obj['_obj_type'] = request.params.get('_obj_type', models.Obj.__name__)
-    obj.save()
-    return {}
+
+    obj_type = request.params.get('_obj_type', models.Obj.__name__)
+
+    try:
+        obj = models.__dict__[obj_type](request.user)
+        obj.save()
+    except KeyError:
+        raise ValueError('No such obj type (%s) allowed' % obj_type)
+    return {'obj': obj}
 
 
 def obj_show(request):
@@ -25,27 +30,23 @@ def obj_show(request):
     obj = models.Obj.get_id(obj_id)
     if not obj:
         return HTTPNotFound()
+
+    link = request.url
     if _http_method(request) == 'DELETE':
         if obj:
             obj.remove()
             obj = None
-            attrs = []
+            request.session.flash('action_taken', 'Removed Obj %s' % obj_id)
+            return HTTPSeeOther(location='/objs')
     else:
-        try:
-            attrs = obj['attrs']
-        except KeyError:
-            attrs = []
-
-    link = request.url
-    if obj['_obj_type'] == 'Cruise':
-        link = request.url.replace('/obj/', '/cruise/')
-    elif obj['_obj_type'] == 'Obj':
-        link = None
+        if obj.type == 'Cruise':
+            link = request.url.replace('/obj/', '/cruise/')
+        elif obj.type == 'Obj':
+            link = None
 
     return {
         'id': obj_id,
         'obj': obj,
-        'attrs': attrs,
         'link': link,
     }
 
@@ -96,9 +97,9 @@ def obj_attrs(request):
             # file upload should send the FieldStorage unchanged
             # notes should not change anything either
             pass
-        obj.attrs.set(key, value, request.user, note)
+        obj.set(key, value, request.user, note)
     elif method == 'DELETE':
-        obj.attrs.delete(key, request.user, note)
+        obj.delete(key, request.user, note)
     return {'obj': obj, 'type': __builtins__['type']}
 
 

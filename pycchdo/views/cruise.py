@@ -19,6 +19,7 @@ def cruise_show(request):
         pass
 
     cruise = {}
+    data_files = {}
     history = []
     if cruise_obj:
         cruise['date_start'] = cruise_obj.date_start()
@@ -61,7 +62,7 @@ def cruise_show(request):
     return {
         'cruise': cruise_obj,
         'cruise_dict': cruise,
-        'data_files': _collapsed_dict(data_files) or {},
+        'data_files': _collapsed_dict(data_files),
         'history': history,
         }
 

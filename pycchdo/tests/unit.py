@@ -11,6 +11,7 @@ import pycchdo.models as M
 from pycchdo.models.models import collectablemongodoc, Stamp, Obj, _Change, \
                                   _Attrs, Attr, Note, Country, Cruise, Person
 
+
 def global_setUp(self):
     self.config = testing.setUp()
     M.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018/?journal=true&wtimeout=300'})

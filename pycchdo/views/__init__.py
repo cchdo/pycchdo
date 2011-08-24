@@ -8,7 +8,7 @@ import pycchdo.models as models
 
 __all__ = [
     '_collapsed_dict', '_http_method', '_unescape',
-    'favicon', 'robots', 'home', 'clear_db', 'submit', 'data',
+    'favicon', 'robots', 'clear_db', 'home', 'submit', 'data',
     'catchall_static', 
     ]
 
@@ -57,16 +57,16 @@ except IOError:
     _robots_response = HTTPNotFound()
 
 
+def home(context, request):
+    return {}
+
+
 def favicon(context, request):
     return _favicon_response
 
 
 def robots(context, request):
     return _favicon_response
-
-
-def home(request):
-    return {}
 
 
 def clear_db(request):

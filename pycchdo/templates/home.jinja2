@@ -1,0 +1,263 @@
+{% extends "templates/base.jinja2" %}
+{% block head -%}
+  {{ whh.tags.stylesheet_link('/static/css/home.css') }}
+{%- endblock %}
+{% block content %}
+<div class="left">
+  <div id="intro" class="boxed">
+    <h1>Welcome to the CCHDO</h1>
+    <div class="box_content">
+      <img src="/static/img/ctd_recovery.png">
+      <h2>About the CCHDO</h2>
+      <p>
+        The CCHDO's primary mission is to deliver the highest possible quality
+        global CTD and hydrographic data to users. These data are a product of
+        decades of observations related to the physical characteristics of
+        ocean waters carried out during WOCE, CLIVAR and numerous other
+        oceanographic research programs.  Whenever possible we provide these
+        data in three easy-to-use formats:
+        <a href="/format.html">WHP-Exchange</a> (which we recommend for data
+        submissions to the CCHDO), <a href="/format.html">WOCE</a>, and
+        <a href="/format.html">netCDF</a>.
+      </p>
+      <p>
+        The CCHDO also manages public and non-public CTD data to be used for the
+        global Argo and OceanSITES programs.
+      </p>
+      <p>
+        This site is funded by the
+        <a href="http://nsf.gov/">National Science Foundation</a>.
+      </p>
+    </div>
+    <div class="box_bottom"></div>
+  </div>
+
+  <div class="boxed">
+  <h1>Search for Data Geographically</h1>
+  <div id="geo_search" class="box_content">
+    <ul>
+      <li class="basin">
+        <h2>Click on a basin</h2>
+
+        <table id="basin_map">
+          <tr>
+            <td colspan="5"><a href="/arctic.html" class="hoverable basin arctic"><img name="arctic" src="/static/img/maps/basins/arctic.jpg" width="330" height="30" id="arctic" alt=""></a></td>
+          </tr>
+          <tr>
+            <td><img src="/static/img/maps/basins/cchdo_search_basin_r2_c1.jpg" width="69" height="50" id="cchdo_search_basin_r2_c1" alt=""></td>
+            <td colspan="2"><img src="/static/img/maps/basins/pacific.jpg" width="142" height="50" id="pacific" usemap="#m_pacific" alt=""></td>
+            <td rowspan="2"><img src="/static/img/maps/basins/atlantic.jpg" width="29" height="133" id="atlantic" usemap="#m_atlantic" alt=""></td>
+            <td rowspan="2"><img src="/static/img/maps/basins/cchdo_search_basin_r2_c5.jpg" width="90" height="133" id="cchdo_search_basin_r2_c5" usemap="#m_cchdo_search_basin_r2_c5" alt=""></td>
+          </tr>
+          <tr>
+            <td><img src="/static/img/maps/basins/indian.jpg" width="69" height="83" id="indian" usemap="#m_indian" alt=""></td>
+            <td><img src="/static/img/maps/basins/cchdo_search_basin_r3_c2.jpg" width="37" height="83" id="cchdo_search_basin_r3_c2" usemap="#m_cchdo_search_basin_r3_c2" alt=""></td>
+            <td><img src="/static/img/maps/basins/cchdo_search_basin_r3_c3.jpg" width="105" height="83" id="cchdo_search_basin_r3_c3" usemap="#m_cchdo_search_basin_r3_c3" alt=""></td>
+          </tr>
+          <tr>
+            <td colspan="5"><a href="/southern.html" class="hoverable basin southern"><img name="southern" src="/static/img/maps/basins/southern.jpg" width="330" height="48" id="southern" alt=""></a></td>
+          </tr>
+        </table>
+
+        <map name="m_pacific">
+          <area alt="" shape="poly" coords="37,114,40,111,43,105,43,102,39,97,34,88,33,90,30,91,27,87,21,89,19,89,2,66,3,64,1,60,0,58,3,56,8,55,13,51,15,47,13,41,11,37,15,35,18,36,20,41,21,41,21,36,23,32,27,30,32,25,31,20,31,17,27,16,30,11,36,8,43,6,44,5,50,2,54,1,55,3,51,9,49,11,47,18,50,17,51,12,54,6,58,5,61,4,67,1,69,0,83,0,82,3,86,6,89,9,91,10,89,13,94,5,98,5,104,8,107,8,116,18,121,25,120,31,121,37,125,42,129,45,133,47,137,56,138,57,145,59,150,62,157,66,160,69,164,69,164,72,161,75,161,81,165,87,167,91,170,94,170,99,167,110,167,119,165,127,166,133,166,133,171,133,171,133,156,133,137,133,61,133,54,133,50,133,48,133,37,133,37,133,37,114"
+            href="/pacific.html"
+            class="hoverable basin pacific">
+        </map>
+        <map name="m_atlantic">
+          <area alt="" shape="poly" coords="-105,114,-102,111,-99,105,-99,102,-103,97,-108,88,-109,90,-112,91,-115,87,-121,89,-123,89,-140,66,-139,64,-141,60,-142,58,-139,56,-134,55,-129,51,-127,47,-129,41,-131,37,-127,35,-124,36,-122,41,-121,41,-121,36,-119,32,-115,30,-110,25,-111,20,-111,17,-115,16,-112,11,-106,8,-99,6,-98,5,-92,2,-88,1,-87,3,-91,9,-93,11,-95,18,-92,17,-91,12,-88,6,-84,5,-81,4,-75,1,-73,0,-59,0,-60,3,-56,6,-53,9,-51,10,-53,13,-48,5,-44,5,-38,8,-35,8,-26,18,-21,25,-22,31,-21,37,-17,42,-13,45,-9,47,-5,56,-4,57,3,59,8,62,15,66,18,69,22,69,22,72,19,75,19,81,23,87,25,91,28,94,28,99,25,110,25,119,23,127,24,133,24,133,29,133,29,133,14,133,-5,133,-81,133,-88,133,-92,133,-94,133,-105,133,-105,133,-105,114"
+            href="/pacific.html"
+            class="hoverable basin pacific">
+          <area shape="poly" coords="28,130,29,133,29,133,37,133,44,133,53,133,119,133,118,106,110,108,104,91,105,86,100,76,101,71,93,69,85,71,80,67,78,56,80,51,84,46,86,42,87,37,86,34,90,32,92,29,91,24,101,17,106,17,105,10,103,7,99,7,98,3,101,0,53,0,51,6,48,5,45,0,45,0,29,0,26,5,28,7,31,12,32,9,39,18,35,22,29,22,27,27,31,29,25,31,22,37,18,43,15,47,11,45,2,48,0,55,9,59,14,62,17,67,19,70,23,66,28,65,33,67,36,69,42,73,52,79,56,81,57,85,55,89,53,94,46,99,45,104,40,109,34,112,31,118,28,130"
+            href="/atlantic.html"
+            alt="" class="hoverable basin atlantic">
+        </map>
+        <map name="m_cchdo_search_basin_r2_c5">
+          <area alt="" shape="poly" coords="-1,130,0,133,0,133,8,133,15,133,24,133,90,133,89,106,81,108,75,91,76,86,71,76,72,71,64,69,56,71,51,67,49,56,51,51,55,46,57,42,58,37,57,34,61,32,63,29,62,24,72,17,77,17,76,10,74,7,70,7,69,3,72,0,24,0,22,6,19,5,16,0,16,0,0,0,-3,5,-1,7,2,12,3,9,10,18,6,22,0,22,-2,27,2,29,-4,31,-7,37,-11,43,-14,47,-18,45,-27,48,-29,55,-20,59,-15,62,-12,67,-10,70,-6,66,-1,65,4,67,7,69,13,73,23,79,27,81,28,85,26,89,24,94,17,99,16,104,11,109,5,112,2,118,-1,130"
+            href="/atlantic.html"
+            class="hoverable basin atlantic">
+        </map>
+        <map name="m_indian">
+          <area alt="" shape="poly" coords="106,64,106,83,91,83,87,83,83,83,77,83,75,83,69,83,63,83,59,83,53,83,41,83,29,83,15,83,-1,83,-1,53,3,40,8,33,11,26,18,18,16,13,24,5,23,0,31,0,42,10,44,17,47,6,56,5,66,12,76,21,87,36,89,40,82,44,77,49,79,57,86,58,94,54,106,64"
+            href="/indian"
+            class="hoverable basin indian">
+        </map>
+        <map name="m_cchdo_search_basin_r3_c2">
+          <area alt="" shape="poly" coords="37,64,40,61,43,55,43,52,39,47,34,38,33,40,30,41,27,37,21,39,19,39,2,16,3,14,1,10,0,8,3,6,8,5,13,1,15,-3,13,-9,11,-13,15,-15,18,-14,20,-9,21,-9,21,-14,23,-18,27,-20,32,-25,31,-30,31,-33,27,-34,30,-39,36,-42,43,-44,44,-45,50,-48,54,-49,55,-47,51,-41,49,-39,47,-32,50,-33,51,-38,54,-44,58,-45,61,-46,67,-49,69,-50,83,-50,82,-47,86,-44,89,-41,91,-40,89,-37,94,-45,98,-45,104,-42,107,-42,116,-32,121,-25,120,-19,121,-13,125,-8,129,-5,133,-3,137,6,138,7,145,9,150,12,157,16,160,19,164,19,164,22,161,25,161,31,165,37,167,41,170,44,170,49,167,60,167,69,165,77,166,83,166,83,171,83,171,83,156,83,137,83,61,83,54,83,50,83,48,83,37,83,37,83,37,64"
+            href="/pacific.html"
+            class="hoverable basin pacific">
+          <area alt="" shape="poly" coords="37,64,37,83,22,83,18,83,14,83,8,83,6,83,0,83,-6,83,-10,83,-16,83,-28,83,-40,83,-54,83,-70,83,-70,53,-66,40,-61,33,-58,26,-51,18,-53,13,-45,5,-46,0,-38,0,-27,10,-25,17,-22,6,-13,5,-3,12,7,21,18,36,20,40,13,44,8,49,10,57,17,58,25,54,37,64"
+            href="/indian"
+            class="hoverable basin indian">
+        </map>
+        <map name="m_cchdo_search_basin_r3_c3">
+          <area alt="" shape="poly" coords="0,64,3,61,6,55,6,52,2,47,-3,38,-4,40,-7,41,-10,37,-16,39,-18,39,-35,16,-34,14,-36,10,-37,8,-34,6,-29,5,-24,1,-22,-3,-24,-9,-26,-13,-22,-15,-19,-14,-17,-9,-16,-9,-16,-14,-14,-18,-10,-20,-5,-25,-6,-30,-6,-33,-10,-34,-7,-39,-1,-42,6,-44,7,-45,13,-48,17,-49,18,-47,14,-41,12,-39,10,-32,13,-33,14,-38,17,-44,21,-45,24,-46,30,-49,32,-50,46,-50,45,-47,49,-44,52,-41,54,-40,52,-37,57,-45,61,-45,67,-42,70,-42,79,-32,84,-25,83,-19,84,-13,88,-8,92,-5,96,-3,100,6,101,7,108,9,113,12,120,16,123,19,127,19,127,22,124,25,124,31,128,37,130,41,133,44,133,49,130,60,130,69,128,77,129,83,129,83,134,83,134,83,119,83,100,83,24,83,17,83,13,83,11,83,0,83,0,83,0,64"
+            href="/pacific.html"
+            class="hoverable basin pacific">
+        </map>
+      </li>
+      <li class="map_tool">
+        <h2><a href="/search/map">Use our interactive map tool</a></h2>
+        <a href="/search/map"><img src="/static/img/cchdo_search_map.png"></a>
+      </li>
+    </ul>
+    <div class="clear"></div>
+  </div>
+  <div class="box_bottom"></div>
+  </div>
+</div>
+
+<div class="right">
+  <div class="boxed">
+    <h1>Recent Developments</h1>
+    <div class="box_content">
+        <h2>Updated Data Files</h2>
+        <table>   
+            <td> 
+              <a href="/search?query=33H420101113"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
+            </td> 
+            <td> 
+              <h3><a href="/search?query=33H420101113"> ARS01</a></h3> 
+              <p>Unknown</p> 
+              <span>Cruise Date:</span>2010-11-13<br> 
+              <span>Updated:</span>2011-07-18<br> 
+            </td> 
+          </tr> 
+                  <tr> 
+            <td> 
+              <a href="/search?query=33H420101130"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420101130/33H420101130trk.jpg"></a> 
+            </td> 
+            <td> 
+              <h3><a href="/search?query=33H420101130"> ARS01</a></h3> 
+              <p>Unknown</p> 
+              <span>Cruise Date:</span>2010-11-30<br> 
+              <span>Updated:</span>2011-07-18<br> 
+            </td> 
+          </tr> 
+                  <tr> 
+            <td> 
+              <a href="/search?query=33H420110614"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420110614/33H420110614trk.jpg"></a> 
+            </td> 
+            <td> 
+              <h3><a href="/search?query=33H420110614"> ARS01</a></h3> 
+              <p>Unknown</p> 
+              <span>Cruise Date:</span>2011-06-14<br> 
+              <span>Updated:</span>2011-07-18<br> 
+            </td> 
+          </tr> 
+                  <tr> 
+            <td> 
+              <a href="/search?query=33H420101018"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420101018/33H420101018trk.jpg"></a> 
+            </td> 
+            <td> 
+              <h3><a href="/search?query=33H420101018"> ARS01</a></h3> 
+              <p>Unknown</p> 
+              <span>Cruise Date:</span>2010-10-18<br> 
+              <span>Updated:</span>2011-07-18<br> 
+            </td> 
+          </tr> 
+        
+        </table> 
+    </div>
+    <div class="box_bottom"></div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  <script>
+    /* http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript */
+    (function($) {
+      var cache = [];
+      // Arguments are image paths relative to the current page.
+      $.preLoadImages = function() {
+        var args_len = arguments.length;
+        for (var i = args_len; i--;) {
+          var cacheImage = document.createElement('img');
+          cacheImage.src = arguments[i];
+          cache.push(cacheImage);
+        }
+      }
+    })(jQuery)
+
+    var CCHDO = {
+      BASIN_MAP: {
+        prefix: '/static/img/maps/basins/',
+        images: [
+          'arctic_f2.jpg','pacific_f4.jpg','atlantic_f4.jpg',
+          'cchdo_search_basin_r3_c2_f4.jpg','cchdo_search_basin_r3_c3_f4.jpg',
+          'atlantic_f6.jpg','cchdo_search_basin_r2_c5_f4.jpg',
+          'indian_f4.jpg','cchdo_search_basin_r3_c2_f6.jpg','southern_f2.jpg'
+        ]
+      }
+    };
+    
+    function swapImage() {
+      var a = arguments;
+      var swapped = [];
+      for (var i = 0; i < a.length - 1; i += 2) {
+        var x = $('#' + a[i])[0];
+        if (x != null) {
+          swapped.push(x);
+          if (!$(x).data('osrc')) {
+            $(x).data('osrc', x.src);
+          }
+          x.src = CCHDO.BASIN_MAP.prefix + a[i + 1];
+        }
+      }
+      $(window).data('swappedImages', swapped);
+    }
+    function swapImgRestore() {
+      var a = $(window).data('swappedImages');
+      if (!a) { return ;}
+      for (var i = 0; i < a.length; i += 1) {
+        var x = a[i];
+        var osrc = $(x).data('osrc');
+        if (!osrc) {
+          continue;
+        }
+        x.src = osrc;
+      }
+    }
+
+    $(function () {
+      var imgs = CCHDO.BASIN_MAP.images;
+      for (var i = 0; i < imgs.length; i += 1) {
+        imgs[i] = CCHDO.BASIN_MAP.prefix + imgs[i];
+      }
+      jQuery.preLoadImages.apply(this, imgs);
+      $('#basin_map').mouseout(function () {
+        swapImgRestore();
+      });
+      var lastHl = null;
+      $('.hoverable.basin').each(function () {
+        $(this).mouseover(function () {
+          if (lastHl != $(this)[0].className) {
+            swapImgRestore();
+          } else {
+            return;
+          }
+          if ($(this).hasClass('atlantic')) {
+            swapImage(
+              'atlantic','atlantic_f6.jpg',
+              'cchdo_search_basin_r2_c5','cchdo_search_basin_r2_c5_f4.jpg');
+          } else if ($(this).hasClass('indian')) {
+            swapImage(
+              'indian','indian_f4.jpg',
+              'cchdo_search_basin_r3_c2','cchdo_search_basin_r3_c2_f6.jpg');
+          } else if ($(this).hasClass('pacific')) {
+            swapImage(
+              'pacific','pacific_f4.jpg',
+              'atlantic','atlantic_f4.jpg',
+              'cchdo_search_basin_r3_c2','cchdo_search_basin_r3_c2_f4.jpg',
+              'cchdo_search_basin_r3_c3','cchdo_search_basin_r3_c3_f4.jpg');
+          } else if ($(this).hasClass('arctic')) {
+            swapImage('arctic','arctic_f2.jpg');
+          } else if ($(this).hasClass('southern')) {
+            swapImage('southern','southern_f2.jpg');
+          }
+        });
+      });
+    });
+  </script>
+{% endblock %}

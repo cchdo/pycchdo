@@ -8,6 +8,8 @@ from geojson import LineString
 
 import gridfs
 
+import libcchdo.fns
+
 import triggers
 
 
@@ -60,6 +62,12 @@ def ensure_objectid(idobj):
     if type(idobj) is not ObjectId:
         return ObjectId(idobj)
     return idobj
+
+
+def _str2unicode(x):
+    if type(x) is str:
+        return unicode(x)
+    return x
 
 
 def _sort_by_stamp(query, stamp='creation'):
@@ -240,6 +248,12 @@ class collectablemongodoc(mongodoc):
     @classmethod
     def get_id(cls, idobj):
         return cls.map_mongo(cls.find_id(idobj))
+
+    def __eq__(self, o):
+        return self.id == o.id
+
+    def __hash__(self):
+        return int(str(self.id), 16)
 
 
 class _Change(collectablemongodoc):
@@ -442,6 +456,16 @@ class Attr(_Change):
         super(Attr, self).remove()
         if self.is_note():
             triggers.saved_note(self)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        mapping = '%r: %r' % (self.key, self.value)
+        if self.deleted:
+            mapping = 'DEL'
+        return "Attr({mapping}, {accepted}|{id})".format(
+            mapping=mapping, accepted=self.accepted, id=self.id)
 
 
 class Obj(_Change):
@@ -657,20 +681,25 @@ class Obj(_Change):
 
     @classmethod
     def get_by_attrs(cls, **kwargs):
-        query = [{'key': unicode(k), 'value': unicode(v)} for k, v in kwargs.items()]
-        attrs_matching_query = _sort_by_stamp(Attr.find({'$or': query}))
+        query = [{'key': unicode(k),
+                  'value': _str2unicode(v),
+                  'accepted': True} for k, v in kwargs.items()]
+        objs_attrs = Attr._mongo_collection().group(
+            ['obj'],
+            {'$or': query},
+            {'a': 0}, 
+            'function (x, o) { o.a++; }')
 
-        # Now filter the matched objs for the attrs for the correct
-        # combination of attrs.
-        if not attrs_matching_query:
-            return []
-        objs = map(cls.get_id, set([a['obj'] for a in attrs_matching_query]))
-        def matches_attr_query(obj):
+        # Filter the matched objs for the correct number of matched attrs
+        objs = filter(None, [cls.get_id(oa['obj']) for oa in objs_attrs \
+                             if oa['a'] == len(query)])
+        # Make sure the most current values match by filtering resulting objs
+        def true_match(obj):
             for k, v in kwargs.items():
-                if obj.get(k, None) is not v:
+                if obj.get(k) != v:
                     return False
             return True
-        return filter(matches_attr_query, objs)
+        return filter(true_match, objs)
 
     def __repr__(self):
         copy = {}
@@ -700,10 +729,10 @@ class Person(Obj):
         self.email = email
 
         if identifier is None and None in (
-                name_first, name_last, institution, email):
+                name_first, name_last):
             raise ValueError(
                 'Person must be initialized either with identifier '
-                'or attributes.')
+                'or names.')
 
     def from_mongo(self, doc):
         super(Person, self).from_mongo(doc)
@@ -731,6 +760,59 @@ class Person(Obj):
             return 'Person ()'
 
 
+class _Participants(dict):
+    """ A map of roles to sets of Persons. """
+    def __init__(self, cruise, *args, **kwargs):
+        super(_Participants, self).__init__(*args, **kwargs)
+        self._cruise = cruise
+
+    def __getitem__(self, key):
+        try:
+            return [Person.get_id(id) for id in \
+                    super(_Participants, self).__getitem__(key)]
+        except KeyError:
+            return []
+    
+    def add(self, person, role, signer):
+        """ Adds a participant to the map under the given role. """
+        assert type(person) is Person
+        pid = person.id
+
+        try:
+            l = self[role]
+            l.append(pid)
+            self[role] = libcchdo.fns.uniquify(l)
+        except KeyError:
+            self[role] = [pid]
+        return self._cruise.set('participants', self, signer)
+    
+    def remove(self, person, role, signer):
+        """ Removes a participant from the map under the given role. """
+        assert type(person) is Person
+        pid = person.id
+
+        try:
+            l = super(_Participants, self).__getitem__(role)
+            l.remove(pid)
+        except (KeyError, ValueError):
+            pass
+        return self._cruise.set('participants', self, signer)
+
+    @property
+    def roles(self, role=None):
+        """ Pairs of Persons and roles present in the map """
+        if role is None:
+            map = self
+        else:
+            map = self[role]
+
+        participants = []
+        for role, persons in map.items():
+            for person in persons:
+                participants.append((Person.get_id(person), role, ))
+        return participants
+
+
 class Cruise(Obj):
     def expocode(self):
         return self.get('expocode')
@@ -745,8 +827,9 @@ class Cruise(Obj):
         return self.get('date_end')
 
     def collections(self):
-        # TODO
-        return []
+        collection_ids = self.get('collections', [])
+        return filter(
+            None, [Collection.get_id(x) for x in collection_ids])
 
     def ship(self):
         ship = self.get('ship', None)
@@ -760,17 +843,17 @@ class Cruise(Obj):
             return Country.get_id(country)
         return None
 
-    def participants(self, role=None):
-        # TODO
-        participant = (Person, 'role')
-        participants = []
-        if role:
-            return [p for p, role in participants if role == role]
+    @property
+    def participants(self):
+        participants = self.get('participants', None)
+        if participants:
+            return _Participants(self, participants)
         else:
-            return participants
+            return _Participants(self)
 
+    @property
     def chief_scientists(self):
-        return self.participants('chief_scientist')
+        return self.participants['Chief Scientist']
 
     def track(self):
         track = self.get('track', None)
@@ -821,15 +904,26 @@ class Country(Obj):
 
 
 class Collection(Obj):
+    """ Essentially tags for Cruises.
+    
+    A Cruise may belong to Basin Collection, WOCE line Collection, etc.
+    
+    A Collection will also include a type as part of its identifier to
+    differentiate between the fields it came from in the original database.
+    
+    """
+
+    @property
     def names(self):
         try:
             return self.get('names')
         except KeyError:
             return []
 
+    @property
     def name(self):
         try:
-            return self.names()[0]
+            return self.names[0]
         except IndexError:
             return None
 

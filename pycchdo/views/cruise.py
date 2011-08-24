@@ -5,6 +5,10 @@ import pycchdo.models as models
 from . import *
 
 
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+
+
 def cruises_index(request):
     return {'cruises': models.Cruise.map_mongo(models.Cruise.find())}
 
@@ -21,10 +25,12 @@ def cruise_show(request):
     cruise = {}
     history = []
     if cruise_obj:
+        cruise['collections'] = ', '.join(flatten([c.names for c in cruise_obj.collections()]))
         cruise['date_start'] = cruise_obj.date_start()
         cruise['date_end'] = cruise_obj.date_end()
         if cruise['date_start'] and cruise['date_end']:
             cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'], cruise['date_end'])))
+        cruise['link'] = cruise_obj.get('link')
 
         def getAttr(cruise_obj, type):
             id = None

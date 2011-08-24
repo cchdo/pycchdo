@@ -16,7 +16,7 @@ def global_setUp(self):
     M.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018/?w=true&wtimeout=1000&fsync=true'})
     M.cchdo().objs.drop()
     M.cchdo().attrs.drop()
-    self.testPerson = Person(identifier='testid')
+    self.testPerson = Person(identifier='testid', name_first='Testing', name_last='Tester')
     self.testPerson.save()
 
 
@@ -93,7 +93,7 @@ class TestModel(unittest.TestCase):
         o.set('a', 'b', self.testPerson)
         self.assertEquals([], o.accepted_tracked())
         Attr.map_mongo(o.history()[0]).accept(self.testPerson)
-        self.assertEquals([o.history()[0]], o.accepted_tracked())
+        self.assertEquals([Attr.map_mongo(o.history()[0])], o.accepted_tracked())
         o.remove()
 
     def test_Attrs_keys(self):
@@ -236,6 +236,29 @@ class TestModel(unittest.TestCase):
         finally:
             obj.remove()
 
+    def test_Obj_get_by_attrs(self):
+        """ Retrieve objects whose current values for attrs matches the query.
+
+        """
+        objs = []
+        ans = None
+        for i in range(0, 101):
+            obj = Obj(self.testPerson)
+            obj.save()
+            obj.set_accept('a', i, self.testPerson)
+            obj.set_accept('b', 100 - i, self.testPerson)
+            objs.append(obj)
+            if i == 50:
+                ans = obj
+        try:
+            objs_gotten = Obj.get_by_attrs(a=50, b=50)
+            obj = objs_gotten[0]
+            self.assertEquals(len(objs_gotten), 1)
+            self.assertEquals(ans.get('a'), obj.get('a'))
+        finally:
+            for obj in objs:
+                obj.remove()
+
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """
         o = Obj(self.testPerson)
@@ -252,8 +275,7 @@ class TestModel(unittest.TestCase):
         self.assertTrue(isinstance(p, Obj))
 
     def test_Person_new_without_id_provider(self):
-        """ A new Person without an ID must supply their first and last name,
-        institution, country, and email.
+        """ A new Person without an ID must supply their first and last name.
         """
         # Missing name_first
         self.assertRaises(ValueError, lambda: Person(
@@ -265,17 +287,6 @@ class TestModel(unittest.TestCase):
             name_first="Ryan",
             institution="Test University", country="Testland",
             email="test@test.com"))
-        # Missing institution
-        self.assertRaises(ValueError, lambda: Person(
-            name_first="Ryan", name_last="Tester",
-            country="Testland", email="test@test.com"))
-        # Missing email
-        self.assertRaises(ValueError, lambda: Person(
-            name_first="Ryan", name_last="Tester",
-            institution="Test University", country="Testland"))
-        Person(name_first="Ryan", name_last="Tester",
-               institution="Test University", country="Testland",
-               email="test@test.com")
 
     def test_Person_new_with_id(self):
         """ A Person with an ID can supply their own information """
@@ -455,6 +466,28 @@ class TestModel(unittest.TestCase):
         t = c.track()
         self.assertTrue(t is not None)
         self.assertTrue(type(t) is shapely.geometry.linestring.LineString)
+        c.remove()
+
+    def test_Cruise_add_participant(self):
+        """ Add participants to a cruise """
+        c = Cruise(self.testPerson)
+        c.save()
+        c.participants.add(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
+        self.assertEquals([self.testPerson], c.chief_scientists)
+        c.participants.add(self.testPerson, 'Co-Chief Scientist', self.testPerson).accept(self.testPerson)
+        self.assertEquals([(self.testPerson, 'Chief Scientist'),
+                           (self.testPerson, 'Co-Chief Scientist')],
+                          c.participants.roles)
+        c.remove()
+
+    def test_Cruise_remove_participant(self):
+        """ Remove participants from a cruise """
+        c = Cruise(self.testPerson)
+        c.save()
+        c.participants.add(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
+        self.assertEquals([self.testPerson], c.chief_scientists)
+        c.participants.remove(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
+        self.assertEquals([], c.participants.roles)
         c.remove()
 
     def test_Cruise_filter_geo(self):

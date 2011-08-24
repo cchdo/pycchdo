@@ -19,15 +19,16 @@
       {%- endif %}
 
       {{ cruise_attr('ExpoCode', cruise.expocode()) }}
-      {{ cruise_attr('Collections', cruise.collections()) }}
+      {{ cruise_attr('Collections', cruise_dict['collections']) }}
       {% if cruise.ship() -%}
         {{ cruise_attr('Ship', cruise.ship().name()) }}
       {%- endif %}
       {% if cruise.country() -%}
         {{ cruise_attr('Country', cruise.country().name()) }}
       {%- endif %}
-      {{ cruise_attr('Chief Scientists', cruise.chief_scientists()) }}
+      {{ cruise_attr('Chief Scientists', cruise.chief_scientists) }}
       {{ cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
+      {{ cruise_attr('Expedition Link', cruise_dict['link']) }}
     </div>
     <div class="clear"></div>
     <div class="subsection data-files">

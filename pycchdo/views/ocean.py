@@ -5,12 +5,12 @@ from pyramid.httpexceptions import HTTPNotFound
 import pycchdo.models
 
 
-def by_ocean_index(request):
+def ocean_index(request):
     """There's no index page for oceans."""
     return HTTPNotFound()
 
 
-def by_ocean_show(request):
+def ocean_show(request):
     AllowedBasins = ('arctic', 'atlantic', 'indian', 'pacific', 'southern', )
 
     basin = request.matchdict['basin']

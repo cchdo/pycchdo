@@ -121,8 +121,8 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.argo.entity', route_name='argo_entity', renderer='templates/argo/show.jinja2')
 
     # Ocean lists
-    config.add_route('by_ocean_show', '/ocean/*basin') # /basin/*basin ?
-    config.add_view('pycchdo.views.by_ocean.by_ocean_show', route_name='by_ocean_show', renderer='templates/base.jinja2')
+    config.add_route('ocean_show', '/ocean/*basin') # /basin/*basin ?
+    config.add_view('pycchdo.views.ocean.ocean_show', route_name='ocean_show', renderer='templates/base.jinja2')
 
 	# Search routes
     config.add_route('search', '/search')

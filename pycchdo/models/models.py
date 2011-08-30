@@ -26,6 +26,14 @@ data_file_descriptions = {
 
 
 def init_conn(settings, **kwargs):
+    """Set up a connection to the PyMongo database.
+
+    Arguments:
+      settings: settings dictionary containing, among other
+                configuration options, the database URI
+      **kwargs: required for miscellaneous options to the
+                pymongo.Connection constructor
+    """
     global mongo_conn
     try:
         mongo_conn = pymongo.Connection(settings['db_uri'], **kwargs)
@@ -37,12 +45,24 @@ def init_conn(settings, **kwargs):
 
 
 def cchdo():
+    """Yield the connection to the PyMongo database.
+
+    This operation will fail if init_conn() [see above] has
+    not been invoked, or if init_conn() has failed to
+    establish the database connection.
+
+    Return:
+      The pymongo.Connection object representing the
+      connection to the PyCCHDO PyMongo database, iff
+      it exists.
+    """
     if not mongo_conn:
         raise IOError('No database connection. Check that the server .ini file contains the correct db_uri.')
     return mongo_conn.cchdo
 
 
 def fs():
+    """Ensure and return a GridFS wrapper for the database connection."""
     global grid_fs
     if not grid_fs:
         grid_fs = gridfs.GridFS(cchdo())
@@ -50,10 +70,21 @@ def fs():
 
 
 def timestamp():
+    """Create a datetime.datetime representing Now."""
+    # FIXME This needs to make a datetime that is timezone aware
     return datetime.datetime.utcnow()
 
 
 def ensure_objectid(idobj):
+    """Ensure that an object ID is an ObjectId.
+
+    Argument:
+      idobj: an object ID.
+
+    Returns:
+      idobj if type(idobj) is ObjectId else ObjectId(idobj)
+      #(sorry)
+    """
     if type(idobj) is not ObjectId:
         return ObjectId(idobj)
     return idobj
@@ -64,7 +95,17 @@ def _sort_by_stamp(query, stamp='creation'):
 
 
 class mongodoc(dict):
+    """ Base class representation for any mongo document
+    """
     def copy_keys_from(self, o, keys):
+        """Copy key-value pairs into oneself.
+
+        Arguments:
+          o: a mapping from which self will obtain
+             key-value pairs.
+          keys: the keys for which self will copy
+                key-value pairs from o.
+        """
         if not o:
             return
         for key in keys:
@@ -74,6 +115,14 @@ class mongodoc(dict):
                 pass
 
     def mapobj(self, doc, key, cls):
+        """Project a key-value pair from a document onto oneself.
+
+        Arguments:
+          doc: The document from which the key-value pair will be obtained.
+          key: The key for the pair to project from the document.
+          cls: The class that will perform the mapping operation if the
+               value is a dictionary.
+        """
         try:
             v = doc[key]
             if type(v) is not dict:
@@ -216,6 +265,7 @@ class collectablemongodoc(mongodoc):
 
 
 class _Change(collectablemongodoc):
+    """Class for database entries (changes to data)."""
     @classmethod
     def _mongo_collection(cls):
         return cchdo().changes
@@ -296,6 +346,7 @@ class _Change(collectablemongodoc):
 
 
 class Attr(_Change):
+    """Attribute changes to database objects."""
     @classmethod
     def _mongo_collection(cls):
         return cchdo().attrs
@@ -414,6 +465,7 @@ class Attr(_Change):
 
 
 class _Attrs(dict):
+    """Attribute collection for database objects."""
     def __init__(self, obj):
         self._obj = obj
 
@@ -502,6 +554,7 @@ class _Attrs(dict):
 
 
 class Obj(_Change):
+    """Base class for database objects (changes)."""
     @classmethod
     def _mongo_collection(cls):
         return cchdo().objs
@@ -650,6 +703,7 @@ class Person(Obj):
 
 
 class Cruise(Obj):
+    """Cruise database object."""
     def __init__(self, person):
         super(Cruise, self).__init__(person)
 

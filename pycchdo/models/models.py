@@ -1,4 +1,5 @@
 import datetime
+import re
 
 import pymongo
 from pymongo.objectid import ObjectId
@@ -378,6 +379,8 @@ class Attr(_Change):
         if key == 'track':
             if type(value) is LineString:
                 value = value.coordinates
+            elif type(value) is linestring.LineString:
+                value = list(value.coords)
             else:
                 assert not isinstance(value, str)
                 for i, c in enumerate(value):
@@ -693,10 +696,15 @@ class Obj(_Change):
         # Filter the matched objs for the correct number of matched attrs
         objs = filter(None, [cls.get_id(oa['obj']) for oa in objs_attrs \
                              if oa['a'] == len(query)])
+
         # Make sure the most current values match by filtering resulting objs
         def true_match(obj):
             for k, v in kwargs.items():
-                if obj.get(k) != v:
+                obj_v = obj.get(k)
+                if type(obj_v) is list and type(v) is not list:
+                    if v not in obj_v:
+                        return False
+                elif obj_v != v:
                     return False
             return True
         return filter(true_match, objs)
@@ -768,6 +776,7 @@ class _Participants(dict):
 
     def __getitem__(self, key):
         try:
+            print super(_Participants, self).__getitem__(key)
             return [Person.get_id(id) for id in \
                     super(_Participants, self).__getitem__(key)]
         except KeyError:
@@ -814,6 +823,12 @@ class _Participants(dict):
 
 
 class Cruise(Obj):
+    """
+
+    Attributes:
+    basin - imported from "internal"
+
+    """
     def expocode(self):
         return self.get('expocode')
 
@@ -855,6 +870,7 @@ class Cruise(Obj):
     def chief_scientists(self):
         return self.participants['Chief Scientist']
 
+    @property
     def track(self):
         track = self.get('track', None)
         if not track:
@@ -910,6 +926,13 @@ class Collection(Obj):
     
     A Collection will also include a type as part of its identifier to
     differentiate between the fields it came from in the original database.
+
+    Attributes:
+    names - names associated with the collection. The first name in the list is
+            the canonical name.
+    type - identifier of WOCE line, group, program, spatial_group, basin
+    basins - a list of any combination of atlantic, arctic, pacific, indian,
+             southern
     
     """
 
@@ -970,3 +993,79 @@ class ArgoFile(AutoAcceptingObj):
     @property
     def display(self):
         return self.get('display', False)
+
+
+class OldSubmission(Obj):
+    """ An old submission imported for record keeping.
+
+        Other information stored:
+        The creation timestamp is the create time for the submission record.
+        The judgment timestamp is the update time for the submission record.
+
+        Since it appears that the submissions were created using a script, only
+        the first encountered time is recorded.
+    
+        Attributes:
+        date - the date of the submission
+        stamp - unknown
+        submitter - the name of the submitter. Format varies.
+        line - the WOCE line number of the submission. May be other things.
+        folder - the original folder name of the submission. This is mainly
+                 used to group the submission files together during import.
+        files - a list of fs ids that store the actual files of the submission.
+                Each file will have the original filename stored along with
+                an attribute "old_submission" marked True.
+
+    """
+    def remove(self):
+        for file in self.get('files'):
+            fs().delete(file)
+        super(OldSubmission, self).remove()
+
+
+class Parameter(Obj):
+    """ A parameter
+
+    Attributes:
+    name - the WOCE mnemonic
+    full_name - the full name of the parameter
+    name_netcdf - the accepted name for the parameter in WOCE NetCDF format
+    format - a C format string. This should actually be the number of
+             significant figures but this is how the data was stored.
+    unit - the unit for the parameter
+    bounds - a tuple marking the generally acceptable range for the parameter
+             for its primary unit
+    in_groups_but_did_not_exist - marks the parameter as existing in
+                                  the table parameter_groups but no where else
+                                  in the database. Import use only.
+
+    """
+    @property
+    def unit(self):
+        return Unit.get_id(self.get('unit'))
+
+    def display_order(self):
+        # TODO
+        return 0
+
+
+class Unit(Obj):
+    """ A unit for parameters
+
+    Attributes:
+    name - The name for a unit
+    mnemnoic - the WOCE mnemonic for the unit
+
+    """
+    pass
+
+
+class ParameterOrder(Obj):
+    """ Defines the class that a Parameter of which it is a member.
+
+    Attributes:
+    name - the class
+    order - the list of parameters in the order they should appear
+
+    """
+    pass

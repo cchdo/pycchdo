@@ -10,12 +10,17 @@ import tempfile
 import os
 
 import paramiko
+import shapely.wkt
+import shapely.geos
+from shapely.geometry import LineString
 
 import pycchdo.models as models
 
 import libcchdo
 import libcchdo.fns
-import libcchdo.db.model.legacy as legacy
+import libcchdo.db.model.convert as lcconvert
+std = lcconvert.std
+legacy = lcconvert.legacy
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -46,6 +51,20 @@ def _ssh_cchdo():
     return ssh_client
 
 
+@contextmanager
+def sftp_dl(sftp, filepath):
+    temp = tempfile.NamedTemporaryFile(delete=False)
+    try:
+        logging.info('Downloading %s' % filepath)
+        sftp.get(filepath, temp.name)
+        yield temp
+    except IOError:
+        logging.error("Unable to locate file on remote %s" % filepath)
+        yield None
+    finally:
+        os.unlink(temp.name)
+
+
 def import_users(session, importer):
     map_users = {}
 
@@ -73,6 +92,10 @@ def import_users(session, importer):
 
 def _ustr2uni(string):
     return unicode(string, 'unicode_escape')
+
+
+def _date_to_datetime(date):
+    return datetime.datetime.combine(date, datetime.time(0))
 
 
 def _import_contacts(session, importer):
@@ -124,10 +147,6 @@ def _import_contacts(session, importer):
     return map_persons
 
 
-def _date_to_datetime(date):
-    return datetime.datetime.combine(date, datetime.time(0))
-
-
 def _import_Collection(importer, name, type):
     """ A Collection also will include a type as part of its identifier to
     differentiate between the fields it came from in the original database.
@@ -151,8 +170,12 @@ def _import_cruises(session, importer):
     logging.info("Importing Cruises")
     map_cruises = {}
 
-    for cruise in session.query(legacy.Cruise).all():
-        cs = models.Cruise.get_by_attrs(expocode=cruise.ExpoCode, import_id=cruise.id)
+    cruises = session.query(legacy.Cruise).all()
+    len_cruises = float(len(cruises))
+    for i, cruise in enumerate(cruises):
+        if i % 10 == 0:
+            logging.info('%d/%d = %f' % (i, len_cruises, i / len_cruises))
+        cs = models.Cruise.get_by_attrs(import_id=cruise.id)
         if len(cs) > 0:
             logging.info('Updating Cruise %s %s' % (cruise.id, cruise.ExpoCode))
             c = cs[0]
@@ -207,6 +230,7 @@ def _import_cruises(session, importer):
                 attr_aliases.value = aliases
                 attr_aliases.creation_stamp = models.Stamp(importer)
                 attr_aliases.judgment_stamp = models.Stamp(importer)
+                attr_aliases.save()
             except KeyError:
                 c.set_accept('aliases', aliases, importer)
 
@@ -227,6 +251,7 @@ def _import_cruises(session, importer):
             attr_collections.value = collections
             attr_collections.creation_stamp = models.Stamp(importer)
             attr_collections.judgment_stamp = models.Stamp(importer)
+            attr_collections.save()
         except KeyError:
             c.set_accept('collections', collections, importer)
         
@@ -246,11 +271,51 @@ def _import_cruises(session, importer):
             #    attr_participants.value = participants
             #    attr_participants.creation_stamp = models.Stamp(importer)
             #    attr_participants.judgment_stamp = models.Stamp(importer)
+            #    attr_participants.save()
             #except KeyError:
             #    c.set_accept('participants', participants, importer)
         # TODO ensure that expocode is unique. or merge cruises that seem to only just have different line numbers
 
     return map_cruises
+
+
+def _import_track_lines(session, importer, map_cruises):
+    tls = session.query(legacy.TrackLine).all()
+    for tl in tls:
+        wkt = session.scalar(tl.Track.wkt)
+        try:
+            linestring = shapely.wkt.loads(wkt)
+        except shapely.geos.ReadingError:
+            # There are some linestrings in the DB that are single point lines. Yes.
+            point = tuple(shapely.wkt.loads(wkt.replace('LINESTRING', 'POINT')).coords)[0]
+            pt_list = [point, point]
+            linestring = LineString(pt_list)
+
+        cruises = models.Cruise.get_by_attrs(expocode=tl.ExpoCode)
+        if len(cruises) > 0:
+            cruise = cruises[0]
+        else:
+            logging.warn('Unable to import track_line %s because the cruise '
+                         '%s does not exist' % (tl.id, tl.ExpoCode))
+            continue
+
+        print type(linestring)
+        if cruise.track:
+            logging.info('Updating %s track' % tl.ExpoCode)
+            if cruise.track != linestring:
+                try:
+                    attr = cruise.get_attr('track')
+                    attr.value = list(linestring.coords)
+                    attr.creation_stamp = models.Stamp(importer)
+                    attr.judgment_stamp = models.Stamp(importer)
+                    attr.save()
+                except KeyError:
+                    cruise.set_accept('track', linestring, importer)
+            else:
+                logging.info('Updating %s track' % tl.ExpoCode)
+        else:
+            logging.info('Creating %s track' % tl.ExpoCode)
+            cruise.set_accept('track', linestring, importer)
 
 
 def _import_person(session, importer, name_last, name_first):
@@ -277,8 +342,9 @@ def _import_collections(session, importer):
             logging.info("Updating Collection %s" % collection.id)
             continue
 
-        imported_collection = models.Collection.get_by_attrs(
-            **{'names.0': collection.Name})
+        imported_collection = models.Collection.get_by_attrs(names=collection.Name)
+        # Filter again for collection's exact name to be the importee name
+        imported_collection = [c for c in imported_collection if c.name == collection.Name]
         if imported_collection:
             logging.info("Updating Collection %s" % collection.id)
             map_collections[collection.id] = imported_collection[0]
@@ -355,11 +421,13 @@ def _import_contacts_cruises(session, importer, map_cruises, map_persons):
             role = 'Chief Scientist'
         try:
             if person in cruise.participants[role]:
-                logging.info("Updating participant %s %s to %s" % (person, role, cruise))
+                logging.info(
+                    "Updating participant %s %s to %s" % (person, role, cruise))
                 continue
         except KeyError:
             pass
-        logging.info("Importing participant %s %s to %s" % (person, role, cruise))
+        logging.info(
+            "Importing participant %s %s to %s" % (person, role, cruise))
         cruise.participants.add(person, role, importer).accept(importer)
 
 
@@ -409,11 +477,216 @@ def _import_events(session, importer, map_cruises):
     return map_events
 
 
-def import_argo_files(session, importer, map_users, ssh_cchdo):
+def _import_old_submissions(session, importer, sftp_cchdo):
+    logging.info("Importing Old Submissions")
+    subs = session.query(legacy.OldSubmission).all()
+    map_submissions = {}
+    for sub in subs:
+        try:
+            submission = map_submissions[sub.Folder]
+        except KeyError:
+            submissions = models.OldSubmission.get_by_attrs(folder=sub.Folder)
+            if len(submissions) > 0:
+                logging.info('Updating OldSubmission %s' % sub.Folder)
+                submission = submissions[0]
+            else:
+                logging.info('Creating OldSubmission %s' % sub.Folder)
+                submission = models.OldSubmission(importer)
+                submission.creation_stamp['timestamp'] = sub.created_at
+                submission.accept(importer)
+                submission.judgment_stamp['timestamp'] = sub.updated_at
+                submission.save()
+                submission.set_accept('folder', sub.Folder, importer)
+                submission.set_accept(
+                    'date', _date_to_datetime(sub.Date), importer)
+                submission.set_accept('stamp', sub.Stamp, importer)
+                submission.set_accept('line', sub.Line, importer)
+                submission.set_accept('submitter', sub.Name, importer)
+                submission.set_accept('files', [], importer)
+
+            map_submissions[sub.Folder] = submission
+        attr = submission.get_attr('files')
+        if models.fs().exists({'filename': sub.Filename,
+                               'old_submission': True}):
+            continue
+        with sftp_dl(sftp_cchdo, sub.Location) as file:
+            if file is None:
+                if sub.Location in (
+                    # File seems to be missing
+                    '/incoming_data/old_sys/20041214.085723_STEINFELDT_CARIBINFLOW/20041214.085723_STEINFELDT_CARIBINFLOW_TMP.zip',
+                    # File seems to be missing
+                    '/incoming_data/old_sys/20041214.084855_STEINFELDT_METEOR53_3/20041214.084855_STEINFELDT_METEOR53_3_ctd.zip',
+                    # File seems to be missing; maybe can regenerate from gzipped flat files?
+                    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_Archive.zip',
+                    # File seems to be missing
+                    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_00_README.gz',
+                    # File seems to be missing; maybe can regenerate from gzipped flat files?
+                    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_Archive.zip',
+                    # File seems to be missing
+                    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_00_README.gz',
+                    # File seems to be missing; maybe can regenerate from gzipped flat files?
+                    '/incoming_data/old_sys/20030304.000001_MCTAGGART_PR15/20030304.000001_MCTAGGART_PR15_Archive.zip',
+                    # File seems to be missing; maybe can regenerate from gzipped flat files?
+                    '/incoming_data/old_sys/20030304.000000_MCTAGGART_PR16/20030304.000000_MCTAGGART_PR16_Archive.zip',
+                    ):
+                    continue
+                else:
+                    raise ValueError('Unable to find file for old submission: '
+                                     '%s' % sub.Location)
+            id = models.fs().put(file, filename=sub.Filename,
+                                 old_submission=True)
+            attr.value = attr.value + [id]
+            attr.save()
+
+
+def _import_spatial_groups(session, importer):
+    logging.info("Importing Spatial groups")
+    sgs = session.query(legacy.SpatialGroup).all()
+    for sg in sgs:
+        collection = _import_Collection(importer, sg.area, 'spatial_group')
+        basins = []
+        if sg.atlantic:
+            basins.append('atlantic')
+        if sg.arctic:
+            basins.append('arctic')
+        if sg.pacific:
+            basins.append('pacific')
+        if sg.indian:
+            basins.append('indian')
+        if sg.southern:
+            basins.append('southern')
+        collection.set_accept('basins', basins, importer)
+
+
+def _import_internal(session, importer):
+    """ Internal maps a cruise to a basin """
+    logging.info("Importing Internal")
+    internals = session.query(legacy.Internal).all()
+    for i in internals:
+        cruises = models.Cruise.get_by_attrs(expocode=i.ExpoCode)
+        if len(cruises) > 0:
+            logging.info("Updating Cruise %s for internal" % i.ExpoCode)
+            cruise = cruises[0]
+        else:
+            logging.info("Creating Cruise %s for internal" % i.ExpoCode)
+            cruise = models.Cruise(importer)
+            cruise.accept(importer)
+            cruise.save()
+            cruise.set_accept('expocode', i.ExpoCode, importer)
+        collection = _import_Collection(importer, i.Basin, 'basin')
+        a = cruise.get_attr('basin')
+        a.value = libcchdo.fns.uniquify(a.value + [collection.id])
+        a.save()
+
+
+def _import_unused_tracks(session, importer):
+    logging.info("Importing unused tracks")
+    ts = session.query(legacy.UnusedTrack).all()
+    for t in ts:
+        cruises = models.Cruise.get_by_attrs(expocode=t.ExpoCode)
+        if len(cruises) > 0:
+            logging.info("Updating Cruise %s for unused track" % t.ExpoCode)
+            cruise = cruises[0]
+        else:
+            logging.info("Creating Cruise %s for unused track" % t.ExpoCode)
+            cruise = models.Cruise(importer)
+            cruise.accept(importer)
+            cruise.save()
+            cruise.set_accept('expocode', t.ExpoCode, importer)
+        collection = _import_Collection(importer, t.Basin, 'basin')
+        a = cruise.get_attr('basin')
+        a.value = libcchdo.fns.uniquify(a.value + [collection.id])
+        a.save()
+
+
+def _import_unit(importer, unit):
+    us = models.Unit.get_by_attrs(import_id=unit.id)
+    if len(us) > 0:
+        return us[0]
+    else:
+        u = models.Unit(importer)
+        u.accept(importer)
+        u.save()
+        u.set_accept('name', unit.name, importer)
+        u.set_accept('mnemonic', unit.mnemonic, importer)
+        return u
+
+
+def _import_parameter_descriptions(session, importer):
+    logging.info("Importing parameter descriptions")
+    std_session = std.session()
+    parameters = lcconvert.all_parameters(std_session)
+    std_session.close()
+    for parameter in parameters:
+        parameters = models.Parameter.get_by_attrs(name=parameter.name)
+        if len(parameters) > 0:
+            logging.info("Updating Parameter %s" % parameter.name)
+            p = parameters[0]
+        else:
+            logging.info("Creating Parameter %s" % parameter.name)
+            p = models.Parameter(importer)
+            p.accept(importer)
+            p.save()
+            p.set_accept('name', parameter.name, importer)
+            p.set_accept('full_name', parameter.full_name, importer)
+            p.set_accept('name_netcdf', parameter.name_netcdf, importer)
+            p.set_accept('format', parameter.format, importer)
+            if parameter.units:
+                p.set_accept(
+                    'unit',
+                    _import_unit(importer, parameter.units).id, importer)
+            p.set_accept('bounds', (parameter.bound_lower,
+                                    parameter.bound_upper), importer)
+            aliases = [a.name for a in parameter.aliases]
+            p.set_accept('aliases', aliases, importer)
+
+
+def _import_parameter_groups(session, importer):
+    groups = session.query(legacy.ParameterGroup).all()
+    for group in groups:
+        gs = models.ParameterOrder.get_by_attrs(name=group.group)
+        if len(gs) > 0:
+            g = gs[0]
+        else:
+            g = models.ParameterOrder(importer)
+            g.accept(importer)
+            g.save()
+            g.set_accept('name', group.group, importer)
+            order = group.ordered_parameters
+            parameters = []
+            for p in order:
+                parameter = models.Parameter.get_by_attrs(name=p)
+                if not parameter:
+                    logging.warn("Could not find parameter %s for order" % p)
+                    parameter = models.Parameter(importer)
+                    parameter.accept(importer)
+                    parameter.save()
+                    parameter.set_accept('name', p, importer)
+                    parameter.set_accept('in_groups_but_did_not_exist', True, importer)
+                parameters.append(parameter)
+            g.set_accept('order', parameters, importer)
+
+
+def _import_bottle_dbs(session, importer):
+    logging.info("Importing Bottle DBs")
+    # TODO regenerate bottle parameter information cache
+    logging.info("Omitting import in favor of regenerating this information")
+
+
+def _import_parameter_status(session, importer):
+    logging.info("Importing parameter statuses")
+    logging.info("Omitting import because information is never used in site "
+                 "and probably is replaced by documents.preliminary")
+
+
+def _import_parameters(session, importer):
+    logging.info("Importing parameters (chiscis responsible)")
+
+
+def import_argo_files(session, importer, map_users, sftp_cchdo):
     logging.info("Importing Argo files")
     argo_files = session.query(legacy.ArgoFile).all()
 
-    sftp_cchdo = ssh_cchdo.open_sftp()
     sftp_cchdo.chdir('/data/argo/files')
 
     for file in argo_files:
@@ -436,8 +709,6 @@ def import_argo_files(session, importer, map_users, ssh_cchdo):
         if argo_file.file is None:
             # Special case for missing.txt because there is no actual file.
             if file.filename != 'missing.txt':
-                actual_file = cgi.FieldStorage()
-
                 lstat = sftp_cchdo.lstat(file.filename)
                 if stat.S_ISLNK(lstat.st_mode):
                     # TODO need to figure out whether this file is already in
@@ -445,16 +716,13 @@ def import_argo_files(session, importer, map_users, ssh_cchdo):
                     # copy.
                     logging.warn('TODO Need to figure out how to link files')
                 else:
-                    temp = tempfile.NamedTemporaryFile(delete=False)
-                    logging.info('Downloading %s' % file.filename)
-                    sftp_cchdo.get(file.filename, temp.name)
-                    actual_file.file = temp
-                    actual_file.filename = file.filename
-                    actual_file.type = file.content_type
-                    logging.debug(actual_file)
-                    logging.debug(repr(actual_file))
-                    creenrgo_file.set_accept('file', actual_file, importer)
-                    os.unlink(temp.name)
+                    with sftp_dl(sftp_cchdo, file.filename) as file:
+                        actual_file = cgi.FieldStorage()
+                        actual_file.filename = file.filename
+                        actual_file.type = file.content_type
+                        actual_file.file = file
+                        logging.debug(repr(actual_file))
+                        argo_file.set_accept('file', actual_file, importer)
 
         logging.warn('downloads to import %r' % file.downloads)
 
@@ -492,27 +760,44 @@ def main(argv):
                                  name_last='importer')
         importer.save()
 
+    libcchdo.check_cache = False
+
     logging.info("Connecting to cchdo db")
     with db_session(legacy.session()) as session:
-        map_users = import_users(session, importer)
-        map_persons = _import_contacts(session, importer)
-        map_collections = _import_collections(session, importer)
-        map_cruises = _import_cruises(session, importer)
-
-        _import_collections_cruises(session, importer,
-                                    map_cruises, map_collections)
-        _import_contacts_cruises(session, importer, map_cruises, map_persons)
+        #map_users = import_users(session, importer)
+        #map_persons = _import_contacts(session, importer)
+        #map_collections = _import_collections(session, importer)
+        #map_cruises = _import_cruises(session, importer)
+        #_import_track_lines(session, importer, map_cruises)
+        #_import_collections_cruises(session, importer,
+        #                            map_cruises, map_collections)
+        #_import_contacts_cruises(session, importer, map_cruises, map_persons)
 
         #map_events = _import_events(session, importer, map_cruises)
-        #map_documents = _import_documents(session, importer)
 
-        logging.info('cruise early quit')
-        return 0
+        #_import_spatial_groups(session, importer)
+        #_import_internal(session, importer)
+        #_import_unused_tracks(session, importer)
 
-        ssh_cchdo = _ssh_cchdo()
+        #_import_parameter_descriptions(session, importer)
+        _import_parameter_groups(session, importer)
+        #_import_bottle_dbs(session, importer)
+        #_import_parameter_status(session, importer)
+        #_import_parameters(session, importer)
 
-        # TODO Revisit for linked files and downloads
-        import_argo_files(session, importer, map_users, ssh_cchdo)
+        ## Now follows imports that need ssh access
+        #ssh_cchdo = _ssh_cchdo()
+        #sftp_cchdo = ssh_cchdo.open_sftp()
+
+        #try:
+        #    _import_old_submissions(session, importer, sftp_cchdo)
+        #    # TODO
+        #    #map_documents = _import_documents(session, importer)
+        #    # TODO Revisit for linked files and downloads
+        #    import_argo_files(session, importer, map_users, sftp_cchdo)
+        #finally:
+        #    sftp_cchdo.close()
+        #    ssh_cchdo.close()
 
     logging.info("Finished import")
     return 0

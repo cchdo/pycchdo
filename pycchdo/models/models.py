@@ -827,6 +827,12 @@ class Cruise(Obj):
 
     Attributes:
     basin - imported from "internal"
+    parameter_informations - list of documents containing
+        status - the status of the parameter; one of the following:
+                 online, reformatted, submitted, not_measured, proposed,
+                 no_information
+        pi - the principal investigator for the parameter on the cruise
+        ts - some date attached to the status and PI of the parameter
 
     """
     def expocode(self):
@@ -1068,4 +1074,14 @@ class ParameterOrder(Obj):
     order - the list of parameters in the order they should appear
 
     """
+    pass
+
+
+class Submission(Obj):
+    """ A Submission to the CCHDO
+
+    Attributes:
+
+    """
+    # TODO
     pass

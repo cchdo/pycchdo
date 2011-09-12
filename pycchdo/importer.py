@@ -98,43 +98,48 @@ def _date_to_datetime(date):
     return datetime.datetime.combine(date, datetime.time(0))
 
 
+def _import_person_inst(importer, name_first, name_last,
+                        institution_name, email):
+    institutions = models.Institution.get_by_attrs(name=institution_name)
+    if len(institutions) > 0:
+        logging.info("Updating Institution %s" % (institution_name))
+        institution = institutions[0]
+    else:
+        logging.info("Creating Institution %s" % (institution_name))
+        institution = models.Institution(importer)
+        institution.accept(importer)
+        institution.save()
+        institution.set_accept('name', institution_name, importer)
+
+    person = models.Person.get_one({'name_first': name_first,
+                                    'name_last': name_last})
+    if not person:
+        logging.info("Creating Contact %s %s" % (
+            name_first, 
+            name_last))
+
+        person = models.Person(
+            name_first=name_first,
+            name_last=name_last,
+            institution=institution.id,
+            email=email,
+            )
+        person.save()
+    else:
+        logging.info("Updating Contact %s %s" % (name_first, name_last))
+    return person
+
+
 def _import_contacts(session, importer):
     logging.info("Importing Contacts")
     map_persons = {}
 
     for contact in session.query(legacy.Contact).all():
+        person = _import_person_inst(importer, _ustr2uni(contact.FirstName),
+                                     _ustr2uni(contact.LastName), 
+                                     _ustr2uni(contact.Institute),
+                                     _ustr2uni(contact.email))
         # Since CCHDO currently has no concept of an Institution separate from a contact, make them here.
-        institution_name = _ustr2uni(contact.Institute)
-        institutions = models.Institution.get_by_attrs(name=institution_name)
-        if len(institutions) > 0:
-            logging.info("Updating Institution %s" % (institution_name))
-            institution = institutions[0]
-        else:
-            logging.info("Creating Institution %s" % (institution_name))
-            institution = models.Institution(importer)
-            institution.accept(importer)
-            institution.save()
-            institution.set_accept('name', institution_name, importer)
-
-        person = models.Person.get_one({
-            'name_first': _ustr2uni(contact.FirstName),
-            'name_last': _ustr2uni(contact.LastName)})
-        if not person:
-            logging.info("Creating Contact %s %s" % (
-                _ustr2uni(contact.FirstName), 
-                _ustr2uni(contact.LastName)))
-
-            person = models.Person(
-                name_first=_ustr2uni(contact.FirstName),
-                name_last=_ustr2uni(contact.LastName),
-                institution=institution.id,
-                email=_ustr2uni(contact.email),
-                )
-            person.save()
-        else:
-            logging.info("Updating Contact %s %s" % (
-                _ustr2uni(contact.FirstName), 
-                _ustr2uni(contact.LastName)))
         if contact.Address and person.get('address', None) is None:
             person.set_accept('address', _ustr2uni(contact.Address), importer)
         if contact.telephone and person.get('telephone', None) is None:
@@ -682,6 +687,169 @@ def _import_parameter_status(session, importer):
 def _import_parameters(session, importer):
     logging.info("Importing parameters (chiscis responsible)")
 
+    codes = {}
+    for code in session.query(legacy.Codes).all():
+        codes[int(code.Code)] = code.Status
+
+    parameters = {}
+    for param in legacy.CruiseParameterInfo._PARAMETERS:
+        ps = models.Parameter.get_by_attrs(name=param)
+
+        if len(ps) > 0:
+            logging.info("Found Parameter %s for CPI" % param)
+            parameter = ps[0]
+        else:
+            logging.warn("Created Parameter %s for CPI" % param)
+            parameter = models.Parameter(importer)
+            parameter.accept(importer)
+            parameter.save()
+            parameter.set_accept('name', param, importer)
+            parameter.set_accept('import_id', 'cruise_param_info')
+        parameters[param] = parameter
+
+    for p in session.query(legacy.CruiseParameterInfo).all():
+        cruise = models.Cruise.get_by_attrs(expocode=p.ExpoCode)
+        if len(cruise) > 0:
+            logging.info("Found Cruise %s for CPI" % p.ExpoCode)
+            cruise = cruise[0]
+        else:
+            logging.info("Creating Cruise %s for CPI" % p.ExpoCode)
+            cruise = models.Cruise(importer)
+            cruise.accept(importer)
+            cruise.save()
+            cruise.set_accept('expocode', p.ExpoCode, importer)
+            cruise.set_accept('import_id', 'cruise_param_info', importer)
+
+        param_infos = []
+
+        for param in legacy.CruiseParameterInfo._PARAMETERS:
+            parameter = parameters[param]
+
+            status = getattr(p, param)
+            try:
+                status = codes[int(status)]
+            except (TypeError, ValueError):
+                if status != None:
+                    logging.warn("Bad Status while importing 'parameters' row "
+                                 "%d parameter %s" % (p.id, param))
+                status = None
+            except KeyError:
+                logging.warn("Unrecognized status while importing 'parameters' "
+                             "row %d parameter %s" % (p.id, param))
+                status = None
+
+            try:
+                pi = _ustr2uni(getattr(p, param + '_PI'))
+            except TypeError:
+                pi = None
+            # TODO figure out how to import PI name/institution fun
+            
+            try:
+                d = _date_to_datetime(getattr(p, param + '_Date'))
+            except TypeError:
+                d = None
+
+            param_infos.append({'parameter': parameter.id, 'status': status,
+                                'pi': pi, 'ts': d})
+
+        cruise.set_accept('parameter_informations', param_infos, importer)
+
+
+def _import_submissions(session, importer, sftp_cchdo):
+    logging.info("Importing Submissions")
+
+    imported_submissions = set([
+        s.get('import_id') for s in models.Submission.get_all(fields=['creation_stamp'])])
+
+    def public_to_bool(p, action):
+        if p is None:
+            # Assume that no response means public data as long as action does
+            # not contain Argo.
+            if not action or 'Argo' in action:
+                return False
+            return True
+        elif p == 'Public':
+            return True
+        else:
+            return False
+
+    for sub in session.query(legacy.Submission).all():
+        if sub.id in imported_submissions:
+            logging.info("Updating Submission %d" % sub.id)
+            continue
+        else:
+            logging.info("Creating Submission %d" % sub.id)
+            submission = models.Submission(importer)
+
+            submission_date = _date_to_datetime(sub.submission_date)
+            submission.creation_stamp.timestamp = submission_date
+
+            # Information about submitter
+            name = sub.name
+            inst = sub.institute
+            email = sub.email
+            country = sub.country
+            ip = sub.ip
+            ua = sub.user_agent
+
+            submitter = _import_person_inst(importer, name, '', inst, email)
+            submitter.set_accept('country', country, importer)
+            submitter.set_accept('ip', ip, importer)
+            submitter.set_accept('ua', ua, importer)
+
+            submission.creation_stamp.person = submitter.id
+
+            submission.save()
+
+            expocode = sub.expocode
+            ship_name = sub.ship_name
+            line = sub.line
+            action = sub.action
+            notes = sub.notes
+            file_name = sub.file
+
+            if expocode:
+                submission.set_accept('expocode', _ustr2uni(expocode), importer)
+            if ship_name:
+                submission.set_accept('ship_name', _ustr2uni(ship_name), importer)
+            if line:
+                submission.set_accept('line', _ustr2uni(line), importer)
+            if action:
+                submission.set_accept('action', _ustr2uni(action), importer)
+            if notes:
+                submission.add_note(models.Note(_ustr2uni(notes)), importer)
+
+            file = None
+            with sftp_dl(sftp_cchdo, file_name) as file:
+                if not file:
+                    submission.remove()
+                    logging.warn('unable to get file for Submission %s', sub.id)
+                    continue
+                actual_file = cgi.FieldStorage()
+                actual_file.filename = file_name
+                actual_file.file = file
+                submission.set_accept('file', actual_file, importer)
+
+            public = public_to_bool(sub.public, action)
+            assigned = bool(sub.assigned)
+            assimilated = bool(sub.assimilated)
+            submission.set_accept('assimilated', assimilated, importer)
+            submission.set_accept('public', public, importer)
+            submission.set_accept('assigned', assigned, importer)
+            submission.set_accept('assimilated', assimilated, importer)
+            try:
+                cruise_date = _date_to_datetime(sub.cruise_date)
+                submission.set_accept('cruise_date', cruise_date, importer)
+            except TypeError:
+                pass
+
+            submission.set_accept('import_id', sub.id, importer)
+
+
+def _import_queue_files(session, importer, sftp_cchdo):
+    logging.info("Importing queue files")
+    # TODO
+
 
 def import_argo_files(session, importer, map_users, sftp_cchdo):
     logging.info("Importing Argo files")
@@ -780,24 +948,26 @@ def main(argv):
         #_import_unused_tracks(session, importer)
 
         #_import_parameter_descriptions(session, importer)
-        _import_parameter_groups(session, importer)
+        #_import_parameter_groups(session, importer)
         #_import_bottle_dbs(session, importer)
         #_import_parameter_status(session, importer)
         #_import_parameters(session, importer)
 
-        ## Now follows imports that need ssh access
-        #ssh_cchdo = _ssh_cchdo()
-        #sftp_cchdo = ssh_cchdo.open_sftp()
+        # Now follows imports that need ssh access
+        ssh_cchdo = _ssh_cchdo()
+        sftp_cchdo = ssh_cchdo.open_sftp()
 
-        #try:
+        try:
+            _import_submissions(session, importer, sftp_cchdo)
+            _import_queue_files(session, importer, sftp_cchdo)
         #    _import_old_submissions(session, importer, sftp_cchdo)
         #    # TODO
         #    #map_documents = _import_documents(session, importer)
         #    # TODO Revisit for linked files and downloads
         #    import_argo_files(session, importer, map_users, sftp_cchdo)
-        #finally:
-        #    sftp_cchdo.close()
-        #    ssh_cchdo.close()
+        finally:
+            sftp_cchdo.close()
+            ssh_cchdo.close()
 
     logging.info("Finished import")
     return 0

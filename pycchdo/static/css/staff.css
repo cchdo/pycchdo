@@ -1,0 +1,45 @@
+#staff-header,
+#staff-nav {
+  background: #FFEFE0;
+  padding: 0.5em;
+  position: relative;
+}
+#staff-header h1 {
+  font-size: 1.5em;
+}
+#staff-signout {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+}
+#staff-nav {
+  border-bottom: 1px solid #D0CFC0;
+  text-align: center;
+  padding: 0;
+  background: #EFDFD0;
+  background: -webkit-linear-gradient(rgba(255, 239, 224, 1), rgba(219, 203, 188, 1));
+}
+#staff-nav a {
+  padding: 0.5em;
+  display: inline-block;
+  height: 100%;
+  text-decoration: none;
+  -webkit-border-top-left-radius: 2px;
+  -webkit-border-top-right-radius: 2px;
+  -moz-border-radius-topleft: 2px;
+  -moz-border-radius-topright: 2px;
+  -o-border-top-left-radius: 2px;
+  -o-border-top-right-radius: 2px;
+  -webkit-transition: background-color .3s ease;
+  -moz-transition: background-color .3s ease;
+  -o-transition: background-color .3s ease;
+  transition: background-color .3s ease;
+}
+#staff-nav a.current {
+  background: #F0E0C0;
+  text-shadow: 1px 1px #F0F0F0;
+}
+#staff-nav a:hover {
+  background: #D0C0A0;
+  text-shadow: 1px 1px #F0F0F0;
+}

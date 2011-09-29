@@ -1,13 +1,15 @@
 <div id="gheader">
   <a href="/"><img id="cchdo_logo" src="/static/img/logos/CCHDO_logo.png" /></a>
-  {% if request.user -%}
   <p id="session_status">
-    {{request.user.get('name_first', '')}} <a href="/session/delete">Sign out</a>
+    {% if request.user -%}
+      {{request.user.get('name_first', '')}} <a href="/session/delete">Sign out</a>
+    {%- else -%}
+      <a href="/session/identify">Sign in</a>
+    {%- endif %}
   </p>
-  {%- endif %}
   <div id="gsearch">
     <form action="/search" method="GET">
-      {% set query = request.session.get('query', '') %}
+      {%- set query = request.session.get('query', '') %}
       <input id="query" name="query" type="search" {% if query %}value="{{query}}" {% endif %}x-webkit-speech>
       <input type="submit" value="Search Data">
     </form>
@@ -15,8 +17,9 @@
   </div>
 </div>
 <div id="picture">
-  <div id="bannerA"></div>
-  <div id="bannerB"></div>
+  <div id="bannerA" class="banner"></div>
+  <div id="bannerB" class="banner"></div>
+  <div id="bannerC" class="banner"></div>
   <div id="cchdo_menu">
     <ul class="nav"> 
       <li><h1><a href="/">Home</a></h1></li>

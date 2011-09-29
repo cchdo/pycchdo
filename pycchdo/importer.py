@@ -467,12 +467,12 @@ def _import_events(session, importer, map_cruises):
             summary = ''
             if event.Summary:
                 summary = _ustr2uni(event.Summary)
-            note = models.Note(body, action, data_type, summary)
+            note = models.Note(person, body, action, data_type, summary)
             notes = []
             for cruise in cruises:
                 logging.info("Creating Event %s for cruise %s" % (
                     event.ID, cruise.get('import_id')))
-                note_attr = cruise.add_note(note, person)
+                note_attr = cruise.add_note(note)
                 note_attr.accept(importer)
                 note_attr.import_id = event.ID
                 note_attr.save()
@@ -817,7 +817,7 @@ def _import_submissions(session, importer, sftp_cchdo):
             if action:
                 submission.set_accept('action', _ustr2uni(action), importer)
             if notes:
-                submission.add_note(models.Note(_ustr2uni(notes)), importer)
+                submission.add_note(models.Note(importer, _ustr2uni(notes)))
 
             file = None
             with sftp_dl(sftp_cchdo, file_name) as file:
@@ -831,11 +831,14 @@ def _import_submissions(session, importer, sftp_cchdo):
                 submission.set_accept('file', actual_file, importer)
 
             public = public_to_bool(sub.public, action)
-            assigned = bool(sub.assigned)
+            # 2011-09-16 myshen
+            # Carolina has determined "assigned" corroborates
+            # non-public status and is generally redundant. More importantly it
+            # is not used.
+            # "assimilated" is used to color code the submission table according
+            # to whether submission has been put in the queue.
             assimilated = bool(sub.assimilated)
-            submission.set_accept('assimilated', assimilated, importer)
             submission.set_accept('public', public, importer)
-            submission.set_accept('assigned', assigned, importer)
             submission.set_accept('assimilated', assimilated, importer)
             try:
                 cruise_date = _date_to_datetime(sub.cruise_date)
@@ -927,6 +930,8 @@ def main(argv):
                                  name_first='CCHDO',
                                  name_last='importer')
         importer.save()
+
+    models.Attr.mongo_collection().ensureIndex({'obj': 1, 'value': 1})
 
     libcchdo.check_cache = False
 

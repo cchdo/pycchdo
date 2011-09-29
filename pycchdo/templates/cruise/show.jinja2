@@ -8,129 +8,350 @@
     <p><strong>{{attr}}:</strong> {{val}}</p>
   {% endif %}
 {%- endmacro %}
-{% block content_attrs %} class="cruise-page"{% endblock %}
-{% block content -%}
-  {% call h.boxed('General Information and Files', id='left', class='upper') -%}
+{%- block content_attrs %} {%- if cruise.accepted %}class="cruise-page"{%- else %}class="cruise-page pending"{%- endif %}{%- endblock %}
+{%- block content %}
+  {%- if not cruise.accepted %}
+    <div id="pending-review" class="warning">
+      This cruise was entered by the public and has not yet been reviewed.
+    </div>
+  {%- endif %}
+  {%- call h.boxed('General Information and Files', id='left', class='upper', box_content_class='scrollable-y') %}
     <div class="subsection general-information">
       <h2>General Information</h2>
-
-      {% if 'map' in data_files -%}
+      {%- if 'map' in data_files %}
         {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
       {%- endif %}
-
-      {{ cruise_attr('ExpoCode', cruise.expocode()) }}
-      {{ cruise_attr('Collections', cruise_dict['collections']) }}
-      {% if cruise.ship() -%}
+      {{- cruise_attr('ExpoCode', cruise.expocode()) }}
+      {{- cruise_attr('Collections', cruise_dict['collections']) }}
+      {%- if cruise.ship() %}
         {{ cruise_attr('Ship', cruise.ship().name()) }}
       {%- endif %}
-      {% if cruise.country() -%}
+      {%- if cruise.country() %}
         {{ cruise_attr('Country', cruise.country().name()) }}
       {%- endif %}
-      {{ cruise_attr('Chief Scientists', cruise.chief_scientists) }}
-      {{ cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
-      {{ cruise_attr('Expedition Link', cruise_dict['link']) }}
+      {{- cruise_attr('Chief Scientists', cruise.chief_scientists) }}
+      {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
+      {{- cruise_attr('Expedition Link', cruise_dict['link']) }}
     </div>
     <div class="clear"></div>
     <div class="subsection data-files">
       <h2>Data Files</h2>
 
-      {% if 'preliminary' in cruise.statuses() %}
-        <p id="preliminary">These data are preliminary (Please see <a href="">data history</a>)</p> 
-      {% endif %}
+      {%- if 'preliminary' in cruise.statuses() %}
+        <p id="preliminary">These data are preliminary (Please see 
+          <a href="">data history</a>)</p> 
+      {%- endif %}
+      {%- if updates['as_received'] or updates['merged'] %}
+        <a id="updates-available" href="#updates">
+          See as received and merged files</a>
+      {%- endif %}
 
-      {% if 'exchange' in data_files %}
-      <h3>Exchange</h3>
-      <table>
-      {% for type, df in data_files.get('exchange').items() -%}
-        {{ h.data_file_link(type, df) }}
-      {%- endfor %}
-      </table>
-      {% endif %}
+      {%- if 'exchange' in data_files %}
+        <h3>Exchange</h3>
+        <table>
+        {% for type, df in data_files.get('exchange').items() -%}
+          {{ h.data_file_link(type, df) }}
+        {%- endfor %}
+        </table>
+      {%- endif %}
 
-      {% if 'netcdf' in data_files %}
-      <h3>NetCDF</h3>
-      <table>
-      {% for type, df in data_files.get('netcdf').items() -%}
-        {{ h.data_file_link(type, df) }}
-      {%- endfor %}
-      </table>
-      {% endif %}
+      {%- if 'netcdf' in data_files %}
+        <h3>NetCDF</h3>
+        <table>
+        {% for type, df in data_files.get('netcdf').items() -%}
+          {{ h.data_file_link(type, df) }}
+        {%- endfor %}
+        </table>
+      {%- endif %}
 
-      {% if 'woce' in data_files %}
-      <h3>WOCE</h3>
-      <table>
-      {% for type, df in data_files.get('woce').items() -%}
-        {{ h.data_file_link(type, df) }}
-      {%- endfor %}
-      </table>
-      {% endif %}
+      {%- if 'woce' in data_files %}
+        <h3>WOCE</h3>
+        <table>
+        {% for type, df in data_files.get('woce').items() -%}
+          {{ h.data_file_link(type, df) }}
+        {%- endfor %}
+        </table>
+      {%- endif %}
 
-      {% if 'doc' in data_files %}
-      <h3>Documentation</h3>
-      <table>
-      {% for type, df in data_files.get('doc').items() -%}
-        {{ h.data_file_link(type, df) }}
-      {%- endfor %}
-      </table>
-      {% endif %}
+      {%- if 'doc' in data_files %}
+        <h3>Documentation</h3>
+        <table>
+        {% for type, df in data_files.get('doc').items() -%}
+          {{ h.data_file_link(type, df) }}
+        {%- endfor %}
+        </table>
+      {%- endif %}
+      {%- if not datafiles %}
+        <div id="data-pending">
+          <h4>Data Pending</h4>
+          <p>Contact the CCHDO for more information.</p>
+          <p>If you are the PI, please contact the CCHDO for submission
+             information.</p>
+          {%- if h.has_mod(request) %}
+            {{ whh.tags.form('', 'PUT', multipart=True,
+                             hidden_fields={'action': 'suggest_file'}) }} 
+              <label for="type">Type</label>
+              <select name="type">
+                <option value="bottle_exchange">Bottle Exchange</option>
+                <option value="ctdzip_exchange">CTD Exchange</option>
+              </select>
+              <input type="file" name="file">
+              <input type="submit" value="Add">
+            {{ whh.tags.end_form() }}
+          {%- endif %}
+        </div>
+      {%- endif %}
     </div>
   {%- endcall %}
   {% call h.boxed('Data Histories and Notes', id='right', class='upper') -%}
     <div class="subsection">
       <h2>History</h2>
-      <div id="notes">
-        <table>
+      <div id="notes" class="scrollable-y">
+        {%- if h.has_mod(request) %}
+          {{ whh.tags.form('', 'POST') }}
+            <input type="hidden" name="action" value="add_note">
+        {%- endif %}
+        <table class="has-meta-bodies">
           <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
-          {% set i = 0 %}
-          {% for change in history %}
-            {% if i % 2 == 0 -%}
-              {% set hl = 'even' %}
-            {% else %}
-              {% set hl = 'odd' %}
-            {%- endif %}
-            {{ h.cruise_history_rows(change, i, hl) }}
-            {% set i = i + 1 %}
-          {% endfor %}
+          {%- if h.has_mod(request) %}
+            {%- set i = "new" %}
+            {%- set hl="new" %}
+            <tr class="mb-link{{ i }} meta {{ hl }}">
+              <td>Add note</td>
+              <td><input type="text" name="note_data_type"></td>
+              <td><input type="text" name="note_action"></td>
+              <td><input type="text" name="note_summary"></td>
+            </tr>
+            <tr class="mb-link{{ i }} body {{ hl }}">
+              <td colspan="4">
+                <label for="note_discussion">Public</label>
+                <input type="checkbox" name="note_discussion" value="public"
+                       checked="checked">
+              </td>
+            </tr>
+            <tr class="mb-link{{ i }} body {{ hl }}">
+              <td colspan="4"><textarea name="note_note"></textarea></td>
+            </tr>
+            <tr class="mb-link{{ i }} body {{ hl }}">
+              <td colspan="4"><input type="submit" value="Add note"></td>
+            </tr>
+          {%- endif %}
+          {%- for change in history %}
+            {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
+          {%- endfor %}
         </table>
+        {%- if h.has_mod(request) %}
+          </form>
+        {%- endif %}
       </div>
     </div>
   {%- endcall %}
+  {%- if updates['as_received'] or updates['merged'] %}
+    <div class="clear"></div>
+    {%- call h.boxed('Updates', id="updates") %}
+      {%- if updates['as_received'] %}
+        <div class="subsection">
+          <h2>Files as received</h2>
+          <div id="as_received">
+            <table class="has-meta-bodies">
+              <tr class="header">
+                <th>File</th>
+                <th class="date">Date Received</th>
+              </tr>
+              {%- for file in updates['as_received'] %}
+                {%- set hl = loop.cycle('even', 'odd') %}
+                <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
+                  <td>{{ whh.tags.link_to(
+                           file['file'].file.name, h.data_uri(file['file'])) }}</td>
+                  <td class="date">{{ file['date'] }}</td>
+                </tr>
+                {%- if file['notes'] or h.has_mod(request) %}
+                  <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
+                    <td colspan="2">
+                      {%- if h.has_mod(request) %}
+                        {{ whh.tags.form('', 'POST') }}
+                          <input type="hidden" name="action" value="add_note_to_file">
+                          <input type="hidden" name="file_id" value="{{ file['file'].id }}">
+                      {%- endif %}
+                      <table>
+                        {%- for note in file['notes'] %}
+                          <tr class="note{% if note.discussion %} discussion{% endif %}">
+                            <td class="body">{{ note.body }}</td>
+                            <td class="person">{{ note.creation_stamp.person.full_name() }}</td>
+                            <td class="date">{{ note.creation_stamp.timestamp.strftime('%F %T') }}</td>
+                          </tr>
+                        {%- endfor %}
+                        {%- if h.has_mod(request) %}
+                          <tr id="add_note_as_received" class="note add-note">
+                            <td class="body"><textarea name="note"></textarea></td>
+                            <td class="person">
+                              <label for="public">Public</label>
+                              <input type="checkbox" name="public" value="public"
+                                     checked="checked">
+                            </td>
+                            <td class="date"><input type="submit" value="Add note"></td>
+                            </td>
+                          </tr>
+                        {%- endif %}
+                      </table>
+                      {%- if h.has_mod(request) %}
+                        </form>
+                      {%- endif %}
+                    </td>
+                  </tr>
+                {%- endif %}
+              {%- endfor %}
+            </table>
+          </div>
+        </div>
+      {%- endif %}
+      {%- if updates['merged'] %}
+        <div class="subsection">
+          <h2>Merged Files</h2>
+          <div id="merged">
+            <table class="has-meta-bodies">
+              <tr class="header">
+                <th>File</th>
+                <th class="date">Date Merged</th>
+              </tr>
+              {%- for file in updates['merged'] %}
+                {% set hl = loop.cycle('even', 'odd') %}
+                <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
+                  <td>{{ whh.tags.link_to(
+                           file['file'].file_original.name, h.data_uri(file['file'])) }}</td>
+                  <td class="date">{{ file['date'] }}</td>
+                </tr>
+                {%- if file['notes'] or h.has_mod(request) %}
+                  <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
+                    <td colspan="2">
+                      {%- if h.has_mod(request) %}
+                        {{ whh.tags.form('', 'POST') }}
+                          <input type="hidden" name="action" value="add_note_to_file">
+                          <input type="hidden" name="file_id" value="{{ file['file'].id }}">
+                      {%- endif %}
+                      <table>
+                        {%- for note in file['notes'] %}
+                          <tr class="note{% if note.discussion %} discussion{% endif %}">
+                            <td class="body">{{ note.body }}</td>
+                            <td class="person">{{ note.creation_stamp.person.full_name() }}</td>
+                            <td class="date">{{ note.creation_stamp.timestamp.strftime('%F %T') }}</td>
+                          </tr>
+                        {%- endfor %}
+                        {%- if h.has_mod(request) %}
+                          <tr id="add_note_merged" class="note add-note">
+                            <td class="body"><textarea name="note"></textarea></td>
+                            <td class="person">
+                              <label for="public">Public</label>
+                              <input type="checkbox" name="public" value="public"
+                                     checked="checked">
+                            </td>
+                            <td class="date"><input type="submit" value="Add note"></td>
+                            </td>
+                          </tr>
+                        {%- endif %}
+                      </table>
+                      {%- if h.has_mod(request) %}
+                        </form>
+                      {%- endif %}
+                    </td>
+                  </tr>
+                {%- endif %}
+              {%- endfor %}
+            </table>
+          </div>
+        </div>
+      {%- endif %}
+    {%- endcall %}
+  {%- endif %}
 {%- endblock %}
 {% block js %}
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
   <script>
-    (function togglifyNoteBodies () {
-      var notes = $('#notes');
-      notes.find('tr').each(function () {
+    function metaTable(table) {
+      table.find('> tbody > tr.body, > tr.body').hide();
+      table.find('> tbody > tr, > tr').each(function () {
         var prepend = '';
         if ($(this).hasClass('header')) {
           prepend = $('<th class="expander"></th>');
         } else {
-          if ($(this).hasClass('body')) {
+          if (!$(this).hasClass('meta')) {
             prepend = $('<td class="expander"></td>');
-          } else {
-            prepend = $('<td class="expander">&#x25B8;</td>');
           }
         }
-        $(this).prepend($(prepend).css({cursor: 'pointer', width: '0.5em'}));
+        $(this).prepend(prepend);
       });
-      notes.find('tr.body').hide();
-      notes.find('tr.meta').each(function () {
-        $(this).click(function () {
-          $(this).data('open', !$(this).data('open'));
+      var re_class = new RegExp('(mb-link\\w+)');
+      table.find('> tbody > tr.meta, > tr.meta').each(function () {
+        var row = $(this);
+        var rowClass = re_class.exec(row.attr('class'));
+        var body = table.find('.body.' + rowClass);
 
-          var noteClass = /(note\d+)/.exec($(this).attr('class'));
-          var body = notes.find('.body.' + noteClass);
+        if (body.length > 0) {
+            $(this).prepend($('<td class="expander"></td>').append(
+              $('<a href="">&#x25B8;</a>')
+                .click(function () { react(); return false; }))
+              .css({cursor: 'pointer'}));
+          row.click(react);
+        } else {
+          $(this).prepend($('<td class="expander"></td>'));
+        }
 
-          if ($(this).data('open')) {
-            $(this).addClass('open').find('.expander').html('&#x25BE;');
-            body.addClass('open').show('fast');
+        function open() {
+          row.addClass('open').find('.expander a').html('&#x25BE;');
+          body.addClass('open').show('fast').css('visibility', 'visible');
+        }
+        function close() {
+          row.removeClass('open').find('.expander a').html('&#x25B8;');
+          body.removeClass('open').hide('fast').css('visibility', 'hidden');
+        }
+
+        function check_focus_close() {
+          setTimeout(close, 10);
+        }
+
+        function react() {
+          row.data('open', !row.data('open'));
+          if (row.data('open')) {
+            open();
           } else {
-            $(this).removeClass('open').find('.expander').html('&#x25B8;');
-            body.removeClass('open').hide('fast').css('display', 'none');
+            close();
           }
-        });
+        }
+
+        var exa = row.find('.expander a');
+        var focusable = row.find(':input')
+          .add(body.find(':input'))
+          .add(row.find('a'))
+          .add(body.find('a'));
+
+        if (focusable.length > 0) {
+          var exa_focus = false;
+          var input_focus = false;
+          var opened = false;
+          function react_focus() {
+            setTimeout(function () {
+              if (exa_focus || input_focus) {
+                if (!opened) {
+                  open();
+                  opened = true;
+                }
+              } else {
+                close();
+                opened = false;
+              }
+            }, 0);
+          }
+          exa.focus(function () { exa_focus = true; react_focus(); });
+          exa.blur(function () { exa_focus = false; react_focus(); });
+          focusable.focus(function () { input_focus = true; react_focus(); });
+          focusable.blur(function () { input_focus = false; react_focus(); });
+          row.find(':input').click(function () { return false; });
+        } else {
+          exa.focus(open);
+          exa.blur(close);
+        }
       });
-    })();
+    }
+    $('table.has-meta-bodies').each(function () { metaTable($(this)); });
   </script>
 {%- endblock %}

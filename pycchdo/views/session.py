@@ -11,8 +11,23 @@ import pycchdo.models as models
 _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
 
 
-def require_signin(request):
+def _save_request(request):
     request.session['signin_return_uri'] = request.url
+
+
+def _restore_request(request, profile):
+    try:
+        redirect_uri = request.session['signin_return_uri']
+        del request.session['signin_return_uri']
+    except KeyError:
+        redirect_uri = '/session'
+
+    return HTTPSeeOther(location=redirect_uri,
+                        headers=_sign_in_user(request, profile))
+
+
+def require_signin(request):
+    _save_request(request)
     return HTTPSeeOther(location='/session/identify')
 
 
@@ -64,15 +79,7 @@ def session_new(request):
     # Step 4) use the response to sign the user in
     if auth_info['stat'] == 'ok':
         profile = auth_info['profile']
-
-        try:
-            redirect_uri = request.session['signin_return_uri']
-            del request.session['signin_return_uri']
-        except KeyError:
-            redirect_uri = '/session'
-
-        return HTTPSeeOther(location=redirect_uri,
-                            headers=_sign_in_user(request, profile))
+        return _restore_request(request, profile)
     else:
         print 'ERROR: During signin: ' + auth_info['err']['msg']
         return HTTPInternalServerError()

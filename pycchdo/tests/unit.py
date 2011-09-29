@@ -1,36 +1,17 @@
 import unittest
 import datetime
+from StringIO import StringIO
 
-from pyramid.config import Configurator
 from pyramid import testing
+from pyramid.config import Configurator
 
 import shapely.geometry.linestring
 import shapely.geometry.polygon
 
-import pycchdo.models as M
 from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, _Change, \
                                   Attr, Note, Country, Cruise, Person
 
-def global_setUp(self):
-    self.config = testing.setUp()
-    M.init_conn({'db_uri': 'mongodb://dimes.ucsd.edu:28018/?w=true&wtimeout=1000&fsync=true'})
-    M.cchdo().objs.drop()
-    M.cchdo().attrs.drop()
-    self.testPerson = Person(identifier='testid', name_first='Testing', name_last='Tester')
-    self.testPerson.save()
-
-
-def global_tearDown(self):
-    self.testPerson.remove()
-    del self.testPerson
-    testing.tearDown()
-
-
-class _mock_FieldStorage:
-    def __init__(self, filename, file, contentType):
-        self.filename = filename
-        self.file = file
-        self.type = contentType
+from . import *
 
 
 class TestModel(unittest.TestCase):
@@ -48,18 +29,20 @@ class TestModel(unittest.TestCase):
         before = datetime.datetime.utcnow()
         change = _Change(self.testPerson)
         after = datetime.datetime.utcnow()
-        self.assertTrue(change['creation_stamp']['timestamp'] >= before)
-        self.assertTrue(change['creation_stamp']['timestamp'] <= after)
-        self.assertTrue(change['pending_stamp'] is None)
-        self.assertTrue(change['judgment_stamp'] is None)
-        self.assertFalse(change['accepted'])
-        self.assertTrue(change['note'] is None)
+        self.assertTrue(change.creation_stamp.timestamp >= before)
+        self.assertTrue(change.creation_stamp.timestamp <= after)
+        self.assertTrue(change.pending_stamp is None)
+        self.assertTrue(change.judgment_stamp is None)
+        self.assertFalse(change.accepted)
 
-        change1 = _Change(self.testPerson, note=Note('body', 'action', 'data_type', 'subject'))
-        self.assertEqual(change1['note']['action'], 'action')
-        self.assertEqual(change1['note']['data_type'], 'data_type')
-        self.assertEqual(change1['note']['subject'], 'subject')
-        self.assertEqual(change1['note']['body'], 'body')
+        change1 = _Change(
+            self.testPerson,
+            note=Note(self.testPerson, 'body', 'action', 'data_type',
+                      'subject'))
+        self.assertEqual(change1.notes[0].action, 'action')
+        self.assertEqual(change1.notes[0].data_type, 'data_type')
+        self.assertEqual(change1.notes[0].subject, 'subject')
+        self.assertEqual(change1.notes[0].body, 'body')
 
     def test_accept_Change(self):
         """ Acceptance of _Change """
@@ -225,14 +208,8 @@ class TestModel(unittest.TestCase):
         obj.save()
         try:
             self.assertTrue(hasattr(obj, 'notes'))
-            note = obj.add_note(Note('test note'), self.testPerson)
-            self.assertEqual(len(obj.notes), 0)
-            note.accept(self.testPerson)
+            note = obj.add_note(Note(self.testPerson, 'test note'))
             self.assertEqual(len(obj.notes), 1)
-            all_attrs = filter(lambda x: not x, [isinstance(x, Attr) for x in obj.notes])
-            self.assertTrue(len(all_attrs) is 0)
-            all_notes = filter(lambda x: not x, [x.is_note() for x in obj.notes])
-            self.assertTrue(len(all_notes) is 0)
         finally:
             obj.remove()
 
@@ -402,7 +379,6 @@ class TestModel(unittest.TestCase):
         given
             a MIME type.
         """
-        from StringIO import StringIO
         obj = Obj(self.testPerson)
         obj.save()
 
@@ -417,7 +393,6 @@ class TestModel(unittest.TestCase):
 
     def test_Attr_file_creation(self):
         """ Creating a Attr with a file stores the file in an object store. """
-        from StringIO import StringIO
         file_data = StringIO('this is a test file object\nwith two lines')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         note = None
@@ -441,6 +416,19 @@ class TestModel(unittest.TestCase):
         self.assertTrue(a['track'])
         obj.remove()
 
+    def test_Attr_accept_value(self):
+        """ Accepting an Attr with an accepted value will change the returned
+            value of the Attribute """
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.set('a', 1, self.testPerson)
+        self.assertEqual(1, a.value)
+        a.accept_value(2, self.testPerson)
+        self.assertEqual(2, a.value)
+
+        obj.remove()
+
     def test_Cruise_has_country(self):
         """ Get a Cruise's country """
         c = Cruise(self.testPerson)
@@ -460,10 +448,10 @@ class TestModel(unittest.TestCase):
         """
         c = Cruise(self.testPerson)
         c.save()
-        t = c.track()
+        t = c.track
         self.assertTrue(t is None)
         c.set('track', [[0, 0], [1, 1]], self.testPerson).accept(self.testPerson)
-        t = c.track()
+        t = c.track
         self.assertTrue(t is not None)
         self.assertTrue(type(t) is shapely.geometry.linestring.LineString)
         c.remove()
@@ -510,6 +498,24 @@ class TestModel(unittest.TestCase):
         c0.remove()
         c1.remove()
 
+    def test_Cruise_pending_tracked_data(self):
+        """ Retrieve a list of files that make up the data suggestion history
+            for the cruise. The model has a map of recognized file types which
+            is the basis for which Attrs will be selected for.
+                
+        """
+        c = Cruise(self.testPerson)
+        c.save()
+
+        self.assertEquals(c.tracked_data(), [])
+
+        f0 = _mock_FieldStorage('f0_hy1.csv', StringIO('mock_botex'), 'text/csv')
+        a0 = c.set('bottle_exchange', f0, self.testPerson)
+        a0.accept(self.testPerson)
+        self.assertEquals(c.tracked_data(), [a0])
+
+        c.remove()
+
 
 class TestHelper(unittest.TestCase):
     setUp = global_setUp
@@ -518,7 +524,6 @@ class TestHelper(unittest.TestCase):
     def test_helper_data_file_link(self):
         """ Given an Attr with a file, provide a link to a file next to its description """
         from pycchdo.helpers import data_file_link
-        from StringIO import StringIO
         file_data = StringIO('')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         data = Attr(self.testPerson, 'testid', 'a', file)
@@ -540,9 +545,33 @@ class TestHelper(unittest.TestCase):
         data.remove()
 
 
+class _MockSession:
+    def get(self, key, default):
+        return 'Mock Session value for', key, default
+
+    def __setitem__(self, key, value):
+        print 'Mock set', key, value
+
+    def flash(self, queue, msg):
+        print 'Mock Flash', queue, msg
+
+    def peek_flash(self, queue):
+        return 'Mock Flash peek for', queue
+
+    def pop_flash(self, queue):
+        return 'Mock Flash pop for', queue
+
+
 class TestView(unittest.TestCase):
-    def tearDown(self):
-        testing.tearDown()
+    def setUp(self):
+        global_setUp(self)
+        self.config.include('pyramid_jinja2')
+        self.config.add_jinja2_search_path('pycchdo:')
+        from pyramid.events import BeforeRender
+        import pycchdo
+        self.config.add_subscriber(pycchdo.add_renderer_globals, BeforeRender)
+
+    tearDown = global_tearDown
 
     def test__collapse_dict(self):
         """ Collapse a dictionary tree based on a given value being invalid. """
@@ -556,3 +585,51 @@ class TestView(unittest.TestCase):
         d = {'a': 1, 'b': 1, 'c': {'d': 1, 'e': 1}}
         self.assertEquals(_collapsed_dict(d, 1), 1)
 
+    def test_cruise_show(self):
+        from pycchdo.views.cruise import cruise_show
+        request = testing.DummyRequest()
+        result = cruise_show(request)
+        self.assertEqual(result.status, '400 Bad Request')
+
+        from pycchdo.models import Cruise
+
+        c = Cruise(self.testPerson)
+        c.save()
+
+        request.matchdict['cruise_id'] = c.id
+        request.user = None
+        # TODO
+        result = cruise_show(request)
+
+        c.remove()
+
+    def test_cruise_show_suggest_file(self):
+        from pycchdo.views.cruise import cruise_show
+        from pycchdo.models import Cruise
+
+        from pyramid.renderers import render_to_response
+
+        c = Cruise(self.testPerson)
+        c.save()
+
+        mock_data = StringIO('')
+        mock_file = _mock_FieldStorage('mockfile.txt', mock_data, 'plain/text')
+
+        request = testing.DummyRequest()
+        request.matchdict['cruise_id'] = c.id
+        request.user = self.testPerson
+        request.method = 'POST'
+        request.params['_method'] = 'PUT'
+        request.params['action'] = 'suggest_file'
+        request.params['type'] = 'invalid_type'
+        request.params['file'] = mock_file
+
+        request.session = _MockSession()
+
+        dictionary = cruise_show(request)
+
+        response = render_to_response('templates/cruise/show.jinja2',
+                                      cruise_show(request), request=request)
+        # TODO test response for recognizing bad type
+
+        c.remove()

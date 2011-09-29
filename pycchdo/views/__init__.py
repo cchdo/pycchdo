@@ -80,6 +80,7 @@ def clear_db(request):
 
 
 def submit(request):
+    # TODO on POST make separate submissions for each file
     return {}
 
 

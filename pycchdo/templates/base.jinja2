@@ -9,20 +9,29 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
   {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
-  {% if _static -%}{{ whh.tags.stylesheet_link('/static/css/static.css') }}{%- endif %}
-  {% include 'templates/_ie_compat.jinja2' ignore missing %}
+  {%- if _static %}{{ whh.tags.stylesheet_link('/static/css/static.css') }}{%- endif %}
+  {%- include 'templates/_ie_compat.jinja2' ignore missing %}
+  {%- block fullwidth_head -%}{%- endblock -%}
+  {%- block staff_head -%}{%- endblock -%}
   {%- block head -%}{%- endblock -%}
 </head>
 <body>
   <div id="centering">
     {% include 'templates/_base_header.jinja2' %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
-      {% if request.session.peek_flash('action_taken') -%}
+      {%- if request.session.peek_flash('action_taken') -%}
         {% set actions_taken = request.session.pop_flash('action_taken') %}
         {% for action in actions_taken %}
           <h1 class="flash action_taken">{{ action }}</h1>
         {% endfor %}
       {%- endif -%}
+      {%- if request.session.peek_flash('help') %}
+        {% set help = request.session.pop_flash('help') %}
+        {% for helper in help %}
+          <h1 class="flash help">{{ helper }}</h1>
+        {% endfor %}
+      {%- endif -%}
+      {%- block staff_content -%}{%- endblock -%}
       {% block content -%}
         {% if _static -%}{% include _static %}{%- endif %}
       {%- endblock %}
@@ -32,8 +41,8 @@
   <div id="scripts">
     {% block js %}{% endblock %}
     {{ whh.tags.javascript_link('/static/js/banner_rotate.js') }}
-    {% include 'templates/_track.html' ignore missing %}
-    {% include 'templates/_janrain.html' ignore missing %}
+    {%- include 'templates/_track.html' ignore missing %}
+    {%- if not request.user %}{% include 'templates/_janrain.html' ignore missing %}{%- endif %}
   </div>
 </body>
 </html>

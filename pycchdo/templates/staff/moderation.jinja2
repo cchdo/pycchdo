@@ -1,0 +1,32 @@
+{% extends "templates/staff.jinja2" %}
+{% block title -%}Staff | Moderation{%- endblock %}
+{% block head -%}
+  {# whh.tags.stylesheet_link('/static/css/staff/submissions.css') #}
+{% endblock %}
+{% block content -%}
+  {% call h.boxed('Moderation') -%}
+    <div class="pending">
+      <table>
+      {% for p in pending %}
+        <tr>
+          <td>{{p}}</td><td>{{ p.obj }}</td>
+          <td>
+            <h3>Discussion</h3>
+          </td>
+          <td>
+            {{ whh.tags.form('', "PUT") }}
+              <input type="hidden" name="attr" value="{{p.id}}">
+              {% if not p.is_acknowledged() -%}
+                <input type="submit" name="action" value="Acknowledge">
+              {%- endif %}
+              <input type="submit" name="action" value="Accept">
+              <input type="submit" name="action" value="Reject">
+            {{ whh.tags.end_form() }}
+          </td>
+        </tr>
+      {% endfor %}
+      </table>
+    </div>
+  {%- endcall %}
+{%- endblock %}
+

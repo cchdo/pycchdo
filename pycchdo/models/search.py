@@ -183,23 +183,23 @@ def save_obj(obj, writer=None):
 
     if name == 'cruise':
         names = filter(None, [obj.expocode()] + obj.get('aliases', []))
-        doc['names'] = ','.join(names)
+        doc['names'] = u','.join(names)
         doc['date_start'] = obj.date_start()
         doc['date_end'] = obj.date_end()
-        doc['status'] = ','.join(obj.get('statuses', []))
+        doc['status'] = u','.join(obj.get('statuses', []))
     elif name == 'person':
-        doc['name'] = obj.full_name()
-        doc['email'] = obj.get('email', None)
+        doc['name'] = unicode(obj.full_name())
+        doc['email'] = unicode(obj.get('email', None))
     elif name == 'ship':
-        doc['name'] = obj.name()
+        doc['name'] = unicode(obj.name())
     elif name == 'country':
-        names = filter(None, [obj.name(), obj.iso_code(), obj.iso_code(3)])
-        doc['names'] = ','.join(names)
+        names = filter(None, [unicode(obj.name()), obj.iso_code(), obj.iso_code(3)])
+        doc['names'] = u','.join(names)
     elif name == 'institution':
-        doc['name'] = obj.get('name', None)
-        doc['uri'] = obj.get('uri', None)
+        doc['name'] = unicode(obj.get('name', None))
+        doc['uri'] = unicode(obj.get('uri', None))
     elif name == 'collection':
-        doc['names'] = ','.join(obj.names())
+        doc['names'] = u','.join(obj.names())
     else:
         ixw.cancel()
         ix.close()

@@ -1,6 +1,8 @@
 import datetime
 import re
 
+from warnings import warn
+
 import pymongo
 from pymongo.objectid import ObjectId
 
@@ -19,6 +21,8 @@ grid_fs = None
 
 
 data_file_descriptions = {
+    'bottle_woce': 'ASCII bottle data',
+    'ctdzip_woce': 'ZIP archive of ASCII CTD data',
     'bottle_exchange': 'ASCII .csv bottle data with station information',
     'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station '
                        'information',
@@ -26,6 +30,10 @@ data_file_descriptions = {
     'bottlezip_netcdf': 'ZIP archive of binary bottle data with station '
                         'information',
     'sum_woce': 'ASCII station/cast information',
+    'lvs_woce': 'ASCII large volume samples',
+    'lvs_exchange': 'ASCII .csv large volume samples',
+    'docs_txt': 'Text documentation',
+    'docs_pdf': 'PDF documentation',
 }
 
 
@@ -121,13 +129,18 @@ class mongodoc(dict):
         """ Allow for aliases of attributes.
         Override to add aliases.
 
+        Attribute names with trailing '_' are considered aliases.
+        This is useful for properties that need to refer to themselves.
+
         """
+        if name.endswith('_'):
+            name = name[:-1]
         return name
 
     @classmethod
     def map_mongo(cls, cursor_or_dict):
         """ If the input is a cursor, returns a list. Else returns the mapped
-        class instance
+            class instance
 
         """
         if cursor_or_dict is None:
@@ -136,7 +149,7 @@ class mongodoc(dict):
         def get_person(obj_doc):
             try:
                 return obj_doc['creation_stamp']['person']
-            except KeyError:
+            except (TypeError, KeyError):
                 return None
 
         def get_instance(d):
@@ -160,12 +173,11 @@ class mongodoc(dict):
 class Stamp(mongodoc):
     def __init__(self, person):
         self.timestamp = timestamp()
-        if type(person) is pymongo.objectid.ObjectId:
+        if type(person) is ObjectId:
             self.person = person
         else:
             if type(person) is not Person:
-                raise TypeError('%r (%s) is not a Person object' % \
-                                (person, type(person)))
+                raise TypeError('%r (%s != Person)' % (person, type(person)))
             try:
                 self.person = person.id
             except AttributeError:
@@ -180,45 +192,75 @@ class Stamp(mongodoc):
     def person(self):
         return Person.get_id(self['person'])
 
+    def __repr__(self):
+        return "Stamp(%s, %r)" % (self.timestamp.strftime('%FT%T'),
+                                  self.person)
 
-class Note(mongodoc):
-    def __init__(self, body=None, action=None, data_type=None, subject=None):
+
+class idablemongodoc(mongodoc):
+    """ These documents have _ids versus non-idable ones which should only
+        be stored inside these.
+
+    """
+    def attribute_map(self, attr):
+        if attr == 'id':
+            attr = '_id'
+        return super(idablemongodoc, self).attribute_map(attr)
+
+    def from_mongo(self, doc):
+        super(idablemongodoc, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('_id', ))
+        return self
+
+    def __eq__(self, o):
+        return self.id == o.id
+
+    def __hash__(self):
+        return int(str(self.id), 16)
+
+
+class Note(idablemongodoc):
+    def __init__(self, person, body=None, action=None, data_type=None,
+                 subject=None, discussion=False):
         """ A Note that can be attached to any _Change 
 
+            Attrs:
+            creation_stamp - creation stamp
             body - the actual note
             action - the action taken
             data_type - the type of data that was changed
             subject - a nice summary
+            discussion - Setting this True makes the note only visible
+                         for mergers.
+                         
         """
+        self.id = ObjectId()
+        self.creation_stamp_ = Stamp(person)
         self.body = body
         self.action = action
         self.data_type = data_type
         self.subject = subject
+        self.discussion = discussion
+
+    @property
+    def creation_stamp(self):
+        v = self.creation_stamp_
+        if type(v) is Stamp:
+            return v
+        return Stamp.map_mongo(v)
+
+    def from_mongo(self, doc):
+        super(Note, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('creation_stamp', 'body', 'action',
+                                  'data_type', 'subject', 'discussion'))
+        return self
 
 
-class collectablemongodoc(mongodoc):
-    """ A top level document in collections.
-
-    These documents have _ids versus noncollectable ones which should only be
-    stored inside these.
-    """
+class collectablemongodoc(idablemongodoc):
+    """ A top level document in collections. """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().collectables
-
-    def attribute_map(self, attr):
-        # Attribute names with trailing '_' considered aliases.
-        # This is useful for properties that need to refer to themselves.
-        if attr.endswith('_'):
-            attr = attr[:-1]
-        if attr == 'id':
-            attr = '_id'
-        return super(collectablemongodoc, self).attribute_map(attr)
-
-    def from_mongo(self, doc):
-        super(collectablemongodoc, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('_id', ))
-        return self
 
     def save(self):
         self.id = self._mongo_collection().save(self)
@@ -247,14 +289,16 @@ class collectablemongodoc(mongodoc):
         return cls.find_one({'_id': idobj})
 
     @classmethod
+    def get_all(cls, *args, **kwargs):
+        return cls.map_mongo(cls.find(*args, **kwargs))
+
+    @classmethod
+    def get_one(cls, *args, **kwargs):
+        return cls.map_mongo(cls.find_one(*args, **kwargs))
+
+    @classmethod
     def get_id(cls, idobj):
         return cls.map_mongo(cls.find_id(idobj))
-
-    def __eq__(self, o):
-        return self.id == o.id
-
-    def __hash__(self):
-        return int(str(self.id), 16)
 
 
 class _Change(collectablemongodoc):
@@ -264,46 +308,55 @@ class _Change(collectablemongodoc):
 
     def __init__(self, person, note=None, *args, **kwargs):
         super(_Change, self).__init__(*args, **kwargs)
-        self.creation_stamp = Stamp(person)
-        self.pending_stamp = None
-        self.judgment_stamp = None
+        self.creation_stamp_ = Stamp(person)
+        self.pending_stamp_ = None
+        self.judgment_stamp_ = None
         self.accepted = False
-        self.note = note
+        if note is None:
+            self.notes_ = []
+        else:
+            self.notes_ = [note]
 
     def from_mongo(self, doc):
         super(_Change, self).from_mongo(doc)
         self.copy_keys_from(doc, (
             'creation_stamp', 'pending_stamp', 'judgment_stamp', 'accepted',
-            'note', ))
+            'notes', ))
         return self
 
     @property
     def creation_stamp(self):
         v = self.creation_stamp_
-        if type(v) is dict:
-            return Stamp.map_mongo(v)
-        return v
+        if type(v) is Stamp:
+            return v
+        return Stamp.map_mongo(v)
 
     @property
     def pending_stamp(self):
         v = self.pending_stamp_
-        if type(v) is dict:
-            return Stamp.map_mongo(v)
-        return v
+        if type(v) is Stamp:
+            return v
+        return Stamp.map_mongo(v)
 
     @property
     def judgment_stamp(self):
         v = self.judgment_stamp_
-        if type(v) is dict:
-            return Stamp.map_mongo(v)
-        return v
+        if type(v) is Stamp:
+            return v
+        return Stamp.map_mongo(v)
 
     @property
-    def note(self):
-        v = self.note_
-        if type(v) is dict:
-            return Note.map_mongo(v)
-        return v
+    def notes(self):
+        return sorted(Note.map_mongo(self.notes_),
+                      key=lambda n: n.creation_stamp.timestamp)
+
+    @property
+    def notes_public(self):
+        return filter(lambda n: not n.discussion, self.notes)
+
+    @property
+    def notes_discussion(self):
+        return filter(lambda n: n.discussion, self.notes)
 
     def is_judged(self):
         return self.judgment_stamp_ is not None
@@ -338,6 +391,22 @@ class _Change(collectablemongodoc):
     def mtime(self):
         return self.creation_stamp.timestamp
 
+    def add_note(self, note):
+        if note is None:
+            raise TypeError()
+        if note not in self.notes:
+            self.notes_.append(note)
+            self.save()
+            triggers.saved_note(note)
+
+    def remove_note(self, note):
+        if note is None:
+            raise TypeError()
+        if note in self.notes:
+            self.notes_.remove(note)
+            self.save()
+            triggers.removed_note(note)
+
 
 class Attr(_Change):
     @classmethod
@@ -347,34 +416,36 @@ class Attr(_Change):
     def __init__(self, person, obj, key=None, value=None,
                  note=None, deleted=False):
         super(Attr, self).__init__(person)
-        self.obj = obj
+        self.obj_ = obj
         self.deleted = deleted
-        self.note = note
+        if note is not None:
+            self.add_note(note)
         self.set(key, value)
 
     def from_mongo(self, doc):
         super(Attr, self).from_mongo(doc)
         self.copy_keys_from(doc, ('key', 'value', 'file', 'track', 'obj',
-                                  'note', 'deleted', ))
+                                  'deleted', ))
         return self
 
     def set(self, key, value):
         """ Sets the key and value.
         
-        Special cases:
-        
-        * value is a file-like object
-          Attempts to store the file in the filesystem and stores the id in the
-          'file' attribute.
-        * key is track
-          Stores the value (which must be a GeoJSON linestring coordinate list)
-          in the 'track' attribute.
+            Special cases:
+            
+            * value is a cgi.FieldStorage-like object
+              Attempts to store the file in the filesystem and stores the id in
+              the 'file' attribute.
+            * key is track
+              Stores the value (which must be a GeoJSON linestring coordinate
+              list) in the 'track' attribute.
 
         """
         self.key = key
         self.file = None
         self.track = None
         self.value = None
+        self.accepted_value = None
 
         if key == 'track':
             if type(value) is LineString:
@@ -404,16 +475,103 @@ class Attr(_Change):
         except AttributeError:
             self.value = value
 
-    # TODO instead of is_data just check for presence of data
+    # TODO just check for presence of file_
     def is_data(self):
+        warn('deprecated', DeprecationWarning)
         return self.file_
 
     def is_track(self):
+        warn('deprecated', DeprecationWarning)
         return self.track
 
-    def is_note(self):
-        return self.key is None and self.value_ is None and \
-               self.note_ is not None
+    def _get_file(self, file):
+        if not file:
+            return None
+        try:
+            return fs().get(file)
+        except gridfs.NoFile:
+            raise IOError('File not found')
+
+    @property
+    def file(self):
+        if self.file_ and self.accepted_value:
+            return self._get_file(self.accepted_value)
+        return self.file_original
+
+    @property
+    def file_original(self):
+        return self._get_file(self.file_)
+
+    @property
+    def value_original(self):
+        if self.deleted:
+            raise KeyError(self.key)
+        if self.file_:
+            return self.file_original
+        if self.track_:
+            return self.track_
+        return self.value_
+
+    @property
+    def value(self):
+        if self.deleted:
+            raise KeyError(self.key)
+        if self.accepted_value:
+            if self.file_:
+                return self.file
+            if self.track_:
+                return self.accepted_value
+            return self.accepted_value
+        return self.value_original
+
+    @property
+    def obj(self):
+        """ The object that the Attr is attached to """
+        return Obj.get_id_polymorphic(self.obj_)
+
+    def accept_value(self, value, person):
+        """ Changes the accepted value of the Attr to 'value'. This should be
+            used when the original value of Attr was a suggestion from a human
+            and the new value is a moderated known good value.
+
+        """
+        if self.file_:
+            try:
+                value.file
+            except AttributeError:
+                raise ValueError("Tried to accept value (%r) that did not match "
+                                 "Attr type" % value)
+        if self.track_:
+            pass
+            # TODO check to make sure it is a track-like object
+
+        self.accepted_value = value
+        self.accept(person)
+
+    def delete_file(self):
+       if not self.file_:
+           return
+       fs().delete(self.file_)
+
+    def save(self):
+        super(Attr, self).save()
+
+    def remove(self):
+        self.delete_file()
+        super(Attr, self).remove()
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        try:
+            mapping = '%r: %r' % (self.key, self.value)
+        except KeyError:
+            mapping = 'DEL'
+        except IOError:
+            mapping = 'FILE NOT FOUND'
+        return "Attr({mapping}, {accepted}|{id})".format(
+            mapping=mapping, accepted=self.accepted, id=self.id)
 
     @classmethod
     def all_data(cls):
@@ -424,60 +582,18 @@ class Attr(_Change):
         return cls.find({'track': {'$exists': True}})
 
     @classmethod
-    def all_notes(cls):
-        return cls.find({'key': None, 'value': None, 'note': {'$exists': True}})
-
-    @property
-    def file(self):
-        if not self.is_data():
-            return None
-        return fs().get(self.file_)
-
-    @property
-    def value(self):
-        if self.deleted:
-            raise KeyError(self.key)
-        if self.is_data():
-            return self.file
-        elif self.is_track():
-            return self.track
-        else:
-            return self.value_
-
-    def delete_file(self):
-       if not self.is_data():
-           return
-       fs().delete(self.file_)
-
-    def save(self):
-        super(Attr, self).save()
-        if self.is_note():
-            triggers.saved_note(self)
-
-    def remove(self):
-        self.delete_file()
-        super(Attr, self).remove()
-        if self.is_note():
-            triggers.saved_note(self)
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        mapping = '%r: %r' % (self.key, self.value)
-        if self.deleted:
-            mapping = 'DEL'
-        return "Attr({mapping}, {accepted}|{id})".format(
-            mapping=mapping, accepted=self.accepted, id=self.id)
+    def pending(cls):
+        return cls.get_all({'judgment_stamp': None})
 
 
 class Obj(_Change):
     """ Base object for all tracked objects in the system.
 
-    Objs may have two types of attributes:
-    1. system attributes - written directly into the object
-    2. tracked attributes - written as Attrs which are _Changes themselves.
-       These can only be edited using the get, set, delete.
+        Objs may have two types of attributes:
+        1. system attributes (Keys) - written directly into the object
+        2. tracked attributes (Attributes) - written as Attrs which are
+            _Changes themselves. These can only be edited using the get, set,
+            delete.
 
     """
     @classmethod
@@ -524,17 +640,30 @@ class Obj(_Change):
             kwargs['key'] = key
         return _sort_by_stamp(self._find_attrs(**kwargs))
 
+    def tracked(self, *args, **kwargs):
+        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(*args, **kwargs)))
+
+    def tracked_data(self):
+        file_types = data_file_descriptions.keys()
+        return self.tracked({'key': {'$in': file_types}})
+
     def unacknowledged_tracked(self):
-        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(
-            {'judgment_stamp': None, 'pending_stamp': None})))
+        return self.tracked({'judgment_stamp': None, 'pending_stamp': None})
 
     def pending_tracked(self):
-        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(
-            {'judgment_stamp': None, 'accepted': False})))
+        return self.tracked({'judgment_stamp': None, 'accepted': False})
+
+    def pending_tracked_data(self):
+        file_types = data_file_descriptions.keys()
+        return self.tracked({'judgment_stamp': None, 'accepted': False,
+                             'key': {'$in': file_types}})
 
     def accepted_tracked(self):
-        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(
-            {'accepted': True})))
+        return self.tracked({'accepted': True})
+
+    def accepted_tracked_data(self):
+        file_types = data_file_descriptions.keys()
+        return self.tracked({'accepted': True, 'key': {'$in': file_types}})
 
     def get_attr(self, key):
         """ Returns the most recent Attr document for the given key """
@@ -597,20 +726,6 @@ class Obj(_Change):
         attr.accept(person)
         return attr
 
-    @property
-    def notes(self):
-        return Attr.map_mongo(self._find_attrs({
-            'accepted': True,
-            'note': {'$exists': True}, 
-            'key': None,
-            'value': None,
-            'file': None,
-            'track': None,
-            }))
-
-    def add_note(self, note, person):
-        return self.set(None, None, person, note)
-
     def mtime(self):
         creation_time = super(Obj, self).mtime()
         accepted = self.accepted_tracked()
@@ -664,14 +779,6 @@ class Obj(_Change):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
-    def get_all(cls, *args, **kwargs):
-        return cls.map_mongo(cls.find(*args, **kwargs))
-
-    @classmethod
-    def get_one(cls, *args, **kwargs):
-        return cls.map_mongo(cls.find_one(*args, **kwargs))
-
-    @classmethod
     def find_id(cls, idobj):
         if type(idobj) is not ObjectId:
             try:
@@ -709,10 +816,46 @@ class Obj(_Change):
             return True
         return filter(true_match, objs)
 
+    @classmethod
+    def subclass_map(cls):
+        return dict([(k.__name__, k) for k in cls.__subclasses__()])
+
+    @classmethod
+    def get_all_polymorphic(cls, *args, **kwargs):
+        objs = cls.find(*args, **kwargs)
+        subclass_map = cls.subclass_map()
+        mapped = []
+        for obj in objs:
+            try:
+                klass = subclass_map.get(obj['_obj_type'], cls)
+                mapped.append(klass.map_mongo(obj))
+            except (TypeError, KeyError):
+                mapped.append(cls.map_mongo(obj))
+        return mapped
+
+    @classmethod
+    def get_one_polymorphic(cls, *args, **kwargs):
+        obj = cls.find_one(*args, **kwargs)
+        try:
+            klass = cls.subclass_map().get(obj['_obj_type'], cls)
+            return klass.map_mongo(obj)
+        except (TypeError, KeyError):
+            return cls.map_mongo(obj)
+
+    @classmethod
+    def get_id_polymorphic(cls, idobj):
+        obj = cls.find_id(idobj)
+        try:
+            klass = cls.subclass_map().get(obj['_obj_type'], cls)
+            return klass.map_mongo(obj)
+        except (TypeError, KeyError):
+            return cls.map_mongo(obj)
+
     def __repr__(self):
         copy = {}
         for key, value in self.items():
-            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp', ):
+            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp',
+                       '_obj_type', 'notes'):
                 continue
             copy[key] = value
         return '%s(%s)' % (type(self).__name__, copy)
@@ -720,7 +863,8 @@ class Obj(_Change):
 
 class Person(Obj):
     """ People may be either verified or not.
-    If they are associated with an ID provider then they are verified.
+        If they are associated with an ID provider then they are verified.
+
     """
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
@@ -776,7 +920,6 @@ class _Participants(dict):
 
     def __getitem__(self, key):
         try:
-            print super(_Participants, self).__getitem__(key)
             return [Person.get_id(id) for id in \
                     super(_Participants, self).__getitem__(key)]
         except KeyError:
@@ -823,16 +966,16 @@ class _Participants(dict):
 
 
 class Cruise(Obj):
-    """
+    """ The basic unit of metadata storage for the CCHDO
 
-    Attributes:
-    basin - imported from "internal"
-    parameter_informations - list of documents containing
-        status - the status of the parameter; one of the following:
+        Attributes:
+        basin - imported from "internal"
+        parameter_informations - list of documents containing
+            status - the status of the parameter; one of the following:
                  online, reformatted, submitted, not_measured, proposed,
                  no_information
-        pi - the principal investigator for the parameter on the cruise
-        ts - some date attached to the status and PI of the parameter
+            pi - the principal investigator for the parameter on the cruise
+            ts - some date attached to the status and PI of the parameter
 
     """
     def expocode(self):
@@ -885,7 +1028,7 @@ class Cruise(Obj):
 
     @classmethod
     def filter_geo(cls, fn, cruises):
-        return filter(lambda x: fn(x.track()), cruises)
+        return filter(lambda x: fn(x.track), cruises)
 
     @classmethod
     def get_by_expocode(cls, expocode):
@@ -928,17 +1071,17 @@ class Country(Obj):
 class Collection(Obj):
     """ Essentially tags for Cruises.
     
-    A Cruise may belong to Basin Collection, WOCE line Collection, etc.
-    
-    A Collection will also include a type as part of its identifier to
-    differentiate between the fields it came from in the original database.
+        A Cruise may belong to Basin Collection, WOCE line Collection, etc.
+        
+        A Collection will also include a type as part of its identifier to
+        differentiate between the fields it came from in the original database.
 
-    Attributes:
-    names - names associated with the collection. The first name in the list is
-            the canonical name.
-    type - identifier of WOCE line, group, program, spatial_group, basin
-    basins - a list of any combination of atlantic, arctic, pacific, indian,
-             southern
+        Attributes:
+        names - names associated with the collection. The first name in the
+            list is the canonical name.
+        type - identifier of WOCE line, group, program, spatial_group, basin
+        basins - a list of any combination of atlantic, arctic, pacific,
+            indian, southern
     
     """
 
@@ -974,14 +1117,15 @@ class AutoAcceptingObj(Obj):
 class ArgoFile(AutoAcceptingObj):
     """ Files that are given to the CCHDO for Argo calibration only.
 
-    THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure File
-    Repository.
+        THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure
+        File Repository.
 
     """
 
     def from_mongo(self, doc):
         super(ArgoFile, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('text_identifier', 'file', 'description', 'display', ))
+        self.copy_keys_from(doc, ('text_identifier', 'file', 'description',
+                                  'display', ))
         return self
 
     @property
@@ -1029,21 +1173,53 @@ class OldSubmission(Obj):
         super(OldSubmission, self).remove()
 
 
+class Submission(Obj):
+    """ A Submission to the CCHDO. These interface with humans so they need
+        intervention to make everything behave nicely before going into the
+        system.
+
+        Keys:
+        expocode
+        ship_name
+        line
+        action
+        public - whether the submission is of public or non-public data
+        assigned - whether the submission has been assigned
+        cruise_date - the date of the cruise being submitted
+        suggested - an Attr. When this is set, the submission has been
+                    looked at by a human and the Attr represents verified
+                    information
+
+    """
+    def attach(self, attr):
+        """ Attaches the submission to a new Attr. The submission will be also
+            be accepted.
+
+        """
+        if not data_type in data_file_descriptions.keys():
+            pass # TODO
+
+    @classmethod
+    def unacknowledged(cls):
+        """ Gives Submissions that have not yet been reviewed """
+        return [] # TODO
+
+
 class Parameter(Obj):
     """ A parameter
 
-    Attributes:
-    name - the WOCE mnemonic
-    full_name - the full name of the parameter
-    name_netcdf - the accepted name for the parameter in WOCE NetCDF format
-    format - a C format string. This should actually be the number of
-             significant figures but this is how the data was stored.
-    unit - the unit for the parameter
-    bounds - a tuple marking the generally acceptable range for the parameter
-             for its primary unit
-    in_groups_but_did_not_exist - marks the parameter as existing in
-                                  the table parameter_groups but no where else
-                                  in the database. Import use only.
+        Attributes:
+        name - the WOCE mnemonic
+        full_name - the full name of the parameter
+        name_netcdf - the accepted name for the parameter in WOCE NetCDF format
+        format - a C format string. This should actually be the number of
+            significant figures but this is how the data was stored.
+        unit - the unit for the parameter
+        bounds - a tuple marking the generally acceptable range for the
+            parameter for its primary unit
+        in_groups_but_did_not_exist - marks the parameter as existing in the
+            table parameter_groups but no where else in the database. Import
+            use only.
 
     """
     @property
@@ -1074,14 +1250,4 @@ class ParameterOrder(Obj):
     order - the list of parameters in the order they should appear
 
     """
-    pass
-
-
-class Submission(Obj):
-    """ A Submission to the CCHDO
-
-    Attributes:
-
-    """
-    # TODO
     pass

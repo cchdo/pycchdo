@@ -3,6 +3,14 @@ import webhelpers.html.tags
 
 import models
 
+
+def has_mod(request):
+    # TODO check against actual list
+    if not request.user:
+        return False
+    return str(request.user.id) == '4e1492db1f121d1782000000'
+
+
 def title(**kwargs):
     try:
         content = kwargs['caller']()
@@ -46,9 +54,23 @@ def email_link(email, microformat_type=None, microformat_classes=[], content=Non
 
 def boxed(title='', bottom='', **attrs):
     classes = [('boxed', True)]
+    box_content_classes = [('box_content', True)]
+    box_bottom_classes = [('box_bottom', True)]
     try:
         classes.extend([(x, True) for x in attrs['class'].split()])
         del attrs['class']
+    except KeyError:
+        pass
+    try:
+        box_content_classes.extend(
+            [(x, True) for x in attrs['box_content_class'].split()])
+        del attrs['box_content_class']
+    except KeyError:
+        pass
+    try:
+        box_bottom_classes.extend(
+            [(x, True) for x in attrs['box_bottom_class'].split()])
+        del attrs['box_bottom_class']
     except KeyError:
         pass
     caller = lambda: ''
@@ -59,8 +81,10 @@ def boxed(title='', bottom='', **attrs):
         pass
     return whh.HTML.div(whh.HTML(
                 whh.HTML.h1(whh.HTML.literal(title)),
-                whh.HTML.div(caller(), class_='box_content'),
-                whh.HTML.div(bottom, class_='box_bottom')
+                whh.HTML.div(caller(),
+                             class_=whh.tags.css_classes(box_content_classes)),
+                whh.HTML.div(bottom,
+                             class_=whh.tags.css_classes(box_bottom_classes))
             ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
 
 
@@ -87,16 +111,22 @@ def cruise_history_rows(change, i, hl):
         hl - even or odd class name
     """
 
-    time = change.creation_stamp['timestamp'].strftime('%Y-%m-%d')
-    # TODO link to person?
-    person = change.creation_stamp.person.full_name()
-    if change.is_note():
-        note = change['note']
-        data_type = note['data_type']
-        action = note['action']
-        summary = note['subject']
-        body = note['body']
+    baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
+
+    if type(change) == models.Note:
+        time = change.creation_stamp.timestamp.strftime('%Y-%m-%d')
+        # TODO link to person?
+        person = change.creation_stamp.person.full_name()
+        data_type = change['data_type']
+        action = change['action']
+        summary = change['subject']
+        body = change['body']
+        if change.discussion:
+            baseclass += ' discussion'
     else:
+        time = change.creation_stamp.timestamp.strftime('%Y-%m-%d')
+        # TODO link to person?
+        person = change.creation_stamp.person.full_name()
         data_type = change['key']
         if change['deleted']:
             action = 'Deleted'
@@ -111,11 +141,11 @@ def cruise_history_rows(change, i, hl):
             whh.HTML.td(data_type, class_='data_type'),
             whh.HTML.td(action, class_='action'),
             whh.HTML.td(summary, class_='summary'),
-            class_="note{i} meta {hl}".format(i=i, hl=hl)
+            class_=baseclass + " meta"
         ) + whh.HTML.tr(
             whh.HTML.td(person, class_='person'),
             whh.HTML.td(whh.HTML.pre(body), colspan=3, class_='body'),
-            class_="note{i} body {hl}".format(i=i, hl=hl)
+            class_=baseclass + " body"
         )
 
 

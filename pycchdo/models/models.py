@@ -219,43 +219,6 @@ class idablemongodoc(mongodoc):
         return int(str(self.id), 16)
 
 
-class Note(idablemongodoc):
-    def __init__(self, person, body=None, action=None, data_type=None,
-                 subject=None, discussion=False):
-        """ A Note that can be attached to any _Change 
-
-            Attrs:
-            creation_stamp - creation stamp
-            body - the actual note
-            action - the action taken
-            data_type - the type of data that was changed
-            subject - a nice summary
-            discussion - Setting this True makes the note only visible
-                         for mergers.
-                         
-        """
-        self.id = ObjectId()
-        self.creation_stamp_ = Stamp(person)
-        self.body = body
-        self.action = action
-        self.data_type = data_type
-        self.subject = subject
-        self.discussion = discussion
-
-    @property
-    def creation_stamp(self):
-        v = self.creation_stamp_
-        if type(v) is Stamp:
-            return v
-        return Stamp.map_mongo(v)
-
-    def from_mongo(self, doc):
-        super(Note, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('creation_stamp', 'body', 'action',
-                                  'data_type', 'subject', 'discussion'))
-        return self
-
-
 class collectablemongodoc(idablemongodoc):
     """ A top level document in collections. """
     @classmethod
@@ -264,9 +227,11 @@ class collectablemongodoc(idablemongodoc):
 
     def save(self):
         self.id = self._mongo_collection().save(self)
+        return self
 
     def remove(self):
         self._mongo_collection().remove(self.id)
+        return self
 
     @classmethod
     def all(cls):
@@ -301,6 +266,46 @@ class collectablemongodoc(idablemongodoc):
         return cls.map_mongo(cls.find_id(idobj))
 
 
+class Note(collectablemongodoc):
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().notes
+
+    def __init__(self, person, body=None, action=None, data_type=None,
+                 subject=None, discussion=False):
+        """ A Note that can be attached to any _Change 
+
+            Attrs:
+            creation_stamp - creation stamp
+            body - the actual note
+            action - the action taken
+            data_type - the type of data that was changed
+            subject - a nice summary
+            discussion - Setting this True makes the note only visible
+                         for mergers.
+                         
+        """
+        self.creation_stamp_ = Stamp(person)
+        self.body = body
+        self.action = action
+        self.data_type = data_type
+        self.subject = subject
+        self.discussion = discussion
+
+    @property
+    def creation_stamp(self):
+        v = self.creation_stamp_
+        if type(v) is Stamp:
+            return v
+        return Stamp.map_mongo(v)
+
+    def from_mongo(self, doc):
+        super(Note, self).from_mongo(doc)
+        self.copy_keys_from(doc, ('creation_stamp', 'body', 'action',
+                                  'data_type', 'subject', 'discussion'))
+        return self
+
+
 class _Change(collectablemongodoc):
     @classmethod
     def _mongo_collection(cls):
@@ -312,10 +317,11 @@ class _Change(collectablemongodoc):
         self.pending_stamp_ = None
         self.judgment_stamp_ = None
         self.accepted = False
-        if note is None:
-            self.notes_ = []
-        else:
-            self.notes_ = [note]
+        self.notes_ = []
+        try:
+            self.add_note(note)
+        except TypeError:
+            pass
 
     def from_mongo(self, doc):
         super(_Change, self).from_mongo(doc)
@@ -347,7 +353,7 @@ class _Change(collectablemongodoc):
 
     @property
     def notes(self):
-        return sorted(Note.map_mongo(self.notes_),
+        return sorted(filter(None, [Note.get_id(nid) for nid in self.notes_]),
                       key=lambda n: n.creation_stamp.timestamp)
 
     @property
@@ -388,22 +394,27 @@ class _Change(collectablemongodoc):
         self.accepted = False
         self.save()
 
+    @property
     def mtime(self):
         return self.creation_stamp.timestamp
 
     def add_note(self, note):
         if note is None:
             raise TypeError()
-        if note not in self.notes:
-            self.notes_.append(note)
+        try:
+            note.id
+        except AttributeError:
+            note.save()
+        if note.id not in self.notes_:
+            self.notes_.append(note.id)
             self.save()
             triggers.saved_note(note)
 
     def remove_note(self, note):
         if note is None:
             raise TypeError()
-        if note in self.notes:
-            self.notes_.remove(note)
+        if note.id in self.notes_:
+            self.notes_.remove(note.id)
             self.save()
             triggers.removed_note(note)
 
@@ -415,6 +426,10 @@ class Attr(_Change):
 
     def __init__(self, person, obj, key=None, value=None,
                  note=None, deleted=False):
+        """ Not for general use. Please defer to Obj's get, set, and delete
+        methods for interacting with Attrs.
+
+        """
         super(Attr, self).__init__(person)
         self.obj_ = obj
         self.deleted = deleted
@@ -553,15 +568,9 @@ class Attr(_Change):
            return
        fs().delete(self.file_)
 
-    def save(self):
-        super(Attr, self).save()
-
     def remove(self):
         self.delete_file()
         super(Attr, self).remove()
-
-    def __str__(self):
-        return self.__repr__()
 
     def __repr__(self):
         try:
@@ -570,16 +579,22 @@ class Attr(_Change):
             mapping = 'DEL'
         except IOError:
             mapping = 'FILE NOT FOUND'
-        return "Attr({mapping}, {accepted}|{id})".format(
-            mapping=mapping, accepted=self.accepted, id=self.id)
+
+        # If object hasn't been saved yet, there is no id.
+        if hasattr(self, 'id'):
+            return "Attr({mapping}, {accepted}|{id})".format(
+                mapping=mapping, accepted=self.accepted, id=self.id)
+        else:
+            return "Attr({mapping}, {accepted}|UNSAVED)".format(
+                mapping=mapping, accepted=self.accepted)
 
     @classmethod
     def all_data(cls):
-        return cls.find({'file': {'$exists': True}})
+        return cls.find({'file': {'$ne': None}})
 
     @classmethod
     def all_track(cls):
-        return cls.find({'track': {'$exists': True}})
+        return cls.find({'track': {'$ne': None}})
 
     @classmethod
     def pending(cls):
@@ -644,8 +659,7 @@ class Obj(_Change):
         return Attr.map_mongo(_sort_by_stamp(self._find_attrs(*args, **kwargs)))
 
     def tracked_data(self):
-        file_types = data_file_descriptions.keys()
-        return self.tracked({'key': {'$in': file_types}})
+        return self.tracked({'file': {'$ne': None}})
 
     def unacknowledged_tracked(self):
         return self.tracked({'judgment_stamp': None, 'pending_stamp': None})
@@ -654,16 +668,14 @@ class Obj(_Change):
         return self.tracked({'judgment_stamp': None, 'accepted': False})
 
     def pending_tracked_data(self):
-        file_types = data_file_descriptions.keys()
         return self.tracked({'judgment_stamp': None, 'accepted': False,
-                             'key': {'$in': file_types}})
+                             'file': {'$ne': None}})
 
     def accepted_tracked(self):
         return self.tracked({'accepted': True})
 
     def accepted_tracked_data(self):
-        file_types = data_file_descriptions.keys()
-        return self.tracked({'accepted': True, 'key': {'$in': file_types}})
+        return self.tracked({'accepted': True, 'file': {'$ne': None}})
 
     def get_attr(self, key):
         """ Returns the most recent Attr document for the given key """
@@ -726,8 +738,9 @@ class Obj(_Change):
         attr.accept(person)
         return attr
 
+    @property
     def mtime(self):
-        creation_time = super(Obj, self).mtime()
+        creation_time = super(Obj, self).mtime
         accepted = self.accepted_tracked()
         if not accepted:
             return creation_time
@@ -906,8 +919,8 @@ class Person(Obj):
 
     def __repr__(self):
         try:
-            return 'Person ({last}, {first})'.format(last=self.name_last,
-                                                     first=self.name_first)
+            return u'Person ({last}, {first})'.format(last=self.name_last,
+                                                      first=self.name_first)
         except AttributeError:
             return 'Person ()'
 

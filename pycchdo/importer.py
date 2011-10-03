@@ -1,13 +1,15 @@
 import datetime
 import getopt
 import sys
-import cgi
+from cgi import FieldStorage
 import stat
 from contextlib import contextmanager
 import logging
 import urllib2
 import tempfile
 import os
+import re
+import mimetypes
 
 import paramiko
 import shapely.wkt
@@ -51,6 +53,14 @@ def _ssh_cchdo():
     return ssh_client
 
 
+def _ustr2uni(string):
+    return unicode(string, 'unicode_escape')
+
+
+def _date_to_datetime(date):
+    return datetime.datetime.combine(date, datetime.time(0))
+
+
 @contextmanager
 def sftp_dl(sftp, filepath):
     temp = tempfile.NamedTemporaryFile(delete=False)
@@ -86,16 +96,7 @@ def import_users(session, importer):
         if person.get('id', None) != user.id:
             person.set_accept('id', user.id, importer)
         map_users[user.id] = person.id
-
     return map_users
-
-
-def _ustr2uni(string):
-    return unicode(string, 'unicode_escape')
-
-
-def _date_to_datetime(date):
-    return datetime.datetime.combine(date, datetime.time(0))
 
 
 def _import_person_inst(importer, name_first, name_last,
@@ -436,14 +437,16 @@ def _import_contacts_cruises(session, importer, map_cruises, map_persons):
         cruise.participants.add(person, role, importer).accept(importer)
 
 
-def _import_events(session, importer, map_cruises):
+def _import_events(session, importer):
     logging.info("Importing Events")
     map_events = {}
     events = session.query(legacy.Event).all()
-    present_notes = models.Attr.find({
-        'import_id': {'$exists': True}, 'key': None,
-        'value': None, 'note': {'$exists': True}})
-    present_note_import_ids = set([x['import_id'] for x in present_notes])
+    present_note_import_ids = []
+    for note in models.Note.get_all():
+        try:
+            present_note_import_ids.append(note.import_id)
+        except AttributeError:
+            pass
     len_events = len(events)
     for i, event in enumerate(events):
         if i % 100 == 0:
@@ -452,9 +455,6 @@ def _import_events(session, importer, map_cruises):
         if event.ID in present_note_import_ids:
             logging.info("Updating Event %s" % event.ID)
         else:
-            person = _import_person(
-                session, importer, event.LastName, event.First_Name)
-            cruises = models.Cruise.get_by_attrs(expocode=event.ExpoCode)
             body = ''
             if event.Note:
                 body = _ustr2uni(event.Note)
@@ -467,18 +467,21 @@ def _import_events(session, importer, map_cruises):
             summary = ''
             if event.Summary:
                 summary = _ustr2uni(event.Summary)
+
+            person = _import_person(
+                session, importer, event.LastName, event.First_Name)
             note = models.Note(person, body, action, data_type, summary)
-            notes = []
+            note.creation_stamp.timestamp = \
+                _date_to_datetime(event.Date_Entered)
+            note.import_id = event.ID
+            note.save()
+            map_events[event.ID] = note
+
+            cruises = models.Cruise.get_by_attrs(expocode=event.ExpoCode)
             for cruise in cruises:
                 logging.info("Creating Event %s for cruise %s" % (
                     event.ID, cruise.get('import_id')))
-                note_attr = cruise.add_note(note)
-                note_attr.accept(importer)
-                note_attr.import_id = event.ID
-                note_attr.save()
-                note_attr.accept(importer)
-                notes.append(note_attr)
-            map_events[event.ID] = notes
+                cruise.add_note(note)
     return map_events
 
 
@@ -817,7 +820,8 @@ def _import_submissions(session, importer, sftp_cchdo):
             if action:
                 submission.set_accept('action', _ustr2uni(action), importer)
             if notes:
-                submission.add_note(models.Note(importer, _ustr2uni(notes)))
+                submission.add_note(models.Note(importer,
+                                                _ustr2uni(notes)).save())
 
             file = None
             with sftp_dl(sftp_cchdo, file_name) as file:
@@ -825,7 +829,7 @@ def _import_submissions(session, importer, sftp_cchdo):
                     submission.remove()
                     logging.warn('unable to get file for Submission %s', sub.id)
                     continue
-                actual_file = cgi.FieldStorage()
+                actual_file = FieldStorage()
                 actual_file.filename = file_name
                 actual_file.file = file
                 submission.set_accept('file', actual_file, importer)
@@ -849,9 +853,118 @@ def _import_submissions(session, importer, sftp_cchdo):
             submission.set_accept('import_id', sub.id, importer)
 
 
+def _get_mtime(sftp_cchdo, filepath):
+    lstat = sftp_cchdo.lstat(filepath)
+    return datetime.datetime.fromtimestamp(lstat.st_mtime)
+
+
 def _import_queue_files(session, importer, sftp_cchdo):
     logging.info("Importing queue files")
+
+    re_docs = re.compile('Cruise (report|information)', re.IGNORECASE)
+
+    queue_files = session.query(legacy.QueueFile).all()
+    for qfile in queue_files:
+        cruises = models.Cruise.get_by_attrs(expocode=qfile.expocode)
+        if not cruises:
+            logging.warn("Missing cruise for queue file %s" % qfile.expocode)
+            continue
+        else:
+            cruise = cruises[0]
+
+        queue_file = models.Attr.get_one({'import_id': qfile.id,
+                                          'key': 'data_suggestion'})
+        unprocessed_input = qfile.unprocessed_input.strip()
+        if not queue_file:
+            logging.info('Creating Queue File %s' % qfile.id)
+
+            with sftp_dl(sftp_cchdo, unprocessed_input) as file:
+                if file is None:
+                    logging.warn(
+                        "Missing queue file %s" % unprocessed_input)
+                    logging.info("Skipping queue record import")
+                    continue
+                else:
+                    actual_file = FieldStorage()
+                    actual_file.filename = qfile.Name
+                    actual_file.type = mimetypes.guess_type(qfile.Name)[0]
+                    if not actual_file.type:
+                        actual_file.type = 'application/octet-stream'
+                    actual_file.file = file
+
+            queue_file = cruise.set('data_suggestion', actual_file, importer)
+            queue_file.import_id = qfile.id
+
+            name = qfile.contact
+            submitter = _import_person_inst(importer, name, '', '', '')
+
+            queue_file.creation_stamp['person'] = submitter.id
+            date_received = None
+            if qfile.date_received:
+                date_received = _date_to_datetime(qfile.date_received)
+            else:
+                date_received = _get_mtime(sftp_cchdo, unprocessed_input)
+            queue_file.creation_stamp['timestamp'] = date_received
+            queue_file.save()
+        else:
+            logging.info('Updating Queue File %s' % qfile.id)
+
+        if qfile.cchdo_contact:
+            contact = models.Person.get_one({'identifier': qfile.cchdo_contact})
+            if contact:
+                queue_file.acknowledge(contact)
+            else:
+                logging.warn(
+                    "CCHDO contact %s is not recognized" % qfile.cchdo_contact)
+
+        if qfile.merged == 1:
+            date_merged = qfile.date_merged
+            queue_file.accept(importer)
+            if not date_merged:
+                logging.warn('No date merged for merged file. Obtaining from '
+                             'file timestamp')
+                date_merged = _get_mtime(sftp_cchdo, unprocessed_input)
+            else:
+                date_merged = _date_to_datetime(date_merged)
+            queue_file.judgment_stamp.timestamp = date_merged
+            queue_file.save()
+
+        if qfile.merged == 2 or qfile.hidden:
+            # file is hidden
+            queue_file.reject(importer)
+
+        # processed_input is obsolete according to cberys
+        # hidden flag is obsolete according to cberys
+
+        if qfile.notes:
+            queue_file.add_note(models.Note(importer,
+                                            _ustr2uni(qfile.notes)).save())
+
+        if qfile.action:
+            queue_file.add_note(models.Note(importer, _ustr2uni(qfile.action),
+                                            data_type='Action',
+                                            discussion=True).save())
+
+        if qfile.parameters or qfile.documentation:
+            parameters = qfile.parameters
+            if not parameters:
+                parameters = ''
+            if qfile.documentation:
+                if not re_docs.match(parameters):
+                    parameters = u','.join([parameters, 'Documentation'])
+            queue_file.add_note(models.Note(importer, parameters,
+                                            data_type='Parameters',
+                                            discussion=True).save())
+
+        if qfile.merge_notes:
+            queue_file.add_note(models.Note(importer,
+                                            _ustr2uni(qfile.merge_notes),
+                                            discussion=True).save())
+
+
+def _import_documents(session, importer, sftp_cchdo):
     # TODO
+    return {}
 
 
 def import_argo_files(session, importer, map_users, sftp_cchdo):
@@ -888,14 +1001,15 @@ def import_argo_files(session, importer, map_users, sftp_cchdo):
                     logging.warn('TODO Need to figure out how to link files')
                 else:
                     with sftp_dl(sftp_cchdo, file.filename) as file:
-                        actual_file = cgi.FieldStorage()
+                        actual_file = FieldStorage()
                         actual_file.filename = file.filename
                         actual_file.type = file.content_type
                         actual_file.file = file
                         logging.debug(repr(actual_file))
                         argo_file.set_accept('file', actual_file, importer)
 
-        logging.warn('downloads to import %r' % file.downloads)
+        # TODO
+        logging.warn('There is download information to import %r' % file.downloads)
 
 
 def main(argv):
@@ -931,8 +1045,10 @@ def main(argv):
                                  name_last='importer')
         importer.save()
 
-    models.Attr.mongo_collection().ensureIndex({'obj': 1, 'value': 1})
+    models.Attr._mongo_collection().ensure_index([('obj', 1), ('value', 1)])
 
+    # libcchdo does not need a local cache of parameter information. That will
+    # be done during the import
     libcchdo.check_cache = False
 
     logging.info("Connecting to cchdo db")
@@ -946,7 +1062,7 @@ def main(argv):
         #                            map_cruises, map_collections)
         #_import_contacts_cruises(session, importer, map_cruises, map_persons)
 
-        #map_events = _import_events(session, importer, map_cruises)
+        #map_events = _import_events(session, importer)
 
         #_import_spatial_groups(session, importer)
         #_import_internal(session, importer)
@@ -959,17 +1075,14 @@ def main(argv):
         #_import_parameters(session, importer)
 
         # Now follows imports that need ssh access
-        ssh_cchdo = _ssh_cchdo()
-        sftp_cchdo = ssh_cchdo.open_sftp()
-
         try:
-            _import_submissions(session, importer, sftp_cchdo)
-            _import_queue_files(session, importer, sftp_cchdo)
+            ssh_cchdo = _ssh_cchdo()
+            sftp_cchdo = ssh_cchdo.open_sftp()
+        #    _import_submissions(session, importer, sftp_cchdo)
         #    _import_old_submissions(session, importer, sftp_cchdo)
-        #    # TODO
-        #    #map_documents = _import_documents(session, importer)
-        #    # TODO Revisit for linked files and downloads
         #    import_argo_files(session, importer, map_users, sftp_cchdo)
+            _import_queue_files(session, importer, sftp_cchdo)
+        #    map_documents = _import_documents(session, importer, sftp_cchdo)
         finally:
             sftp_cchdo.close()
             ssh_cchdo.close()

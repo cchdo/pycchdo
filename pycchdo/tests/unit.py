@@ -39,10 +39,12 @@ class TestModel(unittest.TestCase):
             self.testPerson,
             note=Note(self.testPerson, 'body', 'action', 'data_type',
                       'subject'))
-        self.assertEqual(change1.notes[0].action, 'action')
-        self.assertEqual(change1.notes[0].data_type, 'data_type')
-        self.assertEqual(change1.notes[0].subject, 'subject')
-        self.assertEqual(change1.notes[0].body, 'body')
+        change1.save()
+        note = change1.notes[0]
+        self.assertEqual(note.action, 'action')
+        self.assertEqual(note.data_type, 'data_type')
+        self.assertEqual(note.subject, 'subject')
+        self.assertEqual(note.body, 'body')
 
     def test_accept_Change(self):
         """ Acceptance of _Change """
@@ -541,7 +543,10 @@ class TestHelper(unittest.TestCase):
 
         data = Attr(self.testPerson, 'testid', 'a', 'b')
         data.save()
-        self.assertRaises(ValueError, lambda: data_file_link('ctdzip_exchange', data))
+        self.assertEquals('<tr class="ctdzip exchange"><th><a href="/404.html">CTD'
+                          '</a></th><td>ZIP archive of ASCII .csv CTD data with '
+                          'station information</td></tr>',
+                          data_file_link('ctdzip_exchange', data))
         data.remove()
 
 

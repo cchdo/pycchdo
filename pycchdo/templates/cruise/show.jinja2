@@ -136,7 +136,7 @@
               <td colspan="4"><input type="submit" value="Add note"></td>
             </tr>
           {%- endif %}
-          {%- for change in history %}
+          {%- for change in history|reverse %}
             {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
           {%- endfor %}
         </table>

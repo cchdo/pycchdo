@@ -205,7 +205,7 @@ def save_obj(obj, writer=None):
         ix.close()
         return
 
-    doc['mtime'] = obj.mtime()
+    doc['mtime'] = obj.mtime
     doc['id'] = _model_id_to_index_id(obj.id)
     ixw.update_document(**doc)
     if not writer:
@@ -300,7 +300,7 @@ def rebuild_index(clear=False):
                 else:
                     logging.debug('Check mtime for %s' % indexed_id)
                     indexed_time = fields['mtime']
-                    mtime = obj.mtime()
+                    mtime = obj.mtime
                     if mtime > indexed_time:
                         logging.debug('%s has been modified' % indexed_id)
                         to_index.add(indexed_id)

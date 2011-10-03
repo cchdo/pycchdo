@@ -1,3 +1,5 @@
+import logging
+
 import webhelpers.html as whh
 import webhelpers.html.tags
 
@@ -183,8 +185,9 @@ def change_pretty(change):
 
 def data_uri(data):
     """ Given a Attr with a file, provides a link to a file. """
-    if not data or not data.is_data():
-        raise ValueError('Cannot link to a non file')
+    if not data or not data.file_:
+        logging.error('Cannot link to a non file Attr #%s' % data.id)
+        return '/404.html'
 
     return '/data/{id}'.format(id=data['_id'])
 

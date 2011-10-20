@@ -37,7 +37,7 @@
     <div class="subsection data-files">
       <h2>Data Files</h2>
 
-      {%- if 'preliminary' in cruise.statuses() %}
+      {%- if cruise.preliminary() %}
         <p id="preliminary">These data are preliminary (Please see 
           <a href="">data history</a>)</p> 
       {%- endif %}
@@ -68,6 +68,24 @@
         <h3>WOCE</h3>
         <table>
         {% for type, df in data_files.get('woce').items() -%}
+          {{ h.data_file_link(type, df) }}
+        {%- endfor %}
+        </table>
+      {%- endif %}
+
+      {%- if 'large_volume' in data_files %}
+        <h3>Large Volume</h3>
+        <table>
+        {% for type, df in data_files.get('large_volume').items() -%}
+          {{ h.data_file_link(type, df) }}
+        {%- endfor %}
+        </table>
+      {%- endif %}
+
+      {%- if 'trace_metals' in data_files %}
+        <h3>Trace Metals</h3>
+        <table>
+        {% for type, df in data_files.get('trace_metals').items() -%}
           {{ h.data_file_link(type, df) }}
         {%- endfor %}
         </table>

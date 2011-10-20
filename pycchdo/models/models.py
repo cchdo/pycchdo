@@ -50,6 +50,7 @@ def init_conn(settings, **kwargs):
 
 
 def cchdo():
+    """ Provides the root database object """
     if not mongo_conn:
         raise IOError('No database connection. Check that the server .ini file '
                       'contains the correct db_uri.')
@@ -57,6 +58,7 @@ def cchdo():
 
 
 def fs():
+    """ Provides the root file system object """
     global grid_fs
     if not grid_fs:
         grid_fs = gridfs.GridFS(cchdo())
@@ -64,6 +66,7 @@ def fs():
 
 
 def timestamp():
+    """ Right now as a datetime """
     return datetime.datetime.utcnow()
 
 
@@ -80,11 +83,59 @@ def _str2unicode(x):
 
 
 def _sort_by_stamp(query, stamp='creation'):
+    """ Applies a sort to the mongodb query by the given stamp's timestamp key.
+
+        Valid stamp arguments:
+            * creation
+            * pending
+            * judgment
+    
+    """
     return query.sort('%s_stamp.timestamp' % stamp, pymongo.DESCENDING)
 
 
 class mongodoc(dict):
+    """ Represents a mongodb document in memory
+
+        Each document has keys and values that need to be mapped and saved. They
+        define the document's data.
+
+        A document's data can be accessed using keys as indices and also as
+        attributes, e.g.
+
+            d = mongodoc()
+
+            d['key'] = 'foo'
+            d['key'] == 'foo'
+
+            d.key == 'foo'
+
+            d.key = 'bar'
+            d.key == 'bar'
+            del d.key
+
+        Keys, when accessed as attributes, have the additional property of being
+        subject to aliasing. By redefining the attribute_map function, different
+        names can be given to the same attribute.
+
+            class specialmongodoc(mongodoc):
+                def attribute_map(self, name):
+                    if name == 'foo':
+                        name = 'bar'
+                    return name
+
+            d = specialmongodoc()
+            d.foo = 'baz'
+            d.bar == 'baz'
+
+    """
+
     def copy_keys_from(self, o, keys):
+        """ Used by from_mongo to copy saved keys from mongodb into instances.
+
+        This should be extended by subclasses to add keys to the db to model
+        mapping.
+        """
         if not o:
             return
         for key in keys:
@@ -92,6 +143,16 @@ class mongodoc(dict):
                 self[key] = o[key]
             except KeyError:
                 pass
+
+    def from_mongo(cls, doc):
+        """ Used by map_mongo to copy saved data from mongodb into a new
+        instances.
+
+        Redefine to provide a better mapping from a mongodb document onto a new
+        instance.
+
+        """
+        return None
 
     def mapobj(self, doc, key, cls):
         try:
@@ -102,12 +163,6 @@ class mongodoc(dict):
                 self[key] = cls.map_mongo(v)
         except KeyError:
             pass
-
-    def from_mongo(cls, doc):
-        return None
-
-    # Allow referring to attributes of the mongodoc rather than accessing as
-    # keys.
 
     def __getattr__(self, name):
         try:
@@ -126,11 +181,22 @@ class mongodoc(dict):
             pass
 
     def attribute_map(self, name):
-        """ Allow for aliases of attributes.
-        Override to add aliases.
+        """ Used by attribute model to Allow for attribute aliases.
 
-        Attribute names with trailing '_' are considered aliases.
-        This is useful for properties that need to refer to themselves.
+        Override to add aliases for attributes.
+
+        The default behavior is for attribute names with trailing '_' to be
+        automatically considered aliases. This is useful for defining properties
+        on subclasses that need to refer to the same name for the mapping.
+
+            class propertied_mongodoc(mongodoc):
+                @property
+                def foo(self):
+                    return d.foo_ + ' world!'
+
+            d = propertied_mongodoc()
+            d.foo_ = 'Hello'
+            d.foo_ == 'Hello world!'
 
         """
         if name.endswith('_'):
@@ -139,10 +205,13 @@ class mongodoc(dict):
 
     @classmethod
     def map_mongo(cls, cursor_or_dict):
-        """ If the input is a cursor, returns a list. Else returns the mapped
-            class instance
+        """ Converts lists of or single mongodb documents into class instances.
+        
+            If the input is a cursor, returns a list of mapped class instances.
+            Otherwise, returns the mapped class instance
 
         """
+        # TODO this function needs to be pulled lower in the hierarchy
         if cursor_or_dict is None:
             return None
 
@@ -159,7 +228,7 @@ class mongodoc(dict):
                 p = Person(identifier='placeholder')
                 p.id = 'fake'
                 return cls(person=p).from_mongo(d)
-            elif cls is Attr:
+            elif cls is _Attr:
                 obj_id = d.get('obj', None)
                 return cls(get_person(d), obj_id).from_mongo(d)
             else:
@@ -199,7 +268,7 @@ class Stamp(mongodoc):
 
 class idablemongodoc(mongodoc):
     """ These documents have _ids versus non-idable ones which should only
-        be stored inside these.
+        ever be stored inside these.
 
     """
     def attribute_map(self, attr):
@@ -220,9 +289,19 @@ class idablemongodoc(mongodoc):
 
 
 class collectablemongodoc(idablemongodoc):
-    """ A top level document in collections. """
+    """ A top level mongodb document in mongodb collections.
+    
+        These documents are stored directly in the collection and may have other
+        documents inside themselves.
+
+    """
     @classmethod
     def _mongo_collection(cls):
+        """ Defines the mongodb collection that instances of this class will be
+        put in. This affects where the documents will be searched for, saved,
+        and removed.
+
+        """
         return cchdo().collectables
 
     def save(self):
@@ -267,24 +346,24 @@ class collectablemongodoc(idablemongodoc):
 
 
 class Note(collectablemongodoc):
+    """ A Note that can be attached to any _Change 
+
+        Attrs:
+        creation_stamp - creation stamp
+        body - the actual note
+        action - the action taken
+        data_type - the type of data that was changed
+        subject - a nice summary
+        discussion - Setting this True makes the note only visible
+                     for mergers.
+                     
+    """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().notes
 
     def __init__(self, person, body=None, action=None, data_type=None,
                  subject=None, discussion=False):
-        """ A Note that can be attached to any _Change 
-
-            Attrs:
-            creation_stamp - creation stamp
-            body - the actual note
-            action - the action taken
-            data_type - the type of data that was changed
-            subject - a nice summary
-            discussion - Setting this True makes the note only visible
-                         for mergers.
-                         
-        """
         self.creation_stamp_ = Stamp(person)
         self.body = body
         self.action = action
@@ -307,6 +386,13 @@ class Note(collectablemongodoc):
 
 
 class _Change(collectablemongodoc):
+    """ A Change to the dataset that should be recorded along with the time and
+    person who changed it.
+
+    Changes may be accepted or rejected. Changes may also have attached notes
+    which may themselves be public or for dicussion purposes only.
+
+    """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().changes
@@ -396,6 +482,7 @@ class _Change(collectablemongodoc):
 
     @property
     def mtime(self):
+        # TODO correct misnomer, should be ctime
         return self.creation_stamp.timestamp
 
     def add_note(self, note):
@@ -419,18 +506,18 @@ class _Change(collectablemongodoc):
             triggers.removed_note(note)
 
 
-class Attr(_Change):
+class _Attr(_Change):
+    """ Not for general use. Please defer to Obj's get, set, and delete
+    methods for interacting with Attrs.
+
+    """
     @classmethod
     def _mongo_collection(cls):
         return cchdo().attrs
 
     def __init__(self, person, obj, key=None, value=None,
                  note=None, deleted=False):
-        """ Not for general use. Please defer to Obj's get, set, and delete
-        methods for interacting with Attrs.
-
-        """
-        super(Attr, self).__init__(person)
+        super(_Attr, self).__init__(person)
         self.obj_ = obj
         self.deleted = deleted
         if note is not None:
@@ -438,7 +525,7 @@ class Attr(_Change):
         self.set(key, value)
 
     def from_mongo(self, doc):
-        super(Attr, self).from_mongo(doc)
+        super(_Attr, self).from_mongo(doc)
         self.copy_keys_from(doc, ('key', 'value', 'file', 'track', 'obj',
                                   'deleted', ))
         return self
@@ -515,7 +602,10 @@ class Attr(_Change):
 
     @property
     def file_original(self):
-        return self._get_file(self.file_)
+        try:
+            return self._get_file(self.file_)
+        except IOError:
+            return None
 
     @property
     def value_original(self):
@@ -541,12 +631,12 @@ class Attr(_Change):
 
     @property
     def obj(self):
-        """ The object that the Attr is attached to """
+        """ The object that the _Attr is attached to """
         return Obj.get_id_polymorphic(self.obj_)
 
     def accept_value(self, value, person):
-        """ Changes the accepted value of the Attr to 'value'. This should be
-            used when the original value of Attr was a suggestion from a human
+        """ Changes the accepted value of the _Attr to 'value'. This should be
+            used when the original value of _Attr was a suggestion from a human
             and the new value is a moderated known good value.
 
         """
@@ -555,7 +645,7 @@ class Attr(_Change):
                 value.file
             except AttributeError:
                 raise ValueError("Tried to accept value (%r) that did not match "
-                                 "Attr type" % value)
+                                 "_Attr type" % value)
         if self.track_:
             pass
             # TODO check to make sure it is a track-like object
@@ -570,7 +660,7 @@ class Attr(_Change):
 
     def remove(self):
         self.delete_file()
-        super(Attr, self).remove()
+        super(_Attr, self).remove()
 
     def __repr__(self):
         try:
@@ -582,10 +672,10 @@ class Attr(_Change):
 
         # If object hasn't been saved yet, there is no id.
         if hasattr(self, 'id'):
-            return "Attr({mapping}, {accepted}|{id})".format(
+            return "_Attr({mapping}, {accepted}|{id})".format(
                 mapping=mapping, accepted=self.accepted, id=self.id)
         else:
-            return "Attr({mapping}, {accepted}|UNSAVED)".format(
+            return "_Attr({mapping}, {accepted}|UNSAVED)".format(
                 mapping=mapping, accepted=self.accepted)
 
     @classmethod
@@ -632,31 +722,31 @@ class Obj(_Change):
             attr = '_attrs'
         return super(Obj, self).attribute_map(attr)
 
-    def _find_attrs(self, query={}, **kwargs):
+    def find_attrs(self, query={}, **kwargs):
         q = {'obj': self.id}
         if query:
             q.update(query)
-            return Attr.find(q, **kwargs)
+            return _Attr.find(q, **kwargs)
         else:
             q.update(**kwargs)
-            return Attr.find(q)
+            return _Attr.find(q)
 
-    def _find_attr(self, query={}, **kwargs):
+    def find_attr(self, query={}, **kwargs):
         q = {'obj': self.id}
         if query:
             q.update(query)
-            return Attr.find_one(q, **kwargs)
+            return _Attr.find_one(q, **kwargs)
         else:
             q.update(**kwargs)
-            return Attr.find_one(q)
+            return _Attr.find_one(q)
 
     def history(self, key=None, **kwargs):
         if key:
             kwargs['key'] = key
-        return _sort_by_stamp(self._find_attrs(**kwargs))
+        return _sort_by_stamp(self.find_attrs(**kwargs))
 
     def tracked(self, *args, **kwargs):
-        return Attr.map_mongo(_sort_by_stamp(self._find_attrs(*args, **kwargs)))
+        return _Attr.map_mongo(_sort_by_stamp(self.find_attrs(*args, **kwargs)))
 
     def tracked_data(self):
         return self.tracked({'file': {'$ne': None}})
@@ -677,19 +767,23 @@ class Obj(_Change):
     def accepted_tracked_data(self):
         return self.tracked({'accepted': True, 'file': {'$ne': None}})
 
+    def accepted_tracked_merged_data(self):
+        return self.tracked({'accepted': True, 'file': {'$ne': None},
+                             'accepted_value': {'$ne': None}})
+
     def get_attr(self, key):
-        """ Returns the most recent Attr document for the given key """
-        attr = self._find_attr({'key': key, 'accepted': True},
+        """ Returns the most recent _Attr document for the given key """
+        attr = self.find_attr({'key': key, 'accepted': True},
             sort=[('judgment_stamp.timestamp', pymongo.DESCENDING)])
         if attr:
-            return Attr.map_mongo(attr)
+            return _Attr.map_mongo(attr)
         raise KeyError(key)
 
     def current_attrs(self):
         curr = {}
         deleted = set()
-        for attr in Attr.map_mongo(
-            self._find_attrs({'accepted': True},
+        for attr in _Attr.map_mongo(
+            self.find_attrs({'accepted': True},
                              sort=[('judgment_stamp.timestamp',
                                     pymongo.DESCENDING)])):
             k = attr.key
@@ -719,7 +813,7 @@ class Obj(_Change):
                 return default
 
     def set(self, key, value, person, note=None):
-        attr = Attr(person, self.id, key, value, note)
+        attr = _Attr(person, self.id, key, value, note)
         attr.save()
         return attr
 
@@ -729,7 +823,7 @@ class Obj(_Change):
         return attr
 
     def delete(self, key, person, note=None):
-        attr = Attr(person, self.id, key, None, note, deleted=True)
+        attr = _Attr(person, self.id, key, None, note, deleted=True)
         attr.save()
         return attr
 
@@ -753,7 +847,7 @@ class Obj(_Change):
 
     def remove(self):
         super(Obj, self).remove()
-        for attr in Attr.map_mongo(self._find_attrs()):
+        for attr in _Attr.map_mongo(self.find_attrs()):
             attr.remove()
         triggers.removed_obj(self)
 
@@ -807,7 +901,7 @@ class Obj(_Change):
         query = [{'key': unicode(k),
                   'value': _str2unicode(v),
                   'accepted': True} for k, v in kwargs.items()]
-        objs_attrs = Attr._mongo_collection().group(
+        objs_attrs = _Attr._mongo_collection().group(
             ['obj'],
             {'$or': query},
             {'a': 0}, 
@@ -889,7 +983,7 @@ class Person(Obj):
         self.identifier = identifier
         self.name_first = name_first
         self.name_last = name_last
-        self.institution = institution
+        self.institution_ = institution
         self.country = country
         self.email = email
 
@@ -911,6 +1005,11 @@ class Person(Obj):
 
     def is_verified(self):
         return self.identifier is not None
+
+    @property
+    def institution(self):
+        return Institution.get_id(self.institution_)
+
 
     def save(self):
         super(Person, self).save()
@@ -946,6 +1045,7 @@ class _Participants(dict):
         try:
             l = self[role]
             l.append(pid)
+            # Order is important
             self[role] = libcchdo.fns.uniquify(l)
         except KeyError:
             self[role] = [pid]
@@ -988,6 +1088,7 @@ class Cruise(Obj):
                  online, reformatted, submitted, not_measured, proposed,
                  no_information
             pi - the principal investigator for the parameter on the cruise
+            inst - the institution that the pi was operating for
             ts - some date attached to the status and PI of the parameter
 
     """
@@ -996,6 +1097,19 @@ class Cruise(Obj):
 
     def statuses(self):
         return self.get('statuses', [])
+
+    def preliminary(self):
+        """ Tells whether the cruise is preliminary for the purposes of
+        displaying a warning.
+
+        A cruise may either be completely marked preliminary or preliminary
+        attributes may cause it to be considered preliminary as well.
+
+        """
+        if self.find_attrs({'key': re.compile('_status$'),
+                            'value': 'preliminary'}).count() > 0:
+            return True
+        return 'preliminary' in self.get('statuses', []) 
 
     def date_start(self):
         return self.get('date_start')
@@ -1045,7 +1159,7 @@ class Cruise(Obj):
 
     @classmethod
     def get_by_expocode(cls, expocode):
-        attrs = _sort_by_stamp(Attr.find({'key': 'expocode'}))
+        attrs = _sort_by_stamp(_Attr.find({'key': 'expocode'}))
         # Get Attrs that represent most current key value for objs
         obj_expocodes = {}
         for attr in attrs:
@@ -1060,7 +1174,11 @@ class Cruise(Obj):
 
 
 class Institution(Obj):
-    pass
+    def __repr__(self):
+        try:
+            return u'Institution ({name})'.format(name=self.get('name'))
+        except AttributeError:
+            return u'Institution ()'
 
 
 class Ship(Obj):
@@ -1113,7 +1231,7 @@ class Collection(Obj):
             return None
 
     def cruises(self):
-        attr_obj_ids = [x['obj'] for x in Attr.find({'key': 'collections',
+        attr_obj_ids = [x['obj'] for x in _Attr.find({'key': 'collections',
                                                      'value': str(self.id)})]
         objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
         return Cruise.map_mongo(
@@ -1132,6 +1250,14 @@ class ArgoFile(AutoAcceptingObj):
 
         THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure
         File Repository.
+
+        There are two types of ArgoFile:
+
+        1. Provided files
+           These are given to us to be put online and appear nowhere else.
+        2. Linked files
+           These are actually part of the CCHDO holdings and need to exist as a
+           link to the most recent version of the data.
 
     """
 
@@ -1199,13 +1325,13 @@ class Submission(Obj):
         public - whether the submission is of public or non-public data
         assigned - whether the submission has been assigned
         cruise_date - the date of the cruise being submitted
-        suggested - an Attr. When this is set, the submission has been
-                    looked at by a human and the Attr represents verified
+        suggested - an _Attr. When this is set, the submission has been
+                    looked at by a human and the _Attr represents verified
                     information
 
     """
     def attach(self, attr):
-        """ Attaches the submission to a new Attr. The submission will be also
+        """ Attaches the submission to a new _Attr. The submission will be also
             be accepted.
 
         """

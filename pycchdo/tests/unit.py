@@ -9,7 +9,7 @@ import shapely.geometry.linestring
 import shapely.geometry.polygon
 
 from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, _Change, \
-                                  Attr, Note, Country, Cruise, Person
+                                  _Attr, Note, Country, Cruise, Person
 
 from . import *
 
@@ -77,8 +77,8 @@ class TestModel(unittest.TestCase):
         self.assertEquals([], o.accepted_tracked())
         o.set('a', 'b', self.testPerson)
         self.assertEquals([], o.accepted_tracked())
-        Attr.map_mongo(o.history()[0]).accept(self.testPerson)
-        self.assertEquals([Attr.map_mongo(o.history()[0])], o.accepted_tracked())
+        _Attr.map_mongo(o.history()[0]).accept(self.testPerson)
+        self.assertEquals([_Attr.map_mongo(o.history()[0])], o.accepted_tracked())
         o.remove()
 
     def test_Attrs_keys(self):
@@ -87,7 +87,7 @@ class TestModel(unittest.TestCase):
         o.save()
         self.assertEquals([], o.attr_keys())
         o.set('a', 'b', self.testPerson)
-        Attr.map_mongo(o.history()[0]).accept(self.testPerson)
+        _Attr.map_mongo(o.history()[0]).accept(self.testPerson)
         self.assertEquals(['a'], o.attr_keys())
         o.remove()
 
@@ -105,11 +105,11 @@ class TestModel(unittest.TestCase):
         obj.set(key, '2', self.testPerson)
 
         self.assertEquals(None, obj.get(key))
-        Attr.map_mongo(obj.history(key, value='1')[0]).accept(self.testPerson)
+        _Attr.map_mongo(obj.history(key, value='1')[0]).accept(self.testPerson)
         self.assertEquals(obj.get(key), '1')
-        Attr.map_mongo(obj.history(key, value='2')[0]).accept(self.testPerson)
+        _Attr.map_mongo(obj.history(key, value='2')[0]).accept(self.testPerson)
         self.assertEquals(obj.get(key), '2')
-        Attr.map_mongo(obj.history(key, value='0')[0]).accept(self.testPerson)
+        _Attr.map_mongo(obj.history(key, value='0')[0]).accept(self.testPerson)
         self.assertEquals(obj.get(key), '0')
         obj.delete(key, self.testPerson)
         obj.unacknowledged_tracked()[0].accept(self.testPerson)
@@ -128,7 +128,7 @@ class TestModel(unittest.TestCase):
         obj.remove()
 
     def test_Attrs_set_scalar(self):
-        """ Setting a scalar value in _Attr should create a new Attr.
+        """ Setting a scalar value in _Attr should create a new _Attr.
         The key value pair should not appear in _Attr until accepted.
         The latest accepted key value pair should be the value.
         
@@ -140,7 +140,7 @@ class TestModel(unittest.TestCase):
         obj.set(key, value, self.testPerson)
         self.assertEquals(None, obj.get(key))
         history = obj.history(key)
-        last_attr = Attr.map_mongo(history)[0]
+        last_attr = _Attr.map_mongo(history)[0]
         self.assertEquals(last_attr['value'], value)
         last_attr.accept(self.testPerson)
         self.assertEquals(obj.get(key), value)
@@ -159,10 +159,10 @@ class TestModel(unittest.TestCase):
         obj.remove()
 
     def test_Attrs_delete(self):
-        """ Deleting an Attr will write a new Attr with its deleted attribute
+        """ Deleting an _Attr will write a new _Attr with its deleted attribute
         True. It will no longer appear in the current key value pairs.
 
-        This maintains the history of the Attr and differentiates a None
+        This maintains the history of the _Attr and differentiates a None
         value and deletion.
         """
         obj = Obj(self.testPerson)
@@ -185,11 +185,11 @@ class TestModel(unittest.TestCase):
         """ Removing an Obj also removes all Attrs it is associated with. """
         obj = Obj(self.testPerson)
         obj.save()
-        attr = Attr(self.testPerson, obj['_id'], 'a', '0')
+        attr = _Attr(self.testPerson, obj['_id'], 'a', '0')
         attr.save()
-        self.assertEqual(Attr.map_mongo(Attr.find({'obj': obj['_id']}))[0]['_id'], attr['_id'])
+        self.assertEqual(_Attr.map_mongo(_Attr.find({'obj': obj['_id']}))[0]['_id'], attr['_id'])
         obj.remove()
-        self.assertEqual(Attr.find({'obj': obj['_id']}).count(True), 0)
+        self.assertEqual(_Attr.find({'obj': obj['_id']}).count(True), 0)
 
     def test_Obj_has_obj_type(self):
         """ Objs are required to have an _obj_type key that is just the class
@@ -242,7 +242,7 @@ class TestModel(unittest.TestCase):
         """ New Attrs are instances of _Change """
         o = Obj(self.testPerson)
         o.save()
-        attr = Attr(self.testPerson, o)
+        attr = _Attr(self.testPerson, o)
         self.assertTrue(isinstance(attr, _Change))
         o.remove()
 
@@ -357,7 +357,7 @@ class TestModel(unittest.TestCase):
     def test_new_Attr_returns_Attr(self):
         obj = Obj(self.testPerson)
         obj.save()
-        self.assertTrue(type(obj.set('a', 'v', self.testPerson)) is Attr)
+        self.assertTrue(type(obj.set('a', 'v', self.testPerson)) is _Attr)
         obj.remove()
 
     def test_Attr_list(self):
@@ -376,7 +376,7 @@ class TestModel(unittest.TestCase):
         obj.remove()
 
     def test_Attr_file_suggesting(self):
-        """ Setting an Attr to some binary data adds a Attr that has file set
+        """ Setting an _Attr to some binary data adds a _Attr that has file set
         to True. Such an object must be given some data. It may optionally be
         given
             a MIME type.
@@ -389,17 +389,17 @@ class TestModel(unittest.TestCase):
 
         a = obj.set('a', file, self.testPerson)
         a.accept(self.testPerson)
-        self.assertTrue(type(a) is Attr)
+        self.assertTrue(type(a) is _Attr)
         self.assertTrue(a['file'])
         obj.remove()
 
     def test_Attr_file_creation(self):
-        """ Creating a Attr with a file stores the file in an object store. """
+        """ Creating a _Attr with a file stores the file in an object store. """
         file_data = StringIO('this is a test file object\nwith two lines')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         note = None
 
-        d = Attr(self.testPerson, 'testid', 'a', file, note)
+        d = _Attr(self.testPerson, 'testid', 'a', file, note)
         d.save()
 
         file.file.seek(0)
@@ -407,19 +407,19 @@ class TestModel(unittest.TestCase):
         d.remove()
 
     def test_Attr_track_suggesting(self):
-        """ Setting an Attr to a track saves the value in track.
+        """ Setting an _Attr to a track saves the value in track.
         """
         obj = Obj(self.testPerson)
         obj.save()
 
         a = obj.set('track', [[32, -117], [33, 118]], self.testPerson)
         a.accept(self.testPerson)
-        self.assertTrue(type(a) is Attr)
+        self.assertTrue(type(a) is _Attr)
         self.assertTrue(a['track'])
         obj.remove()
 
     def test_Attr_accept_value(self):
-        """ Accepting an Attr with an accepted value will change the returned
+        """ Accepting an _Attr with an accepted value will change the returned
             value of the Attribute """
         obj = Obj(self.testPerson)
         obj.save()
@@ -524,11 +524,11 @@ class TestHelper(unittest.TestCase):
     tearDown = global_tearDown
 
     def test_helper_data_file_link(self):
-        """ Given an Attr with a file, provide a link to a file next to its description """
+        """ Given an _Attr with a file, provide a link to a file next to its description """
         from pycchdo.helpers import data_file_link
         file_data = StringIO('')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
-        data = Attr(self.testPerson, 'testid', 'a', file)
+        data = _Attr(self.testPerson, 'testid', 'a', file)
         data.save()
         id = data['_id']
         answer = ('<tr class="bottle exchange"><th><a href="/data/{id}">BOT'
@@ -541,7 +541,7 @@ class TestHelper(unittest.TestCase):
         self.assertEquals(data_file_link('ctdzip_exchange', data), answer)
         data.remove()
 
-        data = Attr(self.testPerson, 'testid', 'a', 'b')
+        data = _Attr(self.testPerson, 'testid', 'a', 'b')
         data.save()
         self.assertEquals('<tr class="ctdzip exchange"><th><a href="/404.html">CTD'
                           '</a></th><td>ZIP archive of ASCII .csv CTD data with '

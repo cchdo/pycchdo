@@ -62,7 +62,7 @@ def _add_note_to_file(request):
     except KeyError:
         public = False
 
-    file_obj = models.Attr.get_id(file_id)
+    file_obj = models._Attr.get_id(file_id)
     if not file_obj:
         request.response_status = '404 Not Found'
         request.session.flash('help',
@@ -139,7 +139,7 @@ def cruise_show(request):
             for c in cruise_obj.accepted_tracked():
                 if c['key'] == type:
                     id = c['_id']
-            return models.Attr.get_id(id)
+            return models._Attr.get_id(id)
 
         # TODO collecting the datafiles takes forever
         data_files = {}
@@ -159,6 +159,10 @@ def cruise_show(request):
             'sum_woce': getAttr(cruise_obj, 'sum_woce'),
             'bottle_woce': getAttr(cruise_obj, 'bottle_woce'),
             'ctdzip_woce': getAttr(cruise_obj, 'ctdzip_woce'),
+        }
+        data_files['large_volume'] = {
+        }
+        data_files['trace_metals'] = {
         }
         data_files['doc'] = {
             'doc_txt': getAttr(cruise_obj, 'doc_txt'),
@@ -183,7 +187,7 @@ def cruise_show(request):
                 d['notes'] = file.notes_public
             as_received.append(d)
         merged = []
-        for file in cruise_obj.accepted_tracked_data():
+        for file in cruise_obj.accepted_tracked_merged_data():
             d = {
                 'file': file,
                 'date': file.judgment_stamp.timestamp.strftime('%F'),

@@ -106,7 +106,7 @@ def obj_attrs(request):
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
     key = request.matchdict['key']
-    attr = models.Attr.get_id(key)
+    attr = models._Attr.get_id(key)
     if not attr:
         return HTTPNotFound()
     if not str(attr['obj']) == obj_id:

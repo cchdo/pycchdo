@@ -88,7 +88,7 @@ def data(request):
     """ Returns data """
     id = request.matchdict['data_id']
     try:
-        data = models.Attr.get_id(id)
+        data = models._Attr.get_id(id)
     except ValueError:
         return HTTPNotFound()
 

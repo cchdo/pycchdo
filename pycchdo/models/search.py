@@ -36,7 +36,7 @@ _name_model = {
     'country': models.Country,
     'institution': models.Institution,
     'collection': models.Collection,
-    'note': models.Attr,
+    'note': models.Note,
 }
 
 
@@ -309,10 +309,7 @@ def rebuild_index(clear=False):
         logging.debug(repr(indexed_ids))
         logging.debug(repr(to_index))
 
-        if model is models.Attr:
-            objs = model.map_mongo(model.all_notes())
-        else:
-            objs = model.map_mongo(model.all())
+        objs = model.map_mongo(model.all())
 
         logging.debug(repr(objs))
 
@@ -321,7 +318,7 @@ def rebuild_index(clear=False):
             # Index modified and new docs
             if obj.id in to_index or obj.id not in indexed_ids:
                 logging.debug('Indexing %s' % obj.id)
-                if model is models.Attr:
+                if model is models.Note:
                     save_note(obj, ixw)
                 else:
                     save_obj(obj, ixw)

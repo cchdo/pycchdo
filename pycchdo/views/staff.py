@@ -17,7 +17,7 @@ def _moderate_attribute(request):
     # TODO permissions check moderator
 
     try:
-        attr = models.Attr.get_id(request.params['attr'])
+        attr = models._Attr.get_id(request.params['attr'])
     except KeyError:
         request.response_status = '400 No attribute to modify'
         return
@@ -54,5 +54,5 @@ def moderation(request):
             return require_signin(request)
         _moderate_attribute(request)
 
-    pending = models.Attr.pending()
+    pending = models._Attr.pending()
     return {'pending': pending}

@@ -184,21 +184,21 @@ def change_pretty(change):
 
 
 def data_uri(data):
-    """ Given a Attr with a file, provides a link to a file. """
+    """ Given an _Attr with a file, provides a link to a file. """
     if not data or not data.file_:
-        logging.error('Cannot link to a non file Attr #%s' % data.id)
+        logging.error('Cannot link to a non file _Attr #%s' % data.id)
         return '/404.html'
 
     return '/data/{id}'.format(id=data['_id'])
 
 
 def data_file_link(type, data):
-    """ Given a Attr with a file, provides a link to a file next to its
+    """ Given an _Attr with a file, provides a link to a file next to its
         description as a table row
 
         type - a short form of the file format e.g. ctdzip_exchange,
                bottlezip_netcdf
-        data - the Attr with file
+        data - the _Attr with file
     """
     try:
         link = data_uri(data)

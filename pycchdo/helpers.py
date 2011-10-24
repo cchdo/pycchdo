@@ -151,6 +151,17 @@ def cruise_history_rows(change, i, hl):
         )
 
 
+def person_institutions(pis):
+    strings = []
+    for p, i in pis:
+        name = whh.tags.link_to(p.full_name(), '#')
+        inst = whh.tags.link_to(i.get('name'), '#')
+        if inst:
+            inst = '(%s)' % inst
+        strings.append(' '.join((name, inst)))
+    return whh.HTML.literal(', '.join(strings))
+
+
 def change_pretty(change):
     person = change.creation_stamp.person
     if change['deleted']:

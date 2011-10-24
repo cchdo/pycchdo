@@ -23,10 +23,28 @@
   height: 100%;
 }
 
-.argo table td { padding: 0.5em; }
+.argo table {
+  width: 100%;
+}
+.argo table td,
+.argo table th { padding: 0.5em; vertical-align: top; }
 .argo table .time { white-space: nowrap; }
-.argo table .description { width: 33em; overflow-x: auto; }
+.argo table .description { width: 27em; overflow-x: auto; }
 .argo table pre { width: inherit; }
+
+.argo tr.header {
+  border-bottom: 1px solid #DDDDDD;
+  font-size: 1.2em;
+}
+.argo tr.header th {
+  white-space: nowrap;
+}
+.argo tr.even {
+  background: #FFFFFF;
+}
+.argo tr.odd {
+  background: #EEEEEE;
+}
 
 #content h2 {
   font-size: 1.2em;

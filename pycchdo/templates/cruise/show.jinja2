@@ -1,5 +1,5 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Cruise {{cruise.expocode()}}{% endblock %}
+{% block title %}Cruise {{cruise.expocode}}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
 {%- endblock %}
@@ -21,15 +21,16 @@
       {%- if 'map' in data_files %}
         {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
       {%- endif %}
-      {{- cruise_attr('ExpoCode', cruise.expocode()) }}
+      {{- cruise_attr('ExpoCode', cruise.expocode) }}
       {{- cruise_attr('Collections', cruise_dict['collections']) }}
-      {%- if cruise.ship() %}
-        {{ cruise_attr('Ship', cruise.ship().name()) }}
+      {%- if cruise.ship %}
+        {{ cruise_attr('Ship', cruise.ship.name) }}
       {%- endif %}
-      {%- if cruise.country() %}
-        {{ cruise_attr('Country', cruise.country().name()) }}
+      {%- if cruise.country %}
+        {{ cruise_attr('Country', cruise.country.name) }}
       {%- endif %}
-      {{- cruise_attr('Chief Scientists', cruise.chief_scientists) }}
+      {{- cruise_attr('Chief Scientists',
+                      h.person_institutions(cruise.chief_scientists)) }}
       {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
       {{- cruise_attr('Expedition Link', cruise_dict['link']) }}
     </div>
@@ -37,7 +38,7 @@
     <div class="subsection data-files">
       <h2>Data Files</h2>
 
-      {%- if cruise.preliminary() %}
+      {%- if cruise.preliminary %}
         <p id="preliminary">These data are preliminary (Please see 
           <a href="">data history</a>)</p> 
       {%- endif %}

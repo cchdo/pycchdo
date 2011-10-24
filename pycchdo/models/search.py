@@ -16,10 +16,10 @@ import triggers
 import models
 
 
-logging.basicConfig(level=logging.NOTSET)
+logging.basicConfig(level=logging.DEBUG)
 
 
-# Not Windows compatible
+# FIXME Not Windows compatible
 _index_root = '/var/cache'
 
 
@@ -182,10 +182,10 @@ def save_obj(obj, writer=None):
     doc = {}
 
     if name == 'cruise':
-        names = filter(None, [obj.expocode()] + obj.get('aliases', []))
+        names = filter(None, [obj.expocode] + obj.get('aliases', []))
         doc['names'] = u','.join(names)
-        doc['date_start'] = obj.date_start()
-        doc['date_end'] = obj.date_end()
+        doc['date_start'] = obj.date_start
+        doc['date_end'] = obj.date_end
         doc['status'] = u','.join(obj.get('statuses', []))
     elif name == 'person':
         doc['name'] = unicode(obj.full_name())
@@ -193,13 +193,13 @@ def save_obj(obj, writer=None):
     elif name == 'ship':
         doc['name'] = unicode(obj.name())
     elif name == 'country':
-        names = filter(None, [unicode(obj.name()), obj.iso_code(), obj.iso_code(3)])
+        names = filter(None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
         doc['names'] = u','.join(names)
     elif name == 'institution':
         doc['name'] = unicode(obj.get('name', None))
         doc['uri'] = unicode(obj.get('uri', None))
     elif name == 'collection':
-        doc['names'] = u','.join(obj.names())
+        doc['names'] = u','.join(obj.names)
     else:
         ixw.cancel()
         ix.close()
@@ -311,7 +311,7 @@ def rebuild_index(clear=False):
 
         objs = model.map_mongo(model.all())
 
-        logging.debug(repr(objs))
+        logging.debug(objs)
 
         logging.info('Indexing new and modified docs')
         for obj in objs:
@@ -329,7 +329,7 @@ def rebuild_index(clear=False):
     logging.info('Finished indexing')
 
 
-def search(query_string):
+def search(query_string, limit=None):
     """ Performs search based on a query string
 
         Returns:
@@ -341,8 +341,13 @@ def search(query_string):
         ix = open_or_create_index(name)
         with ix.searcher() as searcher:
             try:
-                results[name] = searcher.search(q)
+                objs = searcher.search(q, limit=limit)
+                objs = [models.Obj.get_id_polymorphic(objs.fields(i)['id']) \
+                        for i in range(objs.estimated_length())]
+                results[name] = objs
             except NotImplementedError:
+                pass
+            except AttributeError:
                 pass
     return results
 

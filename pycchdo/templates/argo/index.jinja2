@@ -1,8 +1,8 @@
-{% extends "templates/argo/base.jinja2" %}
-{% block argo_content -%}
+{%- extends "templates/argo/base.jinja2" %}
+{%- block argo_content %}
   {% if argo_files %}
     <table>
-      <tr>
+      <tr class="header">
         <th>ExpoCode</th>
         <th>File</th>
         <th>Added by</th>
@@ -11,22 +11,28 @@
         <th>Display</th>
         <th></th>
       </tr>
-      {% for file in argo_files %}
+      {%- for af in argo_files %}
         <tr class="{{ loop.cycle('even', 'odd') }}">
-          <td>{{ file.text_identifier }}</td>
-          <td class="filename"><a href="{{ h.data_uri(file.get_attr('file')) }}">{{ file.file.name }}</a></td>
-          <td>{{ file.creation_stamp.person.full_name() }}</td>
-          <td class="time">{{ file.creation_stamp.timestamp.strftime('%Y-%m-%d %H:%M %Z') }}</td>
-          <td class="description"><pre>{{ file.description }}</pre></td>
-          <td>{{ file.display }}</td>
+          <td>{{ af.text_identifier }}</td>
+          <td class="filename">
+            {%- if af|attr('file') and af.file %}
+              <a href="{{ h.data_uri(af) }}">{{ af.file.name }}</a>
+            {%- else %}
+              Not uploaded
+            {%- endif %}
+          </td>
+          <td>{{ af.creation_stamp.person.full_name() }}</td>
+          <td class="time">{{ af.creation_stamp.timestamp.strftime('%F %H:%M %Z') }}</td>
+          <td class="description"><pre>{{ af.description }}</pre></td>
+          <td>{{ af.display }}</td>
           <td>
-            <p><a href="/argo/{{ file.id }}">Edit</a></p>
-            <p><a href="/argo/{{ file.id }}?_method=DELETE">Delete</a></p>
+            <p><a href="/argo/{{ af.id }}">Edit</a></p>
+            <p><a href="/argo/{{ af.id }}?_method=DELETE">Delete</a></p>
           </td>
         </tr>
-      {% endfor %}
+      {%- endfor %}
     </table>
-  {% else %}
+  {%- else %}
     <p>There are no stored files.</p>
   {% endif %}
 {%- endblock %}

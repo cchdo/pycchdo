@@ -1,11 +1,12 @@
 import datetime
 import logging
 
-from pyramid.httpexceptions import HTTPBadRequest
+from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound
 
 import pycchdo.models as models
 
 from . import *
+from ..models.search import search
 from session import require_signin
 
 
@@ -103,8 +104,11 @@ def cruise_show(request):
 
     # If the id is not an ObjectId, try searching based on ExpoCode
     if not cruise_obj:
-        # TODO
-        pass
+        cruises = models.Cruise.get_by_attrs(expocode=cruise_id)
+        if len(cruises) > 0:
+            cruise_obj = cruises[0]
+        else:
+            return HTTPBadRequest()
 
     method = _http_method(request)
 
@@ -126,12 +130,17 @@ def cruise_show(request):
     if cruise_obj:
         # TODO collecting these takes a while
         cruise['collections'] = ', '.join(flatten(
-            [c.names for c in cruise_obj.collections()]))
-        cruise['date_start'] = cruise_obj.date_start()
-        cruise['date_end'] = cruise_obj.date_end()
-        if cruise['date_start'] and cruise['date_end']:
-            cruise['cruise_dates'] = '/'.join(map(str, (cruise['date_start'],
-                                                        cruise['date_end'])))
+            [c.names for c in cruise_obj.collections]))
+        try:
+            cruise['date_start'] = cruise_obj.date_start.strftime('%F')
+        except AttributeError:
+            cruise['date_start'] = None
+        try:
+            cruise['date_end'] = cruise_obj.date_end.strftime('%F')
+        except AttributeError:
+            cruise['date_end'] = None
+        cruise['cruise_dates'] = '/'.join(map(str, filter(None, (
+            cruise['date_start'], cruise['date_end']))))
         cruise['link'] = cruise_obj.get('link')
 
         def getAttr(cruise_obj, type):

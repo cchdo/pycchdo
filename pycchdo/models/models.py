@@ -1,5 +1,6 @@
 import datetime
 import re
+import socket
 
 from warnings import warn
 
@@ -80,6 +81,30 @@ def _str2unicode(x):
     if type(x) is str:
         return unicode(x)
     return x
+
+
+def is_valid_ip(ip):
+    """ Validates IP Addresses """
+    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
+
+
+def is_valid_ipv4(ip):
+    try:
+        return socket.inet_pton(socket.AF_INET, ip)
+    except AttributeError: # no inet_pton here, sorry
+        try:
+            return socket.inet_aton(ip)
+        except socket.error:
+            return False
+    except socket.error:
+        return False
+
+
+def is_valid_ipv6(ip):
+    try:
+        return socket.inet_pton(socket.AF_INET6, ip)
+    except socket.error:
+        return False
 
 
 def _sort_by_stamp(query, stamp='creation'):
@@ -506,9 +531,105 @@ class _Change(collectablemongodoc):
             triggers.removed_note(note)
 
 
-class _Attr(_Change):
-    """ Not for general use. Please defer to Obj's get, set, and delete
-    methods for interacting with Attrs.
+class _RequestTracker(mongodoc):
+    """ Adds methods to a mongodoc to allow it to track requests
+
+        This class serves as a function grouping and should not be instantiated.
+        Remember to add "_requests" to subclasses copy_keys_from
+
+    """
+    def add_request(self, request):
+        """ Takes a webob request and stores relevant information related to
+        tracking.
+
+        Parameters:
+            request - the webob.Request
+
+        """
+        req = {}
+        try:
+            req['date'] = request.date
+            req['ip'] = request.remote_addr
+            if not type(req['date']) is datetime.datetime:
+                raise ValueError()
+            if not is_valid_ip(req['ip']):
+                raise ValueError()
+        except (AttributeError, ValueError):
+            # Don't store request if either of these are invalid or missing
+            return False
+        try:
+            req['date'] = request.date
+        except AttributeError:
+            pass
+        self.requests.append(req)
+
+    @property
+    def requests(self):
+        try:
+            return self._requests_
+        except AttributeError:
+            self._requests_ = []
+            return self._requests_
+
+    def clear_requests(self):
+        try:
+            del self._requests_
+        except AttributeError:
+            pass
+
+
+class _FileHolder(_RequestTracker):
+    """ Adds methods to a mongodoc to allow it to hold a reference to a file in
+        the filesystem.
+
+        This class serves as a function grouping and should not be instantiated.
+        Remember to add "file" to subclasses copy_keys_from
+
+    """
+
+    def store_file(self, field):
+        """ Stores the file described by field in the filesystem and keeps a
+        reference.
+
+            The reference will be stored in the object's file attribute.
+
+            Raises: AttributeError when field does not have file, filename, and
+                    type
+        """
+        try:
+            gridfile = fs().put(field.file, filename=field.filename,
+                                contentType=field.type)
+            self.file_ = gridfile
+        except Exception, e:
+            self.file_ = None
+            raise e
+
+    def _get_file(self, fileid):
+        """ Retrieves the file from the filesystem using the given reference """
+        if not fileid:
+            return None
+        try:
+            return fs().get(fileid)
+        except gridfs.NoFile:
+            raise IOError('File not found')
+
+    @property
+    def file(self):
+        try:
+            return self._get_file(self.file_)
+        except IOError:
+            return None
+
+    def delete_file(self):
+       if not self.file_:
+           return
+       fs().delete(self.file_)
+
+
+class _Attr(_Change, _FileHolder):
+    """ An Attr of an Obj
+
+        Not for general use. Please defer to Obj's get, set, and delete methods
 
     """
     @classmethod
@@ -526,8 +647,8 @@ class _Attr(_Change):
 
     def from_mongo(self, doc):
         super(_Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('key', 'value', 'file', 'track', 'obj',
-                                  'deleted', ))
+        self.copy_keys_from(doc, ('key', 'value', '_requests', 'file', 'track',
+                                  'obj', 'deleted', ))
         return self
 
     def set(self, key, value):
@@ -544,7 +665,6 @@ class _Attr(_Change):
 
         """
         self.key = key
-        self.file = None
         self.track = None
         self.value = None
         self.accepted_value = None
@@ -568,12 +688,7 @@ class _Attr(_Change):
             self.track = value
             return
         try:
-            try:
-                gridfile = fs().put(value.file, filename=value.filename,
-                                    contentType=value.type)
-            except Exception, e:
-                raise e
-            self.file = gridfile
+            self.store_file(value)
         except AttributeError:
             self.value = value
 
@@ -586,14 +701,6 @@ class _Attr(_Change):
         warn('deprecated', DeprecationWarning)
         return self.track
 
-    def _get_file(self, file):
-        if not file:
-            return None
-        try:
-            return fs().get(file)
-        except gridfs.NoFile:
-            raise IOError('File not found')
-
     @property
     def file(self):
         if self.file_ and self.accepted_value:
@@ -602,10 +709,7 @@ class _Attr(_Change):
 
     @property
     def file_original(self):
-        try:
-            return self._get_file(self.file_)
-        except IOError:
-            return None
+        return super(_Attr, self).file
 
     @property
     def value_original(self):
@@ -650,13 +754,9 @@ class _Attr(_Change):
             pass
             # TODO check to make sure it is a track-like object
 
+        # TODO what if value is a FieldStorage?
         self.accepted_value = value
         self.accept(person)
-
-    def delete_file(self):
-       if not self.file_:
-           return
-       fs().delete(self.file_)
 
     def remove(self):
         self.delete_file()
@@ -794,6 +894,7 @@ class Obj(_Change):
                     curr[k] = attr
         return curr
 
+    @property
     def attr_keys(self):
         """ List of the tracked attributes present for this Obj
 
@@ -1001,7 +1102,7 @@ class Person(Obj):
         return self
 
     def full_name(self):
-        return ' '.join((self.name_first, self.name_last))
+        return ' '.join((self.name_first or '', self.name_last or ''))
 
     def is_verified(self):
         return self.identifier is not None
@@ -1030,38 +1131,68 @@ class _Participants(dict):
         super(_Participants, self).__init__(*args, **kwargs)
         self._cruise = cruise
 
-    def __getitem__(self, key):
-        try:
-            return [Person.get_id(id) for id in \
-                    super(_Participants, self).__getitem__(key)]
-        except KeyError:
-            return []
-    
-    def add(self, person, role, signer):
+    def _add(self, person, role, institution=None):
         """ Adds a participant to the map under the given role. """
-        assert type(person) is Person
-        pid = person.id
+        try:
+            if institution is None:
+                pid = (person.id, None, )
+            else:
+                pid = (person.id, institution.id)
+        except AttributeError:
+            return False
+
+        try:
+            # mongodb doesn't know about tuples so remap them
+            l = [tuple(x) for x in self[role]]
+            l.append(pid)
+            # Order is important
+            l = libcchdo.fns.uniquify(l)
+
+            if l != self[role]:
+                self[role] = l
+                return True
+        except KeyError:
+            self[role] = [pid]
+            return True
+        return False
+
+    def _remove(self, person, role, institution=None):
+        """ Removes a participant from the map under the given role. """
+        try:
+            if institution is None:
+                pid = (person.id, None)
+            else:
+                pid = (person.id, institution.id)
+        except AttributeError:
+            return False
 
         try:
             l = self[role]
-            l.append(pid)
-            # Order is important
-            self[role] = libcchdo.fns.uniquify(l)
-        except KeyError:
-            self[role] = [pid]
-        return self._cruise.set('participants', self, signer)
-    
-    def remove(self, person, role, signer):
-        """ Removes a participant from the map under the given role. """
-        assert type(person) is Person
-        pid = person.id
-
-        try:
-            l = super(_Participants, self).__getitem__(role)
-            l.remove(pid)
+            try:
+                l.remove(list(pid))
+            except ValueError:
+                return False
         except (KeyError, ValueError):
-            pass
-        return self._cruise.set('participants', self, signer)
+            return False
+        return True
+    
+    def add(self, person, role, signer, institution=None):
+        if self._add(person, role, institution):
+            return self.save(signer)
+    
+    def remove(self, person, role, signer, institution=None):
+        if self._remove(person, role, institution):
+            return self.save(signer)
+
+    def batch_add(self, role_person_institutions, signer):
+        for role, person, institution in role_person_institutions:
+            self._add(person, role, institution)
+        self.save(signer)
+
+    def batch_remove(self, role_person_institutions, signer):
+        for role, person, institution in role_person_institutions:
+            self._remove(person, role, institution)
+        self.save(signer)
 
     @property
     def roles(self, role=None):
@@ -1073,9 +1204,12 @@ class _Participants(dict):
 
         participants = []
         for role, persons in map.items():
-            for person in persons:
+            for person, institution in persons:
                 participants.append((Person.get_id(person), role, ))
         return participants
+
+    def save(self, signer):
+        return self._cruise.set_accept('participants', self, signer)
 
 
 class Cruise(Obj):
@@ -1092,12 +1226,15 @@ class Cruise(Obj):
             ts - some date attached to the status and PI of the parameter
 
     """
+    @property
     def expocode(self):
         return self.get('expocode')
 
+    @property
     def statuses(self):
         return self.get('statuses', [])
 
+    @property
     def preliminary(self):
         """ Tells whether the cruise is preliminary for the purposes of
         displaying a warning.
@@ -1111,23 +1248,28 @@ class Cruise(Obj):
             return True
         return 'preliminary' in self.get('statuses', []) 
 
+    @property
     def date_start(self):
         return self.get('date_start')
 
+    @property
     def date_end(self):
         return self.get('date_end')
 
+    @property
     def collections(self):
         collection_ids = self.get('collections', [])
         return filter(
             None, [Collection.get_id(x) for x in collection_ids])
 
+    @property
     def ship(self):
         ship = self.get('ship', None)
         if ship:
             return Ship.get_id(ship)
         return None
 
+    @property
     def country(self):
         country = self.get('country', None)
         if country:
@@ -1144,7 +1286,12 @@ class Cruise(Obj):
 
     @property
     def chief_scientists(self):
-        return self.participants['Chief Scientist']
+        try:
+            person_institutions = self.participants['Chief Scientist']
+        except KeyError:
+            return []
+        return [(Person.get_id(p), Institution.get_id(i)) for p, i in
+                person_institutions]
 
     @property
     def track(self):
@@ -1182,13 +1329,15 @@ class Institution(Obj):
 
 
 class Ship(Obj):
+    @property
     def name(self):
         return self.get('name')
 
 
 class Country(Obj):
+    @property
     def name(self):
-        return self.get('iso_3166-1')
+        return self.get('iso_3166-1', None)
 
     def iso_code(self, length=2):
         if length != 2:
@@ -1239,13 +1388,17 @@ class Collection(Obj):
 
 
 class AutoAcceptingObj(Obj):
+    """ When AutoAcceptingObjs are saved, they are also accepted using the
+    creator as the signer, obviating the step of accepting known good changes.
+
+    """
     def save(self):
         super(AutoAcceptingObj, self).save()
         if not self.judgment_stamp:
             self.accept(self.creation_stamp.person)
 
 
-class ArgoFile(AutoAcceptingObj):
+class ArgoFile(AutoAcceptingObj, _FileHolder):
     """ Files that are given to the CCHDO for Argo calibration only.
 
         THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure
@@ -1259,29 +1412,48 @@ class ArgoFile(AutoAcceptingObj):
            These are actually part of the CCHDO holdings and need to exist as a
            link to the most recent version of the data.
 
+        Attributes:
+        text_identifier - some text that makes the file quickly identifiable to
+                          a human
+        file - either an ObjectId that is the file in the filesystem or a tuple
+               like (ObjectId, attribute) that describes which attr of which obj
+               holds the file.
+        description
+        display - whether or not the file is meant to be visible
+
     """
+    def __init__(self, person):
+        super(ArgoFile, self).__init__(person)
+        self.text_identifier = None
+        self.file = None
+        self.description = None
+        self.display = None
 
     def from_mongo(self, doc):
         super(ArgoFile, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('text_identifier', 'file', 'description',
-                                  'display', ))
+        self.copy_keys_from(doc, ('text_identifier', '_requests', 'file',
+                                  'description', 'display', ))
         return self
 
     @property
-    def text_identifier(self):
-        return self.get('text_identifier', None)
-
-    @property
     def file(self):
-        return self.get('file', None)
+        """ Gives the filesystem file that the ArgoFile refers to """
+        if type(self.file_) in (list, tuple):
+            id, attr = self.file_
+            return Obj.get_id_polymorphic(id).get(attr, None)
+        return super(ArgoFile, self).file
 
-    @property
-    def description(self):
-        return self.get('description', None)
+    # Cannot use @file.setter because __setattr__ will be called instead.
+    # Use store_file
 
-    @property
-    def display(self):
-        return self.get('display', False)
+    def link(self, obj, attr_key):
+        """ Populates the ArgoFile as a Linked file """
+        try:
+            obj.get(attr_key)
+        except KeyError:
+            raise ValueError('%s does not exist for %s' % (attr_key, obj))
+        self.file_ = (obj.id, attr_key)
+        self.save()
 
 
 class OldSubmission(Obj):

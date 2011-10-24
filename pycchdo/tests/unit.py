@@ -85,10 +85,10 @@ class TestModel(unittest.TestCase):
         """ Accepted keys """
         o = Obj(self.testPerson)
         o.save()
-        self.assertEquals([], o.attr_keys())
+        self.assertEquals([], o.attr_keys)
         o.set('a', 'b', self.testPerson)
         _Attr.map_mongo(o.history()[0]).accept(self.testPerson)
-        self.assertEquals(['a'], o.attr_keys())
+        self.assertEquals(['a'], o.attr_keys)
         o.remove()
 
     def test_Attrs_get_scalar(self):
@@ -169,9 +169,9 @@ class TestModel(unittest.TestCase):
         obj.save()
 
         obj.set('a', 'b', self.testPerson).accept(self.testPerson)
-        self.assertTrue('a' in obj.attr_keys())
+        self.assertTrue('a' in obj.attr_keys)
         obj.delete('a', self.testPerson).accept(self.testPerson)
-        self.assertFalse('a' in obj.attr_keys())
+        self.assertFalse('a' in obj.attr_keys)
 
         obj.remove()
 
@@ -439,7 +439,7 @@ class TestModel(unittest.TestCase):
         country.save()
         c.set('country', country.id, self.testPerson).accept(self.testPerson)
         self.assertTrue(c.country is not None)
-        self.assertTrue(c.country().id, country.id)
+        self.assertTrue(c.country.id, country.id)
         country.remove()
         c.remove()
 
@@ -463,7 +463,7 @@ class TestModel(unittest.TestCase):
         c = Cruise(self.testPerson)
         c.save()
         c.participants.add(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
-        self.assertEquals([self.testPerson], c.chief_scientists)
+        self.assertEquals([self.testPerson], [p for p, i in c.chief_scientists])
         c.participants.add(self.testPerson, 'Co-Chief Scientist', self.testPerson).accept(self.testPerson)
         self.assertEquals([(self.testPerson, 'Chief Scientist'),
                            (self.testPerson, 'Co-Chief Scientist')],
@@ -475,7 +475,7 @@ class TestModel(unittest.TestCase):
         c = Cruise(self.testPerson)
         c.save()
         c.participants.add(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
-        self.assertEquals([self.testPerson], c.chief_scientists)
+        self.assertEquals([self.testPerson], [p for p, i in c.chief_scientists])
         c.participants.remove(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
         self.assertEquals([], c.participants.roles)
         c.remove()

@@ -147,7 +147,7 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.staff.moderation', route_name='staff_moderation', renderer='templates/staff/moderation.jinja2')
 
     # Serve data blobs
-    config.add_route('data', '/data/{data_id}')
+    config.add_route('data', '/data/{data_id}*ignore')
     config.add_view('pycchdo.views.data', route_name='data')
 
 	# catchall_static must be last route

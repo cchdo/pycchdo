@@ -92,6 +92,15 @@ def data(request):
     except ValueError:
         return HTTPNotFound()
 
+    if not data:
+        try:
+            data = models.ArgoFile.get_id(id)
+        except ValueError:
+            return HTTPNotFound()
+
+    if not data:
+        return HTTPNotFound()
+
     file = data.file
 
     resp = Response()

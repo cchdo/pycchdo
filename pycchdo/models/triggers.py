@@ -19,9 +19,9 @@ def removed_obj(obj):
 
 def saved_note(note):
     for action in saved_note_actions:
-        action(obj)
+        action(note)
 
 
 def removed_note(note):
     for action in removed_note_actions:
-        action(obj)
+        action(note)

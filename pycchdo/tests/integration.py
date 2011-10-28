@@ -2,18 +2,21 @@ import unittest
 from pyramid.config import Configurator
 from pyramid import testing
 
-class TestViewIntegration(unittest.TestCase):
-  def setUp(self):
-    self.config = testing.setUp()
+from . import *
 
-  def tearDown(self):
-    testing.tearDown()
 
-  def test_cruises_view(self):
-    from pycchdo.views.cruise import cruise_show
-    request = testing.DummyRequest()
-    request.matchdict['cruise_id'] = 'fake_cruise'
+class ViewTests(unittest.TestCase):
+    setUp = global_setUp
+    tearDown = global_tearDown
 
-    result = cruise_show(request)
-    self.assertEqual(result, {'data_files': None, 'cruise_dict': {},
-                              'history': [], 'cruise': None})
+    def _getFUT(self):
+       from pycchdo.views import home
+       return home
+
+    def test_home_view(self):
+        from pycchdo.views import home
+        request = testing.DummyRequest()
+        result = home(None, request)
+        print dir(result)
+        print "done\n"
+        self.assertEqual(result, {})

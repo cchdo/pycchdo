@@ -16,10 +16,10 @@ import triggers
 import models
 
 
-logging.basicConfig(level=logging.NOTSET)
+logging.basicConfig(level=logging.DEBUG)
 
 
-# Not Windows compatible
+# FIXME Not Windows compatible
 _index_root = '/var/cache'
 
 
@@ -36,7 +36,7 @@ _name_model = {
     'country': models.Country,
     'institution': models.Institution,
     'collection': models.Collection,
-    'note': models.Attr,
+    'note': models.Note,
 }
 
 
@@ -182,30 +182,30 @@ def save_obj(obj, writer=None):
     doc = {}
 
     if name == 'cruise':
-        names = filter(None, [obj.expocode()] + obj.attrs.get('aliases', []))
-        doc['names'] = ','.join(names)
-        doc['date_start'] = obj.date_start()
-        doc['date_end'] = obj.date_end()
-        doc['status'] = ','.join(obj.attrs.get('statuses', []))
+        names = filter(None, [obj.expocode] + obj.get('aliases', []))
+        doc['names'] = u','.join(names)
+        doc['date_start'] = obj.date_start
+        doc['date_end'] = obj.date_end
+        doc['status'] = u','.join(obj.get('statuses', []))
     elif name == 'person':
-        doc['name'] = obj.full_name()
-        doc['email'] = obj.attrs.get('email', None)
+        doc['name'] = unicode(obj.full_name())
+        doc['email'] = unicode(obj.get('email', None))
     elif name == 'ship':
-        doc['name'] = obj.name()
+        doc['name'] = unicode(obj.name())
     elif name == 'country':
-        names = filter(None, [obj.name(), obj.iso_code(), obj.iso_code(3)])
-        doc['names'] = ','.join(names)
+        names = filter(None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
+        doc['names'] = u','.join(names)
     elif name == 'institution':
-        doc['name'] = obj.attrs.get('name', None)
-        doc['uri'] = obj.attrs.get('uri', None)
+        doc['name'] = unicode(obj.get('name', None))
+        doc['uri'] = unicode(obj.get('uri', None))
     elif name == 'collection':
-        doc['names'] = ','.join(obj.names())
+        doc['names'] = u','.join(obj.names)
     else:
         ixw.cancel()
         ix.close()
         return
 
-    doc['mtime'] = obj.mtime()
+    doc['mtime'] = obj.mtime
     doc['id'] = _model_id_to_index_id(obj.id)
     ixw.update_document(**doc)
     if not writer:
@@ -241,7 +241,7 @@ def remove_obj(obj, writer=None):
         ixw = ix.writer()
     else:
         ixw = writer
-    ixw.delete_by_term('id', obj.id)
+    ixw.delete_by_term('id', _model_id_to_index_id(obj.id))
     if not writer:
         ixw.commit()
         ix.close()
@@ -253,7 +253,7 @@ def remove_note(note, writer=None):
         ixw = ix.writer()
     else:
         ixw = writer
-    ixw.delete_by_term('id', note.id)
+    ixw.delete_by_term('id', _model_id_to_index_id(note.id))
     if not writer:
         ixw.commit()
         ix.close()
@@ -300,7 +300,7 @@ def rebuild_index(clear=False):
                 else:
                     logging.debug('Check mtime for %s' % indexed_id)
                     indexed_time = fields['mtime']
-                    mtime = obj.mtime()
+                    mtime = obj.mtime
                     if mtime > indexed_time:
                         logging.debug('%s has been modified' % indexed_id)
                         to_index.add(indexed_id)
@@ -309,19 +309,16 @@ def rebuild_index(clear=False):
         logging.debug(repr(indexed_ids))
         logging.debug(repr(to_index))
 
-        if model is models.Attr:
-            objs = model.map_mongo(model.all_notes())
-        else:
-            objs = model.map_mongo(model.all())
+        objs = model.map_mongo(model.all())
 
-        logging.debug(repr(objs))
+        logging.debug(objs)
 
         logging.info('Indexing new and modified docs')
         for obj in objs:
             # Index modified and new docs
             if obj.id in to_index or obj.id not in indexed_ids:
                 logging.debug('Indexing %s' % obj.id)
-                if model is models.Attr:
+                if model is models.Note:
                     save_note(obj, ixw)
                 else:
                     save_obj(obj, ixw)
@@ -332,7 +329,7 @@ def rebuild_index(clear=False):
     logging.info('Finished indexing')
 
 
-def search(query_string):
+def search(query_string, limit=None):
     """ Performs search based on a query string
 
         Returns:
@@ -344,8 +341,13 @@ def search(query_string):
         ix = open_or_create_index(name)
         with ix.searcher() as searcher:
             try:
-                results[name] = searcher.search(q)
+                objs = searcher.search(q, limit=limit)
+                objs = [models.Obj.get_id_polymorphic(objs.fields(i)['id']) \
+                        for i in range(objs.estimated_length())]
+                results[name] = objs
             except NotImplementedError:
+                pass
+            except AttributeError:
                 pass
     return results
 

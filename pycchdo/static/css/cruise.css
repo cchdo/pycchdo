@@ -1,10 +1,16 @@
 .cruise-page #left { float: left; width: 45%; }
 .cruise-page #right { float: right; text-align: left; width: 53%; }
 .cruise-page .upper .box_content { }
-/* trim the padding and margins a little so text is nicely square */
-.cruise-page .box_content { min-height: 39em; padding-top: 0; margin-top: -0.5em; }
+.cruise-page .boxed.upper .box_content { height: 39em; }
 
 .cruise-page .subsection { margin-top: 1em; }
+
+/* trim the padding and margins a little so text is nicely square.
+ * This needs priority over things that go inside .box_contents
+ */
+.box_content > *:first-child {
+  margin-top: -0.5em;
+}
 
 .cruise-page h2 { border-bottom: 1px solid #006f89; color: #006F89; font-size: 1.2em; }
 .cruise-page h3 { margin: 0.5em 0 0.25em 0; }
@@ -18,12 +24,11 @@
   font-size: 1.2em;
   margin: 0.5em 0;
 }
-
-.cruise-page #updates table { width: 100%; }
-.cruise-page #updates th { border-bottom: 1px solid #ddd; }
-.cruise-page #updates .date { width: 13em; }
-.cruise-page #updates .merged td { background-color: #d9eaed; }
-.cruise-page #updates .notes { width: 70%; }
+.cruise-page #updates-available {
+  display: block;
+  color: #ff0900;
+  margin: 0.5em 0;
+}
 
 .cruise-page .subsection.data-files th,
 .cruise-page .subsection.data-files td {
@@ -34,44 +39,112 @@
   width: 5em;
 }
 
+.cruise-page .header th {
+  border-bottom: 1px solid #DDDDDD;
+  font-size: 1.2em;
+}
+.cruise-page th,
+.cruise-page td {
+  padding: 0.2em;
+  vertical-align: top;
+}
+
+#data-pending {
+  padding: 0.2em;
+  background: rgba(228, 228, 228, 0.5) url('http://developer.gnome.org/gtk/2.24/dialog-information.png') no-repeat -0.5em 0.5em;
+  padding-left: 3em;
+}
+#data-pending h4 {
+  font-size: 1.2em;
+}
+#data-pending form {
+  margin-top: 1em;
+}
+
+#updates table { width: 100%; }
+#updates .date { width: 10em; }
+#updates #merged .even { background-color: #D9EAED; }
+#updates #merged .odd { background-color: #C9DADD; }
+#updates #merged .even.open { background-color: #D1E2E5; }
+#updates #merged .odd.open { background-color: #C1D2D5; }
+
 #notes {
   max-height: 37.4em;
-  overflow-y: auto;
 }
 #notes table {
   width: 100%;
 }
-#notes th,
-#notes td {
-  padding: 0.2em;
-  vertical-align: top;
-}
-#notes th {
-  border-bottom: 1px solid #DDDDDD;
-  font-size: 1.2em;
-}
-
 #notes tr.odd {
   background: #EEEEEE;
 }
-
 #notes .body {
   font-size: 0.9em;
 }
-
-#notes .open {
-  background: #FFFFEE;
-}
-
-#notes .open.odd {
-  background: #DDDDCC;
-}
-
 #notes .date {
   white-space: nowrap;
   padding-right: 0.5em;
 }
-
 #notes .body .body {
   letter-spacing: -1px;
+}
+#notes input[type="text"] {
+  width: 99%;
+}
+
+#updates .note {
+  border-top: 1px solid rgba(208, 208, 208, 0.5);
+}
+#updates .note .person,
+#updates .note .date {
+  width: 15em;
+  font-size: 0.8em;
+}
+#as_received .note .person {
+  text-align: right;
+  padding-right: 1em;
+}
+
+textarea {
+  width: 100%;
+  height: kem;
+}
+.note.add-note td {
+  vertical-align: baseline;
+}
+
+tr.discussion {
+  color: rgba(255, 100, 0, 0.7);
+}
+
+.scrollable-y {
+  overflow-y: auto;
+}
+
+/* meta-bodies */
+.expander a {
+  text-decoration: none;
+  color: inherit;
+}
+th.expander,
+tr.expander {
+  width: 0.5em;
+  padding: 0;
+}
+.open {
+  background: #FFFFEE;
+}
+.open.odd {
+  background: #DDDDCC;
+}
+
+/* pending */
+#pending-review {
+  padding: 0.2em;
+  font-size: 1.2em;
+  background: #ffddaa url('http://developer.gnome.org/gtk/2.24/dialog-warning.png') no-repeat 0.2em 55%;
+  padding-left: 3em;
+}
+.pending .boxed h1,
+.pending .boxed .box_bottom {
+  background: #aaddff;
 }

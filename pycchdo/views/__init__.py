@@ -80,6 +80,7 @@ def clear_db(request):
 
 
 def submit(request):
+    # TODO on POST make separate submissions for each file
     return {}
 
 
@@ -87,8 +88,17 @@ def data(request):
     """ Returns data """
     id = request.matchdict['data_id']
     try:
-        data = models.Attr.get_id(id)
+        data = models._Attr.get_id(id)
     except ValueError:
+        return HTTPNotFound()
+
+    if not data:
+        try:
+            data = models.ArgoFile.get_id(id)
+        except ValueError:
+            return HTTPNotFound()
+
+    if not data:
         return HTTPNotFound()
 
     file = data.file

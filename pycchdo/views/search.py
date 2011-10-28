@@ -4,7 +4,7 @@ import re
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest
 
-from ..models import search as searcher
+from ..models.search import search
 
 
 def advanced_search(request):
@@ -20,7 +20,7 @@ def search_results(request):
     if not query:
         return HTTPSeeOther(location='/search/advanced')
     return {'query': query,
-            'results': searcher.search(unicode(query))}
+            'results': search(unicode(query))}
 
 
 def _quote(str):

@@ -73,8 +73,8 @@ pre {
   top: 0;
 }
 #gsearch input {
-  border: 1px solid #A0A0A0;
-  background: #D0D0D0;
+  border: 1px solid #D0D0D0;
+  background: #F0F0F0;
   font-size: 1.1em;
   vertical-align: middle;
 }
@@ -144,11 +144,13 @@ pre {
   height: 125px;
   z-index: 1;
 }
-#bannerA, #bannerB {
+.banner {
   position: absolute;
   width: 100%;
-  background: url('/static/img/banners/banner.jpg');
   height: 125px;
+}
+#bannerA, #bannerB {
+  background: url('/static/img/banners/banner.jpg');
 }
 
 #cchdo_menu {
@@ -197,6 +199,11 @@ pre {
   width: 100%;
   left: 0; /* HACK force firefox to left align */
   background: #D0D0D0;
+  opacity: 0;
+  -webkit-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
+  -moz-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
+  -o-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
+  transition: visibility .3s ease, opacity .3s ease, background .3s ease;
 }
 #cchdo_menu ul ul a {
   height: 100%;
@@ -204,18 +211,37 @@ pre {
 }
 #cchdo_menu ul li:hover ul {
   visibility: visible;
+  opacity: 1;
+  -webkit-transition: visibility .3s ease, opacity .3s ease;
+  -moz-transition: visibility .3s ease, opacity .3s ease;
+  -o-transition: visibility .3s ease, opacity .3s ease;
+  transition: visibility .3s ease, opacity .3s ease;
 }
 #cchdo_menu ul li:hover ul ul {
   visibility: hidden;
+  opacity: 0;
+  -webkit-transition: visibility .3s ease, opacity .3s ease;
+  -moz-transition: visibility .3s ease, opacity .3s ease;
+  -o-transition: visibility .3s ease, opacity .3s ease;
+  transition: visibility .3s ease, opacity .3s ease;
 }
 #cchdo_menu ul ul li:hover,
 #cchdo_menu ul ul li:hover a,
 .submenu_hover {
   background: #A0A0A0;
   color: #FFFFFF;
+  -webkit-transition: color .3s ease, background .3s ease;
+  -moz-transition: color .3s ease, background .3s ease;
+  -o-transition: color .3s ease, background .3s ease;
+  transition: color .3s ease, background .3s ease;
 }
 #cchdo_menu ul ul li:hover ul {
   visibility: visible;
+  opacity: 1;
+  -webkit-transition: visibility .3s ease, opacity .3s ease;
+  -moz-transition: visibility .3s ease, opacity .3s ease;
+  -o-transition: visibility .3s ease, opacity .3s ease;
+  transition: visibility .3s ease, opacity .3s ease;
 }
 #cchdo_menu ul ul li:hover ul a {
   color: #000000;
@@ -262,7 +288,7 @@ pre {
 }
 
 .boxed { 
-  border: 1px solid #A0A0A0;
+  border: 1px solid #F0F0F0;
   line-height: 1.5em;
   position: relative;
   margin-bottom: 1em;
@@ -270,8 +296,8 @@ pre {
 }
 .boxed h1:first-child {
   font-size: 1.3em;
-  border-bottom: 1px solid #A0A0A0;
-  background-color: #E0E0E0;
+  border-bottom: 1px solid #D0D0D0;
+  background-color: #F0F0F0;
   position: relative;
   left: 0;
   right: 0;
@@ -284,8 +310,8 @@ pre {
 }
 .box_bottom { 
   font-size: large;
-  border-top: 1px solid #A0A0A0;
-  background-color: #E0E0E0;
+  border-top: 1px solid #F0F0F0;
+  background-color: #F0F0F0;
   position: relative;
   left: 0;
   bottom: 0;

@@ -138,8 +138,16 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
     config.add_view('pycchdo.views.search.advanced_search', route_name='data_access', renderer='templates/search/advanced.jinja2') #maintain legacy URLs
 
+    # Staff
+    config.add_route('staff_index', '/staff')
+    config.add_view('pycchdo.views.staff.index', route_name='staff_index', renderer='templates/staff/index.jinja2')
+    config.add_route('staff_submissions', '/staff/submissions')
+    config.add_view('pycchdo.views.staff.submissions', route_name='staff_submissions', renderer='templates/staff/submissions.jinja2')
+    config.add_route('staff_moderation', '/staff/moderation')
+    config.add_view('pycchdo.views.staff.moderation', route_name='staff_moderation', renderer='templates/staff/moderation.jinja2')
+
     # Serve data blobs
-    config.add_route('data', '/data/{data_id}')
+    config.add_route('data', '/data/{data_id}*ignore')
     config.add_view('pycchdo.views.data', route_name='data')
 
 	# catchall_static must be last route

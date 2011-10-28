@@ -286,8 +286,8 @@ class Stamp(mongodoc):
     def person(self):
         return Person.get_id(self['person'])
 
-    def __repr__(self):
-        return "Stamp(%s, %r)" % (self.timestamp.strftime('%FT%T'),
+    def __unicode__(self):
+        return u"Stamp(%s, %r)" % (self.timestamp.strftime('%FT%T'),
                                   self.person)
 
 
@@ -368,6 +368,15 @@ class collectablemongodoc(idablemongodoc):
     @classmethod
     def get_id(cls, idobj):
         return cls.map_mongo(cls.find_id(idobj))
+
+    def __str__(self):
+        return unicode(self).encode('ascii', 'replace')
+
+    def __unicode__(self):
+        return unicode(idablemongodoc.__repr__(self))
+
+    def __repr__(self):
+        return str(self)
 
 
 class Note(collectablemongodoc):
@@ -762,20 +771,20 @@ class _Attr(_Change, _FileHolder):
         self.delete_file()
         super(_Attr, self).remove()
 
-    def __repr__(self):
+    def __unicode__(self):
         try:
-            mapping = '%r: %r' % (self.key, self.value)
+            mapping = u'%r: %r' % (self.key, self.value)
         except KeyError:
-            mapping = 'DEL'
+            mapping = u'DEL'
         except IOError:
-            mapping = 'FILE NOT FOUND'
+            mapping = u'FILE NOT FOUND'
 
         # If object hasn't been saved yet, there is no id.
         if hasattr(self, 'id'):
-            return "_Attr({mapping}, {accepted}|{id})".format(
+            return u"_Attr({mapping}, {accepted}|{id})".format(
                 mapping=mapping, accepted=self.accepted, id=self.id)
         else:
-            return "_Attr({mapping}, {accepted}|UNSAVED)".format(
+            return u"_Attr({mapping}, {accepted}|UNSAVED)".format(
                 mapping=mapping, accepted=self.accepted)
 
     @classmethod
@@ -961,7 +970,7 @@ class Obj(_Change):
     @classmethod
     def find(cls, *args, **kwargs):
         try:
-            query = args[0]
+            query = args[0].copy()
         except IndexError:
             query = {}
             args = (query, )
@@ -975,7 +984,7 @@ class Obj(_Change):
     @classmethod
     def find_one(cls, *args, **kwargs):
         try:
-            query = args[0]
+            query = args[0].copy()
         except IndexError:
             query = {}
             args = (query, )
@@ -998,10 +1007,34 @@ class Obj(_Change):
         return cls.find_one({'_id': idobj, '_obj_type': cls.__name__})
 
     @classmethod
-    def get_by_attrs(cls, **kwargs):
+    def _get_by_attrs_true_match(cls, obj, **kwargs):
+        """ Make sure the most current values match by filtering resulting objs
+        """
+        if obj is None:
+            return False
+        for k, v in kwargs.items():
+            obj_v = obj.get(k)
+            if type(obj_v) is list and type(v) is not list:
+                if v not in obj_v:
+                    return False
+            elif obj_v != v:
+                return False
+        return True
+
+    @classmethod
+    def get_by_attrs(cls, d={}, **kwargs):
+        map = d
+        if not map:
+            map = kwargs
+
+        if not map:
+            raise ValueError("No filters specified. Did you mean get_all()?")
+
         query = [{'key': unicode(k),
                   'value': _str2unicode(v),
-                  'accepted': True} for k, v in kwargs.items()]
+                  'accepted': True} for k, v in map.items()]
+
+        len_query = len(query)
         objs_attrs = _Attr._mongo_collection().group(
             ['obj'],
             {'$or': query},
@@ -1009,20 +1042,10 @@ class Obj(_Change):
             'function (x, o) { o.a++; }')
 
         # Filter the matched objs for the correct number of matched attrs
-        objs = filter(None, [cls.get_id(oa['obj']) for oa in objs_attrs \
-                             if oa['a'] == len(query)])
-
-        # Make sure the most current values match by filtering resulting objs
-        def true_match(obj):
-            for k, v in kwargs.items():
-                obj_v = obj.get(k)
-                if type(obj_v) is list and type(v) is not list:
-                    if v not in obj_v:
-                        return False
-                elif obj_v != v:
-                    return False
-            return True
-        return filter(true_match, objs)
+        objs = [cls.get_id(oa['obj']) for oa in objs_attrs \
+                                       if oa['a'] == len_query]
+        return filter(lambda o: cls._get_by_attrs_true_match(o, **kwargs),
+                      objs)
 
     @classmethod
     def subclass_map(cls):
@@ -1059,14 +1082,14 @@ class Obj(_Change):
         except (TypeError, KeyError):
             return cls.map_mongo(obj)
 
-    def __repr__(self):
+    def __unicode__(self):
         copy = {}
         for key, value in self.items():
             if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp',
                        '_obj_type', 'notes'):
                 continue
             copy[key] = value
-        return '%s(%s)' % (type(self).__name__, copy)
+        return u'%s(%s)' % (type(self).__name__, copy)
 
 
 class Person(Obj):
@@ -1117,12 +1140,12 @@ class Person(Obj):
         self['creation_stamp']['person'] = self.id
         super(Person, self).save()
 
-    def __repr__(self):
+    def __unicode__(self):
         try:
             return u'Person ({last}, {first})'.format(last=self.name_last,
                                                       first=self.name_first)
         except AttributeError:
-            return 'Person ()'
+            return u'Person ()'
 
 
 class _Participants(dict):
@@ -1130,6 +1153,13 @@ class _Participants(dict):
     def __init__(self, cruise, *args, **kwargs):
         super(_Participants, self).__init__(*args, **kwargs)
         self._cruise = cruise
+
+    def __getitem__(self, key):
+        """ Gives pairs of Person, Institutions for the specified role """
+        ids = dict.__getitem__(self, key)
+        ids = filter(lambda x: x != (None, None), ids)
+        pis = [(Person.get_id(p), Institution.get_id(i)) for p, i in ids]
+        return pis
 
     def _add(self, person, role, institution=None):
         """ Adds a participant to the map under the given role. """
@@ -1141,18 +1171,21 @@ class _Participants(dict):
         except AttributeError:
             return False
 
+        if pid[0] is None:
+            raise AttributeError("Only institution can be none")
+
         try:
             # mongodb doesn't know about tuples so remap them
-            l = [tuple(x) for x in self[role]]
+            l = [tuple(x) for x in dict.__getitem__(self, role)]
             l.append(pid)
             # Order is important
             l = libcchdo.fns.uniquify(l)
 
-            if l != self[role]:
-                self[role] = l
+            if l != dict.__getitem__(self, role):
+                dict.__setitem__(self, role, l)
                 return True
         except KeyError:
-            self[role] = [pid]
+            dict.__setitem__(self, role, [pid])
             return True
         return False
 
@@ -1167,7 +1200,7 @@ class _Participants(dict):
             return False
 
         try:
-            l = self[role]
+            l = dict.__getitem__(self, role)
             try:
                 l.remove(list(pid))
             except ValueError:
@@ -1175,6 +1208,10 @@ class _Participants(dict):
         except (KeyError, ValueError):
             return False
         return True
+
+    def _clear(self):
+        for key in self.keys():
+            del key
     
     def add(self, person, role, signer, institution=None):
         if self._add(person, role, institution):
@@ -1183,6 +1220,10 @@ class _Participants(dict):
     def remove(self, person, role, signer, institution=None):
         if self._remove(person, role, institution):
             return self.save(signer)
+
+    def clear(self, signer):
+        self._clear()
+        return self.save(signer)
 
     def batch_add(self, role_person_institutions, signer):
         for role, person, institution in role_person_institutions:
@@ -1200,7 +1241,7 @@ class _Participants(dict):
         if role is None:
             map = self
         else:
-            map = self[role]
+            map = dict.__getitem__(self, role)
 
         participants = []
         for role, persons in map.items():
@@ -1287,11 +1328,9 @@ class Cruise(Obj):
     @property
     def chief_scientists(self):
         try:
-            person_institutions = self.participants['Chief Scientist']
+            return self.participants['Chief Scientist']
         except KeyError:
             return []
-        return [(Person.get_id(p), Institution.get_id(i)) for p, i in
-                person_institutions]
 
     @property
     def track(self):
@@ -1321,7 +1360,7 @@ class Cruise(Obj):
 
 
 class Institution(Obj):
-    def __repr__(self):
+    def __unicode__(self):
         try:
             return u'Institution ({name})'.format(name=self.get('name'))
         except AttributeError:

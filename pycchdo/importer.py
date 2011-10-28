@@ -17,8 +17,13 @@ import tarfile
 import shutil
 import StringIO
 import pwd
+import threading
+import time
+
+import sqlalchemy.exc
 
 import paramiko
+
 import shapely.wkt
 import shapely.geos
 from shapely.geometry import LineString
@@ -30,6 +35,10 @@ import libcchdo.fns
 import libcchdo.db.model.convert as lcconvert
 std = lcconvert.std
 legacy = lcconvert.legacy
+
+
+nthreads = 20
+ssh_host = 'cchdo.ucsd.edu'
 
 
 implog = logging.getLogger('pycchdo.import')
@@ -74,50 +83,86 @@ def su(uid=0, gid=0):
         os.seteuid(0)
     os.setegid(gid)
     os.seteuid(uid)
-    yield
-    if uid != 0:
-        os.seteuid(0)
-    os.setegid(segid)
-    os.seteuid(seuid)
+    try:
+        yield
+    except Exception, e:
+        implog.error('Error in su(%s, %s): %s' % (uid, gid, e))
+    finally:
+        if uid != 0:
+            os.seteuid(0)
+        os.setegid(segid)
+        os.seteuid(seuid)
 
 
 @contextmanager
 def pushd(dir):
     cwd = os.getcwd()
     os.chdir(dir)
-    yield
-    os.chdir(cwd)
+    try:
+        yield
+    except Exception, e:
+        implog.error('Error in pushd')
+        implog.error(e)
+    finally:
+        os.chdir(cwd)
 
 
-def _ssh_cchdo():
-    host = 'cchdo.ucsd.edu'
-    implog.info("Connecting (SSH) to %s" % host)
-
+def _ssh_cchdo_connect():
+    implog.info("Connecting (SSH) to %s" % ssh_host)
+    ssh_client = paramiko.SSHClient()
     with su():
-        ssh_client = paramiko.SSHClient()
         try:
             ssh_client.load_host_keys('pycchdo_import_known_hosts')
         except IOError:
-            logging.error('Need file pycchdo_import_known_hosts with %s host '
-                          'key' % host)
+            logging.error('Need file pycchdo_import_known_hosts with %s '
+                          'host key' % ssh_host)
             raise
         try:
-            ssh_client.connect(host, username='root',
+            ssh_client.connect(ssh_host, username='root',
                                key_filename='pycchdo_import_root_ssh_key')
         except IOError:
-            logging.error('Need file pycchdo_import_root_ssh_key to SSH as '
-                          'remote root.')
-            logging.info("Please generate an SSH key and put the public key "
-                         "in the remote host's root authorized keys. Remember "
-                         "that this will allow anyone with the generated "
-                         "private key to log in as the remote root so BE "
-                         "CAREFUL.")
-
+            logging.error('Need file pycchdo_import_root_ssh_key to SSH '
+                          'as remote root.')
+            logging.info("Please generate an SSH key and put the public "
+                         "key in the remote host's root authorized keys. "
+                         "Remember that this will allow anyone with the "
+                         "generated private key to log in as the remote "
+                         "root so BE CAREFUL.")
+            raise
     return ssh_client
 
 
-def _ustr2uni(string):
-    return unicode(string, 'unicode_escape')
+@contextmanager
+def _ssh_cchdo():
+    ssh_client = None
+    try:
+        ssh_client = _ssh_cchdo_connect()
+        yield ssh_client
+    except paramiko.SSHException:
+        implog.error(repr(e))
+    finally:
+        if ssh_client:
+            ssh_client.close()
+
+
+@contextmanager
+def _sftp_cchdo():
+    with _ssh_cchdo() as ssh_cchdo:
+        sftp_cchdo = None
+        try:
+            sftp_cchdo = ssh_cchdo.open_sftp()
+            yield (ssh_cchdo, sftp_cchdo)
+        except paramiko.SSHException, e:
+            implog.error(repr(e))
+        finally:
+            if sftp_cchdo:
+                sftp_cchdo.close()
+
+
+def _ustr2uni(s):
+    if type(s) is unicode:
+        return s
+    return unicode(s, 'unicode_escape')
 
 
 def _date_to_datetime(date):
@@ -131,14 +176,14 @@ def sftp_dl(sftp, filepath):
         implog.info('Downloading %s' % filepath)
         sftp.get(filepath, temp.name)
         yield temp
-    except IOError:
-        implog.error("Unable to locate file on remote %s" % filepath)
+    except IOError, e:
+        implog.warn("Unable to locate file on remote %s: %s" % (filepath, e))
         yield None
     finally:
         os.unlink(temp.name)
 
 
-def sftp_dl_dir(sftp, remotedir, localdir):
+def sftp_dl_dir(sftp, remotedir, localdir, su_lock=None):
     try:
         os.mkdir(localdir)
     except OSError, e:
@@ -160,10 +205,14 @@ def sftp_dl_dir(sftp, remotedir, localdir):
             except IOError, e:
                 implog.warning('Unable to download %s (%s)' % (remote_path, e))
 
+        if su_lock:
+            su_lock.acquire()
         with su():
             os.chmod(local_path, remote_stat.st_mode)
             os.chown(local_path, remote_stat.st_uid, import_gid)
             os.utime(local_path, (remote_stat.st_atime, remote_stat.st_mtime))
+        if su_lock:
+            su_lock.release()
 
 
 def _namesonly(names):
@@ -317,15 +366,20 @@ known_institutions[u'Shirshov Institute of Oceanology'] = \
 
 known_first_name_for_cruise = {
     49: 'Robert R.',
+    90: 'W. John',
     109: 'W. Glen',
     113: 'W. Glen',
+    126: 'Arnold L.',
+    149: 'W. John',
+    212: 'W. John',
     213: 'Robert R.',
     214: 'Robert R.',
     277: 'Gregory C.',
     278: 'Gregory C.',
+    294: 'Arnold L.',
     324: 'Robert R.',
+    384: 'David',
     401: 'Nicholas J. P.',
-    461: 'W. Breck',
     462: 'W. Breck',
     523: 'Ben',
     559: 'Ben',
@@ -336,14 +390,82 @@ known_first_name_for_cruise = {
     581: 'Ben',
     584: 'Ben',
     595: 'Ben',
+    645: 'Cho-Teng',
+    646: 'Cho-Teng',
+    649: 'Cho-Teng',
+    650: 'Cho-Teng',
+    651: 'Cho-Teng',
+    652: 'Cho-Teng',
+    653: 'Cho-Teng',
+    658: 'Cho-Teng',
     750: 'Robert R.',
+    764: 'David',
     793: 'Leif',
-    848: 'Gregory C.',
     870: 'Leif',
     973: 'Kevin T. M.',
     1063: 'Kevin T. M.',
+    1296: 'W. Glen',
+    1298: 'W. Glen',
+    1338: 'Rodney J.',
 }
 
+
+known_first_name_given_last_name_for_cruise = {
+    (461, 'Owens'): 'W. Breck',
+    (848, 'Johnson'): 'Gregory C.',
+}
+
+
+known_duplicates = [
+    'Church',
+]
+
+
+known_multiple_names = {
+    'Bindoff': [u'Nathan L.', u'Nathan'],
+    'Budeus': [u'Gereon', u''],
+    'Bullister': [u'Dr. John L.', u'John L.', u'John', u''],
+    'Curry': [u'Ruth G.', u'Ruth'],
+    'Feely': [u'Richard A.', u'Richard'],
+    'Freeland': [u'Howard J.', u'Howard'],
+    'Gould': [u'W. John', u'W John'],
+    'Hallock': [u'Zachariah R.', u''],
+    'Hendry': [u'Ross M.', u'Ross'],
+    'Henin': [u'Christian M.', u'Christian'],
+    'Holfort': [u'J\xc5rgen', u''],
+    'Ishii': [u'Masao', u''],
+    'Jenkins': [u'Prof. William J.', u'William J.', u'William ', u'Bill'],
+    'Kawano': [u'Mr. Takeshi', u'Takeshi'],
+    'Key': [u'Dr. Robert M.', u'Robert M.', u'Robert ', u'Bob', u'Bpb', u''],
+    'King': [u'Dr. Brian A.', u'Brian A.', u'Brian', u''], 
+    'Kelly Falkner': [u''],
+    'Koltermann': [u'K. Peter', u'K.-Peter'],
+    'Lee': [u'Hoyle', u''],
+    'Mercier': [u'Herl\xe9', u'Herle'],
+    'McCartney': [u'Dr. Michael S.', u'Michael', u'Michael S.', u'Mike', u'Dr. Michael'],
+    'Musgrave': [u'David L.', u'David'],
+    'Nakano': [u'Toshiya', u''],
+    'New': [u'Adrian L.', u''],
+    'Olsen': [u'A', u''],
+    'Pickart': [u'Robert', u'Robert '],
+    'Quadfasel': [u'Detlef R.', u'R. Detlef'],
+    'Rintoul': [u'Stephen R.', u'Steve R.'],
+    'Rojas': [u'Ricardo L.', u'Ricardo'],
+    'Rosenberg': [u'Mark', u''],
+    'Schott': [u'Friedrich A.', u'Fritz'],
+    'Sabine': [u'Christopher L.', u'Chris '],
+    'Sloyan': [u'Bernadette M.', u'Bernardette', u'Bernadette'],
+    'Smethie': [u'William A.', u'William', u'Bill'],
+    'Swift': [u'Dr. James H.', u'James', u'Jim', u'Dr. James'],
+    'Talley': [u'Dr. Lynne', u'Lynne'],
+    'Uchida': [u'Hiroshi', u''],
+    'van Aken': [u'Dr. Hendrik M.', u'', u'Hendrik M.'],
+    'Warren': [u'Bruce A.', u''],
+    'Watson': [u'Andrew J.', u'Andrew'],
+    'Wijffels': [u'Susan E.', u'Susan'],
+    'Williams': [u'Robert', u'', u'Robert '],
+    'Zhang': [u'Huai-Min', u''],
+}
 
 def _name_to_person(importer, cruise, name):
     people = models.Person.get_all({'name_last': name})
@@ -357,19 +479,44 @@ def _name_to_person(importer, cruise, name):
             if len(people) == 1:
                 return people[0]
             elif len(people) > 1:
-                implog.warn('More than one person for %S %s' % (name,
-                                                                name_first))
+                implog.error(
+                    u'More than one person for %s' % (name, name_first))
             else:
-                implog.warn('No person found for %s %s' % (name, name_first))
+                implog.error(u'No person found for last: %s first: %s' % (
+                    name, name_first))
         except KeyError:
-            x = [(p.get('import_id'), p) for p in people]
-            implog.warn('More than one person for %s %r' % (cruise.id, x))
-        raise ValueError('More than one person with last name %s and unable '
-                         'to pick' % name)
+            try:
+                name_first = known_first_name_given_last_name_for_cruise[
+                    (cruise.id, name)]
+                people = models.Person.get_all({'name_last': name,
+                                                'name_first': name_first})
+                if len(people) == 1:
+                    return people[0]
+                elif len(people) > 1:
+                    implog.error(
+                        u'More than one person for %s' % (name, name_first))
+                else:
+                    implog.error(u'No person found for last: %s first: %s' % (
+                        name, name_first))
+            except KeyError:
+                first_names = [p.name_first for p in people]
+                ids = [p.id for p in people]
+                implog.warn(u'More than one person for %s %r %s' % (
+                    cruise.id, first_names, ids))
+                if name in known_duplicates:
+                    implog.info(u'Known duplicate %s' % name)
+                    return people[0]
+                if name in known_multiple_names.keys():
+                    implog.info(u'Known multiple names %s' % name)
+                    return people[0]
+                implog.error(u'More than one person with last name %s and '
+                              'unable to pick' % name)
+        #raise ValueError(u'More than one person with last name %s and unable '
+        #                  'to pick' % name)
 
     # No people found
     implog.warn('No person found for %s' % name)
-    return _import_contact(importer, '', name)
+    return _import_contact(importer, name, '')
 
 
 def _name_to_inst(importer, name, p):
@@ -412,13 +559,18 @@ def _cchdo_pi_to_person_insts(pi, cruise, importer):
         return []
     if pi == 'Miller/NOAA':
         return [_import_person_inst(
-                    importer, u'Rick', u'Miller', u'NOAA',
+                    importer, u'Miller', u'Rick', u'NOAA',
                     u'Hendrick.V.Miller@noaa.gov')]
     if pi == 'Gaillard/NWU':
         return [_import_person_inst(
-                    importer, u'Jean-François', u'Gaillard',
+                    importer, u'Gaillard', u'Jean-François',
                     u'Northwestern University',
                     u'jf-gaillard@northwestern.edu')]
+    if pi == 'JOHNSON':
+        return [_import_person_inst(
+                    importer, u'Johnson', u'Rodney J.',
+                    u'Bermuda Institute of Ocean Sciences',
+                    u'rod.johnson@bios.edu')]
 
     names = [unicode(x.strip(), 'unicode_escape') for x in pi.split(',')]
     pis = []
@@ -478,36 +630,20 @@ def _import_inst(importer, institution_name):
     return institution
 
 
-def _import_contact(importer, name_first, name_last, email=None,
-                    institution=None):
-    person = models.Person.get_one({'name_first': name_first,
-                                    'name_last': name_last})
-    if not person:
-        implog.info("Creating Contact %s %s" % (
-            name_first, 
-            name_last))
-
-        inst_id = None
-        if institution is not None:
-            inst_id = institution.id
-
-        person = models.Person(
-            name_first=name_first,
-            name_last=name_last,
-            institution=inst_id,
-            email=email,
-            )
-        person.save()
-    else:
-        implog.info("Updating Contact %s %s" % (name_first, name_last))
-    return person
+def _import_contact(importer, name_last, name_first, institution=None,
+                    email=None):
+    inst_id = None
+    if institution is not None:
+        inst_id = institution.id
+    return _import_person(importer, name_last, name_first, None,
+                          institution=inst_id, email=email)
 
 
-def _import_person_inst(importer, name_first, name_last,
+def _import_person_inst(importer, name_last, name_first,
                         institution_name, email):
     institution = _import_inst(importer, institution_name)
-    person = _import_contact(importer, name_first, name_last, email,
-                             institution)
+    person = _import_contact(importer, name_last, name_first,
+                             institution, email)
     return (person, institution)
 
 
@@ -530,10 +666,8 @@ def _import_users(session, importer):
         person = models.Person.get_one({'identifier': user.username})
         if not person:
             implog.info('Creating User %s' % user.username)
-            person = models.Person(identifier=user.username)
-            person.creation_stamp.person = importer
-            person.name_first = user.username
-            person.save()
+            person = _import_person(
+                importer, None, user.username, user.username)
         else:
             implog.info('Updating User %s' % user.username)
         _update_attr(person, 'password_hash', user.password_hash, importer)
@@ -544,12 +678,10 @@ def _import_users(session, importer):
 
 def _import_contacts(session, importer):
     implog.info("Importing Contacts")
-    map_persons = {}
-
     for contact in session.query(legacy.Contact).all():
         person, inst = _import_person_inst(
-            importer, _ustr2uni(contact.FirstName),
-            _ustr2uni(contact.LastName), _ustr2uni(contact.Institute),
+            importer, _ustr2uni(contact.LastName),
+            _ustr2uni(contact.FirstName), _ustr2uni(contact.Institute),
             _ustr2uni(contact.email))
         # Since CCHDO currently has no concept of an Institution separate from a contact, make them here.
         if contact.Address and person.get('address', None) is None:
@@ -561,8 +693,6 @@ def _import_contacts(session, importer):
         if contact.title and person.get('title', None) is None:
             person.set_accept('title', contact.title, importer)
         person.set_accept('import_id', contact.id, importer)
-        map_persons[contact.id] = person.id
-    return map_persons
 
 
 def _import_Collection(importer, name, type):
@@ -604,7 +734,7 @@ def _import_cruise(importer, cruise):
         c.set_accept('link', cruise.link, importer)
 
     if cruise.Country and c.get('country', None) is None:
-        countries = models.Country.get_by_attrs(**{'iso_3166-1': cruise.Country})
+        countries = models.Country.get_by_attrs({'iso_3166-1': cruise.Country})
         if len(countries) > 0:
             implog.info('Updating Country %s' % cruise.Country)
             country = countries[0]
@@ -667,8 +797,12 @@ def _import_cruise(importer, cruise):
                                                  cruise, importer)
         rpis = [('Chief Scientist', pi[0], pi[1]) for pi in
                 person_insts]
-        c.participants.batch_add(rpis, importer)
-
+        c.participants._clear()
+        for role, person, institution in rpis:
+            c.participants._add(person, role, institution)
+        if c.participants:
+            implog.debug('Participants for cruise %s: %s' % (cruise.id, c.participants))
+        c.participants.save(importer)
 
 
 def _import_cruises(session, importer):
@@ -676,16 +810,21 @@ def _import_cruises(session, importer):
 
     cruises = session.query(legacy.Cruise).all()
     len_cruises = float(len(cruises))
-    for i, cruise in enumerate(cruises):
+
+    for i, c in enumerate(cruises):
         if i % 10 == 0:
-            implog.info('%d/%d = %f' % (i, len_cruises, i / len_cruises))
-        _import_cruise(importer, cruise)
+            implog.info('%d / %d = %f' % (i, len_cruises, i / len_cruises))
+        _import_cruise(importer, c)
 
 
 def _import_track_lines(session, importer):
     tls = session.query(legacy.TrackLine).all()
     for tl in tls:
-        wkt = session.scalar(tl.Track.wkt)
+        try:
+            wkt = session.scalar(tl.Track.wkt)
+        except sqlalchemy.exc.OperationalError:
+            implog.error("Unable to get track from CCHDO db for %s" % tl.id)
+            continue
         try:
             linestring = shapely.wkt.loads(wkt)
         except shapely.geos.ReadingError:
@@ -721,22 +860,51 @@ def _import_track_lines(session, importer):
             cruise.set_accept('track', linestring, importer)
 
 
-def _import_person(session, importer, name_last, name_first):
-    namel = _ustr2uni(name_last)
-    namef = _ustr2uni(name_first)
-    persons = models.Person.get_by_attrs(name_last=namel,
-                                         name_first=namef)
-    if persons:
+def _import_person(signer, name_last, name_first,
+                   identifier=None, institution=None, email=None):
+    query = {}
+    if name_last:
+        query['name_last'] = _ustr2uni(name_last)
+    if name_first:
+        query['name_first'] = _ustr2uni(name_first)
+    if identifier:
+        query['identifier'] = identifier
+    if institution:
+        query['institution'] = institution
+    if email:
+        query['email'] = email
+
+    persons = models.Person.get_all(query)
+    if len(persons) > 0:
+        implog.debug(u"Updating person %s" % query)
         return persons[0]
-    person = models.Person(None, namel, namef)
+
+    implog.debug(u"Creating person %s" % query)
+
+    # Make sure there is either an identifier or both names
+    try:
+        query['identifier']
+    except KeyError:
+        try:
+            query['name_last']
+        except KeyError:
+            query['name_last'] = ''
+        try:
+            query['name_first']
+        except KeyError:
+            query['name_first'] = ''
+
+    person = models.Person(**query)
     person.save()
-    person.accept(importer)
+    if signer is None:
+        person.accept(person)
+    else:
+        person.accept(signer)
     return person
 
 
 def _import_collections(session, importer):
     implog.info("Importing Collections")
-    map_collections = {}
     collections = session.query(legacy.Collection).all()
     for collection in collections:
         imported_collection = models.Collection.get_by_attrs(
@@ -750,7 +918,6 @@ def _import_collections(session, importer):
         imported_collection = [c for c in imported_collection if c.name == collection.Name]
         if imported_collection:
             implog.info("Updating Collection %s" % collection.id)
-            map_collections[collection.id] = imported_collection[0]
             continue
 
         implog.info("Creating Collection %s" % collection.id)
@@ -758,12 +925,10 @@ def _import_collections(session, importer):
         import_collection.save()
         import_collection.accept(importer)
         import_collection.set_accept('names', [collection.Name], importer)
-        map_collections[collection.id] = import_collection
-    return map_collections
+        import_collection.set_accept('import_id', collection.id, importer)
 
 
-def _import_collections_cruises(session, importer, map_cruise,
-                                map_collections):
+def _import_collections_cruises(session, importer):
     implog.info("Importing CollectionsCruises")
     collections_cruises = session.query(legacy.CollectionsCruise).all()
     for cc in collections_cruises:
@@ -772,28 +937,33 @@ def _import_collections_cruises(session, importer, map_cruise,
                 'CollectionCruises pair (cruise %d, collection %d) is bad' % (
                     cc.cruise_id, cc.collection_id))
             continue
-        try:
-            cruise = map_cruise[cc.cruise.id]
-        except KeyError:
+
+        cruises = models.Cruise.get_by_attrs(import_id=cc.cruise.id)
+        if len(cruises) > 0:
+            cruise = cruises[0]
+        else:
             implog.warn('Bad cruise %d' % cc.cruise.id)
             continue
-        try:
-            collection = map_collections[cc.collection.id]
-        except KeyError:
+
+        collections = models.Collection.get_by_attrs(import_id=cc.collection.id)
+        if len(collections) > 0:
+            collection = collections[0]
+        else:
             implog.warn('Bad collections %d' % cc.collection.id)
             continue
+
         present = True
         cruise_collections = cruise.get('collections')
         if collection.id in cruise_collections:
             implog.info('Collection already present in Cruise collections')
         else:
-            implog.info('Addding Collection %s to Cruise collections' % \
+            implog.info('Adding Collection %s to Cruise collections' % \
                          collection.id)
             cruise.set_accept('collections',
                               cruise_collections + [collection.id], importer)
 
 
-def _import_contacts_cruises(session, importer, map_persons):
+def _import_contacts_cruises(session, importer):
     implog.info("Importing ContactsCruises")
     contacts_cruises = session.query(legacy.ContactsCruise).all()
     for cc in contacts_cruises:
@@ -812,9 +982,9 @@ def _import_contacts_cruises(session, importer, map_persons):
                          '%s does not exist.' % cruise)
             continue
 
-        person_id = map_persons.get(cc.contact.id, None)
-        if person_id is not None:
-            person = models.Person.get_id(person_id)
+        persons = models.Person.get_by_attrs(import_id=cc.contact.id)
+        if len(persons) > 0:
+            person = persons[0]
         else:
             implog.warn("Could not import ContactsCruise pair because person "
                          '%s does not exist.' % cc.contact.id)
@@ -824,32 +994,37 @@ def _import_contacts_cruises(session, importer, map_persons):
         if not role:
             role = 'Chief Scientist'
         try:
-            if person in cruise.participants[role]:
+            if person in [p for p, i in cruise.participants[role]]:
                 implog.info(
                     "Updating participant %s %s to %s" % (person, role, cruise))
                 continue
         except KeyError:
             pass
         implog.info(
-            "Importing participant %s %s to %s" % (person, role, cruise))
+            "Importing participant %s %s to cruise %s" % (person, role,
+                                                          cruise.id))
+        implog.debug(cruise.participants)
+        implog.debug(person)
         cruise.participants.add(person, role, importer)
+        implog.debug(cruise.participants)
 
 
 def _import_events(session, importer):
     implog.info("Importing Events")
-    map_events = {}
-    events = session.query(legacy.Event).all()
+
     present_note_import_ids = []
     for note in models.Note.get_all():
         try:
             present_note_import_ids.append(note.import_id)
         except AttributeError:
             pass
+
+    events = session.query(legacy.Event).all()
     len_events = len(events)
     for i, event in enumerate(events):
         if i % 100 == 0:
             implog.info('%d/%d = %f' % (i, len_events,
-                                            float(i) / len_events))
+                                        float(i) / len_events))
         if event.ID in present_note_import_ids:
             implog.info("Updating Event %s" % event.ID)
         else:
@@ -866,26 +1041,25 @@ def _import_events(session, importer):
             if event.Summary:
                 summary = _ustr2uni(event.Summary)
 
-            person = _import_person(
-                session, importer, event.LastName, event.First_Name)
+            person = _import_person(importer, event.LastName, event.First_Name)
             note = models.Note(person, body, action, data_type, summary)
             note.creation_stamp.timestamp = \
                 _date_to_datetime(event.Date_Entered)
             note.import_id = event.ID
             note.save()
-            map_events[event.ID] = note
 
             cruises = models.Cruise.get_by_attrs(expocode=event.ExpoCode)
             for cruise in cruises:
                 implog.info("Creating Event %s for cruise %s" % (
                     event.ID, cruise.get('import_id')))
                 cruise.add_note(note)
-    return map_events
 
 
 def _import_old_submissions(session, importer, sftp_cchdo):
     implog.info("Importing Old Submissions")
     subs = session.query(legacy.OldSubmission).all()
+
+    # Group submissions by folder
     map_submissions = {}
     for sub in subs:
         try:
@@ -969,42 +1143,48 @@ def _import_internal(session, importer):
     implog.info("Importing Internal")
     internals = session.query(legacy.Internal).all()
     for i in internals:
-        cruises = models.Cruise.get_by_attrs(expocode=i.ExpoCode)
+        cruises = models.Cruise.get_by_attrs(expocode=i.expocode)
         if len(cruises) > 0:
-            implog.info("Updating Cruise %s for internal" % i.ExpoCode)
+            implog.info("Updating Cruise %s for internal" % i.expocode)
             cruise = cruises[0]
         else:
-            implog.info("Creating Cruise %s for internal" % i.ExpoCode)
+            implog.info("Creating Cruise %s for internal" % i.expocode)
             cruise = models.Cruise(importer)
             cruise.accept(importer)
             cruise.save()
-            cruise.set_accept('expocode', i.ExpoCode, importer)
+            cruise.set_accept('expocode', i.expocode, importer)
             cruise.set_accept('import_id', 'internal', importer)
         collection = _import_Collection(importer, i.Basin, 'basin')
-        a = cruise.get_attr('basin')
-        a.value = libcchdo.fns.uniquify(a.value + [collection.id])
-        a.save()
+        try:
+            a = cruise.get_attr('basin')
+            a.value = libcchdo.fns.uniquify(a.value + [collection.id])
+            a.save()
+        except KeyError:
+            cruise.set_accept('basin', [collection.id], importer)
 
 
 def _import_unused_tracks(session, importer):
     implog.info("Importing unused tracks")
     ts = session.query(legacy.UnusedTrack).all()
     for t in ts:
-        cruises = models.Cruise.get_by_attrs(expocode=t.ExpoCode)
+        cruises = models.Cruise.get_by_attrs(expocode=t.expocode)
         if len(cruises) > 0:
-            implog.info("Updating Cruise %s for unused track" % t.ExpoCode)
+            implog.info("Updating Cruise %s for unused track" % t.expocode)
             cruise = cruises[0]
         else:
-            implog.info("Creating Cruise %s for unused track" % t.ExpoCode)
+            implog.info("Creating Cruise %s for unused track" % t.expocode)
             cruise = models.Cruise(importer)
             cruise.accept(importer)
             cruise.save()
-            cruise.set_accept('expocode', t.ExpoCode, importer)
+            cruise.set_accept('expocode', t.expocode, importer)
             cruise.set_accept('import_id', 'unused_track', importer)
         collection = _import_Collection(importer, t.Basin, 'basin')
-        a = cruise.get_attr('basin')
-        a.value = libcchdo.fns.uniquify(a.value + [collection.id])
-        a.save()
+        try:
+            a = cruise.get_attr('basin')
+            a.value = libcchdo.fns.uniquify(a.value + [collection.id])
+            a.save()
+        except KeyError:
+            cruise.set_accept('basin', [collection.id], importer)
 
 
 def _import_unit(importer, unit):
@@ -1020,11 +1200,17 @@ def _import_unit(importer, unit):
         return u
 
 
-def _import_parameter_descriptions(session, importer):
+def _import_parameter_descriptions(importer):
     implog.info("Importing parameter descriptions")
     std_session = std.session()
-    parameters = lcconvert.all_parameters(std_session)
-    std_session.close()
+    std_session.autoflush = False
+    try:
+        parameters = lcconvert.all_parameters(std_session)
+    except sqlalchemy.exc.OperationalError, e:
+        implog.error("unable to convert parameters: %s" % e)
+        parameters = []
+    finally:
+        std_session.close()
     for parameter in parameters:
         parameters = models.Parameter.get_by_attrs(name=parameter.name)
         if len(parameters) > 0:
@@ -1050,7 +1236,9 @@ def _import_parameter_descriptions(session, importer):
 
 
 def _import_parameter_groups(session, importer):
+    std_session = std.session()
     groups = session.query(legacy.ParameterGroup).all()
+    std_session.close()
     for group in groups:
         gs = models.ParameterOrder.get_by_attrs(name=group.group)
         if len(gs) > 0:
@@ -1420,15 +1608,12 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
 }
 
 
-def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
+def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
     expocode = cruise.get('expocode')
-    docs = session.query(legacy.Document).filter(
-        legacy.Document.ExpoCode==expocode).order_by(
-        legacy.Document.LastModified.desc()).all()
     if docs:
         implog.info("Importing documents for %s" % expocode)
     else:
-        continue
+        return
 
     implog.setLevel(logging.INFO)
     mapped_docs = {}
@@ -1441,8 +1626,12 @@ def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
         try:
             pycchdo_type = _DOCS_TYPE_TO_PYCCHDO_TYPE[doc.FileType]
         except KeyError:
+            basename = os.path.basename(doc.FileName)
             if doc.FileType == 'Unrecognized' and \
-                os.path.basename(doc.FileName) == 'ExpoCode':
+                (basename == 'ExpoCode' or 
+                 basename == '.passwd' or
+                 basename == '.password' or
+                 basename == 'error_File'):
                 pycchdo_type = 'ignore'
             else:
                 implog.warn('Unmapped doc type %s: %s' % (doc.FileType,
@@ -1497,7 +1686,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
                     'File %s has mismatched size. Expected %s got %s' % (
                         doc.FileName, size, lstat.st_size))
         except IOError:
-            implog.warn('Missing file %s' % doc.FileName)
+            implog.error('Missing file %s' % doc.FileName)
             continue
 
         stamps = doc.Stamp
@@ -1509,7 +1698,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
         with sftp_dl(sftp_cchdo, doc.FileName) as file:
             field.file = file
         if not field.file:
-            implog.warn('Unable to download %s. Skipping' % doc.FileName)
+            implog.error('Unable to download %s. Skipping' % doc.FileName)
             continue
 
         attr = cruise.set_accept(type, field, importer)
@@ -1526,17 +1715,27 @@ def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
         accounted_files.append(field.filename)
     accounted_files.extend(_DOCS_FILES_IGNORE)
 
-    if cruise.find_attrs({'key': 'unaccounted', 'import_id': id}).count() > 0:
-        implog.info('%s unaccounted already imported' % id)
-        continue
+    if cruise.find_attrs({'key': 'unaccounted',
+                          'import_id': cruise.id}).count() > 0:
+        implog.info('%s unaccounted already imported' % cruise.id)
+        return
 
     any_unaccounted = False
     remote_dir = os.path.dirname(doc.FileName)
     # Use a shorter temp root so long path names don't get too long. Mac OS
     # X limits to 1024 bits.
+    su_lock.acquire()
     local_dir = tempfile.mkdtemp(dir='/tmp')
+    su_lock.release()
     implog.debug('allocated local tempdir %s' % local_dir)
-    for entry in sftp_cchdo.listdir(remote_dir):
+    try:
+        dirlist = sftp_cchdo.listdir(remote_dir)
+    except IOError:
+        implog.error(
+            'Could not list remote dir %s to find unaccounted files' % 
+            remote_dir)
+        return
+    for entry in dirlist:
         if entry in _DOCS_FILES_IGNORE:
             continue
         if entry in accounted_files:
@@ -1559,31 +1758,40 @@ def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
 
         if stat.S_ISDIR(remote_stat.st_mode):
             try:
-                sftp_dl_dir(sftp_cchdo, remote_path, local_path)
+                sftp_dl_dir(sftp_cchdo, remote_path, local_path, su_lock)
             except IOError, e:
-                implog.warning('Unable to download unaccounted dir %s' %
+                implog.error('Unable to download unaccounted dir %s' %
                                remote_path)
-                implog.warning(repr(e))
+                implog.error(repr(e))
         else:
             try:
                 sftp_cchdo.get(remote_path, local_path)
             except IOError, e:
-                implog.warning('Unable to download unaccounted file %s' %
+                implog.error('Unable to download unaccounted file %s' %
                                remote_path)
-                implog.warning(repr(e))
+                implog.error(repr(e))
 
+        su_lock.acquire()
         with su():
-            os.chmod(local_path, remote_stat.st_mode)
-            os.chown(local_path, remote_stat.st_uid, import_gid)
-            os.utime(local_path, (remote_stat.st_atime, remote_stat.st_mtime))
+            try:
+                os.chmod(local_path, remote_stat.st_mode)
+                os.chown(local_path, remote_stat.st_uid, import_gid)
+                os.utime(local_path, (remote_stat.st_atime,
+                                      remote_stat.st_mtime))
+            except Exception, e:
+                implog.error("Unable to chmod downloaded file: %s %s" %
+                             (local_path, e))
+        su_lock.release()
 
     unaccounted_archive = StringIO.StringIO()
     ua_tar = tarfile.open(mode='w:bz2', fileobj=unaccounted_archive)
+    su_lock.acquire()
     with su():
         with pushd(local_dir):
             ua_tar.add('.')
         ua_tar.close()
         shutil.rmtree(local_dir)
+    su_lock.release()
     unaccounted_archive.seek(0)
 
     if any_unaccounted:
@@ -1592,10 +1800,26 @@ def _import_documents_for_cruise(importer, sftp_cchdo, cruise):
         field.type = mimetypes.guess_type(field.filename)
         field.file = unaccounted_archive
         attr = cruise.set_accept('unaccounted', field, importer)
-        attr.import_id = id
+        attr.import_id = cruise.id
         attr.save()
 
     unaccounted_archive.close()
+
+
+class DocumentsImporter(threading.Thread):
+    def __init__(self, docs, importer, cruise, su_lock):
+        threading.Thread.__init__(self)
+        self.importer = importer
+        self.cruise = cruise
+        self.docs = docs
+        self.ssh_sftp = (None, None)
+        self.su_lock = su_lock
+
+    def run(self):
+        _import_documents_for_cruise(
+            self.importer, self.ssh_sftp[1], self.docs, self.cruise,
+            self.su_lock)
+        implog.debug('imported docs for %s' % self.cruise.get('expocode', ''))
 
 
 def _import_documents(session, importer, sftp_cchdo):
@@ -1605,10 +1829,45 @@ def _import_documents(session, importer, sftp_cchdo):
     # import documents for each cruise
     cruises = models.Cruise.get_all()
     len_cruises = float(len(cruises))
+
+    su_lock = threading.Lock()
+
+    importers = []
     for cruise in cruises:
-        if i % 10 == 0:
-            implog.info('%d/%d = %f' % (i, len_cruises, i / len_cruises))
-        _import_documents_for_cruise(importer, sftp_cchdo, cruise)
+        docs = session.query(legacy.Document).filter(
+            legacy.Document.ExpoCode==cruise.get('expocode')).order_by(
+            legacy.Document.LastModified.desc()).all()
+        importers.append(DocumentsImporter(docs, importer, cruise, su_lock))
+
+    sftp_pool = []
+    implog.info("Opening %d SSH connections" % nthreads)
+    for i in range(nthreads):
+        try:
+            ssh_cchdo = _ssh_cchdo_connect()
+            sftp_cchdo = ssh_cchdo.open_sftp()
+        except paramiko.SSHException, e:
+            implog.error(repr(e))
+        sftp_pool.append((ssh_cchdo, sftp_cchdo))
+
+    implog.info("Starting doc import with %d threads" % nthreads)
+    active_importers = []
+    while importers:
+        for imp in active_importers:
+            if not imp.is_alive():
+                active_importers.remove(imp)
+                sftp_pool.append(imp.ssh_sftp)
+        while len(active_importers) < nthreads and importers:
+            t = importers.pop()
+            t.ssh_sftp = sftp_pool.pop()
+            active_importers.append(t)
+            t.start()
+        time.sleep(0.5)
+    for imp in active_importers:
+        if imp.is_alive():
+            imp.join()
+    for ssh, sftp in sftp_pool:
+        sftp.close()
+        ssh.close()
 
 
 class FakeWebObRequest(object):
@@ -1617,7 +1876,7 @@ class FakeWebObRequest(object):
         self.remote_addr = remote_addr
 
 
-def import_argo_files(session, importer, sftp_cchdo):
+def _import_argo_files(session, importer, sftp_cchdo):
     implog.info("Importing Argo files")
     argo_files = session.query(legacy.ArgoFile).all()
 
@@ -1659,34 +1918,33 @@ def import_argo_files(session, importer, sftp_cchdo):
                     if expo:
                         expocode = expo.read().strip()
                 cruises = models.Cruise.get_by_attrs(expocode=expocode)
-                if len(cruises) > 0:
+                if expocode and len(cruises) > 0:
                     cruise = cruises[0]
                     if file_type:
                         # This method is more simple
                         argo_file.link(cruise, file_type)
+                        continue
                     else:
                         a = models._Attr.get_one({
                             'import_filepath': symlink_target})
                         if a:
                             argo_file.link(cruise, a.key)
-                        else:
-                            implog.error(
-                                'Unable to find %s in imported documents to '
-                                'link as ArgoFile' % symlink_target)
-                else:
-                    implog.warn('Unable to find cruise %s to link ArgoFile %s '
-                                'to' % (expocode, file.created_at))
-                    with sftp_dl(sftp_cchdo, symlink_target) as f:
-                        if f:
-                            downloaded = FieldStorage()
-                            downloaded.filename = os.path.basename(
-                                file.filename)
-                            downloaded.type = mimetypes.guess_type(
-                                downloaded.filename)[0]
-                            downloaded.file = f
-                            argo_file.store_file(downloaded)
-                        else:
-                            implog.error('Unable to download file')
+                            continue
+                implog.warn('Unable to find cruise %s to link ArgoFile %s to. '
+                            'Attempting download of file.' % (expocode,
+                                                              file.created_at))
+                with sftp_dl(sftp_cchdo, symlink_target) as f:
+                    if f:
+                        downloaded = FieldStorage()
+                        downloaded.filename = os.path.basename(
+                            file.filename)
+                        downloaded.type = mimetypes.guess_type(
+                            downloaded.filename)[0]
+                        downloaded.file = f
+                        argo_file.store_file(downloaded)
+                    else:
+                        implog.error(
+                            'Unable to attach argo file by download')
             else:
                 # File is not a link so just download and attach
                 with sftp_dl(sftp_cchdo, file.filename) as f:
@@ -1758,16 +2016,12 @@ def main(argv):
             if not coll.startswith('system'):
                 cchdo.drop_collection(coll)
 
-    importer = models.Person.get_one({
-        'name_first': 'CCHDO', 'name_last': 'importer'})
-    if not importer:
-        implog.info("Create Importer to take blame")
-        importer = models.Person(identifier='CCHDO_importer',
-                                 name_first='CCHDO',
-                                 name_last='importer')
-        importer.save()
+    implog.info("Get/Create Importer to take blame")
+    importer = _import_person(None, 'importer', 'CCHDO', 'CCHDO_importer')
 
     models._Attr._mongo_collection().ensure_index([('obj', 1), ('value', 1)])
+    models._Attr._mongo_collection().ensure_index([('key', 1), ('value', 1),
+                                                   ('accepted', 1)])
 
     # libcchdo does not need a local cache of parameter information. That will
     # be done during the import
@@ -1775,49 +2029,39 @@ def main(argv):
 
     implog.info("Connecting to cchdo db")
     with db_session(legacy.session()) as session:
+        session.autoflush = False
+
         _import_users(session, importer)
-        map_persons = _import_contacts(session, importer)
-        map_collections = _import_collections(session, importer)
+        _import_contacts(session, importer)
+        _import_collections(session, importer)
         _import_cruises(session, importer)
 
         # TODO ensure that expocode is unique. or merge cruises that seem to
         # only just have different line numbers. Watch out for no_expocode
 
         _import_track_lines(session, importer)
-        _import_collections_cruises(session, importer, map_collections)
-        _import_contacts_cruises(session, importer, map_persons)
+        _import_collections_cruises(session, importer)
+        _import_contacts_cruises(session, importer)
 
-        map_events = _import_events(session, importer)
+        _import_events(session, importer)
 
         _import_spatial_groups(session, importer)
         _import_internal(session, importer)
         _import_unused_tracks(session, importer)
 
-        _import_parameter_descriptions(session, importer)
+        _import_parameter_descriptions(importer)
         _import_parameter_groups(session, importer)
         _import_bottle_dbs(session, importer)
         _import_parameter_status(session, importer)
         _import_parameters(session, importer)
 
-        # Now follows imports that need ssh access
-        ssh_cchdo = None
-        sftp_cchdo = None
-        try:
-            ssh_cchdo = _ssh_cchdo()
-            sftp_cchdo = ssh_cchdo.open_sftp()
+        with _sftp_cchdo() as (ssh_cchdo, sftp_cchdo):
             _import_submissions(session, importer, sftp_cchdo)
             _import_old_submissions(session, importer, sftp_cchdo)
             _import_queue_files(session, importer, sftp_cchdo)
             _import_documents(session, importer, sftp_cchdo)
             _import_cchdo_uname_uids(ssh_cchdo, importer)
-            import_argo_files(session, importer, sftp_cchdo)
-        except paramiko.SSHException, e:
-            implog.error(repr(e))
-        finally:
-            if sftp_cchdo:
-                sftp_cchdo.close()
-            if ssh_cchdo:
-                ssh_cchdo.close()
+            _import_argo_files(session, importer, sftp_cchdo)
 
     implog.info("Finished import")
     return 0

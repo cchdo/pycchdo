@@ -38,6 +38,11 @@
 .cruise-page .subsection.data-files th {
   width: 5em;
 }
+.cruise-page .subsection.data-files tr.preliminary td,
+.cruise-page .subsection.data-files tr.preliminary th {
+  color: #FF5555;
+  font-style: italic;
+}
 
 .cruise-page .header th {
   border-bottom: 1px solid #DDDDDD;

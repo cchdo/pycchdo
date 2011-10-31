@@ -4,7 +4,8 @@
   {% call h.boxed('Cruises') -%}
     <ul>
     {% for cruise in cruises %}
-      <li><a href="/cruise/{{cruise['_id']}}">{{cruise['_id']}}</a></li>
+      {% set expo = cruise.expocode %}
+      <li><a href="/cruise/{{expo}}">{{expo}}</a></li>
     {% endfor %}
     </ul>
     <a href="/objs/new?_obj_type=Cruise">New Cruise</a>

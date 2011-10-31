@@ -22,17 +22,17 @@
         {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
       {%- endif %}
       {{- cruise_attr('ExpoCode', cruise.expocode) }}
-      {{- cruise_attr('Collections', cruise_dict['collections']) }}
+      {{- cruise_attr('Collections', h.link_collections(cruise.collections)) }}
       {%- if cruise.ship %}
-        {{ cruise_attr('Ship', cruise.ship.name) }}
+        {{ cruise_attr('Ship', h.link_ship(cruise.ship)) }}
       {%- endif %}
       {%- if cruise.country %}
-        {{ cruise_attr('Country', cruise.country.name) }}
+        {{ cruise_attr('Country', h.link_country(cruise.country)) }}
       {%- endif %}
       {{- cruise_attr('Chief Scientists',
-                      h.person_institutions(cruise.chief_scientists)) }}
+                      h.link_person_institutions(cruise.chief_scientists)) }}
       {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
-      {{- cruise_attr('Expedition Link', cruise_dict['link']) }}
+      {{- cruise_attr('Expedition Link', cruise.get('link')) }}
     </div>
     <div class="clear"></div>
     <div class="subsection data-files">
@@ -50,7 +50,7 @@
       {%- if 'exchange' in data_files %}
         <h3>Exchange</h3>
         <table>
-        {% for type, df in data_files.get('exchange').items() -%}
+        {% for type, df in h.sort_data_files(data_files.get('exchange')) -%}
           {{ h.data_file_link(type, df) }}
         {%- endfor %}
         </table>
@@ -59,7 +59,7 @@
       {%- if 'netcdf' in data_files %}
         <h3>NetCDF</h3>
         <table>
-        {% for type, df in data_files.get('netcdf').items() -%}
+        {% for type, df in h.sort_data_files(data_files.get('netcdf')) -%}
           {{ h.data_file_link(type, df) }}
         {%- endfor %}
         </table>
@@ -68,25 +68,7 @@
       {%- if 'woce' in data_files %}
         <h3>WOCE</h3>
         <table>
-        {% for type, df in data_files.get('woce').items() -%}
-          {{ h.data_file_link(type, df) }}
-        {%- endfor %}
-        </table>
-      {%- endif %}
-
-      {%- if 'large_volume' in data_files %}
-        <h3>Large Volume</h3>
-        <table>
-        {% for type, df in data_files.get('large_volume').items() -%}
-          {{ h.data_file_link(type, df) }}
-        {%- endfor %}
-        </table>
-      {%- endif %}
-
-      {%- if 'trace_metals' in data_files %}
-        <h3>Trace Metals</h3>
-        <table>
-        {% for type, df in data_files.get('trace_metals').items() -%}
+        {% for type, df in h.sort_data_files(data_files.get('woce')) -%}
           {{ h.data_file_link(type, df) }}
         {%- endfor %}
         </table>
@@ -95,12 +77,12 @@
       {%- if 'doc' in data_files %}
         <h3>Documentation</h3>
         <table>
-        {% for type, df in data_files.get('doc').items() -%}
+        {% for type, df in h.sort_data_files(data_files.get('doc')) -%}
           {{ h.data_file_link(type, df) }}
         {%- endfor %}
         </table>
       {%- endif %}
-      {%- if not datafiles %}
+      {%- if not data_files %}
         <div id="data-pending">
           <h4>Data Pending</h4>
           <p>Contact the CCHDO for more information.</p>

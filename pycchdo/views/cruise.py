@@ -130,8 +130,6 @@ def cruise_show(request):
     history = []
     if cruise_obj:
         # TODO collecting these takes a while
-        cruise['collections'] = ', '.join(flatten(
-            [c.names for c in cruise_obj.collections]))
         try:
             cruise['date_start'] = cruise_obj.date_start.strftime('%F')
         except AttributeError:
@@ -160,19 +158,21 @@ def cruise_show(request):
         data_files['exchange'] = {
             'ctdzip_exchange': getAttr(cruise_obj, 'ctdzip_exchange'),
             'bottle_exchange': getAttr(cruise_obj, 'bottle_exchange'),
+            'large_volume_samples_exchange': getAttr(
+                cruise_obj, 'large_volume_samples_exchange'),
+            'trace_metals_exchange': getAttr(
+                cruise_obj, 'trace_metals_woce'),
         }
         data_files['netcdf'] = {
             'ctdzip_netcdf': getAttr(cruise_obj, 'ctdzip_netcdf'),
             'bottlezip_netcdf': getAttr(cruise_obj, 'bottlezip_netcdf'),
         }
         data_files['woce'] = {
-            'sum_woce': getAttr(cruise_obj, 'sum_woce'),
             'bottle_woce': getAttr(cruise_obj, 'bottle_woce'),
             'ctdzip_woce': getAttr(cruise_obj, 'ctdzip_woce'),
-        }
-        data_files['large_volume'] = {
-        }
-        data_files['trace_metals'] = {
+            'sum_woce': getAttr(cruise_obj, 'sum_woce'),
+            'large_volume_samples_woce': getAttr(
+                cruise_obj, 'large_volume_samples_woce'),
         }
         data_files['doc'] = {
             'doc_txt': getAttr(cruise_obj, 'doc_txt'),

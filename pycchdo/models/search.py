@@ -191,12 +191,13 @@ def save_obj(obj, writer=None):
         doc['name'] = unicode(obj.full_name())
         doc['email'] = unicode(obj.get('email', None))
     elif name == 'ship':
-        doc['name'] = unicode(obj.name())
+        doc['name'] = unicode(obj.name)
     elif name == 'country':
         names = filter(None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
+        print names
         doc['names'] = u','.join(names)
     elif name == 'institution':
-        doc['name'] = unicode(obj.get('name', None))
+        doc['name'] = unicode(obj.name)
         doc['uri'] = unicode(obj.get('uri', None))
     elif name == 'collection':
         doc['names'] = u','.join(obj.names)
@@ -281,7 +282,8 @@ def rebuild_index(clear=False):
         to_index = set()
 
         if not clear:
-            logging.info('Cleaning index and collecting indexed docs')
+            logging.info('Cleaning index and collecting indexed docs for %s' %
+                         name)
             ixs = ix.searcher()
 
             # Walk each index
@@ -313,7 +315,7 @@ def rebuild_index(clear=False):
 
         logging.debug(objs)
 
-        logging.info('Indexing new and modified docs')
+        logging.info('Indexing new and modified docs for %s' % name)
         for obj in objs:
             # Index modified and new docs
             if obj.id in to_index or obj.id not in indexed_ids:
@@ -342,7 +344,11 @@ def search(query_string, limit=None):
         with ix.searcher() as searcher:
             try:
                 objs = searcher.search(q, limit=limit)
-                objs = [models.Obj.get_id_polymorphic(objs.fields(i)['id']) \
+                if name == 'note':
+                    getter = models.Note.get_id
+                else:
+                    getter = models.Obj.get_id_polymorphic
+                objs = [getter(objs.fields(i)['id']) \
                         for i in range(objs.estimated_length())]
                 results[name] = objs
             except NotImplementedError:

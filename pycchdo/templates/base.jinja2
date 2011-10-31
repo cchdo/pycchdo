@@ -40,6 +40,48 @@
   </div>
   <div id="scripts">
     {% block js %}{% endblock %}
+    <script>
+      (function () {
+        function add_class(e, c) {
+          e.className = e.className + ' ' + c;
+        }
+        function remove_class(e, c) {
+          e.className = e.className.replace(' ' + c, '');
+        }
+        function addfocusblur(e, limit) {
+          var lis = [];
+          var f = e;
+          while (f !== limit) {
+            if (f.tagName == 'LI') {
+              lis.push(f);
+            }
+            f = f.parentNode;
+          }
+          e.onfocus = function () {
+            for (var i = 0; i < lis.length; i++) {
+              add_class(lis[i], 'focus');
+            }
+          };
+          e.onblur = function () {
+            for (var i = 0; i < lis.length; i++) {
+              remove_class(lis[i], 'focus');
+            }
+          };
+        }
+        function walkFor(root, tagname, callback) {
+          for (var i = 0; i < root.children.length; i++) {
+            walkFor(root.children[i], tagname, callback);
+          }
+          if (root.tagName == tagname) {
+            callback(root);
+          }
+        }
+        var menu = document.getElementById('cchdo_menu');
+        walkFor(menu, 'A', function (a) {
+          addfocusblur(a, menu);
+        });
+      })();
+    </script>
     {{ whh.tags.javascript_link('/static/js/banner_rotate.js') }}
     {%- include 'templates/_track.html' ignore missing %}
     {%- if not request.user %}{% include 'templates/_janrain.html' ignore missing %}{%- endif %}

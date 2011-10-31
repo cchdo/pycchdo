@@ -31,10 +31,12 @@ data_file_descriptions = {
     'bottlezip_netcdf': 'ZIP archive of binary bottle data with station '
                         'information',
     'sum_woce': 'ASCII station/cast information',
-    'lvs_woce': 'ASCII large volume samples',
-    'lvs_exchange': 'ASCII .csv large volume samples',
-    'docs_txt': 'Text documentation',
-    'docs_pdf': 'PDF documentation',
+    'large_volume_samples_woce': 'ASCII large volume samples',
+    'large_volume_samples_exchange': 'ASCII .csv large volume samples',
+    'trace_metals_woce': 'ASCII trace metal samples',
+    'trace_metals_exchange': 'ASCII .csv trace metal samples',
+    'doc_txt': 'ASCII cruise and data documentation',
+    'doc_pdf': 'Portable Document Format cruise and data documentation',
 }
 
 
@@ -416,7 +418,11 @@ class collectablemongodoc(idablemongodoc):
         return unicode(idablemongodoc.__repr__(self))
 
     def __repr__(self):
-        return str(self)
+        collection = self.__class__._mongo_collection()
+        try:
+            return u"%s.%s" % (collection, self['_id'])
+        except KeyError:
+            return u'%s.unsaved' % collection
 
 
 class Note(collectablemongodoc):
@@ -457,6 +463,20 @@ class Note(collectablemongodoc):
         self.copy_keys_from(doc, ('creation_stamp', 'body', 'action',
                                   'data_type', 'subject', 'discussion'))
         return self
+
+    @property
+    def mtime(self):
+        # TODO correct misnomer, should be ctime
+        return self.creation_stamp.timestamp
+
+    def __unicode__(self):
+        try:
+            return u'Note(%s, %s)' % (self.subject, self.id)
+        except AttributeError:
+            try:
+                return u'Note(%s)' % self.id
+            except AttributeError:
+                return u'Note'
 
 
 class _Change(collectablemongodoc):
@@ -1400,9 +1420,13 @@ class Cruise(Obj):
 
 
 class Institution(Obj):
+    @property
+    def name(self):
+        return self.get('name', None)
+
     def __unicode__(self):
         try:
-            return u'Institution ({name})'.format(name=self.get('name'))
+            return u'Institution ({name})'.format(name=self.name)
         except AttributeError:
             return u'Institution ()'
 
@@ -1410,7 +1434,10 @@ class Institution(Obj):
 class Ship(Obj):
     @property
     def name(self):
-        return self.get('name')
+        return self.get('name', None)
+
+    def __unicode__(self):
+        return u'Ship(%s)' % self.name
 
 
 class Country(Obj):
@@ -1421,10 +1448,7 @@ class Country(Obj):
     def iso_code(self, length=2):
         if length != 2:
             length = 3
-        try:
-            return self.get('iso_3166-1_alpha-' + str(length))
-        except KeyError:
-            return None
+        return self.get('iso_3166-1_alpha-' + str(length), None)
 
 
 class Collection(Obj):
@@ -1443,13 +1467,9 @@ class Collection(Obj):
             indian, southern
     
     """
-
     @property
     def names(self):
-        try:
-            return self.get('names')
-        except KeyError:
-            return []
+        return self.get('names', [])
 
     @property
     def name(self):
@@ -1460,7 +1480,7 @@ class Collection(Obj):
 
     def cruises(self):
         attr_obj_ids = [x['obj'] for x in _Attr.find({'key': 'collections',
-                                                     'value': str(self.id)})]
+                                                      'value': str(self.id)})]
         objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
         return Cruise.map_mongo(
             filter(lambda x: x['_obj_type'] == Cruise.__name__, objs))

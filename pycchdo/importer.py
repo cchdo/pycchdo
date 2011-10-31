@@ -743,7 +743,7 @@ def _import_cruise(importer, cruise):
             country = models.Country(importer)
             country.accept(importer)
             country.save()
-            country.set_accept('iso-3166-1', cruise.Country, importer)
+            country.set_accept('iso_3166-1', cruise.Country, importer)
         c.set_accept('country', country.id, importer)
 
     if cruise.Ship_Name and c.get('ship', None) is None:
@@ -814,6 +814,8 @@ def _import_cruises(session, importer):
     for i, c in enumerate(cruises):
         if i % 10 == 0:
             implog.info('%d / %d = %f' % (i, len_cruises, i / len_cruises))
+        if c.ExpoCode != '33RR20090320':
+            continue
         _import_cruise(importer, c)
 
 
@@ -1012,20 +1014,14 @@ def _import_contacts_cruises(session, importer):
 def _import_events(session, importer):
     implog.info("Importing Events")
 
-    present_note_import_ids = []
-    for note in models.Note.get_all():
-        try:
-            present_note_import_ids.append(note.import_id)
-        except AttributeError:
-            pass
-
     events = session.query(legacy.Event).all()
     len_events = len(events)
     for i, event in enumerate(events):
         if i % 100 == 0:
             implog.info('%d/%d = %f' % (i, len_events,
                                         float(i) / len_events))
-        if event.ID in present_note_import_ids:
+        note = models.Note.get_one({'import_id': event.ID})
+        if note:
             implog.info("Updating Event %s" % event.ID)
         else:
             body = ''
@@ -1595,7 +1591,7 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
     'JGOFS File': 'jgofs',
     'Small Plot': 'map_thumb',
     'Large Plot': 'map_full',
-    'Large Volume file': 'large_volume_samples',
+    'Large Volume file': 'large_volume_samples_woce',
     'Matlab file': 'matlab',
     'NetCDF Bottle': 'bottlezip_netcdf',
     'NetCDF CTD': 'ctdzip_netcdf',
@@ -1637,11 +1633,16 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
                 implog.warn('Unmapped doc type %s: %s' % (doc.FileType,
                                                           doc.FileName))
                 continue
+        if pycchdo_type == 'bottle_exchange':
+            if doc.FileName.endswith('lv_hy1.csv'):
+                pycchdo_type = 'large_volume_samples_exchange'
 
         try:
-            mapped_docs[pycchdo_type]
-            implog.warning('%s already exists: old %s new %s' % (
-                pycchdo_type, mapped_docs[pycchdo_type].FileName, doc.FileName))
+            if doc.LastModified > mapped_docs[pycchdo_type].LastModified:
+                implog.warning('%s already exists: old %s new %s' % (
+                    pycchdo_type, mapped_docs[pycchdo_type].FileName,
+                    doc.FileName))
+                mapped_docs[pycchdo_type] = doc
         except KeyError:
             mapped_docs[pycchdo_type] = doc
             implog.debug('Mapped %s %s' % (pycchdo_type, doc.FileName))
@@ -1669,14 +1670,16 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
 
         preliminary = bool(doc.Preliminary)
         if preliminary:
+            implog.info('Marking file %s for %s preliminary' % (type, expocode))
             status_key = '%s_status' % type
             if cruise.find_attrs({'key': status_key,
                                   'import_id': id}).count() < 1:
-                statuses = cruise.get(status_key,
-                                      []).extend(['preliminary'])
-                attr = cruise.set_accept(status_key, statuses, importer)
-                attr.import_id = id
-                attr.save()
+                statuses = cruise.get(status_key, [])
+                if 'preliminary' not in statuses:
+                    statuses.extend(['preliminary'])
+                    attr = cruise.set_accept(status_key, statuses, importer)
+                    attr.import_id = id
+                    attr.save()
 
         size = int(doc.Size)
         try:
@@ -1822,7 +1825,7 @@ class DocumentsImporter(threading.Thread):
         implog.debug('imported docs for %s' % self.cruise.get('expocode', ''))
 
 
-def _import_documents(session, importer, sftp_cchdo):
+def _import_documents(session, importer):
     implog.info("Importing documents")
 
     # Instead of importing the documents table, go the other way around and
@@ -2059,7 +2062,7 @@ def main(argv):
             _import_submissions(session, importer, sftp_cchdo)
             _import_old_submissions(session, importer, sftp_cchdo)
             _import_queue_files(session, importer, sftp_cchdo)
-            _import_documents(session, importer, sftp_cchdo)
+            _import_documents(session, importer)
             _import_cchdo_uname_uids(ssh_cchdo, importer)
             _import_argo_files(session, importer, sftp_cchdo)
 

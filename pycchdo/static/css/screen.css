@@ -209,6 +209,7 @@ pre {
   height: 100%;
   display: block;
 }
+#cchdo_menu ul li.focus ul,
 #cchdo_menu ul li:hover ul {
   visibility: visible;
   opacity: 1;
@@ -217,6 +218,7 @@ pre {
   -o-transition: visibility .3s ease, opacity .3s ease;
   transition: visibility .3s ease, opacity .3s ease;
 }
+#cchdo_menu ul li.focus ul ul,
 #cchdo_menu ul li:hover ul ul {
   visibility: hidden;
   opacity: 0;
@@ -225,9 +227,10 @@ pre {
   -o-transition: visibility .3s ease, opacity .3s ease;
   transition: visibility .3s ease, opacity .3s ease;
 }
+#cchdo_menu ul ul li.focus,
+#cchdo_menu ul ul li.focus a,
 #cchdo_menu ul ul li:hover,
-#cchdo_menu ul ul li:hover a,
-.submenu_hover {
+#cchdo_menu ul ul li:hover a {
   background: #A0A0A0;
   color: #FFFFFF;
   -webkit-transition: color .3s ease, background .3s ease;
@@ -235,6 +238,7 @@ pre {
   -o-transition: color .3s ease, background .3s ease;
   transition: color .3s ease, background .3s ease;
 }
+#cchdo_menu ul ul li.focus ul,
 #cchdo_menu ul ul li:hover ul {
   visibility: visible;
   opacity: 1;
@@ -243,6 +247,7 @@ pre {
   -o-transition: visibility .3s ease, opacity .3s ease;
   transition: visibility .3s ease, opacity .3s ease;
 }
+#cchdo_menu ul ul li.focus ul a,
 #cchdo_menu ul ul li:hover ul a {
   color: #000000;
 }
@@ -251,9 +256,10 @@ pre {
   background: #A0A0A0;
   margin: -2em 0 0 100%;
 }
+#cchdo_menu ul ul ul li.focus,
+#cchdo_menu ul ul ul li.focus a,
 #cchdo_menu ul ul ul li:hover,
-#cchdo_menu ul ul ul li:hover a, 
-.submenu2_hover {
+#cchdo_menu ul ul ul li:hover a {
   background: #3C3C3C;
   color: #FFFFFF;
 }

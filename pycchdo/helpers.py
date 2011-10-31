@@ -151,15 +151,30 @@ def cruise_history_rows(change, i, hl):
         )
 
 
-def person_institutions(pis):
+def link_person_institutions(pis):
     strings = []
     for p, i in pis:
-        name = whh.tags.link_to(p.full_name(), '#')
-        inst = whh.tags.link_to(i.get('name'), '#')
-        if inst:
+        name = whh.tags.link_to(p.full_name(), '/person/%s' % p.id)
+        inst = None
+        if i:
+            inst = whh.tags.link_to(i.get('name'), '/institution/%s' % i.id)
             inst = '(%s)' % inst
-        strings.append(' '.join((name, inst)))
+        strings.append(' '.join(filter(None, (name, inst))))
     return whh.HTML.literal(', '.join(strings))
+
+
+def link_collections(cs):
+    links = [whh.tags.link_to(c.name, '/collection/%s' % c.id) for c in cs]
+    return whh.HTML.literal(', '.join(links))
+
+
+def link_ship(s):
+    return whh.HTML.literal(whh.tags.link_to(s.name, '/ship/%s' % s.id))
+
+
+def link_country(c):
+    return whh.HTML.literal(whh.tags.link_to(c.name, '/country/%s' %
+                                             c.name))
 
 
 def change_pretty(change):
@@ -206,6 +221,55 @@ def data_uri(data):
     return '/data/{id}'.format(id=data['_id'])
 
 
+def short_data_type(type):
+    if type.startswith('ctd'):
+        return 'CTD'
+    if type.startswith('bot'):
+        return 'BOT'
+    if type.startswith('sum'):
+        return 'SUM'
+    if type.startswith('large_volume_samples'):
+        return 'Large Volume'
+    if type.startswith('trace_metals'):
+        return 'Trace Metal'
+    if type.startswith('doc'):
+        if 'pdf' in type:
+            return 'PDF'
+        elif 'txt' in type or 'text' in type:
+            return 'TXT'
+    return ''
+
+
+def sort_data_files(d):
+    """ Sort a list of tuples of (data file type, file) by the order CCHDO
+        would like them to be in
+
+        Order of preference: CTD, BOT, SUM, Large Volume, Trace Metal, TXT, PDF
+    
+    """
+    preferred = [None] * 7
+
+    for type, df in d.items():
+        short_type = short_data_type(type)
+        i = -1
+        if short_type == 'CTD':
+            i = 0
+        elif short_type == 'BOT':
+            i = 1
+        elif short_type == 'SUM':
+            i = 2
+        elif short_type == 'Large Volume':
+            i = 3
+        elif short_type == 'Trace Metal':
+            i = 4
+        elif short_type == 'TXT':
+            i = 5
+        elif short_type == 'PDF':
+            i = 6
+        preferred[i] = (type, df)
+    return filter(None, preferred)
+
+
 def data_file_link(type, data):
     """ Given an _Attr with a file, provides a link to a file next to its
         description as a table row
@@ -219,20 +283,24 @@ def data_file_link(type, data):
     except KeyError:
         return ''
 
-    data_type = ''
-    if 'ctd' in type:
-        data_type = 'CTD'
-    elif 'bot' in type:
-        data_type = 'BOT'
-    elif 'sum' in type:
-        data_type = 'SUM'
-    elif 'doc' in type:
-        if 'pdf' in type:
-            data_type = 'PDF'
-        elif 'txt' in type or 'text' in type:
-            data_type = 'TXT'
+    data_type = short_data_type(type)
 
     description = models.data_file_descriptions.get(type, '')
+
+
+    preliminary = False
+    if data.obj:
+        status = data.obj.get(type + '_status', [])
+        if status:
+            preliminary = 'preliminary' in status
+    else:
+        logging.error('%r has no obj' % data)
+
+    classes = [type.replace('_', ' ')]
+    if preliminary:
+        classes.append('preliminary')
+    classname = ' '.join(classes)
+
     return whh.HTML.tr(
         whh.HTML.th(whh.tags.link_to(data_type, link)) + \
-                    whh.HTML.td(description), class_=type.replace('_', ' '))
+                    whh.HTML.td(description), class_=classname)

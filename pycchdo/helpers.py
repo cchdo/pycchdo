@@ -218,7 +218,7 @@ def data_uri(data):
             logging.error('Cannot link to a non file _Attr #%s' % data.id)
         return '/404.html'
 
-    return '/data/{id}'.format(id=data['_id'])
+    return '/data/b/{id}'.format(id=data['_id'])
 
 
 def short_data_type(type):

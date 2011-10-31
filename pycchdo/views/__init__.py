@@ -9,7 +9,7 @@ import pycchdo.models as models
 __all__ = [
     '_collapsed_dict', '_http_method', '_unescape',
     'favicon', 'robots', 'clear_db', 'home', 'submit', 'data',
-    'catchall_static', 
+    'data_df', 'catchall_static', 
     ]
 
 
@@ -84,6 +84,15 @@ def submit(request):
     return {}
 
 
+def _file_response(file):
+    resp = Response()
+    resp.app_iter = file
+    resp.content_length = file.length
+    resp.content_type = file.content_type
+    resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
+    return resp
+
+
 def data(request):
     """ Returns data """
     id = request.matchdict['data_id']
@@ -101,14 +110,19 @@ def data(request):
     if not data:
         return HTTPNotFound()
 
-    file = data.file
+    return _file_response(data.file)
 
-    resp = Response()
-    resp.app_iter = file
-    resp.content_length = file.length
-    resp.content_type = file.content_type
-    resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
-    return resp
+
+def data_df(request):
+    """ Serve legacy data files that used to be served from /data prefix
+    """
+    url = '/' + '/'.join(['data'] + list(request.matchdict['rest']))
+
+    attr = models._Attr.get_one({'import_filepath': url})
+
+    if not attr:
+        return HTTPNotFound()
+    return _file_response(attr.file)
 
 
 def catchall_static(request):

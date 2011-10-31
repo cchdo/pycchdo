@@ -531,11 +531,11 @@ class TestHelper(unittest.TestCase):
         data = _Attr(self.testPerson, 'testid', 'a', file)
         data.save()
         id = data['_id']
-        answer = ('<tr class="bottle exchange"><th><a href="/data/{id}">BOT'
+        answer = ('<tr class="bottle exchange"><th><a href="/data/b/{id}">BOT'
                   '</a></th><td>ASCII .csv bottle data with station '
                   'information</td></tr>').format(id=id)
         self.assertEquals(data_file_link('bottle_exchange', data), answer)
-        answer = ('<tr class="ctdzip exchange"><th><a href="/data/{id}">CTD'
+        answer = ('<tr class="ctdzip exchange"><th><a href="/data/b/{id}">CTD'
                   '</a></th><td>ZIP archive of ASCII .csv CTD data with '
                   'station information</td></tr>').format(id=id)
         self.assertEquals(data_file_link('ctdzip_exchange', data), answer)

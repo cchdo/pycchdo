@@ -54,10 +54,3 @@ h2 {
 #geo_search .map_tool {
   float: right;
 }
-
-#basin_map {
-  width: 330px;
-}
-#basin_map img {
-  display: block;
-}

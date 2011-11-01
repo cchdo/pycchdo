@@ -1,10 +1,16 @@
 {% extends "templates/base.jinja2" %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/browse.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/basin_map.css') }}
 {%- endblock %}
 {% block title %}Browse Data{% endblock %}
 {% block content -%}
 {% call h.boxed('Browse Data') -%}
+  <div id="basin" class="sub-section first">
+    <h2>Basin</h2>
+    {%- include "templates/_basin_map.html" %}
+  </div>
+
   <div id="ocean" class="sub-section">
     <h2>Ocean</h2>
     <ul>
@@ -44,3 +50,7 @@
   </div>
 {%- endcall %}
 {%- endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/basin_map.js') }}
+{% endblock %}

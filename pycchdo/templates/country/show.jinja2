@@ -1,7 +1,11 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Country {{ country.name() }}{% endblock %}
+{% block title %}Country {{ country.name }}{% endblock %}
 {% block content -%}
-  {% call h.boxed('Country ' + (country.name() or '')) -%}
-    {{ country.cruises() }}
+  {% call h.boxed('Country ' + (country.name or '')) -%}
+    <ul>
+    {%- for cruise in country.cruises() %}
+      <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
+    {%- endfor %}
+    </ul>
   {%- endcall %}
 {%- endblock %}

@@ -1,7 +1,11 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Collection {{ collection.name() }}{% endblock %}
+{% block title %}Collection {{ collection.name }}{% endblock %}
 {% block content -%}
-  {% call h.boxed('Collection ' + (collection.name() or '')) -%}
-    {{ collection.cruises() }}
+  {% call h.boxed('Collection ' + (collection.name or '')) -%}
+    <ul>
+    {%- for cruise in collection.cruises() %}
+      <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
+    {%- endfor %}
+    </ul>
   {%- endcall %}
 {%- endblock %}

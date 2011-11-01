@@ -1,6 +1,11 @@
 {% extends "templates/base.jinja2" %}
+{% block content %}Collections{% endblock %}
 {% block content -%}
   {% call h.boxed('Collections') -%}
-    {{ collections }}
+    <ul>
+    {%- for collection in collections %}
+      <li>{{ whh.tags.link_to(collection.name, '/collection/%s' % collection.id) }}</li>
+    {%- endfor %}
+    </ul>
   {%- endcall %}
 {%- endblock %}

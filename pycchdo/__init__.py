@@ -79,6 +79,10 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_view('pycchdo.views.home', route_name='home', renderer='templates/home.jinja2')
 
+    config.add_route('browse', '/browse.html')
+    config.add_view('pycchdo.views.browse', route_name='browse',
+                    renderer='templates/browse.jinja2')
+
     config.add_route('submit', '/submit')
     config.add_view('pycchdo.views.submit', route_name='submit', renderer='templates/submit.jinja2')
 
@@ -109,6 +113,7 @@ def main(global_config, **settings):
     obj_routes(config, 'cruise')
     obj_routes(config, 'collection')
     obj_routes(config, 'country', 'countries')
+    obj_routes(config, 'person', 'people')
     obj_routes(config, 'institution')
     obj_routes(config, 'ship')
 

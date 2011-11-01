@@ -463,7 +463,7 @@ class TestModel(unittest.TestCase):
         c = Cruise(self.testPerson)
         c.save()
         c.participants.add(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
-        self.assertEquals([self.testPerson], [p for p, i in c.chief_scientists])
+        self.assertEquals([self.testPerson], [pi['person'] for pi in c.chief_scientists])
         c.participants.add(self.testPerson, 'Co-Chief Scientist', self.testPerson).accept(self.testPerson)
         self.assertEquals([(self.testPerson, 'Chief Scientist'),
                            (self.testPerson, 'Co-Chief Scientist')],
@@ -475,7 +475,7 @@ class TestModel(unittest.TestCase):
         c = Cruise(self.testPerson)
         c.save()
         c.participants.add(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
-        self.assertEquals([self.testPerson], [p for p, i in c.chief_scientists])
+        self.assertEquals([self.testPerson], [pi['person'] for pi in c.chief_scientists])
         c.participants.remove(self.testPerson, 'Chief Scientist', self.testPerson).accept(self.testPerson)
         self.assertEquals([], c.participants.roles)
         c.remove()

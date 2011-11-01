@@ -8,7 +8,7 @@ import pycchdo.models as models
 
 __all__ = [
     '_collapsed_dict', '_http_method', '_unescape',
-    'favicon', 'robots', 'clear_db', 'home', 'submit', 'data',
+    'favicon', 'robots', 'clear_db', 'home', 'browse', 'submit', 'data',
     'data_df', 'catchall_static', 
     ]
 
@@ -58,6 +58,10 @@ except IOError:
 
 
 def home(context, request):
+    return {}
+
+
+def browse(context, request):
     return {}
 
 

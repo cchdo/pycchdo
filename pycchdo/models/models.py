@@ -418,11 +418,11 @@ class collectablemongodoc(idablemongodoc):
         return unicode(idablemongodoc.__repr__(self))
 
     def __repr__(self):
-        collection = self.__class__._mongo_collection()
+        collection = self.__class__._mongo_collection().name
         try:
-            return u"%s.%s" % (collection, self['_id'])
+            return u"(%s).%s" % (collection, self['_id'])
         except KeyError:
-            return u'%s.unsaved' % collection
+            return u'(%s).unsaved' % collection
 
 
 class Note(collectablemongodoc):
@@ -1152,96 +1152,41 @@ class Obj(_Change):
         return u'%s(%s)' % (type(self).__name__, copy)
 
 
-class Person(Obj):
-    """ People may be either verified or not.
-        If they are associated with an ID provider then they are verified.
-
-    """
-    def __init__(self, identifier=None, name_first=None, name_last=None,
-                 institution=None, country=None, email=None):
-        # Pretend Person is already saved so Stamp can be set
-        self.id = 'self'
-        super(Person, self).__init__(self)
-        del self.id
-
-        self.identifier = identifier
-        self.name_first = name_first
-        self.name_last = name_last
-        self.institution_ = institution
-        self.country = country
-        self.email = email
-
-        if identifier is None and None in (
-                name_first, name_last):
-            raise ValueError(
-                'Person must be initialized either with identifier '
-                'or names.')
-
-    def from_mongo(self, doc):
-        super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, (
-            'identifier', 'name_first', 'name_last', 'institution', 'country',
-            'email', ))
-        return self
-
-    def full_name(self):
-        return ' '.join((self.name_first or '', self.name_last or ''))
-
-    def is_verified(self):
-        return self.identifier is not None
-
-    @property
-    def institution(self):
-        return Institution.get_id(self.institution_)
-
-
-    def save(self):
-        super(Person, self).save()
-        self['creation_stamp']['person'] = self.id
-        super(Person, self).save()
-
-    def __unicode__(self):
-        try:
-            return u'Person ({last}, {first})'.format(last=self.name_last,
-                                                      first=self.name_first)
-        except AttributeError:
-            return u'Person ()'
-
-
 class _Participants(dict):
-    """ A map of roles to sets of Persons. """
-    def __init__(self, cruise, *args, **kwargs):
-        super(_Participants, self).__init__(*args, **kwargs)
+    """ A map of roles to sets of Persons.
+
+        Participants masquerades as a dictionary of roles but is actually stored
+        by mongodb like so: [{'role': r, 'person': p_id, 'institution': i_id}, ... ]
+    
+    """
+    def __init__(self, cruise, participants=[]):
         self._cruise = cruise
 
+        for p in participants:
+            role = p['role']
+            doc = {'person': Person.get_id(p['person']),
+                   'institution': Institution.get_id(p['institution'])}
+            try:
+                self[role].append(doc)
+            except KeyError:
+                self[role] = [doc]
+        
     def __getitem__(self, key):
         """ Gives pairs of Person, Institutions for the specified role """
-        ids = dict.__getitem__(self, key)
-        ids = filter(lambda x: x != (None, None), ids)
-        pis = [(Person.get_id(p), Institution.get_id(i)) for p, i in ids]
-        return pis
+        return dict.__getitem__(self, key)
 
     def _add(self, person, role, institution=None):
         """ Adds a participant to the map under the given role. """
-        try:
-            if institution is None:
-                pid = (person.id, None, )
-            else:
-                pid = (person.id, institution.id)
-        except AttributeError:
-            return False
-
-        if pid[0] is None:
+        pid = {'person': person, 'institution': institution}
+        if pid['person'] is None:
             raise AttributeError("Only institution can be none")
 
         try:
-            # mongodb doesn't know about tuples so remap them
-            l = [tuple(x) for x in dict.__getitem__(self, role)]
-            l.append(pid)
-            # Order is important
-            l = libcchdo.fns.uniquify(l)
-
-            if l != dict.__getitem__(self, role):
+            l = dict.__getitem__(self, role)
+            if pid not in l:
+                l.append(pid)
+                # Order is important
+                l = libcchdo.fns.uniquify(l)
                 dict.__setitem__(self, role, l)
                 return True
         except KeyError:
@@ -1251,20 +1196,11 @@ class _Participants(dict):
 
     def _remove(self, person, role, institution=None):
         """ Removes a participant from the map under the given role. """
-        try:
-            if institution is None:
-                pid = (person.id, None)
-            else:
-                pid = (person.id, institution.id)
-        except AttributeError:
-            return False
+        pid = {'person': person, 'institution': institution}
 
         try:
             l = dict.__getitem__(self, role)
-            try:
-                l.remove(list(pid))
-            except ValueError:
-                return False
+            l.remove(pid)
         except (KeyError, ValueError):
             return False
         return True
@@ -1298,19 +1234,28 @@ class _Participants(dict):
     @property
     def roles(self, role=None):
         """ Pairs of Persons and roles present in the map """
-        if role is None:
-            map = self
-        else:
-            map = dict.__getitem__(self, role)
-
         participants = []
-        for role, persons in map.items():
-            for person, institution in persons:
-                participants.append((Person.get_id(person), role, ))
+        if role is None:
+            for role, pis in self.items():
+                for pi in pis:
+                    participants.append((pi['person'], role, ))
+        else:
+            pis = dict.__getitem__(self, role)
+            for pi in pis:
+                participants.append((pi['person'], role, ))
         return participants
 
     def save(self, signer):
-        return self._cruise.set_accept('participants', self, signer)
+        list = []
+        for role, pis in self.items():
+            for pi in pis:
+                pid = pi['person'].id
+                try:
+                    iid = pi['institution'].id
+                except AttributeError:
+                    iid = None
+                list.append({'role': role, 'person': pid, 'institution': iid})
+        return self._cruise.set_accept('participants', list, signer)
 
 
 class Cruise(Obj):
@@ -1419,7 +1364,86 @@ class Cruise(Obj):
         return Cruise.map_mongo(Cruise.find({'_id': {'$in': obj_ids}}))
 
 
-class Institution(Obj):
+class CruiseAssociate(Obj):
+    """ Provide a way to get the cruises that an Obj is associated to
+
+    """
+    cruise_associate_key = ''
+
+    def cruises(self):
+        attrs = _Attr.find(
+            {'key': self.cruise_associate_key,
+             '$or': [{'value': self.id},
+                     {'accepted_value': self.id}],
+            })
+        attr_obj_ids = set([x['obj'] for x in attrs])
+        objs = [Obj._mongo_collection().find_one(
+            {'_id': id, '_obj_type': Cruise.__name__}) for id in attr_obj_ids]
+        objs = filter(None, objs)
+        return Cruise.map_mongo(objs)
+
+
+class Person(CruiseAssociate):
+    """ People may be either verified or not.
+        If they are associated with an ID provider then they are verified.
+
+    """
+    cruise_association_key = 'participants.person'
+
+    def __init__(self, identifier=None, name_first=None, name_last=None,
+                 institution=None, country=None, email=None):
+        # Pretend Person is already saved so Stamp can be set
+        self.id = 'self'
+        super(Person, self).__init__(self)
+        del self.id
+
+        self.identifier = identifier
+        self.name_first = name_first
+        self.name_last = name_last
+        self.institution_ = institution
+        self.country = country
+        self.email = email
+
+        if identifier is None and None in (
+                name_first, name_last):
+            raise ValueError(
+                'Person must be initialized either with identifier '
+                'or names.')
+
+    def from_mongo(self, doc):
+        super(Person, self).from_mongo(doc)
+        self.copy_keys_from(doc, (
+            'identifier', 'name_first', 'name_last', 'institution', 'country',
+            'email', ))
+        return self
+
+    def full_name(self):
+        return ' '.join((self.name_first or '', self.name_last or ''))
+
+    def is_verified(self):
+        return self.identifier is not None
+
+    @property
+    def institution(self):
+        return Institution.get_id(self.institution_)
+
+
+    def save(self):
+        super(Person, self).save()
+        self['creation_stamp']['person'] = self.id
+        super(Person, self).save()
+
+    def __unicode__(self):
+        try:
+            return u'Person ({last}, {first})'.format(last=self.name_last,
+                                                      first=self.name_first)
+        except AttributeError:
+            return u'Person ()'
+
+
+class Institution(CruiseAssociate):
+    cruise_associate_key = 'participants.institution'
+
     @property
     def name(self):
         return self.get('name', None)
@@ -1431,7 +1455,9 @@ class Institution(Obj):
             return u'Institution ()'
 
 
-class Ship(Obj):
+class Ship(CruiseAssociate):
+    cruise_associate_key = 'ship'
+
     @property
     def name(self):
         return self.get('name', None)
@@ -1440,7 +1466,9 @@ class Ship(Obj):
         return u'Ship(%s)' % self.name
 
 
-class Country(Obj):
+class Country(CruiseAssociate):
+    cruise_associate_key = 'country'
+
     @property
     def name(self):
         return self.get('iso_3166-1', None)
@@ -1451,7 +1479,7 @@ class Country(Obj):
         return self.get('iso_3166-1_alpha-' + str(length), None)
 
 
-class Collection(Obj):
+class Collection(CruiseAssociate):
     """ Essentially tags for Cruises.
     
         A Cruise may belong to Basin Collection, WOCE line Collection, etc.
@@ -1467,6 +1495,8 @@ class Collection(Obj):
             indian, southern
     
     """
+    cruise_associate_key = 'collections'
+
     @property
     def names(self):
         return self.get('names', [])
@@ -1477,13 +1507,6 @@ class Collection(Obj):
             return self.names[0]
         except IndexError:
             return None
-
-    def cruises(self):
-        attr_obj_ids = [x['obj'] for x in _Attr.find({'key': 'collections',
-                                                      'value': str(self.id)})]
-        objs = [Obj._mongo_collection().find_one(id) for id in attr_obj_ids]
-        return Cruise.map_mongo(
-            filter(lambda x: x['_obj_type'] == Cruise.__name__, objs))
 
 
 class AutoAcceptingObj(Obj):

@@ -153,7 +153,15 @@ def cruise_history_rows(change, i, hl):
 
 def link_person_institutions(pis):
     strings = []
-    for p, i in pis:
+    for pi in pis:
+        try:
+            p = pi['person']
+        except KeyError:
+            continue
+        try:
+            i = pi['institution']
+        except KeyError:
+            i = None
         name = whh.tags.link_to(p.full_name(), '/person/%s' % p.id)
         inst = None
         if i:

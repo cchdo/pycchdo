@@ -1,0 +1,7 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Person {{ person.full_name() }}{% endblock %}
+{% block content -%}
+  {% call h.boxed('Person ' + (person.full_name() or '')) -%}
+    {{ person.cruises() }}
+  {%- endcall %}
+{%- endblock %}

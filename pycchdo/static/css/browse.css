@@ -1,0 +1,16 @@
+.sub-section {
+  margin-top: 0.5em;
+}
+
+#ocean.sub-section {
+  margin-top: 0;
+}
+
+.sub-section h2 {
+  font-size: 1.2em;
+}
+
+.sub-section li {
+  list-style: disc;
+  margin-left: 2em;
+}

@@ -1,7 +1,12 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Ship {{ ship.name() }}{% endblock %}
+{% block title %}Ship {{ ship.name }}{% endblock %}
 {% block content -%}
-  {% call h.boxed('Ship ' + (ship.name() or '')) -%}
-    {{ ship.cruises() }}
+  {% call h.boxed('Ship ' + (ship.name or '')) -%}
+    <ul>
+    {%- for cruise in ship.cruises() %}
+      <li>{{ whh.tags.link_to(cruise.expocode,
+                              '/cruise/%s' % cruise.expocode) }}</li>
+    {%- endfor %}
+    </ul>
   {%- endcall %}
 {%- endblock %}

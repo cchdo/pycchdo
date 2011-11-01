@@ -12,7 +12,7 @@ _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
 
 
 def _save_request(request):
-    request.session['signin_return_uri'] = request.url
+    request.session['signin_return_uri'] = request.referrer
 
 
 def _restore_request(request, profile):
@@ -37,6 +37,7 @@ def session_show(request):
 
 
 def session_identify(request):
+    _save_request(request)
     return {}
 
 

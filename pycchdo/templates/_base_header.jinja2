@@ -1,8 +1,8 @@
 <div id="gheader">
   <a href="/"><img id="cchdo_logo" src="/static/img/logos/CCHDO_logo.png" /></a>
-  <p id="session_status">
+  <p id="session_status" class="{% if h.has_mod(request) %}moderator{% endif %}">
     {% if request.user -%}
-      {{request.user.get('name_first', '')}} <a href="/session/delete">Sign out</a>
+      {{ request.user.name_first }} <a href="/session/delete">Sign out</a>
     {%- else -%}
       <a href="/session/identify">Sign in</a>
     {%- endif %}

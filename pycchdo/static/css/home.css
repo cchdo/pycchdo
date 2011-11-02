@@ -1,56 +1,78 @@
-h2 {
+.home {
+  position: relative;
+}
+.left {
+  width: 70%;
+}
+.right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 28.7%;
+}
+
+.home h2 {
   color: #006F89;
   font-size: 1.2em;
 }
+
 #intro img {
   float: left;
-  display: inline;
   width: 13em;
   height: 13em;
-  margin-right: 1em;
-  margin-bottom: 1em;
+  margin: auto 1em 1em auto;
 }
 #intro p {
   margin-bottom: 0.5em;
 }
-#intro img {
-  float: left;
-  width: 13em;
-  height: 13em;
-  margin-bottom: 1em;
-  margin-right: 1em;
-}
-
-.left {
-  float: left;
-  width: 70%;
-}
-.right {
-  float: right;
-  width: 28%;
-  text-align: left;
-}
-.right h2 {
-  border-bottom: 1px solid #A0A0A0;
-  margin-top: 0;
-  margin-bottom: 0.5em;
-  width: 80%;
-}
-.right img {
-  width: 60px;
-  height: 60px;
-  margin-right: 0.5em;
-}
-.right span { color: #67a9bb; display: inline; padding-right: 0.5em; border: 0; } 
-.right td { padding: 0 0.5em 1em 0; vertical-align: top; }
 
 #geo_search h2 {
   text-align: center;
   margin-bottom: 0.2em;
 }
-#geo_search .basin {
-  float: left;
+#geo_search .box_content {
+  padding-top: 0.8em;
+  padding-bottom: 0.8em;
 }
-#geo_search .map_tool {
+#geo_search #basin {
+  float: left;
+  margin-left: 0.5em;
+}
+#geo_search #search_map {
   float: right;
+  margin-right: 0.5em;
+}
+
+#rdev h2 {
+  border-bottom: 1px solid #DDEFFF;
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+#rdev ol {
+  overflow: hidden;
+}
+#rdev li {
+  position: relative;
+  margin: 0.6em 0;
+}
+#rdev img {
+  margin-right: 0.5em;
+  width: 80px;
+  height: 80px;
+}
+#rdev .info {
+  position: absolute;
+  top: 0;
+  left: 90px;
+}
+#rdev .info p {
+  margin-left: 1em;
+}
+#rdev .info h3,
+#rdev .info p {
+  white-space: nowrap;
+}
+#rdev .info strong {
+  color: #67a9bb;
+  margin-left: -1em;
 }

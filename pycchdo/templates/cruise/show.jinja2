@@ -15,7 +15,7 @@
       This cruise was entered by the public and has not yet been reviewed.
     </div>
   {%- endif %}
-  {%- call h.boxed('General Information and Files', id='left', class='upper', box_content_class='scrollable-y') %}
+  {%- call h.boxed('General Information and Files', id='info', class='upper', box_content_class='scrollable-y') %}
     <div class="subsection general-information">
       <h2>General Information</h2>
       {%- if 'map' in data_files %}
@@ -88,23 +88,25 @@
           <p>Contact the CCHDO for more information.</p>
           <p>If you are the PI, please contact the CCHDO for submission
              information.</p>
-          {%- if h.has_mod(request) %}
-            {{ whh.tags.form('', 'PUT', multipart=True,
-                             hidden_fields={'action': 'suggest_file'}) }} 
-              <label for="type">Type</label>
-              <select name="type">
-                <option value="bottle_exchange">Bottle Exchange</option>
-                <option value="ctdzip_exchange">CTD Exchange</option>
-              </select>
-              <input type="file" name="file">
-              <input type="submit" value="Add">
-            {{ whh.tags.end_form() }}
-          {%- endif %}
+        </div>
+      {%- endif %}
+      {%- if h.has_mod(request) %}
+        <div id="add_file">
+        {{ whh.tags.form('', 'PUT', multipart=True,
+                         hidden_fields={'action': 'suggest_file'}) }} 
+          <label for="type">Type</label>
+          <select name="type">
+            <option value="bottle_exchange">Bottle Exchange</option>
+            <option value="ctdzip_exchange">CTD Exchange</option>
+          </select>
+          <input type="file" name="file">
+          <input type="submit" value="Add">
+        {{ whh.tags.end_form() }}
         </div>
       {%- endif %}
     </div>
   {%- endcall %}
-  {% call h.boxed('Data Histories and Notes', id='right', class='upper') -%}
+  {% call h.boxed('Data Histories and Notes', id='history', class='upper') -%}
     <div class="subsection">
       <h2>History</h2>
       <div id="notes" class="scrollable-y">

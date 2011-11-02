@@ -795,11 +795,9 @@ def _import_cruise(importer, cruise):
     if cruise.Chief_Scientist:
         person_insts = _cchdo_pi_to_person_insts(cruise.Chief_Scientist,
                                                  cruise, importer)
-        rpis = [('Chief Scientist', pi[0], pi[1]) for pi in
-                person_insts]
         c.participants._clear()
-        for role, person, institution in rpis:
-            c.participants._add(person, role, institution)
+        for pi in person_insts:
+            c.participants._add(pi[0], 'Chief Scientist', pi[1])
         if c.participants:
             implog.debug('Participants for cruise %s: %s' % (cruise.id, c.participants))
         c.participants.save(importer)
@@ -814,8 +812,6 @@ def _import_cruises(session, importer):
     for i, c in enumerate(cruises):
         if i % 10 == 0:
             implog.info('%d / %d = %f' % (i, len_cruises, i / len_cruises))
-        if c.ExpoCode != '33RR20090320':
-            continue
         _import_cruise(importer, c)
 
 
@@ -996,7 +992,7 @@ def _import_contacts_cruises(session, importer):
         if not role:
             role = 'Chief Scientist'
         try:
-            if person in [p for p, i in cruise.participants[role]]:
+            if person in [pi['person'] for pi in cruise.participants[role]]:
                 implog.info(
                     "Updating participant %s %s to %s" % (person, role, cruise))
                 continue

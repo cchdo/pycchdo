@@ -1,9 +1,11 @@
-.cruise-page #left { float: left; width: 45%; }
-.cruise-page #right { float: right; text-align: left; width: 53%; }
+.cruise-page #info { float: left; width: 45%; }
+.cruise-page #history { float: right; text-align: left; width: 53%; }
 .cruise-page .upper .box_content { }
 .cruise-page .boxed.upper .box_content { height: 39em; }
 
 .cruise-page .subsection { margin-top: 1em; }
+
+.cruise-page #history .subsection { margin-bottom: -1em; }
 
 /* trim the padding and margins a little so text is nicely square.
  * This needs priority over things that go inside .box_contents
@@ -12,10 +14,14 @@
   margin-top: -0.5em;
 }
 
-.cruise-page h2 { border-bottom: 1px solid #006f89; color: #006F89; font-size: 1.2em; }
+.cruise-page h2 {
+  border-bottom: 1px solid #ddefff;
+  color: #006F89;
+  font-size: 1.2em;
+}
 .cruise-page h3 { margin: 0.5em 0 0.25em 0; }
 
-.cruise-page .thumb { margin-top: 1em; float: right; text-align: right; }
+.cruise-page .thumb { margin-top: 1em; margin-left: 1em; float: right; text-align: right; }
 .cruise-page .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
 .cruise-page .thumb img { width: 80px; height: 80px; }
 
@@ -28,6 +34,13 @@
   display: block;
   color: #ff0900;
   margin: 0.5em 0;
+}
+
+.general-information p {
+  padding-left: 0.5em;
+}
+.general-information p strong {
+  margin-left: -0.5em;
 }
 
 .cruise-page .subsection.data-files th,
@@ -74,7 +87,7 @@
 #updates #merged .odd.open { background-color: #C1D2D5; }
 
 #notes {
-  max-height: 37.4em;
+  max-height: 38em;
 }
 #notes table {
   width: 100%;

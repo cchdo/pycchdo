@@ -10,7 +10,17 @@ def has_mod(request):
     # TODO check against actual list
     if not request.user:
         return False
-    return str(request.user.id) == '4e1492db1f121d1782000000'
+
+    if request.user.name_last == 'Shen' and \
+       request.user.name_first in ['Matthew', 'Andrew']:
+        return True
+    if request.user.name_last == 'Berys':
+        return True
+    if request.user.name_last == 'Fields':
+        return True
+    if request.user.name_last == 'Diggs':
+        return True
+    return False
 
 
 def title(**kwargs):

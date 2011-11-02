@@ -3,110 +3,95 @@
   {{ whh.tags.stylesheet_link('/static/css/home.css') }}
   {{ whh.tags.stylesheet_link('/static/css/basin_map.css') }}
 {%- endblock %}
+{%- block content_attrs %} class="home"{%- endblock %}
 {% block content %}
-<div class="left">
-  <div id="intro" class="boxed">
-    <h1>Welcome to the CCHDO</h1>
-    <div class="box_content">
-      <img src="/static/img/ctd_recovery.png">
-      <h2>About the CCHDO</h2>
-      <p>
-        The CCHDO's primary mission is to deliver the highest possible quality
-        global CTD and hydrographic data to users. These data are a product of
-        decades of observations related to the physical characteristics of
-        ocean waters carried out during WOCE, CLIVAR and numerous other
-        oceanographic research programs.  Whenever possible we provide these
-        data in three easy-to-use formats:
-        <a href="/format.html">WHP-Exchange</a> (which we recommend for data
-        submissions to the CCHDO), <a href="/format.html">WOCE</a>, and
-        <a href="/format.html">netCDF</a>.
-      </p>
-      <p>
-        The CCHDO also manages public and non-public CTD data to be used for the
-        global Argo and OceanSITES programs.
-      </p>
-      <p>
-        This site is funded by the
-        <a href="http://nsf.gov/">National Science Foundation</a>.
-      </p>
-    </div>
-    <div class="box_bottom"></div>
-  </div>
-
-  <div class="boxed">
-  <h1>Search for Data Geographically</h1>
-  <div id="geo_search" class="box_content">
+  {% call h.boxed('Welcome to the CCHDO', id='intro', class='left') %}
+    <img src="/static/img/ctd_recovery.png">
+    <h2>About the CCHDO</h2>
+    <p>
+      The CCHDO's primary mission is to deliver the highest possible quality
+      global CTD and hydrographic data to users. These data are a product of
+      decades of observations related to the physical characteristics of ocean
+      waters carried out during WOCE, CLIVAR and numerous other oceanographic
+      research programs. Whenever possible we provide these data in three
+      easy-to-use formats:
+      <a href="/format.html">WHP-Exchange</a> (which we recommend for data
+      submissions to the CCHDO), <a href="/format.html">WOCE</a>, and
+      <a href="/format.html">netCDF</a>.
+    </p>
+    <p>
+      The CCHDO also manages public and non-public CTD data to be used for the
+      global Argo and OceanSITES programs.
+    </p>
+    <p>
+      This site is funded by the
+      <a href="http://nsf.gov/">National Science Foundation</a>.
+    </p>
+  {% endcall %}
+  
+  {% call h.boxed('Search for Data Geographically', id='geo_search', class='left') %}
     <ul>
-      <li class="basin">
+      <li id="basin">
         <h2>Click on a basin</h2>
         {%- include "templates/_basin_map.html" %}
       </li>
-      <li class="map_tool">
-        <h2><a href="/search/map">Use our interactive map tool</a></h2>
+      <li id="search_map">
+        <h2><a href="/search/map">Use our interactive map search</a></h2>
         <a href="/search/map"><img src="/static/img/cchdo_search_map.png"></a>
       </li>
     </ul>
     <div class="clear"></div>
-  </div>
-  <div class="box_bottom"></div>
-  </div>
-</div>
-
-<div class="right">
-  <div class="boxed">
-    <h1>Recent Developments</h1>
-    <div class="box_content">
-        <h2>Updated Data Files</h2>
-        <table>   
-            <td> 
-              <a href="/search?query=33H420101113"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
-            </td> 
-            <td> 
-              <h3><a href="/search?query=33H420101113"> ARS01</a></h3> 
-              <p>Unknown</p> 
-              <span>Cruise Date:</span>2010-11-13<br> 
-              <span>Updated:</span>2011-07-18<br> 
-            </td> 
-          </tr> 
-                  <tr> 
-            <td> 
-              <a href="/search?query=33H420101130"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420101130/33H420101130trk.jpg"></a> 
-            </td> 
-            <td> 
-              <h3><a href="/search?query=33H420101130"> ARS01</a></h3> 
-              <p>Unknown</p> 
-              <span>Cruise Date:</span>2010-11-30<br> 
-              <span>Updated:</span>2011-07-18<br> 
-            </td> 
-          </tr> 
-                  <tr> 
-            <td> 
-              <a href="/search?query=33H420110614"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420110614/33H420110614trk.jpg"></a> 
-            </td> 
-            <td> 
-              <h3><a href="/search?query=33H420110614"> ARS01</a></h3> 
-              <p>Unknown</p> 
-              <span>Cruise Date:</span>2011-06-14<br> 
-              <span>Updated:</span>2011-07-18<br> 
-            </td> 
-          </tr> 
-                  <tr> 
-            <td> 
-              <a href="/search?query=33H420101018"><img src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/bats/ars01/33H420101018/33H420101018trk.jpg"></a> 
-            </td> 
-            <td> 
-              <h3><a href="/search?query=33H420101018"> ARS01</a></h3> 
-              <p>Unknown</p> 
-              <span>Cruise Date:</span>2010-10-18<br> 
-              <span>Updated:</span>2011-07-18<br> 
-            </td> 
-          </tr> 
-        
-        </table> 
-    </div>
-    <div class="box_bottom"></div>
-  </div>
-</div>
+  {% endcall %}
+  
+  {% call h.boxed('Recent Developments', id='rdev', class='right') %}
+    <h2>Updated Data Files</h2>
+    <ol>
+      <li>
+        <div class="thumb">
+          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
+        </div>
+        <div class="info">
+          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
+          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
+          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
+          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
+        </div>
+      </li>
+      <li>
+        <div class="thumb">
+          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
+        </div>
+        <div class="info">
+          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
+          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
+          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
+          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
+        </div>
+      </li>
+      <li>
+        <div class="thumb">
+          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
+        </div>
+        <div class="info">
+          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
+          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
+          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
+          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
+        </div>
+      </li>
+      <li>
+        <div class="thumb">
+          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
+        </div>
+        <div class="info">
+          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
+          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
+          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
+          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
+        </div>
+      </li>
+    </ol>
+  {% endcall %}
 {% endblock %}
 {% block js %}
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}

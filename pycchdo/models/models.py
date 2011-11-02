@@ -1185,8 +1185,6 @@ class _Participants(dict):
             l = dict.__getitem__(self, role)
             if pid not in l:
                 l.append(pid)
-                # Order is important
-                l = libcchdo.fns.uniquify(l)
                 dict.__setitem__(self, role, l)
                 return True
         except KeyError:

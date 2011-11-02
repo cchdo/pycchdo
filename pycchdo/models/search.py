@@ -200,7 +200,7 @@ def save_obj(obj, writer=None):
         doc['name'] = unicode(obj.name)
         doc['uri'] = unicode(obj.get('uri', None))
     elif name == 'collection':
-        doc['names'] = u','.join(obj.names)
+        doc['names'] = u','.join(filter(None, obj.names))
     else:
         ixw.cancel()
         ix.close()

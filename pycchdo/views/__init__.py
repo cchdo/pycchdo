@@ -8,8 +8,8 @@ import pycchdo.models as models
 
 __all__ = [
     '_collapsed_dict', '_http_method', '_unescape',
-    'favicon', 'robots', 'clear_db', 'home', 'browse', 'submit', 'data',
-    'data_df', 'catchall_static', 
+    'favicon', 'robots', 'clear_db', 'home', 'browse_menu', 'search_menu',
+    'information_menu', 'submit', 'data', 'data_df', 'catchall_static', 
     ]
 
 
@@ -61,7 +61,15 @@ def home(context, request):
     return {}
 
 
-def browse(context, request):
+def browse_menu(context, request):
+    return {}
+
+
+def search_menu(context, request):
+    return {}
+
+
+def information_menu(context, request):
     return {}
 
 

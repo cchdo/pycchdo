@@ -79,9 +79,17 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_view('pycchdo.views.home', route_name='home', renderer='templates/home.jinja2')
 
-    config.add_route('browse', '/browse.html')
-    config.add_view('pycchdo.views.browse', route_name='browse',
+    config.add_route('browse_menu', '/browse.html')
+    config.add_view('pycchdo.views.browse_menu', route_name='browse_menu',
                     renderer='templates/browse.jinja2')
+
+    config.add_route('search_menu', '/search.html')
+    config.add_view('pycchdo.views.search_menu', route_name='search_menu',
+                    renderer='templates/search.jinja2')
+
+    config.add_route('information_menu', '/information.html')
+    config.add_view('pycchdo.views.information_menu', route_name='information_menu',
+                    renderer='templates/information.jinja2')
 
     config.add_route('submit', '/submit')
     config.add_view('pycchdo.views.submit', route_name='submit', renderer='templates/submit.jinja2')

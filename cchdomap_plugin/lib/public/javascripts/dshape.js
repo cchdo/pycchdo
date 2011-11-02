@@ -166,7 +166,7 @@ function DShape(opts) {
 
   var handles = {
     solids: new google.maps.MVCArray(),
-    gases: new google.maps.MVCArray(),
+    gases: new google.maps.MVCArray()
   };
   this.set('handles', handles);
 
@@ -593,7 +593,7 @@ DShape.prototype.drawPolygon = function (ll, firstReset, lastReset) {
   interim_poly.bindTo('map', this);
 
   var interim_line = new google.maps.Polyline({
-    cursor: 'crosshair',
+    cursor: 'crosshair'
   });
   interim_line.bindTo('strokeColor', self);
   interim_line.bindTo('strokeWeight', self);

@@ -16,6 +16,14 @@ function defaultTo(x, d) {
   return x ? x : d;
 }
 
+function getNumberOfProperties(obj) {
+  var num = 0;
+  for (var k in obj) {
+    num += 1;
+  }
+  return num;
+}
+
 function loadScript(url, callback) {
   var s = document.createElement('SCRIPT');
   s.type = 'text/javascript';
@@ -830,6 +838,29 @@ Model.prototype.query = function (layer, query, callback, tracks_callback, error
 
   function handleData(data) {
     var id_t = data["id_t"];
+    var limit = 50;
+    if (getNumberOfProperties(id_t) > limit) {
+      $('<div>There are more than ' + limit + ' results for your query. ' +
+        'If you continue this will take a while.</div>').dialog({
+        modal: true,
+        title: 'Are you sure?',
+        buttons: {
+          Cancel: function () {
+            $(this).dialog('destroy');
+            error_callback.call(self);
+          },
+          Ok: function () {
+            $(this).dialog('destroy');
+            insertData(data, id_t);
+          }
+        }
+      });
+      return;
+    }
+    insertData(data, id_t);
+  }
+
+  function insertData(data, id_t) {
     var ids = [];
     for (var id in id_t) {
       ids.push(id);
@@ -1390,13 +1421,14 @@ Track.prototype.icons = {
     CM.host + "/images/cchdomap/station_icon.png",
     new google.maps.Size(2, 2),
     null,
-    new google.maps.Point(1, 1)),
+    new google.maps.Point(1, 1))
 };
 
 Track.prototype._createStations = function () {
   var self = this;
   if (!this._station_leader) {
     this._station_leader = new google.maps.MVCObject();
+    this._station_leader.bindTo('map', this);
   }
   if (!this._stations) {
     this._stations = new google.maps.MVCArray();
@@ -1411,6 +1443,7 @@ Track.prototype._createStations = function () {
         flat: true,
         icon: self.icons.station
       });
+      stationmkr.bindTo('visible', self._station_leader);
       stationmkr.bindTo('map', self._station_leader);
       self._stations.push(stationmkr);
     }
@@ -1426,10 +1459,10 @@ Track.prototype.hl = function () {
   this.set('strokeColor', '#ffaa22');
   this.set('zIndex', CM.Z['hl']);
   var self = this;
-  setTimeout(function () {
-    //self._createStations();
-    //self._station_leader.set('map', self.get('map'));
-  }, 0);
+  //setTimeout(function () {
+  //  self._createStations();
+  //  self._station_leader.set('visible', true);
+  //}, 0);
 };
 
 Track.prototype.dimhl = function () {
@@ -1437,8 +1470,8 @@ Track.prototype.dimhl = function () {
   this.set('zIndex', CM.Z['dimhl']);
   var self = this;
   //setTimeout(function () {
-  //  //self._createStations();
-  //  //self._station_leader.set('map', self.get('map'));
+  //  self._createStations();
+  //  self._station_leader.set('visible', true);
   //}, 0);
 };
 
@@ -1446,7 +1479,7 @@ Track.prototype.dim = function () {
   this.set('strokeColor', '#ffffaa');
   this.set('zIndex', CM.Z['dim']);
   if (this._station_leader) {
-    this._station_leader.set('map', null);
+    this._station_leader.set('visible', false);
   }
 };
 
@@ -1454,7 +1487,7 @@ Track.prototype.dark = function (color) {
   this.set('strokeColor', color);
   this.set('zIndex', CM.Z['dark']);
   if (this._station_leader) {
-    this._station_leader.set('map', null);
+    this._station_leader.set('visible', false);
   }
 };
 
@@ -1698,7 +1731,7 @@ function DefaultLayerView(map) {
     this.layerSectionSearch,
     this.layerSectionRegion,
     this.layerSectionKML,
-    this.layerSectionNAV,
+    this.layerSectionNAV
   ];
   for (var i = 0; i < sections.length; i += 1) {
     this.pushSection(sections[i]);

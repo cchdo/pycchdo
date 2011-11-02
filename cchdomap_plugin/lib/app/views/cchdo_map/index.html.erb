@@ -6,7 +6,7 @@
     'cchdomap/tipTip',
     'cchdomap/colorpicker/colorpicker',
     'cchdomap/cchdo.map',
-    :cache => true
+    :cache => 'cchdomap'
   ) %>
 <% end %>
 <% content_for :js do %>
@@ -37,14 +37,12 @@
       }
     ]
   }
-  jsapiload = CGI::escape(modules.to_json)
+  jsapiload = CGI::escape(modules.to_json) || ''
   # dimes:8000
   key = "ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw"
 %>
+<%= javascript_include_tag("http://www.google.com/jsapi?autoload=#{jsapiload}&key=#{key}") %>
 <%= javascript_include_tag(
-  "http://www.google.com/jsapi?autoload=#{jsapiload}&key=#{key}",
-  "http://earth-api-utility-library.googlecode.com/svn/tags/" + 
-    "extensions-0.2.1/dist/extensions.pack.js",
   'cchdomap/jquery.form',
   'cchdomap/jquery.jgrowl_minimized',
   'cchdomap/jquery.tipTipTip',
@@ -56,7 +54,10 @@
   'cchdomap/dshape',
   'cchdomap/LatLngTooltip.3',
   'cchdomap/cchdo.map',
-  :cache => true
+  :cache => 'cchdomap'
+) %>
+<%= javascript_include_tag(
+  "http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js"
 ) %>
 <% end -%>
 <div id="map_space">

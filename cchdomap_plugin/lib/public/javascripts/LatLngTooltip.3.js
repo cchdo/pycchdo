@@ -55,16 +55,20 @@ LatLngTooltip.prototype.onAdd = function () {
     }
   };
   function position(latlng) {
+    console.log('repositioning tip to latlng', latlng.lat(), latlng.lng());
     var px = self.getProjection().fromLatLngToDivPixel(latlng);
+    window.overlay = self;
+    console.log('px=', px.y, px.x);
+    var mapdiv = self.getMap().getDiv();
     var top = px.y - div.offsetHeight;
     var left = px.x;
-    if (top < 0) {
-      top = 0;
-    }
-    var map_width = self.getMap().getDiv().offsetWidth;
+    var map_width = mapdiv.offsetWidth;
+    console.log(px.x, div.offsetWidth, map_width);
     if (px.x + div.offsetWidth > map_width) {
       left = px.x - div.offsetWidth;
+      console.log(px.x, div.offsetWidth);
     }
+    console.log('ie.', top, left);
     div.style.top = top + 'px';
     div.style.left = left + 'px';
   }

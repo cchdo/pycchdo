@@ -107,7 +107,7 @@ var Graticule = (function () {
     60 * 5,
     60 * 10,
     60 * 20,
-    60 * 30,
+    60 * 30
   ];
   var sexmins = [
     0.01, // minutes
@@ -126,7 +126,7 @@ var Graticule = (function () {
     60 * 5,
     60 * 10,
     60 * 20,
-    60 * 30,
+    60 * 30
   ];
 
   function mins_list(overlay) {

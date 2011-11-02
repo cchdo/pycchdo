@@ -315,7 +315,9 @@ var EarthMapType = (function () {
     return ring;
   }
   // TODO This is a BIG TODO. These creators are not complete.
+  MapToEarth.prototype._markerImageSizeCache = {};
   MapToEarth.prototype.createMarker = function (marker, doInsert) {
+    var self = this;
     var ge = this.get('earth_plugin');
     var listeners = new google.maps.MVCArray();
 
@@ -337,12 +339,26 @@ var EarthMapType = (function () {
         if (absurl[0] == '/') {
           absurl = origin() + absurl;
         }
-        var mapImg = new Image();
-        mapImg.src = absurl;
-        mapImg.onload = function () {
-          var mapHeight = mapImg.height;
-          var icoWidth = marker.getIcon().size.width,
-              icoHeight = marker.getIcon().size.height;
+
+        var size = self._markerImageSizeCache[absurl];
+        if (!size) {
+          var mapImg = new Image();
+          mapImg.src = absurl;
+          mapImg.onload = function () {
+            var mapHeight = mapImg.height;
+            var icoWidth = marker.getIcon().size.width,
+                icoHeight = marker.getIcon().size.height;
+            var size = [icoWidth, icoHeight];
+            self._markerImageSizeCache[absurl] = size;
+            setIconStyleWithSize(size);
+          };
+        } else {
+          setIconStyleWithSize(size);
+        }
+
+        function setIconStyleWithSize(size) {
+          var icoWidth = size[0];
+          var icoHeight = size[1];
           // TODO plugin seems to ignores gx so there's currently no way to do
           // sprites.
           var iconStyle = ge.parseKml([
@@ -362,8 +378,8 @@ var EarthMapType = (function () {
           iconStyle.getIconStyle().getHotSpot().set(
             anchor.x, ge.UNITS_PIXELS, icoHeight - anchor.y, ge.UNITS_PIXELS);
           iconStyle.getIconStyle().getIcon().setHref(absurl);
-          iconStyle.getIconStyle().setScale(
-            Math.min(icoWidth, icoHeight) / 32.0);
+          //iconStyle.getIconStyle().setScale(
+          //  Math.min(icoWidth, icoHeight) / 32.0);
           placemark.setStyleSelector(iconStyle);
         };
       } else {

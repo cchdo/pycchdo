@@ -145,11 +145,15 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
 
     config.add_route('advanced_search', '/search/advanced')
-
-    # maintain legacy URLs
-    config.add_route('data_access','/data_access')
     config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
-    config.add_view('pycchdo.views.search.advanced_search', route_name='data_access', renderer='templates/search/advanced.jinja2') #maintain legacy URLs
+
+    # maintain legacy data_access
+    config.add_route('data_access','/data_access')
+    config.add_view('pycchdo.views.legacy.data_access', route_name='data_access')
+
+    config.add_route('data_access_show_cruise','/data_access/show_cruise')
+    config.add_view('pycchdo.views.legacy.data_access_show_cruise',
+                    route_name='data_access_show_cruise')
 
     # Staff
     config.add_route('staff_index', '/staff')
@@ -165,7 +169,7 @@ def main(global_config, **settings):
 
     # Serve legacy /data prefix data files
     config.add_route('data_df', '/data/*rest')
-    config.add_view('pycchdo.views.data_df', route_name='data_df')
+    config.add_view('pycchdo.views.legacy.data_df', route_name='data_df')
 
 	# catchall_static must be last route
     config.add_route('catchall_static', '/*subpath')

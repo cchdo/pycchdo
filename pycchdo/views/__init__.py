@@ -9,7 +9,7 @@ import pycchdo.models as models
 __all__ = [
     '_collapsed_dict', '_http_method', '_unescape',
     'favicon', 'robots', 'clear_db', 'home', 'browse_menu', 'search_menu',
-    'information_menu', 'submit', 'data', 'data_df', 'catchall_static', 
+    'information_menu', 'submit', 'data', 'catchall_static', 
     ]
 
 
@@ -123,18 +123,6 @@ def data(request):
         return HTTPNotFound()
 
     return _file_response(data.file)
-
-
-def data_df(request):
-    """ Serve legacy data files that used to be served from /data prefix
-    """
-    url = '/' + '/'.join(['data'] + list(request.matchdict['rest']))
-
-    attr = models._Attr.get_one({'import_filepath': url})
-
-    if not attr:
-        return HTTPNotFound()
-    return _file_response(attr.file)
 
 
 def catchall_static(request):

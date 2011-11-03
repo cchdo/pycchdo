@@ -1,0 +1,67 @@
+{% extends "templates/fullwidth.jinja2" %}
+{% block title %}Search | Map{% endblock %}
+{% block head %}
+  {{ whh.tags.stylesheet_link('/static/cchdomap/css/overcast/jquery-ui-1.7.2.custom.css') }}
+  {{ whh.tags.stylesheet_link('/static/cchdomap/css/jquery.jgrowl.css') }}
+  {{ whh.tags.stylesheet_link('/static/cchdomap/css/tipTip.css') }}
+  {{ whh.tags.stylesheet_link('/static/cchdomap/css/colorpicker/colorpicker.css') }}
+  {{ whh.tags.stylesheet_link('/static/cchdomap/css/cchdo.map.css') }}
+{% endblock %}
+{% block content %}
+<div id="map_space">
+  <noscript>
+    <h1>JavaScript is needed to use the interactive map.</h1>
+    <p>
+      JavaScript is either disabled or not supported by your browser. 
+      Please enable JavaScript by changing your browser options and reload.
+    </p>
+  </noscript>
+</div>
+{% endblock %}
+{% block js %}
+{% set modules = {
+    'modules': [
+      {
+        'name': 'jquery',
+        'version': '1.6.4'
+      },
+      {
+        'name': 'jqueryui',
+        'version': '1.8.16'
+      },
+      {
+        'name': 'maps',
+        'version': '3',
+        'other_params': 'sensor=false&libraries=geometry'
+      },
+      {
+        'name': 'earth',
+        'version': '1',
+      },
+      {
+        'name': 'visualization',
+        'version': '1',
+        'packages': ['table']
+      }
+    ]
+  }
+%}
+{% set jsapiload = encode(to_json(modules)) or '' %}
+{# dimes:8000 #}
+{# set key = "ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw" #}
+
+{{ whh.tags.javascript_link('http://www.google.com/jsapi?autoload={jsapiload}&key={key}'.format(jsapiload=jsapiload, key=key)) }}
+
+{{ whh.tags.javascript_link('/static/cchdomap/js/jquery.form.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/jquery.jgrowl_minimized.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/jquery.tipTipTip.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/jquery.autopopdialog.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/colorpicker/colorpicker.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/graticule.3.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/earth_map_type.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/etopo_map_type.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/dshape.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/LatLngTooltip.3.js') }}
+{{ whh.tags.javascript_link('/static/cchdomap/js/cchdo.map.js') }}
+{{ whh.tags.javascript_link("http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js") }}
+{% endblock %}

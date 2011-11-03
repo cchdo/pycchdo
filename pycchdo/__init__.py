@@ -147,6 +147,16 @@ def main(global_config, **settings):
     config.add_route('advanced_search', '/search/advanced')
     config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
 
+    # Search map routes
+    config.add_route('search_map', '/search/map')
+    config.add_view('pycchdo.views.search_map.index', route_name='search_map',
+                    renderer='templates/search/map.jinja2')
+    config.add_route('search_map_ids', '/search/map/ids')
+    config.add_view('pycchdo.views.search_map.ids', route_name='search_map_ids')
+    config.add_route('search_map_layers', '/search/map/layers')
+    config.add_view('pycchdo.views.search_map.layers',
+                    route_name='search_map_layers')
+
     # maintain legacy data_access
     config.add_route('data_access','/data_access')
     config.add_view('pycchdo.views.legacy.data_access', route_name='data_access')

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<style>
+body { height: 256px; background: #000; }
+#map { height: 100%; width: 100%; }
+</style>
+
+<link rel="stylesheet" href="/stylesheets/cchdomap/tipTip.css" />
+
+<div id="map"></div>
+<button id="start">Draw [n]</button>
+<button id="reset">Reset [r]</button>
+<button id="grid">Grid</button>
+
+<script src="http://maps.google.com/maps/api/js?sensor=false&libraries=geometry"></script>
+<!-- dimes.ucsd.edu:8200 -->
+<script src="https://www.google.com/jsapi?key=ABQIAAAATXJifusyeTqIXK5-oRfMqRT7NFPYQoGJ7jU_HZH5c99Vip7REBTXco2ruU-sf4ym1vUKQ7DmOK-EeA"></script>
+<script>
+//google.load('earth', '1');
+//google.load('jquery', '1.5.1');
+//google.load('jqueryui', '1.8.0');
+</script>
+<script src="LatLngTooltip.3.js"></script>
+<script src="graticule.3.js"></script>
+<script src="earth_map_type.js"></script>
+<script src="dshape.js"></script>
+<script>
+var GM = google.maps;
+
+window.onresize = (function () {
+  document.getElementById('map').style.height = window.innerHeight - 30 + 'px';
+})();
+
+window.onload = function () {
+  EARTH = false;
+  alpha = 32.870100, beta = -117.25152, gamma = 0.00003;
+  biograde = new GM.LatLng(alpha, beta);
+  biograde1 = new GM.LatLng(alpha - gamma, beta - gamma);
+  biograde2 = new GM.LatLng(alpha, beta - gamma);
+
+  var maptypes = [
+    GM.MapTypeId.TERRAIN,
+    GM.MapTypeId.SATELLITE,
+    GM.MapTypeId.HYBRID,
+    GM.MapTypeId.ROADMAP];
+  if (EARTH) {
+    maptypes.push('Earth');
+  }
+
+  window.map = new GM.Map(document.getElementById('map'), {
+    center: biograde,
+    mapTypeId: GM.MapTypeId.ROADMAP,
+    //zoom: 10,
+    zoom: 2,
+    mapTypeControlOptions: {
+      style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+      mapTypeIds: maptypes
+    }
+  });
+
+  window.lltip = new LatLngTooltip(window.map);
+
+  function init() {
+    // BUTTONS
+    window.shapes = new GM.MVCArray();
+
+    GM.event.addDomListener(document.getElementById('start'), 'click', function () {
+      var shape = new DShape({map: map, strokeColor: '#aaffaa', fillColor: '#5555ff'});
+      shapes.push(shape);
+
+      //shape.set('line', true);
+
+      var updated = GM.event.addListener(shape, 'draw_updated', function () {
+        console.log('drawing updated');
+      });
+
+      var shapechanged = GM.event.addListener(shape, 'shape_changed', function () {
+        console.log('shapechanged');
+      });
+
+      var editable = GM.event.addListener(shape, 'editable_changed', function () {
+        console.log('Editable', shape.get('editable'));
+      });
+
+      GM.event.addListenerOnce(shape, 'draw_ended', function () {
+        GM.event.removeListener(updated);
+        GM.event.removeListener(editable);
+        document.getElementById('start').disabled = '';
+      });
+
+      shape.start();
+      document.getElementById('start').disabled = 'disabled';
+    });
+    //document.getElementById('start').click();
+
+    document.getElementById('reset').addEventListener('click', function () {
+      shapes.forEach(function (x) {
+        GM.event.trigger(x, 'draw_canceled');
+        x.unbind('map');
+        x.setMap(null);
+      });
+      shapes.clear();
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.keyCode == 78) {
+        document.getElementById('start').click();
+      } else if (event.keyCode == 82) {
+        document.getElementById('reset').click();
+      }
+    });
+
+    GM.event.addDomListener(document.getElementById('grid'), 'click', function () {
+      earth.set('graticules', !earth.get('graticules'));
+    });
+    if (EARTH) {
+      //map.setMapTypeId('Earth');
+    } else {
+      document.getElementById('grid').style.visibility = 'hidden';
+    }
+    g = new Graticule(window.map)
+    g.show();
+  }
+
+  if (EARTH) {
+    window.earth = new EarthMapType(map);
+    GM.event.addListener(earth, 'initialized', init);
+  } else {
+    init();
+  }
+};
+
+</script>

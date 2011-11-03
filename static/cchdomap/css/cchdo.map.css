@@ -1,0 +1,126 @@
+#map_space {
+  width: 100%;
+  position: relative;
+}
+#map { position: absolute; }
+
+.maxstations input[type=text] { width: 3em; }
+
+.unselectable {
+  cursor: default;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+.clickable { cursor: pointer; }
+.clickable.disabled { cursor: auto; }
+
+/* LayerView */
+.layerview {
+  padding: 0.3em;
+  width: 20em;
+  position: relative;
+}
+
+.layerview .section {
+  border-bottom: 1px solid #dddddd;
+}
+
+.layerview .section h1 {
+  font-size: 1.2em;
+  font-weight: normal;
+  margin: 0 0 0.1em 0.22em;
+}
+
+.layerview .section ul {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+.layerview .layer {
+  height: 1.3em;
+  line-height: 1.3em;
+  vertical-align: middle;
+  display: block;
+}
+
+.layerview .layer .content {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.layerview .layer .content .colorbox {
+  position: relative;
+  display: inline-block;
+  top: 0.13em;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.2em;
+}
+
+.layerview .layer .accessory {
+  float: right;
+}
+
+.layerview .layer .accessory-edit {
+  margin-left: 0.2em;
+  padding: 0 0.2em;
+  border-radius: 0.2em;
+  -moz-border-radius: 0.2em;
+}
+
+.layerview .layer .accessory-edit:hover {
+  background: #ffffaa;
+}
+
+.layerview .layer-creator input[type=checkbox],
+.layerview .layer-creator .accessory {
+  visibility: hidden;
+}
+
+.layerview .layer-creator form {
+  display: inline;
+}
+
+.layerview .layer-creator input[type=file] {
+  width: 19em;
+}
+
+/* PanedMap */
+.pane-content {
+  height: 100%;
+  z-index: 1;
+  overflow-y: auto;
+}
+
+.pane-content, .pane-handle {
+  background: #eeeeee;
+}
+
+.pane-handle {
+  width: 1em;
+  height: 1.2em;
+  position: absolute;
+  z-index: 2;
+
+  background-size: 0.7em;
+  background-repeat: no-repeat;
+  background-position: right center;
+
+  border-top-right-radius: 0.3em;
+  border-bottom-right-radius: 0.3em;
+  -moz-border-radius-topright: 0.3em;
+  -moz-border-radius-bottomright: 0.3em;
+}
+
+.pane-handle.left {
+  background-image: url('/static/cchdomap/images/shade_arrow_left.png');
+}
+
+.pane-handle.right {
+  background-image: url('/static/cchdomap/images/shade_arrow_right.png');
+}

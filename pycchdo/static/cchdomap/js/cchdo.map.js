@@ -5,7 +5,7 @@
 //   google.maps v3
 //   google.visualization [table]
 
-function rails_csrf() {
+function csrf() {
   var data = {};
   data[$('meta[name=csrf-param]').attr('content')] =
     $('meta[name=csrf-token]').attr('content');
@@ -36,8 +36,38 @@ function loadScript(url, callback) {
   }
 }
 
-var CCHDO = defaultTo(CCHDO, {});
+/* http://james.padolsey.com/javascript/special-scroll-events-for-jquery/ */
+(function(){
+  var special = jQuery.event.special,
+      uid1 = 'D' + (+new Date()),
+      uid2 = 'D' + (+new Date() + 1);
+  special.scrollstop = {
+    latency: 300,
+    setup: function() {
+      var timer,
+          handler = function(evt) {
+          var _self = this,
+              _args = arguments;
+ 
+          if (timer) {
+            clearTimeout(timer);
+          }
+ 
+          timer = setTimeout(function(){
+            timer = null;
+            evt.type = 'scrollstop';
+            jQuery.event.handle.apply(_self, _args);
+          }, special.scrollstop.latency);
+        };
+      jQuery(this).bind('scroll', handler).data(uid2, handler);
+    },
+    teardown: function() {
+      jQuery(this).unbind( 'scroll', jQuery(this).data(uid2) );
+    }
+  };
+})();
 
+var CCHDO = defaultTo(CCHDO, {});
 
 (function (CCHDO) {
 // TODO
@@ -53,7 +83,7 @@ CCHDO.MAP = {
   })(),
   MIN_TIME: 1967,
   MAX_TIME: new Date().getFullYear(),
-  APPNAME: '/cchdomap',
+  APPNAME: '/search/map',
   LOADING_IMG: '<img src="/static/cchdomap/images/rotate.gif" />',
   Z: {
     'region': google.maps.Marker.MAX_ZINDEX + 1,
@@ -61,7 +91,8 @@ CCHDO.MAP = {
     'hl': google.maps.Marker.MAX_ZINDEX + 3,
     'dim': google.maps.Marker.MAX_ZINDEX + 4,
     'dimhl': google.maps.Marker.MAX_ZINDEX + 5
-  }
+  },
+  NRESULT_WARN_THRESHOLD: 50
 };
 
 CCHDO.MAP.TIPS = {
@@ -91,9 +122,10 @@ CCHDO.MAP.TIPS = {
     'lon &lt;whitespace&gt; lat\netc.</pre>',
   'search': "<p>You may search for specific parameters using the syntax " + 
             "'parameter:query' e.g.</p>" + 
-            "<ul><li>ship:knorr</li><li>line:p10</li>" + 
-            "<li>chief_scientist:swift</li></ul>" + 
+            "<ul><li>ship:Knorr</li><li>line:p10</li>" + 
+            "<li>chief_scientist:Swift</li></ul>" + 
             "<p>These parameters are valid:</p>" +
+            // TODO these need to change
             "<ul><li>Group</li><li>Chief_Scientist</li><li>ExpoCode</li>" + 
             "<li>Alias</li><li>Ship</li><li>Line</li></ul>."
 };
@@ -183,7 +215,20 @@ CCHDO.MAP.load = function () {
     completeInit();
   });
 
-  $('body').animate({'scrollTop': $('#cchdo_menu').offset().top}, 'slow');
+  // If the page is dropped inside a zone surrounding the top of the map,
+  // scroll to the nicest viewing spot.
+  var menu_offset = $('#cchdo_menu').offset().top;
+  $('body').animate({'scrollTop': menu_offset}, 1000, function () {
+    var toler_top = $('#picture').height();
+    var toler_bot = $('#gfooter').height() + 8;
+    $(document).bind('scrollstop', function () {
+      var scrollTop = $(this).scrollTop();
+      if (scrollTop - toler_bot <= menu_offset && 
+          menu_offset <= scrollTop + toler_top) {
+        $('body').animate({'scrollTop': menu_offset}, 'fast');
+      }
+    });
+  });
 };
 })(CCHDO);
 
@@ -835,15 +880,16 @@ Model.prototype.dissociate = function (layer) {
   });
 };
 
-Model.prototype.query = function (layer, query, callback, tracks_callback, error_callback) {
+Model.prototype.query = function (layer, query, callback, tracks_callback,
+                                  error_callback) {
   var self = this;
 
   function handleData(data) {
     var id_t = data["id_t"];
-    var limit = 50;
-    if (getNumberOfProperties(id_t) > limit) {
-      $('<div>There are more than ' + limit + ' results for your query. ' +
-        'If you continue this will take a while.</div>').dialog({
+    if (getNumberOfProperties(id_t) > CCHDO.MAP.NRESULT_WARN_THRESHOLD) {
+      $('<div>There are more than ' + CCHDO.MAP.NRESULT_WARN_THRESHOLD +
+        ' results for your query. If you continue, plotting will take time.' + 
+        '</div>').dialog({
         modal: true,
         title: 'Are you sure?',
         buttons: {
@@ -960,14 +1006,14 @@ Model.prototype.query = function (layer, query, callback, tracks_callback, error
       return [shape.shape, serializeVs(shape.v)].join(':')
     }
 
-    queryData = {shapes: [serializeShape(shape)]};
+    queryData = {shapes: [serializeShape(shape)].join('|')};
   }
 
   queryData.min_time = query.min_time || CM.MIN_TIME;
   queryData.max_time = query.max_time || CM.MAX_TIME;
 
   $.ajax({
-    url:'/cchdomap/ids',
+    url: CM.APPNAME + '/ids',
     method: 'GET',
     dataType: 'json',
     data: queryData,
@@ -1087,7 +1133,7 @@ function GVTable() {
   Table.call(this);
   this._dt = new google.visualization.DataTable({
     cols: [
-      {label: 'id', type: 'number'},
+      {label: 'id', type: 'string'},
       {label: 'link', type: 'string'},
       {label: 'Name', type: 'string'},
       {label: 'Programs', type: 'string'},
@@ -1125,7 +1171,7 @@ GVTable.prototype.idsAdded = function (ids) {
   ids.forEach(function (id) {
     var tid = model._id_tid[id];
     var info = model._infos[id];
-    self.add(Number(id), info, tid != null);
+    self.add(id, info, tid != null);
   });
   this.redraw();
 };
@@ -1206,7 +1252,7 @@ GVTable.prototype.tableRows = function () {
 };
 
 GVTable.prototype.getDtRowsForCid = function (cid) {
-  return this._dt.getFilteredRows([{column: 0, value: Number(cid)}]);
+  return this._dt.getFilteredRows([{column: 0, value: cid}]);
 };
 
 GVTable.prototype.getCidForDtRow = function (dtrow) {
@@ -1461,6 +1507,8 @@ Track.prototype.hl = function () {
   this.set('strokeColor', '#ffaa22');
   this.set('zIndex', CM.Z['hl']);
   var self = this;
+
+  // TODO low performance
   //setTimeout(function () {
   //  self._createStations();
   //  self._station_leader.set('visible', true);
@@ -1471,6 +1519,8 @@ Track.prototype.dimhl = function () {
   this.set('strokeColor', '#ffffaa');
   this.set('zIndex', CM.Z['dimhl']);
   var self = this;
+
+  // TODO low performance on hl
   //setTimeout(function () {
   //  self._createStations();
   //  self._station_leader.set('visible', true);
@@ -2274,7 +2324,7 @@ function KMLLayerCreator() {
   $(form).ajaxForm({
     url: CM.APPNAME + '/layer',
     dataType: 'json',
-    data: rails_csrf(),
+    data: csrf(),
     iframe: true,
     beforeSubmit: function (arr, form, options) {
       var filename = filefield.value;
@@ -2407,7 +2457,7 @@ function NAVLayerCreator() {
   $(form).ajaxForm({
     url: CM.APPNAME + '/layer',
     dataType: 'json',
-    data: rails_csrf(),
+    data: csrf(),
     iframe: true,
     beforeSubmit: function (arr, form, options) {
       var filename = filefield.value;

@@ -153,9 +153,9 @@ def main(global_config, **settings):
                     renderer='templates/search/map.jinja2')
     config.add_route('search_map_ids', '/search/map/ids')
     config.add_view('pycchdo.views.search_map.ids', route_name='search_map_ids')
-    config.add_route('search_map_layers', '/search/map/layers')
-    config.add_view('pycchdo.views.search_map.layers',
-                    route_name='search_map_layers')
+    config.add_route('search_map_layer', '/search/map/layer')
+    config.add_view('pycchdo.views.search_map.layer',
+                    route_name='search_map_layer')
 
     # maintain legacy data_access
     config.add_route('data_access','/data_access')

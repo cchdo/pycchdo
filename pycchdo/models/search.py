@@ -335,7 +335,7 @@ def search(query_string, limit=None):
     """ Performs search based on a query string
 
         Returns:
-        A bunch of Objs
+            A dict with each type of index and a bunch of Objs for each type
     """
     results = {}
     for name, schema in _schemas.items():
@@ -356,6 +356,25 @@ def search(query_string, limit=None):
             except AttributeError:
                 pass
     return results
+
+
+def compile_into_cruises(results):
+    """ Takes the results of a search() and turns them into a list of Cruises
+
+        Notes are excluded from this compilation.
+
+    """
+    cruises = []
+    for key, objs in results.items():
+        if key == 'note':
+            continue
+        if key == 'cruise':
+            cruises.extend(objs)
+        elif key in ('person', 'ship', 'country', 'institution',
+                     'collection', ):
+            for obj in objs:
+                cruises.extend(obj.cruises())
+    return cruises
 
 
 _ensure_index_dir()

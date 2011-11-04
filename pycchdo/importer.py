@@ -2018,9 +2018,7 @@ def main(argv):
     implog.info("Get/Create Importer to take blame")
     importer = _import_person(None, 'importer', 'CCHDO', 'CCHDO_importer')
 
-    models._Attr._mongo_collection().ensure_index([('obj', 1), ('value', 1)])
-    models._Attr._mongo_collection().ensure_index([('key', 1), ('value', 1),
-                                                   ('accepted', 1)])
+    models.ensure_indices()
 
     # libcchdo does not need a local cache of parameter information. That will
     # be done during the import

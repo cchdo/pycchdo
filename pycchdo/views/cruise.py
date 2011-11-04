@@ -4,6 +4,7 @@ import logging
 from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound
 
 import pycchdo.models as models
+import pycchdo.helpers as h
 
 from . import *
 from ..models.search import search
@@ -130,16 +131,8 @@ def cruise_show(request):
     history = []
     if cruise_obj:
         # TODO collecting these takes a while
-        try:
-            cruise['date_start'] = cruise_obj.date_start.strftime('%F')
-        except AttributeError:
-            cruise['date_start'] = None
-        try:
-            cruise['date_end'] = cruise_obj.date_end.strftime('%F')
-        except AttributeError:
-            cruise['date_end'] = None
-        cruise['cruise_dates'] = '/'.join(map(str, filter(None, (
-            cruise['date_start'], cruise['date_end']))))
+        cruise['date_start'], cruise['date_end'], cruise['cruise_dates'] = \
+            h.cruise_dates(cruise_obj)
         cruise['link'] = cruise_obj.get('link')
 
         def getAttr(cruise_obj, type):

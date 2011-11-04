@@ -494,10 +494,10 @@ DShape.prototype = new google.maps.OverlayView();
 DShape.prototype.sameVertexThreshold = 10;
 
 DShape.prototype.icons = {
-  setVertex: new google.maps.MarkerImage('/images/cchdomap/dshape-solid.png',
+  setVertex: new google.maps.MarkerImage('/static/cchdomap/images/dshape-solid.png',
     new google.maps.Size(11, 11), new google.maps.Point(0, 0),
     new google.maps.Point(5, 5)),
-  gasVertex: new google.maps.MarkerImage('/images/cchdomap/dshape-gas.png',
+  gasVertex: new google.maps.MarkerImage('/static/cchdomap/images/dshape-gas.png',
     new google.maps.Size(11, 11), new google.maps.Point(0, 0),
     new google.maps.Point(5, 5))
 };
@@ -517,13 +517,17 @@ DShape.prototype.onRemove = function () {
  * (google.maps.Point) eventPt(event)
  */
 DShape.prototype.eventPt = function (event) {
-  var x = event.x;
-  var y = event.y;
-  if (isNaN(x)) {
+  var x = event.pageX;
+  var y = event.pageY;
+  if (x === undefined || isNaN(x)) {
     x = event.clientX;
   }
-  if (isNaN(y)) {
+  if (y === undefined || isNaN(y)) {
     y = event.clientY;
+  }
+  if (x === undefined || isNaN(x) ||
+      y === undefined || isNaN(y)) {
+    return new google.maps.Point(0, 0);
   }
   var abspos = absPos(this.getMap().getDiv());
   x -= abspos.left;
@@ -532,10 +536,24 @@ DShape.prototype.eventPt = function (event) {
 };
 
 /**
+ * (google.maps.LatLng) ptLatLng(pt)
+ */
+DShape.prototype.ptLatLng = function (pt) {
+  return this.getProjection().fromContainerPixelToLatLng(pt);
+};
+
+/**
  * (google.maps.LatLng) eventLatLng(event)
  */
 DShape.prototype.eventLatLng = function (event) {
-  return this.getProjection().fromContainerPixelToLatLng(this.eventPt(event));
+  return this.ptLatLng(this.eventPt(event));
+};
+
+/**
+ * (google.maps.Point) latLngToPoint(latlng)
+ */
+DShape.prototype.latLngToPoint = function (latlng) {
+  return this.getProjection().fromLatLngToContainerPixel(latlng);
 };
 
 DShape.prototype.setShape = function (path, type) {
@@ -573,7 +591,7 @@ DShape.prototype.drawPolygon = function (ll, firstReset, lastReset) {
 
   var placingFirst = true;
   var ll0 = ll;
-  var pt0 = this.getProjection().fromLatLngToContainerPixel(ll0);
+  var pt0 = this.latLngToPoint(ll0);
 
   var interim_poly;
   if (!self.get('line')) {
@@ -651,7 +669,7 @@ DShape.prototype.drawPolygon = function (ll, firstReset, lastReset) {
     }
     var pt = self.eventLatLng(event);
 
-    var ptpt = self.getProjection().fromLatLngToContainerPixel(pt);
+    var ptpt = self.latLngToPoint(pt);
     if (self.samePoint(ptpt, pt0)) {
       finish();
       return;
@@ -861,11 +879,12 @@ DShape.prototype.start = function () {
     var dragMoveEar = google.maps.event.addDomListener(
       div, 'mousemove', function (event) {
       var drag_end = self.eventPt(event);
-      var end = self.getProjection().fromContainerPixelToLatLng(drag_end);
+
+      var end = self.ptLatLng(drag_end);
       if (!self.samePoint(drag_start, drag_end)) {
         google.maps.event.removeListener(dragMoveEar);
         google.maps.event.removeListener(upEar);
-        var start = self.getProjection().fromContainerPixelToLatLng(drag_start);
+        var start = self.ptLatLng(drag_start);
         self.drawPresets(start, end, resetMapAfterFirstAction, resetMapAfterLastAction);
       }
     });
@@ -873,7 +892,7 @@ DShape.prototype.start = function () {
       div, 'mouseup', function (event) {
       google.maps.event.removeListener(dragMoveEar);
       var drag_end = self.eventPt(event);
-      var end = self.getProjection().fromContainerPixelToLatLng(drag_end);
+      var end = self.ptLatLng(drag_end);
 
       if (self.samePoint(drag_start, drag_end)) {
         self.drawPolygon(end, resetMapAfterFirstAction, resetMapAfterLastAction);

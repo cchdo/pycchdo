@@ -100,6 +100,19 @@ def boxed(title='', bottom='', **attrs):
             ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
 
 
+def cruise_dates(cruise):
+    try:
+        start = cruise.date_start.strftime('%F')
+    except AttributeError:
+        start = None
+    try:
+        end = cruise.date_end.strftime('%F')
+    except AttributeError:
+        end = None
+    combined = '/'.join(map(str, filter(None, (start, end))))
+    return (start, end, combined)
+
+
 def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
     thumb_link = ''
     thumb_img = whh.tags.image(data_uri(thumb), 'Cruise Map thumbnail')

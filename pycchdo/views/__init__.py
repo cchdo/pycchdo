@@ -99,9 +99,18 @@ def submit(request):
 def _file_response(file):
     resp = Response()
     resp.app_iter = file
-    resp.content_length = file.length
-    resp.content_type = file.content_type
-    resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
+    try:
+        resp.content_length = file.length
+    except AttributeError:
+        pass
+    try:
+        resp.content_type = file.content_type
+    except AttributeError:
+        pass
+    try:
+        resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
+    except AttributeError:
+        resp.content_disposition = 'inline'
     return resp
 
 

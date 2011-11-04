@@ -56,8 +56,13 @@ def init_conn(settings, **kwargs):
         raise IOError('Unable to connect to database (%s). Check that the '
                       'database server is running.' % settings['db_uri'])
 
-    # TODO This requires MongoDB 1.9+
-    #cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
+
+def ensure_indices():
+    cchdo().attrs.ensure_index([('obj', 1), ('value', 1)])
+    cchdo().attrs.ensure_index([('key', 1), ('value', 1), ('accepted', 1)])
+    # This requires MongoDB >=1.3.3
+    cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
+    # Indexing by polygon requires MongoDB >=1.9
 
 
 def cchdo():
@@ -418,11 +423,11 @@ class collectablemongodoc(idablemongodoc):
         return unicode(idablemongodoc.__repr__(self))
 
     def __repr__(self):
-        collection = self.__class__._mongo_collection().name
+        klass = self.__class__.__name__
         try:
-            return u"(%s).%s" % (collection, self['_id'])
+            return u"%s(%s)" % (klass, self['_id'])
         except KeyError:
-            return u'(%s).unsaved' % collection
+            return u'%s(unsaved)' % klass
 
 
 class Note(collectablemongodoc):
@@ -778,6 +783,7 @@ class _Attr(_Change, _FileHolder):
 
     @property
     def file_original(self):
+        # Let _FileHolder handle this
         return super(_Attr, self).file
 
     @property
@@ -1108,8 +1114,18 @@ class Obj(_Change):
                       objs)
 
     @classmethod
+    def descendant_classes(cls):
+        classes = cls.__subclasses__()
+        descendants = []
+        for klass in classes:
+            subclasses = klass.descendant_classes()
+            descendants.append(klass)
+            descendants.extend(subclasses)
+        return descendants
+
+    @classmethod
     def subclass_map(cls):
-        return dict([(k.__name__, k) for k in cls.__subclasses__()])
+        return dict([(k.__name__, k) for k in cls.descendant_classes()])
 
     @classmethod
     def get_all_polymorphic(cls, *args, **kwargs):
@@ -1139,7 +1155,7 @@ class Obj(_Change):
         try:
             klass = cls.subclass_map().get(obj['_obj_type'], cls)
             return klass.map_mongo(obj)
-        except (TypeError, KeyError):
+        except (TypeError, KeyError) as e:
             return cls.map_mongo(obj)
 
     def __unicode__(self):

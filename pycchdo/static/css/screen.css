@@ -183,8 +183,11 @@ input[type="submit"]:active {
   /* make a light area in the picture for the menu */
   background: url("/static/img/banners/transparent_menu_bg.png");
   background: rgba(255, 255, 255, 0.5);
-  height: 1.4em;
+  height: 1.5em;
   text-align: center;
+}
+#cchdo_menu h1 a {
+  font-size: 1.1em;
 }
 #cchdo_menu a {
   color: #000000;
@@ -192,7 +195,8 @@ input[type="submit"]:active {
 }
 #cchdo_menu li {
   /* Make all entries a little bigger */
-  height: 1.3em;
+  height: 1.5em;
+  line-height: 1.7em;
   padding: 0 2em;
   position: relative;
   display: inline;

@@ -166,4 +166,11 @@
 .by-ocean ol li.break {
   display: block;
 }
+.by-ocean .subsection {
+  clear: left;
+}
+.by-ocean .mapimg {
+  float: left;
+  margin-right: 1em;
+}
 

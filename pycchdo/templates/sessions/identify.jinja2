@@ -1,13 +1,39 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Signin{% endblock %}
+{% block head %}
+  {{ whh.tags.stylesheet_link('/static/css/session/identify.css') }}
+{% endblock %}
+{% block title %}Sign in{% endblock %}
 {% block content %}
-  {% call h.boxed('Please identify yourself') -%}
-    <iframe src="http://cchdo.rpxnow.com/openid/embed?token_url=http%3A%2F%2Fdimes.ucsd.edu%3A6543%2Fsession%2Fnew" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px"></iframe>
-
-    <p>or</p>
-
-    <form action="/sessions/new">
-      <p>Provide some identifying information:</p>
-    </form>
+  {% call h.boxed(whh.literal('&nbsp;')) -%}
+    {%- if request.user %}
+      <p>Welcome {{ request.user.full_name() }}!</p>
+    {%- else %}
+      <table id="options">
+        <tr>
+          <td class="left"><div id="janrainEngageEmbed"></div></td>
+          <td class="right">
+            <div id="no_accounts">
+              <h2>No account with Google, Twitter or Facebook?</h2>
+              <p>Please consider using</p>
+              <p><a href="http://openid.net/"><img alt="OpenID" src="/static/openid-logo-wordmark.png"></a></p>
+              <p><a href="http://openid.net/">Learn about OpenID.</a></p>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <div id="anonymity_optin">
+              {{ whh.tags.form(request.route_path('session_new'), hidden_fields={'anonymous': 'optin'}) }}
+                <input type="submit" value="Remain anonymous">
+              </form>
+            </div>
+          </td>
+        </tr>
+      </table>
+    {%- endif %}
   {%- endcall %}
+{% endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {%- if not request.user %}{% include 'templates/_janrain.html' ignore missing %}{%- endif %}
 {% endblock %}

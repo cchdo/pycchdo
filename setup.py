@@ -8,19 +8,18 @@ README = open(os.path.join(here, 'README.txt')).read()
 CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 _importer_requires = [
-    'libcchdo',
+#    'libcchdo',
     'paramiko',
     ]
 
 requires = [
-    'pyramid',
     'pyramid_jinja2',
-    'shapely',
-    'transaction',
     'webhelpers',
-    'whoosh',
-    'repoze.tm2>=1.0b1', # default_commit_veto
     'WebError',
+    'pymongo',
+    'whoosh',
+    'geojson',
+    'shapely',
     ] + _importer_requires
 
 if sys.version_info[:3] < (2,5,0):

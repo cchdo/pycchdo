@@ -33,20 +33,33 @@ def title(**kwargs):
     return ''
 
 
-def form_entered(request, key):
+def form_entered(request, key, value=None):
     entered_key = 'form_entered_' + key
+
+    if value is not None:
+        request.session.flash(value, entered_key)
+        return
+
     if request.session.peek_flash(entered_key):
         return request.session.pop_flash(entered_key)[0]
     return ''
 
 
-def form_errors_for(request, key):
+def form_errors_for(request, key, value=None):
     error_key = 'form_error_' + key
+
+    if value is not None:
+        request.session.flash(value, error_key)
+        return
+
     if request.session.peek_flash(error_key):
         errors = [whh.HTML.span(x, class_='form-error') for x in \
                   request.session.pop_flash(error_key)]
         return whh.literal(''.join(errors))
     return ''
+
+
+form_errors = form_errors_for
 
 
 def email_link(email, microformat_type=None, microformat_classes=[], content=None):

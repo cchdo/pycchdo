@@ -1,0 +1,31 @@
+#content .box_content {
+  text-align: center;
+}
+
+#options {
+  width: 100%;
+}
+
+#janrainEngageEmbed,
+#no_accounts {
+  width: 395px;
+  margin: auto;
+}
+
+#no_accounts h2 {
+  font-size: 1.2em;
+  margin-top: 1em;
+}
+#no_accounts {
+  background: #FFFFEF;
+}
+#no_accounts a {
+  display: block;
+}
+#no_accounts p {
+  font-size: 0.8em;
+}
+
+#anonymity_optin {
+  margin: 1em;
+}

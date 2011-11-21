@@ -17,8 +17,8 @@ pre {
 .flash {
   font-size: 1.1em;
   padding: 0.5em;
-  border: 1px solid #A0A0A0;
-  border-bottom: 0;
+  border: 1px solid #F0F0F0;
+  background: #FFFFEE;
 }
 .flash.action_taken {
   background: #EEC591;
@@ -33,7 +33,9 @@ pre {
 /* Form errors */
 .form-error {
   color: #FF0000;
-  background: #FFEEEE;
+  background: #FFFAFA;
+  font-size: 0.85em;
+  padding: 0.2em;
 }
 
 /* Used to hide Microformat specific tags */

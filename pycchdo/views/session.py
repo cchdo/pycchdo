@@ -11,23 +11,30 @@ import pycchdo.models as models
 _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
 
 
-def _save_request(request):
-    request.session['signin_return_uri'] = request.referrer
+def _save_request(request, uri=None):
+    if uri is None:
+        uri = request.referrer
+    print 'saving return uri', uri
+    request.session['signin_return_uri'] = uri
 
 
-def _restore_request(request, profile):
+def _redirect_uri(request):
     try:
         redirect_uri = request.session['signin_return_uri']
         del request.session['signin_return_uri']
     except KeyError:
-        redirect_uri = '/session'
+        redirect_uri = '/session/identify'
+    return redirect_uri
 
-    return HTTPSeeOther(location=redirect_uri,
+
+def _restore_request(request, profile):
+    return HTTPSeeOther(location=_redirect_uri(request),
                         headers=_sign_in_user(request, profile))
 
 
 def require_signin(request):
     _save_request(request)
+    request.session['skip_save_signin_return_uri'] = True
     return HTTPSeeOther(location='/session/identify')
 
 
@@ -37,7 +44,12 @@ def session_show(request):
 
 
 def session_identify(request):
-    _save_request(request)
+    if not request.session.get('skip_save_signin_return_uri', False):
+        _save_request(request)
+    try:
+        del request.session['anonymous']
+    except KeyError:
+        pass
     return {}
 
 
@@ -58,7 +70,14 @@ def _sign_in_user(request, profile):
 
 
 def session_new(request):
-    token = request.params['token']
+    if request.params.get('anonymous') == 'optin':
+        request.session['anonymous'] = True
+        return HTTPSeeOther(location=_redirect_uri(request))
+
+    token = request.params.get('token', None)
+
+    if not token:
+        return HTTPSeeOther(location=_redirect_uri(request))
      
     # auth_info expects an HTTP Post with the following paramters:
     api_params = {
@@ -87,4 +106,4 @@ def session_new(request):
 
 
 def session_delete(request):
-    return HTTPSeeOther(location='/session', headers=forget(request))
+    return HTTPSeeOther(location=request.referrer, headers=forget(request))

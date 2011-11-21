@@ -1,0 +1,39 @@
+{% extends "templates/base.jinja2" %}
+{%- block head %}
+  <style>
+    dt { font-size: 1.2em; margin-top: 0.5em; }
+    dd { margin-left: 1em; }
+  </style>
+{%- endblock %}
+{%- block content -%}
+{%- if submission %}
+  {%- call h.boxed('Data submission by %s' % submission.name) %}
+    <p>Thank you for submitting data, {{ submission.name }}.</p>
+    <dl>
+      <dt>{% trans count=files|length %}File{% pluralize %}Files{% endtrans %}</dt>
+        <dd>{{ ''.join(files) }}</dd>
+      <dt>Status</dt>
+        <dd>{{ files|attr('public') or 'Non-public' }}</dd>
+      <dt>Action</dt>
+        <dd>{{ files|attr('action') or 'No action specified' }}</dd>
+      <dt>Expocode</dt>
+        <dd>{{ files|attr('expocode') or 'No expocode given' }}</dd>
+      <dt>Line</dt>
+        <dd>{{ files|attr('line') or 'No WOCE line suggested' }} </dd>
+      <dt>Cruise Date</dt>
+        <dd>{{ files|attr('cruise_date') or 'No cruise dates given' }}</dd>
+      <dt>Institution</dt>
+        <dd>{{ files|attr('institution') or 'No institution given' }}</dd>
+      <dt>Country</dt>
+        <dd>{{ files|attr('country') or 'No country given' }}</dd>
+      <dt>Confirmation sent to</dt>
+        <dd>{{ files|attr('email') }}</dd>
+    </dl>
+  {%- endcall %}
+{%- else %}
+  {%- call h.boxed('File submission error') %}
+    <p>We apologize, the system encountered an error while processing your submission.</p>
+    <p>Please email your submission directly to <a href="mailto:cberysgo@ucsd.edu">cberysgo@ucsd.edu</a>.</p>
+  {%- endcall %}
+{%- endif %}
+{%- endblock %}

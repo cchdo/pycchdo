@@ -25,14 +25,15 @@ def _suggest_file(request, cruise_obj):
         if not type in models.data_file_descriptions.keys():
             logging.warn('Attempted to suggest file with improper type')
             request.response_status_int = 400
-            request.session.flash('help',
-                                  'Invalid file type. Please try again.')
+            request.session.flash(
+                'Invalid file type. Please try again.', 'help')
             return
     except KeyError:
         logging.warn('Attempted to suggest file without type')
         request.response_status = '400 Bad Request'
-        request.session.flash('help', 'Your file submission was missing '
-                                      'a type. Please try again.')
+        request.session.flash(
+            'Your file submission was missing a type. Please try again.',
+            'help')
         return
     try:
         file = request.params['file']
@@ -41,8 +42,8 @@ def _suggest_file(request, cruise_obj):
     except KeyError:
         logging.warn('Attempted to suggest file without file')
         request.response_status = '400 Bad Request'
-        request.session.flash('help',
-            'You did not select a file. Please try again.')
+        request.session.flash(
+            'You did not select a file. Please try again.', 'help')
         return
     cruise_obj.set(type, file, request.user)
 
@@ -55,8 +56,8 @@ def _add_note_to_file(request):
     except KeyError:
         logging.warn('Attempted to add note with missing attributes')
         request.response_status = '400 Bad Request'
-        request.session.flash('help',
-            'Your note was missing parts. Please try again.')
+        request.session.flash(
+            'Your note was missing parts. Please try again.', 'help')
         return
 
     try:
@@ -67,8 +68,8 @@ def _add_note_to_file(request):
     file_obj = models._Attr.get_id(file_id)
     if not file_obj:
         request.response_status = '404 Not Found'
-        request.session.flash('help',
-            'The file you tried to add a note to could not be found.')
+        request.session.flash(
+            'The file you tried to add a note to could not be found.', 'help')
         return
 
     file_obj.add_note(models.Note(request.user, note, discussion=not public))
@@ -83,8 +84,8 @@ def _add_note(request, cruise_obj):
     except KeyError:
         logging.warn('Attempted to add note with missing attributes')
         request.response_status = '400 Bad Request'
-        request.session.flash('help', 'Your note was missing parts. Please '
-                                      'try again.')
+        request.session.flash('Your note was missing parts. Please try again.',
+                              'help')
         return
 
     try:

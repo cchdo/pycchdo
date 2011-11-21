@@ -46,7 +46,7 @@
         ]
     }
   %}
-  {% set jsapiload = encode(to_json(modules)) or '' %}
+  {% set jsapiload = urlquote(json(modules)) or '' %}
   {# dimes:8000 #}
   {# set key = "ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw" #}
   {# dimes:6543 #}

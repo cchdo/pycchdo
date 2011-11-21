@@ -1,7 +1,6 @@
 import datetime
 import os
 import logging
-from urllib import quote
 import json
 import math
 import time
@@ -75,10 +74,7 @@ class MapsJSONEncoder(json.JSONEncoder):
 
 
 def index(request):
-    return {'default': DEFAULTS,
-            'encode': quote,
-            'to_json': json.dumps,
-           }
+    return {'default': DEFAULTS}
 
 
 def ids(request):

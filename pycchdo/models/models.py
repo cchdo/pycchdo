@@ -1620,12 +1620,12 @@ class OldSubmission(Obj):
         super(OldSubmission, self).remove()
 
 
-class Submission(Obj):
+class Submission(Obj, _FileHolder):
     """ A Submission to the CCHDO. These interface with humans so they need
         intervention to make everything behave nicely before going into the
         system.
 
-        Keys:
+        Attributes:
         expocode
         ship_name
         line
@@ -1634,8 +1634,9 @@ class Submission(Obj):
         assigned - whether the submission has been assigned
         cruise_date - the date of the cruise being submitted
         suggested - an _Attr. When this is set, the submission has been
-                    looked at by a human and the _Attr represents verified
-                    information
+                    looked at by a human and the corresponding _Attr represents
+                    verified information representing this submission.
+        file - the file that is being suggested
 
     """
     def attach(self, attr):

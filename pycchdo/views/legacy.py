@@ -5,6 +5,10 @@ import pycchdo.models as models
 from . import _file_response
 
 
+def add_extension(request, ext='html'):
+    return HTTPMovedPermanently(location=u'%s.%s' % (request.url, ext))
+
+
 def data_access(request):
     return HTTPMovedPermanently(location='/search/advanced')
 
@@ -24,3 +28,7 @@ def data_df(request):
     if not attr:
         return HTTPNotFound()
     return HTTPMovedPermanently(location='/data/b/%s' % attr.id)
+
+
+def parameter_descriptions(request):
+    return HTTPMovedPermanently(location=request.route_path('parameters'))

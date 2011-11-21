@@ -25,11 +25,17 @@ def add_renderer_globals(event):
     import webhelpers.html
     import webhelpers.html.tags
 
+    from json import dumps
+
+    from urllib import quote
+
     import helpers
 
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
     event['h'] = helpers
+    event['urlquote'] = quote
+    event['json'] = dumps
 
 
 def obj_routes(config, obj, plural_obj=None):
@@ -66,6 +72,7 @@ def main(global_config, **settings):
     models.init_conn(settings)
 
     config.include('pyramid_jinja2')
+    config.include('pyramid_mailer')
     config.add_subscriber(add_renderer_globals, BeforeRender)
 
     # Serve static files from root
@@ -91,11 +98,13 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.information_menu', route_name='information_menu',
                     renderer='templates/information.jinja2')
 
-    config.add_route('submit', '/submit')
-    config.add_view('pycchdo.views.submit', route_name='submit', renderer='templates/submit.jinja2')
+    config.add_route('submit', '/submit.html')
+    config.add_view('pycchdo.views.submit.submit', route_name='submit',
+                    renderer='templates/submit.jinja2')
 
-    config.add_route('clear', '/clear')
-    config.add_view('pycchdo.views.clear_db', route_name='clear')
+    config.add_route('parameters', '/parameters.html')
+    config.add_view('pycchdo.views.parameters', route_name='parameters',
+                    renderer='templates/home.jinja2')
 
     config.add_route('session', '/session')
     config.add_view('pycchdo.views.session.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
@@ -158,12 +167,18 @@ def main(global_config, **settings):
                     route_name='search_map_layer')
 
     # maintain legacy data_access
+    config.add_route('parameter_descriptions', '/parameter_descriptions')
+    config.add_view('pycchdo.views.legacy.parameter_descriptions',
+                    route_name='parameter_descriptions')
     config.add_route('data_access','/data_access')
     config.add_view('pycchdo.views.legacy.data_access', route_name='data_access')
 
     config.add_route('data_access_show_cruise','/data_access/show_cruise')
     config.add_view('pycchdo.views.legacy.data_access_show_cruise',
                     route_name='data_access_show_cruise')
+    config.add_route('submit_no_ext', '/submit')
+    config.add_view('pycchdo.views.legacy.add_extension',
+                    route_name='submit_no_ext')
 
     # Staff
     config.add_route('staff_index', '/staff')

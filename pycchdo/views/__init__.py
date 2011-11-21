@@ -1,15 +1,18 @@
 import os
+import cgi
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound
+from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther
 
 import pycchdo.models as models
+import pycchdo.helpers as h
+from pycchdo.views.session import require_signin
 
 
 __all__ = [
-    '_collapsed_dict', '_http_method', '_unescape',
-    'favicon', 'robots', 'clear_db', 'home', 'browse_menu', 'search_menu',
-    'information_menu', 'submit', 'data', 'catchall_static', 
+    '_collapsed_dict', '_http_method', '_unescape', 'favicon', 'robots', 'home',
+    'browse_menu', 'search_menu', 'information_menu', 'parameters',
+    'data', 'catchall_static', 
     ]
 
 
@@ -57,42 +60,36 @@ except IOError:
     _robots_response = HTTPNotFound()
 
 
-def home(context, request):
-    return {}
-
-
-def browse_menu(context, request):
-    return {}
-
-
-def search_menu(context, request):
-    return {}
-
-
-def information_menu(context, request):
-    return {}
-
-
 def favicon(context, request):
     return _favicon_response
 
 
 def robots(context, request):
-    return _favicon_response
+    return _robots_response
 
 
-def clear_db(request):
-    # XXX REMOVE
-    cchdo = models.cchdo()
-    for obj in cchdo.objs.find():
-        if obj['_obj_type'] != 'Person':
-            cchdo.objs.remove(obj)
-    cchdo.attrs.drop()
-    return Response('OK')
+def _empty_view(context, request):
+    return {}
 
 
-def submit(request):
-    # TODO on POST make separate submissions for each file
+home = _empty_view
+browse_menu = _empty_view
+search_menu = _empty_view
+information_menu = _empty_view
+
+
+def _humanize(obj):
+    if type(obj) == list:
+        if len(obj) == 1:
+            return _humanize(obj[0])
+        leader = ', '.join([_humanize(o) for o in obj[:-1]])
+        if len(obj) > 2:
+            leader += ','
+        return leader + ' and ' + _humanize(obj[-1])
+    return str(obj)
+
+
+def parameters(request):
     return {}
 
 

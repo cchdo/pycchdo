@@ -1424,7 +1424,7 @@ def _import_submissions(session, importer, sftp_cchdo):
 
             public = public_to_bool(sub.public, action)
             # 2011-09-16 myshen
-            # Carolina has determined "assigned" corroborates
+            # cberys has determined "assigned" corroborates
             # non-public status and is generally redundant. More importantly it
             # is not used.
             # "assimilated" is used to color code the submission table according

@@ -2,167 +2,177 @@
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/submit.css') }}
 {%- endblock %}
-{% macro step(number, text='') -%}
-  <div id="step{{number}}">
+{% block title %}Submit Data{% endblock %}
+{% macro step(number, id='', text='') -%}
+  <div id="{{ id }}">
     <h2 class="step-title">Step <em>{{number}}</em>: <span>{{text}}</span></h2>
     {{caller()}}
   </div>
 {%- endmacro %}
 {% block content -%}
 {% call h.boxed('Submit Data') -%}
-  {{ whh.tags.form('/submit', multipart=True) }}
+  {{ whh.tags.form('', multipart=True) }}
 
-  {% call step(1, 'Contact Information') -%}
-    <table>
-      <tr>
-        <th>{{ whh.tags.title('Name (Last, First)', True, 'name') }}</th> 
-        <td>{{whh.tags.text('name')}}</td>
-        <td>{#error_message_on['name']#}</td>
-      </tr>
-      <tr>
-        <th>{{ whh.tags.title('Institution', True, 'institute') }}</th>
-        <td>{{whh.tags.text('institute')}}</td>
-        <td>{#error_message_on['institute']#}</td>
-      </tr>
-      <tr>
-        <th>{{ whh.tags.title('Country', True, 'country')}}</th>
-        <td>{{whh.tags.text('country')}}</td>
-        <td>{#error_message_on['country']#}</td>
-      </tr>
-      <tr>
-        <th>{{ whh.tags.title('Email', True, 'email')}}</th>
-        <td>{{whh.tags.text('email', type="email")}}</td>
-        <td>{#error_message_on['email']#}</td>
-      </tr>
-      </tr>
-    </table>
-  {%- endcall %}
+  {% set step_num = 1 %}
+
+  {% if request.user %}
+    <p>Thank you for submitting data, {{ request.user.name_first }}.</p>
+  {% else %}
+    {% call step(step_num, 'contact_info', 'Contact Information') -%}
+      <p id="signin_invite">
+        Please help us by {{ whh.tags.link_to('leaving a way to contact you', '/session/identify') }}.
+        You may choose to skip this step if you would like.
+      </p>
+    {%- endcall %}
+    {% set step_num = step_num + 1 %}
+  {% endif %}
   
-  {% call step(2, 'Cruise Information') -%}
+  {% call step(step_num, 'cruise_info', 'Cruise Information') -%}
     <table>
       <tr>
-        <th><label for="ExpoCode">ExpoCode or Cruise Name</label></th>
-        <td>{{whh.tags.text('ExpoCode')}}</td>
-        <td>{# error_message_on['ExpoCode'] #}</td>
+        <th><label for="identifier">ExpoCode or Cruise Name</label></th>
+        <td>{{ whh.tags.text('identifier', h.form_entered(request, 'identifier')) }}</td>
+        <td>{{ h.form_errors(request, 'identifier') }}</td>
       </tr>
       <tr>
-        <th><label for="Line">WOCE Line (if known)</label></th>
-        <td>{{whh.tags.text('Line')}}</td>
-        <td>{# error_message_on['Line'] #}</td>
+        <th><label for="woce_line">WOCE Line (if known)</label></th>
+        <td>{{ whh.tags.text('woce_line', h.form_entered(request, 'woce_line')) }}</td>
+        <td>{{ h.form_errors(request, 'woce_line') }}</td>
       </tr>
       <tr>
-        <th><label for="Ship_Name">Ship name</label></th>
-        <td>{{whh.tags.text('Ship_Name')}}</td>
-        <td>{# error_message_on['Ship_Name'] #}</td>
+        <th><label for="ship">Ship</label></th>
+        <td>{{ whh.tags.text('ship', h.form_entered(request, 'ship')) }}</td>
+        <td>{{ h.form_errors(request, 'ship') }}</td>
       </tr>
       <tr>
-        <th><label for="cruise_date">Cruise date</label></th>
-        <td><input name="cruise_date" type="date"></td>
-        <td>{# error_message_on['cruise_date']#}</td>
+        <th><label for="cruise_dates">Cruise dates</label></th>
+        <td><input name="cruise_dates" type="date">{{ h.form_entered(request, 'cruise_dates') }}</td>
+        <td>{{ h.form_errors(request, 'cruise_dates') }}</td>
       </tr>
       <th><label for="notes">Notes</label></th>
-      <td>{{ whh.tags.textarea('notes', cols=35, rows=5) }}</td>
+      <td>{{ whh.tags.textarea('notes', h.form_entered(request, 'notes'), cols=35, rows=5) }}</td>
     </table>
-  
-    <!--h3><label for="notes">Notes</label></h3>
-    {{ whh.tags.textarea('notes', cols=35, rows=5) }}-->
   {%- endcall %}
+  {% set step_num = step_num + 1 %}
   
-  {% call step(3, 'Type of Submission') -%}
+  {% call step(step_num, 'submission_type', 'Type of Submission') -%}
     <table>
       <tr>
         <td>
-          {{ whh.tags.checkbox('actions_1', '1') }}
-          <label for="actions_1">Merge Data</label>
-          <span>{# error_message_on['actions_one'] #}</span>
+          {{ whh.tags.checkbox('type_merge_data', checked=h.form_entered(request, 'type_merge_data')) }}
+          <label for="type_merge_data">Merge Data</label>
+          <span>{{ h.form_errors(request, 'type_merge_data') }}</span>
         </td>
         <td>
-          {{ whh.tags.checkbox('actions_2', '2') }}
-          <label for="actions_2">Place Data Online</label>
-          <span>{# error_message_on['actions_two'] #}</span>
+          {{ whh.tags.checkbox('type_place_online', checked=h.form_entered(request, 'type_place_online')) }}
+          <label for="type_place_online">Place Data Online</label>
+          <span>{{ h.form_errors(request, 'type_place_online') }}</span>
         </td>
       </tr>
       <tr>
         <td>
-          {{ whh.tags.checkbox('actions_3', '3') }}
-          <label for="actions_3">Update Parameters</label>
-          <span>{# error_message_on['actions_three'] #}</span>
+          {{ whh.tags.checkbox('type_update_params', checked=h.form_entered(request, 'type_update_params')) }}
+          <label for="type_update_params">Update Parameters</label>
+          <span>{{ h.form_errors(request, 'type_update_params') }}</span>
         </td>
         <td>
-          {{ whh.tags.checkbox('actions_4', '4') }}
-          <label for="actions_4">Non-public data for Argo calibration (proprietary, rapid-delivery)</label>
-          <span>{# error_message_on['actions_four'] #}</span>
+          {{ whh.tags.checkbox('type_argo', checked=h.form_entered(request, 'type_argo')) }}
+          <label for="type_argo">Non-public data for Argo calibration (proprietary, rapid-delivery)</label>
+          <span>{{ h.form_errors(request, 'type_argo') }}</span>
         </td>
       </tr>
       <tr>
         <td colspan="2">
-          {{whh.tags.radio('public', 'public', checked=True)}}
+          {%- set public = not h.form_entered(request, 'nonpublic') %}
+          {{ whh.tags.radio('public', 'public', checked=public) }}
           <label for="public_public">Public</label>
-          {{whh.tags.radio('public', 'nonpublic')}}
+          {{ whh.tags.radio('public', 'nonpublic', checked=not public) }}
           <label for="public_nonpublic">Non-Public</label>
         </td>
-        <td>{#error_message_on['public']#}</td>
+        <td>{{ h.form_errors(request, 'public') }}</td>
       </tr>
     </table>
   {%- endcall %}
+  {% set step_num = step_num + 1 %}
   
-  {% call step(4, 'Data/Documentation Files') -%}
-  {# if error_messages_for['submission'] -#}
-    <p id="file_reselect_warn">For your protection, the files you previously
-    selected cannot be automatically reselected from your computer (prevents
-    malicious pages from uploading arbitrary files from your computer). Please
-    reselect the files. We apologize for the inconvenience.</p>
-  {#- endif #}
+  {%- call step(step_num, 'files', 'Data/Documentation Files') %}
+  {%- set files = h.form_entered(request, 'files') %}
+  {%- if files %}
+    <div id="file_reselect_warn">
+      <p>
+        For your protection, the files you previously selected cannot be
+        automatically reselected. Otherwise malicious pages could upload
+        arbitrary files from your computer. We apologize for the inconvenience.
+      </p>
+      <p>Here are the files that you had selected: </p>
+      <ul>
+      {%- for file in files %}
+        <li>{{ file }}</li>
+      {%- endfor %}
+      </ul>
+    </div>
+  {%- endif %}
   <div id="files">
-    <p index="0">{{ whh.tags.file('files[0]') }}</p>
+    <p>{{ whh.tags.file('files', multiple='multiple') }}</p>
   </div>
   {%- endcall %}
+  {% set step_num = step_num + 1 %}
 
   {{ whh.tags.submit('Submit', 'Submit') }}
   
   <div id="guides">
-    <p>{{ whh.tags.required_legend() }}</p>
-    <p>
-      <a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Submission Guide</a> |
-      <a href="/argo_submission_info.html">Argo Submission Guide</a>
-    </p>
+    <h2>Guides</h2>
+    <ul>
+      <li><a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Submission Guide</a></li>
+      <li><a href="/argo_submission_info.html">Argo Submission Guide</a></li>
+    </ul>
   </div>
   {%- endcall %}
 {%- endblock %}
 {% block js -%}
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
   <script>
-    jQuery.noConflict();
-    jQuery(document).ready(function ($) {
+    $(document).ready(function () {
       var files = $('#files');
-      files.height(100).css('overflow-y', 'auto');
-      files.find('a[title=Remove]').live('click', function () {
-        $(this).parent().hide('fast', function () { $(this).remove() });
-        if (files.find('p:has(:file)').length <= 1) {
-          files.find('p:has(:file) a[title=Remove]').hide('fast');
-        }
-      });
-      files.change(function () {
-        $('#step_content42').find('.notice').hide('fast');
-      });
-      var remove_button = $('<a title="Remove" href="#">Remove</a>').hide();
-      var sample_file_selector = files.find('p[index=0]').append(remove_button);
-      var addButton = $('<a title="Add file" href="#">Add file</a>').click(function () {
-        var i;
-        for (i = 1; i < files.find('p:has(:file)').length + 1; i += 1) {
-          if (files.find('p[index=' + i + ']').length < 1) {
-            break;
-          }
-        }
-        var clone = sample_file_selector.clone(true).attr('index', i).hide();
-        clone.find('input')
-          .attr('id', sample_file_selector.find('input').attr('id').replace('files[0]', 'files[' + i + ']'))
-          .attr('name', sample_file_selector.find('input').attr('name').replace('files[0]', 'files[' + i + ']'));
-        clone.appendTo(files).show('fast');
-        files.trigger('change').find('p[index!=0] a[title=Remove]').show('fast');
+      var remove_button = $('<input type="button" title="Remove" value="Remove">');
+      var drop = files.find('p :file');
+      var file_list = $('<ol></ol>').appendTo(files);
+
+      function renumber() {
+        file_list.find(':file').each(function (i, x) {
+          $(this).attr('name', 'files[' + i + ']');
+        });
+      }
+
+      function remove() {
+        $(this).parent().hide('fast', function () {
+          $(this).remove();
+          renumber();
+        });
+      }
+
+      function noop(e) {
+        e.preventDefault();
         return false;
+      }
+
+      drop.one('change', function () {
+        $('#file_reselect_warn').hide('fast');
       });
-      files.parent().append(addButton);
+
+      drop.live('change', function () {
+        if ($(this).val() == null || $(this).val() == '') {
+          return;
+        }
+
+        var f = $(this);
+        var p = f.parent();
+        var c = f.clone();
+        f.click(noop).get(0).addEventListener('drop', noop, false);
+        file_list.append($('<li></li>').append(f).append(remove_button.clone().click(remove)).hide().show('fast'));
+        p.append(c);
+        renumber();
+      });
     });
   </script>
 {%- endblock %}

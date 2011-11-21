@@ -1,9 +1,9 @@
-#step1 input[type="text"], 
-#step1 input[type="email"] {
+#contact_info input[type="text"], 
+#contact_info input[type="email"] {
   width: 12em;
 }
-#step2 input[type="text"], 
-#step2 input[type="date"] {
+#cruise_info input[type="text"], 
+#cruise_info input[type="date"] {
   width: 14em;
 }
 
@@ -31,23 +31,43 @@
   font-weight: normal;
 }
 
-td {
+.box_content div td {
   padding: 0.3em;
 }
 
-h3 {
+.box_content div h3 {
   font-weight: bold;
 }
 
-#step1 th {
+#contact_info th {
   width: 10em;
 }
-#step2 th {
+#cruise_info th {
   width: 13em;
 }
 
+#signin_invite {
+  background: #FFFFEE;
+  padding: 0.5em;
+}
+
+#guides h2 {
+  font-size: 1.2em;
+}
+#guides li {
+  list-style-type: disc;
+  margin-left: 2em;
+}
+
 #file_reselect_warn {
-  font-size: 0.8em;
-  width: 66ex;
+  font-size: 0.9em;
+  width: 35em;
   margin: 0.5em 0;
+  color: #000000;
+  background: #FFFFEE;
+  padding: 1em;
+}
+#file_reselect_warn li {
+  list-style-type: disc;
+  margin-left: 2em;
 }

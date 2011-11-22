@@ -33,6 +33,19 @@
                       h.link_person_institutions(cruise.chief_scientists)) }}
       {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
       {{- cruise_attr('Expedition Link', cruise.get('link')) }}
+
+      {# TODO show suggested but unapproved changes #}
+
+      {%- if h.has_mod(request) %}
+        <div id="edit_attr" class="editor">
+        {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr'}) }} 
+          <input type="text" name="key" placeholder="key">
+          <label for="value">: </label>
+          <input type="text" name="value" placeholder="value">
+          <input type="submit" value="Set attribute">
+        {{ whh.tags.end_form() }}
+        </div>
+      {%- endif %}
     </div>
     <div class="clear"></div>
     <div class="subsection data-files">
@@ -91,16 +104,36 @@
         </div>
       {%- endif %}
       {%- if h.has_mod(request) %}
-        <div id="add_file">
+        <div id="add_file" class="editor">
         {{ whh.tags.form('', 'PUT', multipart=True,
                          hidden_fields={'action': 'suggest_file'}) }} 
-          <label for="type">Type</label>
           <select name="type">
-            <option value="bottle_exchange">Bottle Exchange</option>
-            <option value="ctdzip_exchange">CTD Exchange</option>
+            <optgroup label="Exchange">
+              <option value="bottle_exchange">Bottle Exchange</option>
+              <option value="bottlezip_exchange">Bottle ZIP Exchange</option>
+              <option value="ctdzip_exchange">CTD ZIP Exchange</option>
+            </optgroup>
+            <optgroup label="NetCDF">
+              <option value="bottlezip_netcdf">Bottle ZIP NetCDF</option>
+              <option value="ctdzip_netcdf">CTD ZIP NetCDF</option>
+            </optgroup>
+            <optgroup label="WOCE">
+              <option value="bottle_woce">Bottle WOCE</option>
+              <option value="ctdzip_woce">CTD ZIP WOCE</option>
+              <option value="sum_woce">Summary WOCE</option>
+            </optgroup>
+            <optgroup label="Map">
+              <option value="map_thumb">Map thumbnail</option>
+              <option value="map_full">Map full size</option>
+            </optgroup>
+            <optgroup label="Documentation">
+              <option value="doc_txt">Documentation Text</option>
+              <option value="doc_pdf">Documentation PDF</option>
+            </optgroup>
+            <option value="other">Other</option>
           </select>
           <input type="file" name="file">
-          <input type="submit" value="Add">
+          <input type="submit" value="Add file">
         {{ whh.tags.end_form() }}
         </div>
       {%- endif %}
@@ -119,7 +152,7 @@
           {%- if h.has_mod(request) %}
             {%- set i = "new" %}
             {%- set hl="new" %}
-            <tr class="mb-link{{ i }} meta {{ hl }}">
+            <tr class="mb-link{{ i }} meta {{ hl }} editor">
               <td>Add note</td>
               <td><input type="text" name="note_data_type"></td>
               <td><input type="text" name="note_action"></td>

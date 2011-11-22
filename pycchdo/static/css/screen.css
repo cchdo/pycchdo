@@ -357,6 +357,17 @@ input[type="submit"]:active {
   clear: both;
 }
 
+/* Denotes editable forms on any page */
+.editor {
+  background: #FFFFEE;
+  clear: both;
+  margin: 0.5em 0;
+  padding: 0.5em 0;
+  border: 1px solid #EEEEEE;
+  border-left: 0;
+  border-right: 0;
+}
+
 /* search_adv */
 #content.search_adv .box_content {
   padding-top: 0.3em;

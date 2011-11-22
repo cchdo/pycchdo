@@ -2,10 +2,18 @@
 {% block title %}Collection {{ collection.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Collection ' + (collection.name or '')) -%}
-    <ul>
-    {%- for cruise in collection.cruises() %}
-      <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
-    {%- endfor %}
-    </ul>
+    <div class="subsection editor">
+      {{ whh.tags.form('') }}
+        <label for="name">Name</label><input type="text" name="name">
+      {{ whh.tags.end_form() }}
+    </div>
+    <div class="subsection">
+      <h2>Cruises</h2>
+      <ul>
+      {%- for cruise in collection.cruises() %}
+        <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
+      {%- endfor %}
+      </ul>
+    </div>
   {%- endcall %}
 {%- endblock %}

@@ -2,7 +2,8 @@ import os
 import cgi
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther
+from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
+    HTTPNoContent
 
 import pycchdo.models as models
 import pycchdo.helpers as h
@@ -127,6 +128,9 @@ def data(request):
 
     if not data:
         return HTTPNotFound()
+
+    if not data.file:
+        return HTTPNoContent()
 
     return _file_response(data.file)
 

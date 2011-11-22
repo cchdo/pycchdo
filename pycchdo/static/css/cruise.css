@@ -166,3 +166,8 @@ tr.expander {
 .pending .boxed .box_bottom {
   background: #aaddff;
 }
+
+#edit_attr input[type="text"] {
+  width: 5em;
+}
+

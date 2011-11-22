@@ -110,7 +110,7 @@ def cruise_show(request):
         if len(cruises) > 0:
             cruise_obj = cruises[0]
         else:
-            return HTTPBadRequest()
+            return HTTPNotFound()
 
     method = _http_method(request)
 

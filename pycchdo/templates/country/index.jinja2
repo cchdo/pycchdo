@@ -4,7 +4,7 @@
   {% call h.boxed('Countries') -%}
     <ul>
     {%- for country in countries %}
-      <li>{{ whh.tags.link_to(country.name, '/country/%s' % id) }}</li>
+      <li>{{ whh.tags.link_to(country.name, '/country/%s' % country.id) }}</li>
     {%- endfor %}
     </ul>
   {%- endcall %}

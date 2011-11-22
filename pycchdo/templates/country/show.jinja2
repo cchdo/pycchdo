@@ -2,10 +2,26 @@
 {% block title %}Country {{ country.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Country ' + (country.name or '')) -%}
-    <ul>
-    {%- for cruise in country.cruises() %}
-      <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
-    {%- endfor %}
-    </ul>
+    {%- if h.has_mod(request) %}
+      <div class="subsection editor">
+        <dl>
+          <dt><label for="name">Name (<a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>)</label></dt>
+          <dd><input type="text" name="name" value="{{ country.name }}"></dd>
+          <dt><label for="name"><a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2">ISO 3166-1 alpha-2</a></label></dt>
+          <dd><input type="text" name="iso_3166-1_alpha-2" value="{{ country.iso_code() or '' }}"></dd>
+          <dt><label for="name"><a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-3">ISO 3166-1 alpha-3</a></label></dt>
+          <dd><input type="text" name="iso_3166-1_alpha-3" value="{{ country.iso_code(3) or '' }}"></dd>
+        </dl>
+        <input type="submit" value="Save">
+      </div>
+    {%- endif %}
+    <div class="subsection">
+      <h2>Cruises</h2>
+      <ul>
+      {%- for cruise in country.cruises() %}
+        <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
+      {%- endfor %}
+      </ul>
+    </div>
   {%- endcall %}
 {%- endblock %}

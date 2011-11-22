@@ -2,6 +2,46 @@
 {% block title %}Person {{ person.full_name() }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Person ' + (person.full_name() or '')) -%}
-    {{ person.cruises() }}
+    {%- if h.has_mod(request) %}
+      <div class="subsection editor">
+        {{ whh.tags.form('') }}
+        <dl>
+          <dt>Name First</dt>
+            <dd><input type="text" name="name_first" value="{{ person.name_first or '' }}"></dd>
+          <dt>Name Last</dt>
+            <dd><input type="text" name="name_last" value="{{ person.name_last or '' }}"></dd>
+          <dt>Institution</dt>
+            <dd><input type="text" name="institution" value="{{ person.institution or '' }}"></dd>
+          <dt>Country</dt>
+            <dd><input type="text" name="country" value="{{ person.country or '' }}"></dd>
+          <dt>Email</dt>
+            <dd><input type="email" name="email" value="{{ person.email or '' }}"></dd>
+        </dl>
+        <input type="submit" value="Save">
+        {{ whh.tags.end_form() }}
+      </div>
+    {%- endif %}
+    <div class="subsection">
+      <dl>
+        <dt>Identifier</dt>
+          <dd>{{ whh.tags.link_to(person.identifier, person.identifier) }}</dd>
+        <dt>Name First</dt>
+          <dd>{{ person.name_first }}</dd>
+        <dt>Name Last</dt>
+          <dd>{{ person.name_last }}</dd>
+        <dt>Institution</dt>
+          <dd>{{ person.institution }}</dd>
+        <dt>Country</dt>
+          <dd>{{ person.country }}</dd>
+        <dt>Email</dt>
+          <dd>{{ person.email }}</dd>
+      </dl>
+      <h2>Cruises</h2>
+      <ul>
+      {%- for cruise in person.cruises() %}
+        <li>{{ whh.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
+      {%- endfor %}
+      </ul>
+    </div>
   {%- endcall %}
 {%- endblock %}

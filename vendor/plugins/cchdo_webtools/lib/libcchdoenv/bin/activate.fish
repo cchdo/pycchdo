@@ -27,7 +27,7 @@ end
 # unset irrelavent variables
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/myshen/libcchdoenv"
+set -gx VIRTUAL_ENV "/Library/WebServer/Documents/webtools/vendor/plugins/cchdo_webtools/lib/libcchdoenv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

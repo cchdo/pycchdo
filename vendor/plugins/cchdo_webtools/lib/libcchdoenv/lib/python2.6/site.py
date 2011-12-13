@@ -65,7 +65,10 @@ ImportError exception, it is silently ignored.
 
 import sys
 import os
-import __builtin__
+try:
+    import __builtin__ as builtins
+except ImportError:
+    import builtins
 try:
     set
 except NameError:
@@ -166,7 +169,7 @@ def addpackage(sitedir, name, known_paths):
             if line.startswith("#"):
                 continue
             if line.startswith("import"):
-                exec line
+                exec(line)
                 continue
             line = line.rstrip()
             dir, dircase = makepath(sitedir, line)
@@ -389,8 +392,8 @@ def setquit():
             except:
                 pass
             raise SystemExit(code)
-    __builtin__.quit = Quitter('quit')
-    __builtin__.exit = Quitter('exit')
+    builtins.quit = Quitter('quit')
+    builtins.exit = Quitter('exit')
 
 
 class _Printer(object):
@@ -441,14 +444,17 @@ class _Printer(object):
         while 1:
             try:
                 for i in range(lineno, lineno + self.MAXLINES):
-                    print self.__lines[i]
+                    print(self.__lines[i])
             except IndexError:
                 break
             else:
                 lineno += self.MAXLINES
                 key = None
                 while key is None:
-                    key = raw_input(prompt)
+                    try:
+                        key = raw_input(prompt)
+                    except NameError:
+                        key = input(prompt)
                     if key not in ('', 'q'):
                         key = None
                 if key == 'q':
@@ -456,21 +462,21 @@ class _Printer(object):
 
 def setcopyright():
     """Set 'copyright' and 'credits' in __builtin__"""
-    __builtin__.copyright = _Printer("copyright", sys.copyright)
+    builtins.copyright = _Printer("copyright", sys.copyright)
     if _is_jython:
-        __builtin__.credits = _Printer(
+        builtins.credits = _Printer(
             "credits",
             "Jython is maintained by the Jython developers (www.jython.org).")
     elif _is_pypy:
-        __builtin__.credits = _Printer(
+        builtins.credits = _Printer(
             "credits",
             "PyPy is maintained by the PyPy developers: http://codespeak.net/pypy")
     else:
-        __builtin__.credits = _Printer("credits", """\
+        builtins.credits = _Printer("credits", """\
     Thanks to CWI, CNRI, BeOpen.com, Zope Corporation and a cast of thousands
     for supporting Python development.  See www.python.org for more information.""")
     here = os.path.dirname(os.__file__)
-    __builtin__.license = _Printer(
+    builtins.license = _Printer(
         "license", "See http://www.python.org/%.3s/license.html" % sys.version,
         ["LICENSE.txt", "LICENSE"],
         [os.path.join(here, os.pardir), here, os.curdir])
@@ -490,7 +496,7 @@ class _Helper(object):
         return pydoc.help(*args, **kwds)
 
 def sethelper():
-    __builtin__.help = _Helper()
+    builtins.help = _Helper()
 
 def aliasmbcs():
     """On Windows, some default encodings are not provided by Python,
@@ -539,6 +545,7 @@ def virtual_install_main_packages():
     sys.real_prefix = f.read().strip()
     f.close()
     pos = 2
+    hardcoded_relative_dirs = []
     if sys.path[0] == '':
         pos += 1
     if sys.platform == 'win32':
@@ -546,12 +553,23 @@ def virtual_install_main_packages():
     elif _is_jython:
         paths = [os.path.join(sys.real_prefix, 'Lib')]
     elif _is_pypy:
-        cpyver = '%d.%d.%d' % sys.version_info[:3]
+        if sys.pypy_version_info >= (1, 5):
+            cpyver = '%d.%d' % sys.version_info[:2]
+        else:
+            cpyver = '%d.%d.%d' % sys.version_info[:3]
         paths = [os.path.join(sys.real_prefix, 'lib_pypy'),
                  os.path.join(sys.real_prefix, 'lib-python', 'modified-%s' % cpyver),
                  os.path.join(sys.real_prefix, 'lib-python', cpyver)]
+        hardcoded_relative_dirs = paths[:] # for the special 'darwin' case below
+        #
+        # This is hardcoded in the Python executable, but relative to sys.prefix:
+        for path in paths[:]:
+            plat_path = os.path.join(path, 'plat-%s' % sys.platform)
+            if os.path.exists(plat_path):
+                paths.append(plat_path)
     else:
         paths = [os.path.join(sys.real_prefix, 'lib', 'python'+sys.version[:3])]
+        hardcoded_relative_dirs = paths[:] # for the special 'darwin' case below
         lib64_path = os.path.join(sys.real_prefix, 'lib64', 'python'+sys.version[:3])
         if os.path.exists(lib64_path):
             paths.append(lib64_path)
@@ -570,7 +588,8 @@ def virtual_install_main_packages():
     # These are hardcoded in the Apple's Python executable,
     # but relative to sys.prefix, so we have to fix them up:
     if sys.platform == 'darwin':
-        hardcoded_paths = [os.path.join(sys.real_prefix, 'lib', 'python'+sys.version[:3], module)
+        hardcoded_paths = [os.path.join(relative_dir, module)
+                           for relative_dir in hardcoded_relative_dirs
                            for module in ('plat-darwin', 'plat-mac', 'plat-mac/lib-scriptpackages')]
 
         for path in hardcoded_paths:
@@ -674,18 +693,18 @@ def _script():
     """
     args = sys.argv[1:]
     if not args:
-        print "sys.path = ["
+        print("sys.path = [")
         for dir in sys.path:
-            print "    %r," % (dir,)
-        print "]"
+            print("    %r," % (dir,))
+        print("]")
         def exists(path):
             if os.path.isdir(path):
                 return "exists"
             else:
                 return "doesn't exist"
-        print "USER_BASE: %r (%s)" % (USER_BASE, exists(USER_BASE))
-        print "USER_SITE: %r (%s)" % (USER_SITE, exists(USER_BASE))
-        print "ENABLE_USER_SITE: %r" %  ENABLE_USER_SITE
+        print("USER_BASE: %r (%s)" % (USER_BASE, exists(USER_BASE)))
+        print("USER_SITE: %r (%s)" % (USER_SITE, exists(USER_BASE)))
+        print("ENABLE_USER_SITE: %r" %  ENABLE_USER_SITE)
         sys.exit(0)
 
     buffer = []
@@ -695,7 +714,7 @@ def _script():
         buffer.append(USER_SITE)
 
     if buffer:
-        print os.pathsep.join(buffer)
+        print(os.pathsep.join(buffer))
         if ENABLE_USER_SITE:
             sys.exit(0)
         elif ENABLE_USER_SITE is False:
@@ -706,7 +725,7 @@ def _script():
             sys.exit(3)
     else:
         import textwrap
-        print textwrap.dedent(help % (sys.argv[0], os.pathsep))
+        print(textwrap.dedent(help % (sys.argv[0], os.pathsep)))
         sys.exit(10)
 
 if __name__ == '__main__':

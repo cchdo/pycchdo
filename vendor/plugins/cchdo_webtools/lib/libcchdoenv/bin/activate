@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelavent variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/Users/myshen/libcchdoenv"
+VIRTUAL_ENV="/Library/WebServer/Documents/webtools/vendor/plugins/cchdo_webtools/lib/libcchdoenv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

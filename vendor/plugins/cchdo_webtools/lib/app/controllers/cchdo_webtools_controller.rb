@@ -57,7 +57,6 @@ class CchdoWebtoolsController < ApplicationController
     end
 
     Rails.logger.error(command)
-    Rails.logger.error(wire.inspect)
 
     if wire.empty?
       render_json_error("Failed to parse: #{errors.gsub('"', '\"').gsub(/\n/, '\n')}")
@@ -137,16 +136,22 @@ class CchdoWebtoolsController < ApplicationController
       get_tempfile(response, autoopen)
     else
       file = params[:file]
-      raise ArgumentError unless file and
-                                 (file.kind_of?(StringIO) or
-                                  file.kind_of?(Tempfile))
-      get_tempfile(file)
+      # Hack for Rails 3 (Rails 3 encapsulates files)
+      begin
+        file.tempfile
+      rescue
+        raise ArgumentError unless file and
+                                   (file.kind_of?(StringIO) or
+                                    file.kind_of?(File) or
+                                    file.kind_of?(Tempfile))
+        get_tempfile(file)
+      end
     end
   end
 
   # Rails uploads can give either StringIOs or UploadedTempFiles
   # Turn StringIOs into tempfile and give the path to the tempfile
-  def get_tempfile(uploaded_file, filename=nil)
+  def get_tempfile(uploaded_file, filename='tempfile')
     unless uploaded_file
       return nil
     end
@@ -157,10 +162,21 @@ class CchdoWebtoolsController < ApplicationController
         filename = 'data'
       end
     end
-    temp = UploadedTempfile.new(File.basename(filename))
-    temp.write(uploaded_file.read())
-    temp.flush()
+    Rails.logger.error('asdfasdfasd')
+    Rails.logger.error(uploaded_file)
+    Rails.logger.error(filename)
+    Rails.logger.error('jkljkjlkjl')
+    Rails.logger.error(File.basename(filename))
+    begin
+      temp = UploadedTempfile.new(File.basename(filename))
+      temp.write(uploaded_file.read())
+      temp.flush()
+    rescue => e
+      Rails.logger.error(e)
+    end
+    Rails.logger.error('qwerqwereqwr')
     uploaded_file.close()
+    Rails.logger.error(temp.inspect)
     temp
   end
 

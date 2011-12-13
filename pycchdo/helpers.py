@@ -6,19 +6,26 @@ import webhelpers.html.tags
 import models
 
 
+def has_edit(request):
+    return request.user is not None
+
+
 def has_mod(request):
-    # TODO check against actual list
     if not request.user:
         return False
 
+    # TODO check against actual list
     if request.user.name_last == 'Shen' and \
        request.user.name_first in ['Matthew', 'Andrew']:
         return True
-    if request.user.name_last == 'Berys':
+    if request.user.name_last == 'Berys' and \
+       request.user.name_first == 'Carolina':
         return True
-    if request.user.name_last == 'Fields':
+    if request.user.name_last == 'Fields' and \
+       request.user.naem_first == 'Justin':
         return True
-    if request.user.name_last == 'Diggs':
+    if request.user.name_last == 'Diggs' and \
+       request.user.naem_first == 'Steve':
         return True
     return False
 
@@ -142,6 +149,30 @@ def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
     return whh.HTML.div(thumb_link, class_='thumb')
 
 
+def cruise_suggested_attr(attr):
+    person = link_person(attr.creation_stamp.person)
+    if attr.deleted:
+        verb = 'deleting'
+        obj_phrase = [whh.HTML.span(attr.key, class_='key')]
+    else:
+        verb = 'changing'
+        obj_phrase = [whh.HTML.span(attr.key, class_='key'), ' to ',
+                      whh.HTML.span(attr.value, class_='value')]
+    when = attr.creation_stamp.timestamp
+    if attr.pending_stamp:
+        followup = \
+           '(Under review as of %s)' % (attr.pending_stamp.timestamp)
+    else:
+        followup = ''
+
+    return whh.HTML.div(
+        person, ' suggested ', 
+        whh.HTML.span(verb, class_='verb'), ' the ', 
+        whh.HTML.span(*obj_phrase, class_='change'), ' at ',
+        whh.HTML.span(when, class_='when'), '. ',
+        whh.HTML.span(followup, class_='pending'), class_='suggestion')
+
+
 def cruise_history_rows(change, i, hl):
     """ Give the HTML table rows for a cruise history entry.
         
@@ -187,6 +218,14 @@ def cruise_history_rows(change, i, hl):
         )
 
 
+def link_person(p):
+    return whh.tags.link_to(p.full_name(), u'/person/%s' % p.id)
+
+
+def link_institution(i):
+    return whh.tags.link_to(i.get('name'), '/institution/%s' % i.id)
+
+
 def link_person_institutions(pis):
     strings = []
     for pi in pis:
@@ -198,17 +237,20 @@ def link_person_institutions(pis):
             i = pi['institution']
         except KeyError:
             i = None
-        name = whh.tags.link_to(p.full_name(), '/person/%s' % p.id)
+        name = link_person(p)
         inst = None
         if i:
-            inst = whh.tags.link_to(i.get('name'), '/institution/%s' % i.id)
-            inst = '(%s)' % inst
+            inst = '(%s)' % link_institution(i)
         strings.append(' '.join(filter(None, (name, inst))))
     return whh.HTML.literal(', '.join(strings))
 
 
+def link_collection(c):
+    return whh.tags.link_to(c.name, '/collection/%s' % c.id)
+
+
 def link_collections(cs):
-    links = [whh.tags.link_to(c.name, '/collection/%s' % c.id) for c in cs]
+    links = map(link_collection, cs)
     return whh.HTML.literal(', '.join(links))
 
 

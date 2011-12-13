@@ -2,7 +2,29 @@
 {% block title %}Attr{% endblock %}
 {% block content %}
   {% call h.boxed('attr %s' % attr['_id']) -%}
-    <p>{{attr}}</p>
+    {%- if attr.deleted %}
+      <p>del {{ attr.key }}
+    {%- else %}
+      <p>{{ attr.key }} = {{ attr.value }}</p>
+    {%- endif %}
+
+    <h2>Created</h2>
+    <p>
+      {{ attr.creation_stamp.timestamp }}
+      {{ attr.creation_stamp.person }}
+    </p>
+
+    <h2>Pending</h2>
+    <p>
+      {{ attr.pending_stamp.timestamp }}
+      {{ attr.pending_stamp.person }}
+    </p>
+
+    <h2>Judged</h2>
+    <p>
+      {{ attr.judgment_stamp.timestamp }}
+      {{ attr.judgment_stamp.person }}
+    </p>
     <a href="../a">Back to obj attrs</a>
   {%- endcall %}
 {% endblock %}

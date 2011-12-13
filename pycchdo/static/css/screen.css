@@ -17,11 +17,13 @@ pre {
 .flash {
   font-size: 1.1em;
   padding: 0.5em;
-  border: 1px solid #F0F0F0;
   background: #FFFFEE;
+  border: 1px solid #EEEEEE;
+  border-top: 0;
+  border-bottom: 0;
 }
 .flash.action_taken {
-  background: #EEC591;
+  background: #FFDDAA;
 }
 
 /* Required form fields */
@@ -38,10 +40,11 @@ pre {
   padding: 0.2em;
 }
 
-/* Used to hide Microformat specific tags */
+/* Hide Microformat specific tags */
 .hidden { display: none; }
 
-/* Used to hide email obfuscation */
+/* Hide email obfuscation. Different from display: none because the text needs
+ * to actually be present in DOM */
 .copythis { position: absolute; left: -10000px; }
 
 #centering {
@@ -79,7 +82,10 @@ pre {
   top: 0;
 }
 input {
-  vertical-align: middle;
+  vertical-align: top;
+}
+input[type="checkbox"] {
+  vertical-align: baseline;
 }
 
 input[type="search"],
@@ -121,6 +127,7 @@ input[type="submit"] {
   border: 1px solid #afafaf;
   color: #4f4f4f;
   font-weight: lighter;
+  font-size: 0.95em;
   height: 1.8em;
   line-height: 1.2em;
   padding: 0.2em 0.5em;
@@ -151,9 +158,6 @@ input[type="submit"]:active {
   -moz-transition: color .3s ease, background .3s ease, border .3s ease;
   -o-transition: color .3s ease, background .3s ease, border .3s ease;
   transition: color .3s ease, background .3s ease, border .3s ease;
-}
-#gsearch input[type="submit"] {
-  font-size: 0.95em;
 }
 #gsearch p {
   padding-top: 0.25em;

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import cgi
 
 from pyramid.response import Response
@@ -11,10 +12,14 @@ from pycchdo.views.session import require_signin
 
 
 __all__ = [
-    '_collapsed_dict', '_http_method', '_unescape', 'favicon', 'robots', 'home',
-    'browse_menu', 'search_menu', 'information_menu', 'parameters',
-    'data', 'catchall_static', 
+    'flatten', '_collapsed_dict', '_http_method', '_unescape', 'text_to_obj',
+    'favicon', 'robots', 'home', 'browse_menu', 'search_menu',
+    'information_menu', 'parameters', 'data', 'catchall_static', 
     ]
+
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
 
 
 def _collapsed_dict(d, n=None):
@@ -24,7 +29,7 @@ def _collapsed_dict(d, n=None):
     for k, v in d.items():
         if type(v) is dict:
             v = _collapsed_dict(v, n)
-        if v is not n:
+        if v != n:
             e[k] = v
     if len(e) < 1:
         return n
@@ -44,6 +49,37 @@ def _unescape(s, escape='\\'):
         s = s[:n] + s[n + 1:]
         n = s.find(escape, n + 1)
     return s
+
+
+def text_to_obj(value, text_type='text'):
+    if type(value) is cgi.FieldStorage:
+        return value
+    if text_type == 'text':
+        return value
+    if text_type == 'datetime':
+        try:
+            return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%f%z')
+        except ValueError:
+            pass
+        try:
+            return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            pass
+        try:
+            return datetime.strptime(value, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            pass
+        try:
+            return datetime.strptime(value, '%Y-%m-%d')
+        except ValueError:
+            pass
+        return value
+    if text_type == 'text_list':
+        return [_unescape(x) for x in value.split(',')]
+    if text_type == 'id':
+        return models.ensure_objectid(value)
+    if text_type == 'id_list':
+        return map(models.ensure_objectid, value.split(','))
 
 
 _static_root = os.path.join(os.path.dirname(__file__), '..', 'static')

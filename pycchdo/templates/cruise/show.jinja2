@@ -1,18 +1,38 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}Cruise {{cruise.expocode}}{% endblock %}
+{% block title %}Cruise {{cruise.expocode or ''}}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
 {%- endblock %}
-{% macro cruise_attr(attr='', val='') -%}
+{% macro cruise_attr(attr='', val='', callback=None, args) -%}
   {% if val %}
-    <p><strong>{{attr}}:</strong> {{val}}</p>
+    <p><strong>{{attr}}:</strong> {% if callback %}{{ callback(val, args) }}{% else %}{{ val }}{% endif %}</p>
   {% endif %}
 {%- endmacro %}
-{%- block content_attrs %} {%- if cruise.accepted %}class="cruise-page"{%- else %}class="cruise-page pending"{%- endif %}{%- endblock %}
+{%- macro see_or_discuss() %}
+  {%- if request.user %}Discuss{%- else %}See{%- endif %}
+{%- endmacro %}
+{%- macro show_notes(notes) %}
+  {%- for note in notes %}
+    <tr class="note{% if note.discussion %} discussion{% endif %}">
+      <td class="body">{{ note.body }}</td>
+      <td class="person">{{ h.link_person(note.creation_stamp.person) }}</td>
+      <td class="date">{{ note.creation_stamp.timestamp.strftime('%F %T') }}</td>
+    </tr>
+  {%- endfor %}
+{%- endmacro %}
+{%- block content_attrs %} {% if cruise.accepted %}class="cruise-page"{% else %}class="cruise-page pending"{% endif %}{%- endblock %}
 {%- block content %}
   {%- if not cruise.accepted %}
-    <div id="pending-review" class="warning">
-      This cruise was entered by the public and has not yet been reviewed.
+    <div id="pending-review" class="flash warning">
+      {%- if h.has_mod(request) %}
+        <p>This cruise was entered by the public and needs to be reviewed.</p>
+        {{ whh.tags.form('/obj/%s' % cruise.id, 'PUT') }}
+          <input type="submit" name="action" value="Accept">
+          <input type="submit" name="action" value="Reject">
+        {{ whh.tags.end_form() }}
+      {%- else %}
+        <p>This cruise was entered by the public and has not yet been reviewed.</p>
+      {%- endif %}
     </div>
   {%- endif %}
   {%- call h.boxed('General Information and Files', id='info', class='upper', box_content_class='scrollable-y') %}
@@ -22,6 +42,7 @@
         {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
       {%- endif %}
       {{- cruise_attr('ExpoCode', cruise.expocode) }}
+      {{- cruise_attr('Aliases', cruise.get('aliases', '')) }}
       {{- cruise_attr('Collections', h.link_collections(cruise.collections)) }}
       {%- if cruise.ship %}
         {{ cruise_attr('Ship', h.link_ship(cruise.ship)) }}
@@ -32,17 +53,29 @@
       {{- cruise_attr('Chief Scientists',
                       h.link_person_institutions(cruise.chief_scientists)) }}
       {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
-      {{- cruise_attr('Expedition Link', cruise.get('link')) }}
+      {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
 
-      {# TODO show suggested but unapproved changes #}
+      {%- if updates['attrs'] %}
+        <a class="updates-available" href="#updates">{{ see_or_discuss() }} suggested attribute changes</a>
+      {%- endif %}
 
       {%- if h.has_mod(request) %}
         <div id="edit_attr" class="editor">
         {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr'}) }} 
-          <input type="text" name="key" placeholder="key">
-          <label for="value">: </label>
-          <input type="text" name="value" placeholder="value">
-          <input type="submit" value="Set attribute">
+          <table>
+            <tr>
+              <th>{{ whh.tags.select('key', None, CRUISE_ATTRS_SELECT) }}</th>
+              <td><input type="text" name="value" placeholder="value"></td>
+            </tr>
+            <tr>
+              <th><label for="edit_attr_notes">Notes</label></th>
+              <td><textarea id="edit_attr_notes" name="notes"></textarea></td>
+            </tr>
+            <tr>
+              <td class="submit" colspan="2"><input type="submit" value="Set"></td>
+            </tr>
+          </table>
+          </p>
         {{ whh.tags.end_form() }}
         </div>
       {%- endif %}
@@ -56,8 +89,8 @@
           <a href="">data history</a>)</p> 
       {%- endif %}
       {%- if updates['as_received'] or updates['merged'] %}
-        <a id="updates-available" href="#updates">
-          See as received and merged files</a>
+        <a class="updates-available" href="#updates">
+          {{ see_or_discuss() }} as received files and see merged files</a>
       {%- endif %}
 
       {%- if 'exchange' in data_files %}
@@ -107,33 +140,19 @@
         <div id="add_file" class="editor">
         {{ whh.tags.form('', 'PUT', multipart=True,
                          hidden_fields={'action': 'suggest_file'}) }} 
-          <select name="type">
-            <optgroup label="Exchange">
-              <option value="bottle_exchange">Bottle Exchange</option>
-              <option value="bottlezip_exchange">Bottle ZIP Exchange</option>
-              <option value="ctdzip_exchange">CTD ZIP Exchange</option>
-            </optgroup>
-            <optgroup label="NetCDF">
-              <option value="bottlezip_netcdf">Bottle ZIP NetCDF</option>
-              <option value="ctdzip_netcdf">CTD ZIP NetCDF</option>
-            </optgroup>
-            <optgroup label="WOCE">
-              <option value="bottle_woce">Bottle WOCE</option>
-              <option value="ctdzip_woce">CTD ZIP WOCE</option>
-              <option value="sum_woce">Summary WOCE</option>
-            </optgroup>
-            <optgroup label="Map">
-              <option value="map_thumb">Map thumbnail</option>
-              <option value="map_full">Map full size</option>
-            </optgroup>
-            <optgroup label="Documentation">
-              <option value="doc_txt">Documentation Text</option>
-              <option value="doc_pdf">Documentation PDF</option>
-            </optgroup>
-            <option value="other">Other</option>
-          </select>
-          <input type="file" name="file">
-          <input type="submit" value="Add file">
+          <table>
+            <tr>
+              <th>{{ whh.tags.select('type', None, FILE_GROUPS_SELECT) }}</th>
+              <td><input type="file" name="file"></td>
+            </tr>
+            <tr>
+              <th><label for="suggest_file_notes">Notes</label></th>
+              <td><textarea id="suggest_file_notes" name="notes"></textarea></td>
+            </tr>
+            <tr>
+              <td class="submit" colspan="2"><input type="submit" value="Set file"></td>
+            </tr>
+          </table>
         {{ whh.tags.end_form() }}
         </div>
       {%- endif %}
@@ -160,9 +179,9 @@
             </tr>
             <tr class="mb-link{{ i }} body {{ hl }}">
               <td colspan="4">
-                <label for="note_discussion">Public</label>
-                <input type="checkbox" name="note_discussion" value="public"
-                       checked="checked">
+                <label for="note_discussion_{{ i }}">Public</label>
+                <input id="note_discussion_{{ i }}" type="checkbox"
+                       name="note_discussion" value="public" checked="checked">
               </td>
             </tr>
             <tr class="mb-link{{ i }} body {{ hl }}">
@@ -182,9 +201,99 @@
       </div>
     </div>
   {%- endcall %}
-  {%- if updates['as_received'] or updates['merged'] %}
-    <div class="clear"></div>
+  <div class="clear"></div>
+  {%- if updates %}
     {%- call h.boxed('Updates', id="updates") %}
+      {%- if updates['attrs'] %}
+        <div class="subsection">
+          <h2>Attributes</h2>
+          <div id="attrs">
+            <table class="has-meta-bodies">
+              <tr class="header">
+                <th>Attribute</th>
+                <th>Suggested by</th>
+                <th class="date">Suggested at</th>
+              </tr>
+              {%- for attr in updates['attrs'] %}
+                {%- set hl = loop.cycle('even', 'odd') %}
+                <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
+                  <td>{{ attr.key }}</td>
+                  <td>{{ h.link_person(attr.creation_stamp.person) }}</td>
+                  <td class="date">{{ attr.creation_stamp.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
+                  <td class="change" colspan="2">
+                    {%- if attr.deleted %}
+                      delete <span class="key">{{ attr.key }}</span>
+                    {%- else %}
+                      <span class="value">{{ attr.value }}</span>
+                    {%- endif %}
+                    {%- if attr.pending_stamp %}
+                      <span class="pending">(Under review as of {{ attr.pending_stamp.timestamp.strftime('%Y-%m-%d %H:%M') }})</span>
+                    {%- endif %}
+                  </td>
+                  <td>
+                    {%- if h.has_mod(request) %}
+                      {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
+                        <table>
+                          <tr>
+                            <td>
+                              <label for="attr_{{ loop.index0 }}_accept_value">Accept a different value</label>
+                              <input id="attr_{{ loop.index0 }}_accept_value" type="text" name="accept_value">
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <input type="submit" name="action" value="Accept">
+                              {%- if not attr.pending_stamp %}
+                                <input type="submit" name="action" value="Acknowledge">
+                              {%- endif %}
+                              <input type="submit" name="action" value="Reject">
+                            </td>
+                          </tr>
+                        </table>
+                      {{ whh.tags.end_form() }}
+                    {%- endif %}
+                  </td>
+                </tr>
+                {%- if attr.notes or h.has_mod(request) %}
+                  <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
+                    <td colspan="3">
+                      {%- if h.has_mod(request) %}
+                        {{ whh.tags.form('', 'POST', hidden_fields={
+                                           'action': 'add_note_to_attr',
+                                           'attr_id': attr.id}) }}
+                      {%- endif %}
+                      <table>
+                        {%- if h.has_mod(request) %}
+                          {{ show_notes(attr.notes) }}
+                        {%- else %}
+                          {{ show_notes(attr.notes_public) }}
+                        {%- endif %}
+                        {%- if h.has_mod(request) %}
+                          <tr id="add_note_attr" class="note add-note">
+                            <td class="body"><textarea name="note"></textarea></td>
+                            <td class="person">
+                              <label for="attrs_{{ loop.index0 }}_add_note_public">Public</label>
+                              <input id="attrs_{{ loop.index0 }}_add_note_public"
+                                     type="checkbox" name="public" value="public">
+                            </td>
+                            <td class="date"><input type="submit" value="Add note"></td>
+                            </td>
+                          </tr>
+                        {%- endif %}
+                      </table>
+                      {%- if h.has_mod(request) %}
+                        </form>
+                      {%- endif %}
+                    </td>
+                  </tr>
+                {%- endif %}
+              {%- endfor %}
+            </table>
+          </div>
+        </div>
+      {%- endif %}
       {%- if updates['as_received'] %}
         <div class="subsection">
           <h2>Files as received</h2>
@@ -197,33 +306,64 @@
               {%- for file in updates['as_received'] %}
                 {%- set hl = loop.cycle('even', 'odd') %}
                 <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
-                  <td>{{ whh.tags.link_to(
-                           file['file'].file.name, h.data_uri(file['file'])) }}</td>
+                  <td>
+                    {%- if file['file'].pending_stamp %}
+                      {{ whh.tags.link_to(
+                           file['file'].file.name, h.data_uri(file['file'])) }}
+                    {%- else %}
+                      {{ file['file'].file.name }}
+                    {%- endif %}
+                  </td>
                   <td class="date">{{ file['date'] }}</td>
+                </tr>
+                <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
+                  <td class="change">
+                    {%- if file['file'].pending_stamp %}
+                      <span class="pending">(Under review as of {{ file['file'].pending_stamp.timestamp.strftime('%Y-%m-%d %H:%M') }})</span>
+                    {%- endif %}
+                  </td>
+                  <td>
+                    {%- if h.has_mod(request) %}
+                      {{ whh.tags.form(
+                           '/obj/%s/a/%s' % (cruise.id, file['file'].id),
+                           'PUT', multipart=True) }}
+                        <table>
+                          <tr>
+                            <td>
+                              <label for="file_{{ loop.index0 }}_accept_value">Accept a different file</label>
+                              <input id="file_{{ loop.index0 }}_accept_value" type="file" name="accept_value">
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <input type="submit" name="action" value="Accept">
+                              {%- if not file['file'].pending_stamp %}
+                                <input type="submit" name="action" value="Acknowledge">
+                              {%- endif %}
+                              <input type="submit" name="action" value="Reject">
+                            </td>
+                          </tr>
+                        </table>
+                      {{ whh.tags.end_form() }}
+                    {%- endif %}
+                  </td>
                 </tr>
                 {%- if file['notes'] or h.has_mod(request) %}
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
                     <td colspan="2">
                       {%- if h.has_mod(request) %}
-                        {{ whh.tags.form('', 'POST') }}
-                          <input type="hidden" name="action" value="add_note_to_file">
-                          <input type="hidden" name="file_id" value="{{ file['file'].id }}">
+                        {{ whh.tags.form('', 'POST', hidden_fields={
+                                           'action': 'add_note_to_file',
+                                           'file_id': file['file'].id}) }}
                       {%- endif %}
                       <table>
-                        {%- for note in file['notes'] %}
-                          <tr class="note{% if note.discussion %} discussion{% endif %}">
-                            <td class="body">{{ note.body }}</td>
-                            <td class="person">{{ note.creation_stamp.person.full_name() }}</td>
-                            <td class="date">{{ note.creation_stamp.timestamp.strftime('%F %T') }}</td>
-                          </tr>
-                        {%- endfor %}
+                        {{ show_notes(file['notes']) }}
                         {%- if h.has_mod(request) %}
                           <tr id="add_note_as_received" class="note add-note">
                             <td class="body"><textarea name="note"></textarea></td>
                             <td class="person">
                               <label for="public">Public</label>
-                              <input type="checkbox" name="public" value="public"
-                                     checked="checked">
+                              <input type="checkbox" name="public" value="public">
                             </td>
                             <td class="date"><input type="submit" value="Add note"></td>
                             </td>
@@ -261,18 +401,12 @@
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
                     <td colspan="2">
                       {%- if h.has_mod(request) %}
-                        {{ whh.tags.form('', 'POST') }}
-                          <input type="hidden" name="action" value="add_note_to_file">
-                          <input type="hidden" name="file_id" value="{{ file['file'].id }}">
+                        {{ whh.tags.form('', 'POST', hidden_fields={
+                                           'action': 'add_note_to_file',
+                                           'file_id': file['file'].id}) }}
                       {%- endif %}
                       <table>
-                        {%- for note in file['notes'] %}
-                          <tr class="note{% if note.discussion %} discussion{% endif %}">
-                            <td class="body">{{ note.body }}</td>
-                            <td class="person">{{ note.creation_stamp.person.full_name() }}</td>
-                            <td class="date">{{ note.creation_stamp.timestamp.strftime('%F %T') }}</td>
-                          </tr>
-                        {%- endfor %}
+                        {{ show_notes(file['notes']) }}
                         {%- if h.has_mod(request) %}
                           <tr id="add_note_merged" class="note add-note">
                             <td class="body"><textarea name="note"></textarea></td>
@@ -297,6 +431,107 @@
           </div>
         </div>
       {%- endif %}
+    {%- endcall %}
+  {%- endif %}
+  {%- if h.has_mod(request) %}
+    {%- call h.boxed('Suggestions') %}
+      <div class="subsection">
+        <h3>Unacknowleged</h3>
+        <table>
+        <tr>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Suggested</th>
+          <th>Actions</th>
+        </tr>
+        {%- for attr in cruise.unacknowledged_tracked()[::-1] %}
+          <tr>
+            <th>{{ attr.key }}</th>
+            {%- if attr.deleted %}
+              <td>delete</td>
+            {%- else %}
+              <td>{{ attr.value }}</td>
+            {%- endif %}
+            <td>
+              <p>{{ attr.creation_stamp.timestamp }}</p>
+              <p>{{ attr.creation_stamp.person }}</p>
+            </td>
+            <td>
+              {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
+                <input type="submit" name="action" value="Accept">
+                <input type="submit" name="action" value="Acknowledge">
+                <input type="submit" name="action" value="Reject">
+              {{ whh.tags.end_form() }}
+            </td>
+          </tr>
+        {%- endfor %}
+        </table>
+
+        <h3>Pending</h3>
+        <table>
+        <tr>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Suggested</th>
+          <th>Pending</th>
+          <th>Actions</th>
+        </tr>
+        {%- for attr in cruise.pending_tracked()[::-1] %}
+          <tr>
+            <th>{{ attr.key }}</th>
+            {%- if attr.deleted %}
+              <td>delete</td>
+            {%- else %}
+              <td>{{ attr.value }}</td>
+            {%- endif %}
+            <td>
+              <p>{{ attr.creation_stamp.timestamp }}</p>
+              <p>{{ attr.creation_stamp.person }}</p>
+            </td>
+            <td>
+              <p>{{ attr.pending_stamp.timestamp }}</p>
+              <p>{{ attr.pending_stamp.person }}</p>
+            </td>
+            <td>
+              {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
+                <input type="submit" name="action" value="Accept">
+                <input type="submit" name="action" value="Reject">
+              {{ whh.tags.end_form() }}
+            </td>
+          </tr>
+        {%- endfor %}
+        </table>
+
+        <h3>Accepted</h3>
+        <table>
+        <tr>
+          <th>id</th>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Suggested</th>
+          <th>Accepted</th>
+        </tr>
+        {%- for attr in cruise.accepted_tracked()[::-1] %}
+          <tr class="{{loop.cycle('even', 'odd')}}">
+            <th><a href="/obj/{{ attr.obj.id }}/a/{{ attr.id }}">{{ attr.id }}</a></th>
+            <th>{{ attr.key }}</th>
+            {%- if attr.deleted %}
+              <td>Deleted</td>
+            {%- else %}
+              <td>{{ attr.value }}</td>
+            {%- endif %}
+            <td>
+              <p>{{ attr.creation_stamp.timestamp }}</p>
+              <p>{{ attr.creation_stamp.person }}</p>
+            </td>
+            <td>
+              <p>{{ attr.judgment_stamp.timestamp }}</p>
+              <p>{{ attr.judgment_stamp.person }}</p>
+            </td>
+          </tr>
+        {%- endfor %}
+        </table>
+      </div>
     {%- endcall %}
   {%- endif %}
 {%- endblock %}
@@ -334,11 +569,11 @@
 
         function open() {
           row.addClass('open').find('.expander a').html('&#x25BE;');
-          body.addClass('open').show('fast').css('visibility', 'visible');
+          body.addClass('open').show('fast');
         }
         function close() {
           row.removeClass('open').find('.expander a').html('&#x25B8;');
-          body.removeClass('open').hide('fast').css('visibility', 'hidden');
+          body.removeClass('open').hide('fast');
         }
 
         function check_focus_close() {
@@ -366,7 +601,9 @@
           var opened = false;
           function react_focus() {
             setTimeout(function () {
-              if (exa_focus || input_focus) {
+              // Don't close while focus is being passed inside the same form.
+              // Also don't close if focus has simply disappeared
+              if (exa_focus || input_focus || $('*:focus').length == 0) {
                 if (!opened) {
                   open();
                   opened = true;

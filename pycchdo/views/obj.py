@@ -1,9 +1,11 @@
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther
+from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
+                                   HTTPUnauthorized
 
 import pycchdo.models as models
 
 from . import *
+from pycchdo.helpers import has_mod
 from session import require_signin
 
 
@@ -32,17 +34,39 @@ def obj_show(request):
         return HTTPNotFound()
 
     link = request.url
-    if _http_method(request) == 'DELETE':
+    method = _http_method(request)
+    if method == 'DELETE':
         if obj:
             obj.remove()
             obj = None
-            request.session.flash('action_taken', 'Removed Obj %s' % obj_id)
+            request.session.flash('Removed Obj %s' % obj_id, 'action_taken')
             return HTTPSeeOther(location='/objs')
-    else:
-        if obj.type == 'Cruise':
-            link = request.url.replace('/obj/', '/cruise/')
-        elif obj.type == 'Obj':
-            link = None
+    elif method == 'PUT':
+        if not request.user:
+            return require_signin(request)
+        if not has_mod(request):
+            return HTTPUnauthorized()
+        try:
+            action = request.params['action']
+            obj = obj.polymorph()
+            if action == 'Accept':
+                obj.accept(request.user)
+                request.session.flash(
+                    'Accepted Obj %s' % obj_id, 'action_taken')
+                request.session.flash(
+                    "Reminder: Attributes are not accepted automatically.", 'help')
+                return HTTPSeeOther(location=request.referrer)
+            if action == 'Reject':
+                obj.reject(request.user)
+                request.session.flash(
+                    'Rejected Obj %s' % obj_id, 'action_taken')
+                return HTTPSeeOther(location=request.referrer)
+        except KeyError:
+            pass
+    if obj.type == 'Cruise':
+        link = request.url.replace('/obj/', '/cruise/')
+    elif obj.type == 'Obj':
+        link = None
 
     return {
         'id': obj_id,
@@ -108,33 +132,46 @@ def obj_attr(request):
     key = request.matchdict['key']
     attr = models._Attr.get_id(key)
     if not attr:
-        return HTTPNotFound()
+        return HTTPNotFound('No attr with key %s' % key)
     if not str(attr['obj']) == obj_id:
-        return HTTPNotFound()
+        return HTTPNotFound('No obj with id %s' % obj_id)
 
     method = _http_method(request)
     if method == 'GET':
         pass
-    elif method == 'POST':
+    elif method == 'PUT':
         if not request.user:
             return require_signin(request)
+        if not has_mod(request):
+            return HTTPUnauthorized()
         try:
             action = request.params['action']
         except KeyError:
             return HTTPBadRequest()
         if action == 'Accept':
-            attr.accept(request.user)
-            request.session.flash('action_taken', 'Attribute accepted')
+            try:
+                accept_value = request.params['accept_value']
+                attr.accept_value(text_to_obj(accept_value), request.user)
+                request.session.flash(
+                    'Attr change accepted with new value "%s"' % accept_value,
+                    'action_taken')
+            except KeyError:
+                attr.accept(request.user)
+                request.session.flash('Attr change accepted', 'action_taken')
         elif action == 'Acknowledge':
             attr.acknowledge(request.user)
-            request.session.flash('action_taken', 'Attribute acknowledged')
+            request.session.flash('Attr change acknowledged', 'action_taken')
         elif action == 'Reject':
             attr.reject(request.user)
-            request.session.flash('action_taken', 'Attribute rejected')
+            request.session.flash('Attr change rejected', 'action_taken')
         else:
             return HTTPBadRequest()
 
+        # Special case for accepting expocode. The cruise will not exist any
+        # more under the original expocode so redirect to the new expocode.
+        if attr.key == 'expocode' and action == 'Accept':
+            return HTTPSeeOther(location=request.route_url(
+                                'cruise_show', cruise_id=attr.value))
+        return HTTPSeeOther(location=request.referrer)
+
     return {'attr': attr}
-
-
-

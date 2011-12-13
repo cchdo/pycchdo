@@ -3,16 +3,61 @@ import logging
 
 from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound
 
+from webob.multidict import MultiDict
+
 import pycchdo.models as models
 import pycchdo.helpers as h
 
 from . import *
-from ..models.search import search
+from pycchdo.models.search import search
+from pycchdo.models.models import data_file_human_names
 from session import require_signin
 
 
-def flatten(l):
-    return [item for sublist in l for item in sublist]
+CRUISE_ATTRS = MultiDict([
+    ['Text', ['expocode', 'link']], 
+    ['Datetime', ['date_start', 'date_end']], 
+    ['Text List', ['aliases']],
+    ['ID', ['ship', 'country']],
+    ['ID List', ['collections']],
+])
+
+
+CRUISE_ATTRS_LIST = flatten(CRUISE_ATTRS.values())
+
+
+CRUISE_ATTRS_HUMAN_NAMES = {
+    'expocode': 'ExpoCode',
+    'link': 'Expedition Link',
+    'aliases': 'Aliases',
+    'ship': 'Ship',
+    'country': 'Country',
+    'collections': 'Collections',
+    'date_start': 'Start Date',
+    'date_end': 'End Date',
+}
+
+
+CRUISE_ATTRS_SELECT = []
+for k, v in CRUISE_ATTRS.items():
+    CRUISE_ATTRS_SELECT.append(
+        ([(x, CRUISE_ATTRS_HUMAN_NAMES[x]) for x in v], k))
+
+
+FILE_GROUPS = MultiDict([
+    ['Exchange', ['bottle_exchange', 'bottlezip_exchange', 'ctdzip_exchange']],
+    ['NetCDF', ['bottlezip_netcdf', 'ctdzip_netcdf']],
+    ['WOCE', ['bottle_woce', 'ctdzip_woce', 'sum_woce']],
+    ['Map', ['map_thumb', 'map_full']],
+    ['Documentation', ['doc_txt', 'doc_pdf']],
+])
+
+
+FILE_GROUPS_SELECT = []
+for k, v in FILE_GROUPS.items():
+    FILE_GROUPS_SELECT.append(
+        ([(x, data_file_human_names[x]) for x in v], k))
+FILE_GROUPS_SELECT.append('Other')
 
 
 def cruises_index(request):
@@ -26,7 +71,10 @@ def _suggest_file(request, cruise_obj):
             logging.warn('Attempted to suggest file with improper type')
             request.response_status_int = 400
             request.session.flash(
-                'Invalid file type. Please try again.', 'help')
+                'Invalid file type %s. Please try again.' % type, 'help')
+            request.session.flash(
+                'File type must be one of %s' % \
+                ', '.join(models.data_file_descriptions.keys()), 'help')
             return
     except KeyError:
         logging.warn('Attempted to suggest file without type')
@@ -45,11 +93,78 @@ def _suggest_file(request, cruise_obj):
         request.session.flash(
             'You did not select a file. Please try again.', 'help')
         return
-    cruise_obj.set(type, file, request.user)
+    try:
+        note = models.Note(request.user, request.params['notes'])
+    except KeyError:
+        note = None
+    cruise_obj.set(type, file, request.user, note)
+
+
+def _edit_attr(request, cruise_obj):
+    try:
+        key = request.params['key']
+        if key not in CRUISE_ATTRS_LIST:
+            logging.warn('Attempted to edit attribute with illegal key')
+            request.response_status = '400 Bad Request'
+            request.session.flash('The attribute key must be one of %r' % \
+                                  sorted(CRUISE_ATTRS_LIST),
+                                  'help')
+            return
+    except KeyError:
+        logging.warn('Attempted to edit attribute without key')
+        request.response_status = '400 Bad Request'
+        request.session.flash('You must specify a key to edit', 'help')
+        return
+    try:
+        value = request.params['value']
+    except KeyError:
+        logging.warn('Attempted to edit attribute without value')
+        request.response_status = '400 Bad Request'
+        request.session.flash('You did not give a value for the attribute.',
+                              'help')
+        return
+    try:
+        note = models.Note(request.user, request.params['notes'])
+    except KeyError:
+        note = None
+
+    value_type = [k for k, v in CRUISE_ATTRS.iteritems() 
+                  if key in v][0].lower().replace(' ', '_')
+    value = text_to_obj(value, value_type)
+
+    cruise_obj.set(key, value, request.user, note)
+    request.session.flash('Suggested that %s should become %s' % (key, value),
+                          'action_taken')
+
+
+def _add_note_to_attr(request):
+    try:
+        attr_id = request.params['attr_id']
+        note = request.params['note']
+    except KeyError:
+        logging.warn('Attempted to add note with missing attributes')
+        request.response_status = '400 Bad Request'
+        request.session.flash(
+            'Your note was missing an id or the note body. Please try again.',
+            'help')
+        return
+
+    try:
+        public = request.params['public']
+    except KeyError:
+        public = False
+
+    attr_obj = models._Attr.get_id(attr_id)
+    if not attr_obj:
+        request.response_status = '404 Not Found'
+        request.session.flash(
+            'The attribute you tried to add a note to could not be found.', 'help')
+        return
+
+    attr_obj.add_note(models.Note(request.user, note, discussion=not public))
 
 
 def _add_note_to_file(request):
-    print 'hello. adding note to file'
     try:
         file_id = request.params['file_id']
         note = request.params['note']
@@ -119,11 +234,15 @@ def cruise_show(request):
             return require_signin(request)
         if request.params['action'] == 'suggest_file':
             _suggest_file(request, cruise_obj)
+        if request.params['action'] == 'edit_attr':
+            _edit_attr(request, cruise_obj)
     elif method == 'POST':
         if not request.user:
             return require_signin(request)
         if request.params['action'] == 'add_note':
             _add_note(request, cruise_obj)
+        if request.params['action'] == 'add_note_to_attr':
+            _add_note_to_attr(request)
         if request.params['action'] == 'add_note_to_file':
             _add_note_to_file(request)
 
@@ -136,12 +255,11 @@ def cruise_show(request):
             h.cruise_dates(cruise_obj)
         cruise['link'] = cruise_obj.get('link')
 
-        def getAttr(cruise_obj, type):
-            id = None
-            for c in cruise_obj.accepted_tracked():
-                if c['key'] == type:
-                    id = c['_id']
-            return models._Attr.get_id(id)
+        def getAttr(self, key):
+            try:
+                return self.get_attr(key)
+            except KeyError:
+                return None
 
         # TODO collecting the datafiles takes forever
         data_files = {}
@@ -173,11 +291,16 @@ def cruise_show(request):
             'doc_pdf': getAttr(cruise_obj, 'doc_pdf'),
         }
 
-        # TODO also list attr history?
         if request.user:
             history = cruise_obj.notes
         else:
             history = cruise_obj.notes_public
+
+        unjudged = cruise_obj.unjudged_tracked()
+        suggested_attrs = []
+        for attr in unjudged:
+            if attr.key in CRUISE_ATTRS_LIST:
+                suggested_attrs.append(attr)
 
         as_received = []
         for file in cruise_obj.pending_tracked_data():
@@ -202,6 +325,7 @@ def cruise_show(request):
                 d['notes'] = file.notes_public
             merged.append(d)
         updates = {
+            'attrs': suggested_attrs,
             'as_received': as_received,
             'merged': merged,
         }
@@ -211,6 +335,8 @@ def cruise_show(request):
         'cruise_dict': cruise,
         'data_files': _collapsed_dict(data_files) or {},
         'history': history,
-        'updates': updates,
+        'updates': _collapsed_dict(updates, []) or {},
+        'CRUISE_ATTRS_SELECT': CRUISE_ATTRS_SELECT,
+        'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,
         }
 

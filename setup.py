@@ -13,7 +13,9 @@ _importer_requires = [
     ]
 
 requires = [
+    'repoze.tm2',
     'pyramid_jinja2',
+    'pyramid_mailer',
     'webhelpers',
     'WebError',
     'pymongo',

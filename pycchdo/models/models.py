@@ -21,6 +21,22 @@ mongo_conn = None
 grid_fs = None
 
 
+data_file_human_names = {
+    'bottle_exchange': 'Bottle Exchange',
+    'bottlezip_exchange': 'Bottle ZIP Exchange',
+    'ctdzip_exchange': 'CTD ZIP Exchange',
+    'bottlezip_netcdf': 'Bottle ZIP NetCDF',
+    'ctdzip_netcdf': 'CTD ZIP NetCDF',
+    'bottle_woce': 'Bottle WOCE',
+    'ctdzip_woce': 'CTD ZIP WOCE',
+    'sum_woce': 'Summary WOCE',
+    'map_thumb': 'Map Thumbnail',
+    'map_full': 'Map Fullsize',
+    'doc_txt': 'Documentation Text',
+    'doc_pdf': 'Documentation PDF',
+}
+
+
 data_file_descriptions = {
     'bottle_woce': 'ASCII bottle data',
     'ctdzip_woce': 'ZIP archive of ASCII CTD data',
@@ -35,6 +51,8 @@ data_file_descriptions = {
     'large_volume_samples_exchange': 'ASCII .csv large volume samples',
     'trace_metals_woce': 'ASCII trace metal samples',
     'trace_metals_exchange': 'ASCII .csv trace metal samples',
+    'map_thumb': 'Map thumbnail',
+    'map_full': 'Map full size',
     'doc_txt': 'ASCII cruise and data documentation',
     'doc_pdf': 'Portable Document Format cruise and data documentation',
 }
@@ -109,10 +127,13 @@ def ensure_objectid(idobj):
 
     Returns:
       idobj if type(idobj) is ObjectId else ObjectId(idobj)
-      #(sorry)
+
     """
     if type(idobj) is not ObjectId:
-        return ObjectId(idobj)
+        try:
+            return ObjectId(idobj)
+        except TypeError:
+            return None
     return idobj
 
 
@@ -146,7 +167,7 @@ def is_valid_ipv6(ip):
         return False
 
 
-def _sort_by_stamp(query, stamp='creation'):
+def _sort_by_stamp(query, stamp='creation', direction=pymongo.DESCENDING):
     """ Applies a sort to the mongodb query by the given stamp's timestamp key.
 
         Valid stamp arguments:
@@ -155,7 +176,7 @@ def _sort_by_stamp(query, stamp='creation'):
             * judgment
     
     """
-    return query.sort('%s_stamp.timestamp' % stamp, pymongo.DESCENDING)
+    return query.sort('%s_stamp.timestamp' % stamp, direction)
 
 
 class mongodoc(dict):
@@ -717,12 +738,13 @@ class _Attr(_Change, _FileHolder):
         self.deleted = deleted
         if note is not None:
             self.add_note(note)
+        self.accepted_value = None
         self.set(key, value)
 
     def from_mongo(self, doc):
         super(_Attr, self).from_mongo(doc)
         self.copy_keys_from(doc, ('key', 'value', '_requests', 'file', 'track',
-                                  'obj', 'deleted', ))
+                                  'obj', 'deleted', 'accepted_value', ))
         return self
 
     def set(self, key, value):
@@ -741,7 +763,6 @@ class _Attr(_Change, _FileHolder):
         self.key = key
         self.track = None
         self.value = None
-        self.accepted_value = None
 
         if key == 'track':
             if type(value) is LineString:
@@ -921,19 +942,28 @@ class Obj(_Change):
         return _sort_by_stamp(self.find_attrs(**kwargs))
 
     def tracked(self, *args, **kwargs):
-        return _Attr.map_mongo(_sort_by_stamp(self.find_attrs(*args, **kwargs)))
+        return _Attr.map_mongo(_sort_by_stamp(self.find_attrs(*args, **kwargs),
+                                              'judgment'))
 
     def tracked_data(self):
         return self.tracked({'file': {'$ne': None}})
+
+    def unjudged_tracked(self):
+        return self.tracked({'judgment_stamp': None})
+
+    def unjudged_tracked_data(self):
+        return self.tracked({'judgment_stamp': None, 'file': {'$ne': None}})
 
     def unacknowledged_tracked(self):
         return self.tracked({'judgment_stamp': None, 'pending_stamp': None})
 
     def pending_tracked(self):
-        return self.tracked({'judgment_stamp': None, 'accepted': False})
+        return self.tracked({'judgment_stamp': None,
+                             'pending_stamp': {'$ne': None}})
 
     def pending_tracked_data(self):
-        return self.tracked({'judgment_stamp': None, 'accepted': False,
+        return self.tracked({'judgment_stamp': None,
+                             'pending_stamp': {'$ne': None},
                              'file': {'$ne': None}})
 
     def accepted_tracked(self):
@@ -1016,6 +1046,23 @@ class Obj(_Change):
             return creation_time
         last_attr_creation_time = accepted[0].creation_stamp.timestamp
         return max(creation_time, last_attr_creation_time)
+
+    def polymorph(self):
+        """ Gives back a subclass instance based on _obj_type. All the data
+            loaded in the class is transferred.
+
+            Useful for transforming an Obj into a Cruise or Person, etc.
+
+            Returns:
+                an new instance of a subclass of Obj containing all the current
+                data.
+
+        """
+        try:
+            klass = cls.subclass_map().get(self['_obj_type'], self.__class__)
+            return klass.map_mongo(self)
+        except (TypeError, KeyError) as e:
+            return cls.map_mongo(self)
 
     def save(self):
         super(Obj, self).save()

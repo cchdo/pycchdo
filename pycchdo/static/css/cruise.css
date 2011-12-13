@@ -1,4 +1,4 @@
-.cruise-page #info { float: left; width: 45%; }
+.cruise-page #info { float: left; width: 45.5%; }
 .cruise-page #history { float: right; text-align: left; width: 53%; }
 .cruise-page .upper .box_content { }
 .cruise-page .boxed.upper .box_content { height: 39em; }
@@ -30,7 +30,7 @@
   font-size: 1.2em;
   margin: 0.5em 0;
 }
-.cruise-page #updates-available {
+.cruise-page .updates-available {
   display: block;
   color: #ff0900;
   margin: 0.5em 0;
@@ -80,7 +80,7 @@
 }
 
 #updates table { width: 100%; }
-#updates .date { width: 10em; }
+#updates .date { width: 14em; }
 #updates #merged .even { background-color: #D9EAED; }
 #updates #merged .odd { background-color: #C9DADD; }
 #updates #merged .even.open { background-color: #D1E2E5; }
@@ -92,7 +92,7 @@
 #notes table {
   width: 100%;
 }
-#notes tr.odd {
+tr.odd {
   background: #EEEEEE;
 }
 #notes .body {
@@ -117,7 +117,7 @@
   width: 15em;
   font-size: 0.8em;
 }
-#as_received .note .person {
+.note .person {
   text-align: right;
   padding-right: 1em;
 }
@@ -152,22 +152,41 @@ tr.expander {
   background: #FFFFEE;
 }
 .open.odd {
-  background: #DDDDCC;
+  background: #F0EBDD;
 }
 
 /* pending */
 #pending-review {
-  padding: 0.2em;
+  padding: 0.5em;
   font-size: 1.2em;
-  background: #ffddaa url('http://developer.gnome.org/gtk/2.24/dialog-warning.png') no-repeat 0.2em 55%;
-  padding-left: 3em;
+  background: #aaddff url('/static/img/logos/project_seahunt_logo.png') no-repeat 100%;
+  background-size: auto 100%;
 }
 .pending .boxed h1,
 .pending .boxed .box_bottom {
   background: #aaddff;
 }
 
-#edit_attr input[type="text"] {
-  width: 5em;
+/* editing information */
+#info .editor table {
+  width: 100%;
+}
+#info .editor th,
+#info .editor .submit {
+  text-align: right;
+}
+#info .editor th {
+  width: 10%;
+}
+#info .editor input[type="text"] {
+  width: 100%;
+}
+label {
+  font-size: 0.8em;
 }
 
+/* suggested attributes */
+.suggestion .change .key,
+.suggestion .change .value {
+  color: #00AAFF;
+}

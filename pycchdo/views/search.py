@@ -31,7 +31,7 @@ def _quote(str):
 
 
 def search(request):
-    params = request.str_params
+    params = request.params
 
     if not params: 
         return HTTPMovedPermanently(location='/search/advanced') 

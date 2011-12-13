@@ -1,0 +1,930 @@
+{%- extends "templates/fullwidth.jinja2" %}
+{%- block title %}Webtool | Data Compare{%- endblock %}
+{%- block head %}
+  <style type="text/css">
+    .btlcmp .box_content { padding: 0 !important; }
+    .btlcmp .left { text-align: right; }
+    .btlcmp #controls { width: 30%; background-color: #ddd; }
+    .btlcmp #parameters .note { font-size: small; text-align: left; }
+    .btlcmp #plots { vertical-align: top; padding: 0; }
+    .btlcmp #statusbar { background: #fcc; }
+    .btlcmp #fileinfo,
+    .btlcmp #columns,
+    .btlcmp #parameters,
+    .btlcmp #controls table { width: 100%; }
+    .btlcmp #columns { border-collapse: collapse; }
+    .btlcmp #parameters, #plots, #datatable { display: none; }
+    .btlcmp #parameters .identical { background: #afa;}
+    .btlcmp #parameters .not-identical { background: #faa;}
+    .btlcmp .common { background: #0f0; }
+    .btlcmp .different { background: #f00; }
+    .btlcmp #fileinfo { background-color: #ddd; }
+    .btlcmp #fileinfo h1 { font-weight: bold; }
+    .btlcmp #fileinfo td { vertical-align: top; padding: 0.1em; }
+    .btlcmp #fileinfo .left { text-align: left; }
+    .btlcmp #dataplot { width: 100%; }
+    .btlcmp .merge_status { padding: 0.1em; }
+    .btlcmp .google-visualization-table-th { white-space: nowrap; }
+    .btlcmp #file_errors { background: #ddd; }
+    .btlcmp #file_errors h1,
+    .btlcmp #file_errors table { display: none; width: inherit; }
+    .btlcmp #file_errors th { text-align: left; }
+    .btlcmp #file_errors td { width: 50%; vertical-align: top; padding: 0.5em; }
+    .btlcmp #file_errors h1 { color: #f33; font-size: 1.1em; padding: 0.5em; font-weight: bold; cursor: pointer; }
+  </style>
+{%- endblock %}
+{%- block content %}
+<div class="boxed btlcmp">
+<h1>Data Comparer</h1>
+<div class="box_content">
+<table id="columns">
+  <tr>
+    <td id="controls">
+      <table id="files">
+        <tr>
+          <td class="left">
+            {{ whh.tags.form('') }}
+              <input id="lfile_prompt" type="file" name="file" />
+              <select name="input_type">
+                <option value="detect" selected="selected">Detect</option>
+                <optgroup label="Formats">
+                  <option value="botex">Bottle Exchange</option>
+                  <option value="ctdzipex">CTD Zip Exchange</option>
+                </optgroup>
+              </select>
+            {{ whh.tags.end_form() }}
+          </td>
+          <td>
+            {{ whh.tags.form('') }}
+              <input id="rfile_prompt" type="file" name="file" />
+              <select name="input_type">
+                <option value="detect" selected="selected">Detect</option>
+                <optgroup label="Formats">
+                  <option value="botex">Bottle Exchange</option>
+                  <option value="ctdzipex">CTD Zip Exchange</option>
+                </optgroup>
+              </select>
+            {{ whh.tags.end_form() }}
+          </td>
+        </tr>
+      </table>
+      <table id="parameters">
+        <tr>
+          <td class="left"><select id="lparams" class="params"></select></td>
+          <td><select id="rparams" class="params"></select></td>
+        </tr>
+      </table>
+      <table id="datatable">
+        <tr>
+          <td colspan="2" class="center">
+            <div id="datatable" style="height: 400px;"></div>
+          </td>
+        </tr>
+      </table>
+    </td>
+    <td id="plots">
+      <table id="fileinfo">
+        <tr><td class="left"></td><td class="right"></td><td class="diff"></td>
+          <td class="merge">
+            <p></p>
+            <table class="merge_status"></table>
+          </td>
+        </tr>
+      </table>
+      <div id="dataplot"></div>
+    </td>
+  </tr>
+</table>
+</div>
+<div id="statusbar"></div>
+<div id="file_errors">
+  <h1>Warnings</h1>
+  <table>
+    <tr><th>Left file</th><th>Right file</th></tr>
+    <tr><td></td><td></td></tr>
+  </table>
+</div>
+<div class="box_bottom"></div>
+</div>
+{%- endblock %}
+{%- block js %}
+<script type="text/javascript" src="https://www.google.com/jsapi?autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22visualization%22%2C%22version%22%3A%221%22%2C%22packages%22%3A%5B%22corechart%22%2C%22table%22%5D%7D%5D%7D"></script>
+<script type="text/javascript" src='https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js'></script>
+<script type='text/javascript' src='/static/js/jquery.form.js'></script>
+<script type="text/javascript">
+if (!window.console) { window.console = {log: function () { this._logs.push(arguments); }, _logs: []}; }
+function defaultTo(x, d) { return x ? x : d; }
+// Author:  Jacek Becela
+// Source:  http://gist.github.com/399624
+// License: MIT
+jQuery.fn.single_double_click = function(single_click_callback, double_click_callback, timeout) {
+  return this.each(function(){
+    var clicks = 0, self = this;
+    // XXX HACK chrome scrolls a select box if you click the bottom most option.
+    // This results in a missing click event. Mouse down works better.
+    jQuery(this).click(function(event){
+      clicks++;
+      if (clicks == 1) {
+        setTimeout(function(){
+          if(clicks == 1) {
+            single_click_callback.call(self, event);
+          } else {
+            double_click_callback.call(self, event);
+          }
+          clicks = 0;
+        }, timeout || 300);
+      }
+    });
+  });
+}
+Array.prototype.each = function (fn) {
+  for (var i = 0; i < this.length; i += 1) {
+    fn(i, this[i]);
+  }
+  return this;
+};
+Array.prototype.pad = function (len, val) {
+  var l = Math.abs(len) - this.length;
+  var a = [].concat(this);
+  for (var i = 0; i < l; i += 1) {
+    a.push(val);
+  }
+  return a;
+};
+Array.prototype.flatten = function () {
+  var b = [];
+  for (var i = 0; i < this.length; i += 1) {
+    b = b.concat(this[i]);
+  }
+  return b;
+};
+/* More Array definitions after ID definition */
+Number.prototype.equals_e = function (o, e) {
+  if (!e) {
+    e = 1.0;
+  }
+  return this - e <= o && o <= this + e;
+};
+
+var CCHDO = defaultTo(CCHDO, {});
+
+CCHDO.btlcmp = (function () {
+var GV = google.visualization;
+var GVDT_VER = 0.6;
+var LCOL = 4, RCOL = 5, ABSDIFFCOL = 6;
+var ID_COLS = ['CASTNO', 'STNNBR', 'SAMPNO', 'BTLNBR'];
+var ID_COLNAMES = ['Cast', 'Station', 'Sample', 'Bottle'];
+var dataplot = null, data_table = null;
+var data_table_opts = {
+  allowHtml: true,
+  width: '100%',
+  height: 500,
+  sort: 'enable',
+  page: 'enable',
+  pageSize: 500,
+  pagingSymbols: {prev: '&Delta;', next: '&nabla;'}
+};
+
+var ldt = null, rdt = null, dtd = null;
+var lid_cache = null, rid_cache = null;
+var lmerge = null, rmerge = null;
+
+/* ID */
+function ID(c, sta, samp, btln) {
+  if (arguments.length == 4) {
+    this.cast = c;
+    this.sta = sta;
+    this.samp = samp;
+    this.btln = btln;
+  } else if (arguments.length == 1) {
+    this.cast = c[0];
+    this.sta = c[1];
+    this.samp = c[2];
+    this.btln = c[3];
+  }
+}
+ID.prototype.valueExists = function (v) {
+  return v && v != "None";
+};
+ID.prototype.equal = function (o) {
+  if (this && o && this.cast == o.cast && this.sta == o.sta) {
+    if (this.valueExists(this.samp) && this.valueExists(o.samp) && this.samp == o.samp) {
+      if (this.valueExists(this.btln) && this.valueExists(o.btln)) {
+        return this.btln == o.btln;
+      }
+      return true;
+    }
+    if (this.valueExists(this.btln) && this.valueExists(o.btln) && this.btln == o.btln) {
+      return true;
+    }
+  }
+  return false;
+};
+ID.prototype.toArray = function () {
+  return [this.cast, this.sta, this.samp, this.btln];
+};
+ID.prototype.hash = function () {
+  return $.map(this.toArray(), function (x) { return defaultTo(x, 0); }).join('_');
+}
+Array.prototype.difference = function(o) {
+  var h = {}, a = [];
+  for (var i = 0; i < o.length; i += 1) {
+    var hash = o[i];
+    if (ID && hash instanceof ID) {
+      hash = hash.hash();
+    }
+    h[hash] = true;
+  }
+  for (var i = 0; i < this.length; i += 1) {
+    var x = this[i]
+    var hash = x;
+    if (ID && hash instanceof ID) {
+      hash = x.hash();
+    }
+    if (!h[hash]) {
+      a.push(x);
+    }
+  }
+  delete h;
+  return a;
+};
+Array.prototype.unique = function () {
+  var h = {}, a = [];
+  for (var i = 0; i < this.length; i += 1) {
+    // XXX cannot be used with array of arrays
+    var x = this[i];
+    var hash = x;
+    if (ID && x instanceof ID) {
+      hash = x.hash();
+    }
+    if (!h[hash]) {
+      a.push(x);
+    }
+    h[hash] = true;
+  }
+  delete h;
+  return a;
+};
+
+function findColumnIndices(dt, labels) {
+  var r = [].pad(labels.length, -1);
+  for (var i = 0; i < dt.getNumberOfColumns(); i += 1) {
+    var label = dt.getColumnLabel(i);
+    for (var j = 0; j < labels.length; j += 1) {
+      if (r[j] != -1) {
+        continue;
+      }
+      if (label == labels[j]) {
+        r[j] = i;
+      }
+    }
+  }
+  return r;
+}
+
+function getColumnsValues(dt, row, cis) {
+  return $.map(cis, function (c) {
+    if (c > -1) {
+      return dt.getValue(row, c);
+    } else {
+      return null;
+    }
+  });
+}
+
+function getAllColumnsValues(dt, cis) {
+  var vs = [];
+  for (var i = 0; i < dt.getNumberOfRows(); i += 1) {
+    vs.push(getColumnsValues(dt, i, cis));
+  }
+  return vs;
+}
+
+function get_col(dt, p) {
+  return getAllColumnsValues(dt, findColumnIndices(dt, [p])).flatten();
+}
+
+function getIds(dt) {
+  return $.map(getAllColumnsValues(dt, findColumnIndices(dt, ID_COLS)),
+               function (x) { return new ID(x); });
+}
+
+function getIdIndex(cache, id) {
+  if (cache[id.sta] && cache[id.sta][id.cast]) {
+    var idpts = cache[id.sta][id.cast];
+    for (var i in idpts) {
+      if (id.equal(idpts[i][0])) {
+        return idpts[i][1];
+      }
+    }
+  }
+  return -1;
+}
+
+function ensureColumnType(dtd, column, data) {
+  /* Switch the column type if necessary.
+     XXX HACK: technically shouldn't be able to do this according to API
+     XXX HACK: find the column property of the dtd by scanning properties
+   */
+  var columns = dtd;
+  for (var i in columns) {
+    var p = columns[i];
+    if (p && typeof p == 'object') {
+      if (p[0].type) {
+        columns = p;
+      }
+    }
+  }
+
+  /* Figure out the right column type */
+  var type = null;
+  for (var i = 0; i < data.length; i += 1) {
+    if (!type) {
+      type = typeof data[i];
+      continue;
+    }
+    if (typeof data[i] != type && type == 'string') {
+      type = typeof data[i];
+    }
+  }
+  columns[column].type = type;
+}
+
+function google_wire_to_datatable(gw) {
+  // Strip the first two columns (stamp, header)
+  var dt = new GV.DataTable(gw, GVDT_VER);
+  dt.removeColumns(0, 2);
+  if (findColumnIndices(dt, ['SAMPNO'])[0] < 0) {
+    // XXX HACK Inserts pressure value as sample number for CTD data so that
+    // merging can happen.
+    var castcol = findColumnIndices(dt, ['CASTNO'])[0];
+    if (castcol < 0) {
+      console.log('ERROR: no cast column');
+    } else {
+      var sampcol = castcol + 1;
+      dt.insertColumn(sampcol, 'number', 'SAMPNO');
+      var prsvals = get_col(dt, 'CTDPRS');
+      for (var i = 0; i < prsvals.length; i += 1) {
+        dt.setCell(i, sampcol, prsvals[i]);
+      }
+    }
+  }
+  return dt;
+};
+function dt_val_or_default(dt, r, c, d) {
+  try {
+    return dt.getValue(r, c);
+  } catch (e) {
+    return d;
+  }
+}
+function get_id_cache(df) {
+  var h = {};
+  var cis = findColumnIndices(df, ID_COLS);
+  for (var i = 0; i < df.getNumberOfRows(); i += 1) {
+    var cast = dt_val_or_default(df, i, cis[0], ''),
+        sta = dt_val_or_default(df, i, cis[1], ''),
+        samp = dt_val_or_default(df, i, cis[2], ''),
+        btln = dt_val_or_default(df, i, cis[3], '');
+
+    h[sta] = defaultTo(h[sta], {});
+    h[sta][cast] = defaultTo(h[sta][cast], []);
+    h[sta][cast].push([new ID(cast, sta, samp, btln), i]);
+  }
+  return h;
+}
+
+function absdiff() {
+  /* Generate absdiff */
+  if (dtd.getColumnType(LCOL) != 'number' || 
+      dtd.getColumnType(RCOL) != 'number') {
+    newStatus("Cannot compare non-numbers.");
+    return;
+  }
+  var diff = false;
+  for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
+    var delta = Math.abs(dtd.getValue(i, LCOL) - dtd.getValue(i, RCOL));
+    if (isNaN(delta)) {
+      delta = -Infinity;
+    }
+    dtd.setCell(i, ABSDIFFCOL, delta);
+    if (delta !== 0 && isFinite(delta) && !isNaN(delta)) {
+      diff = true;
+    }
+  }
+  /* color absdiff according to complete matchness */
+  if (diff) {
+    $('#fileinfo .merge p').html("The matched value columns differ.");
+    dtd.setColumnLabel(ABSDIFFCOL, '<span style="color: #f00; white-space: nowrap;">|&Delta;|</span>');
+  } else {
+    $('#fileinfo .merge p').html("The matched value columns are identical.");
+    dtd.setColumnLabel(ABSDIFFCOL, '<span style="color: #0f0; white-space: nowrap;">|&Delta;|</span>');
+  }
+}
+
+function anydiff(p) {
+  var lcol = get_col(ldt, p),
+      rcol = get_col(rdt, p);
+  for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
+    var lval = lcol[lmerge[i]];
+    var rval = rcol[rmerge[i]];
+    if (lval != rval) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function mergeIDs() {
+  var lunmatched_ids = 0,
+      lmatched_ids = 0;
+  var runmatched_ids = 0,
+      rmatched_ids = 0;
+  lmerge = [];
+  rmerge = [];
+  var id_cis = findColumnIndices(dtd, ID_COLNAMES);
+  for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
+    var id = new ID(getColumnsValues(dtd, i, id_cis));
+    var j = getIdIndex(lid_cache, id);
+    lmerge.push(j);
+    if (j > -1) {
+      lmatched_ids++;
+    } else {
+      lunmatched_ids++;
+    }
+    j = getIdIndex(rid_cache, id);
+    rmerge.push(j);
+    if (j > -1) {
+      rmatched_ids++;
+    } else {
+      runmatched_ids++;
+    }
+  }
+  return [lmatched_ids, lunmatched_ids,
+          rmatched_ids, runmatched_ids];
+};
+
+function merge(column, label, data) {
+  /* Insert all the data points, matching on ids */
+  var merge = (column === LCOL) ? lmerge : rmerge;
+  var id_cis = findColumnIndices(dtd, ID_COLNAMES);
+  for (var i = 0; i < dtd.getNumberOfRows(); i += 1) {
+    var j = merge[i];
+    if (j > -1) {
+      var val = data[j];
+      if (val == 'None') {
+        if (dtd.getColumnType(column) == 'number') {
+          val = -Infinity;
+        } else {
+          val = null;
+        }
+      }
+      dtd.setCell(i, column, val);
+    } else {
+      if (dtd.getColumnType(column) == 'number') {
+        dtd.setCell(i, column, -Infinity);
+      } else {
+        dtd.setCell(i, column, null);
+      }
+    }
+  }
+};
+function redraw_data_table() {
+  data_table.draw(dtd, data_table_opts);
+
+  google.visualization.events.addListener(data_table, 'ready', function () {
+    var table = $('table.google-visualization-table-table:eq(0)');
+    var div = table.parent();
+    var page = 0;
+    div.scroll(function () {
+      if ($(this).scrollTop() >= table.height() - $(this).height()) {
+        page++;
+        google.visualization.events.trigger(data_table, 'page', {page: page});
+        console.log('page', page);
+      } else if ($(this).scrollTop() == 0) {
+        page--;
+        google.visualization.events.trigger(data_table, 'page', {page: page});
+        console.log('page', page);
+      }
+    });
+  });
+};
+function draw_plot() {
+  if (dtd.getNumberOfRows() <= 0) {
+    return;
+  }
+  if (!$('#lparams').val() || !$('#rparams').val()) {
+    return;
+  }
+  newStatus('Plotting...');
+  if (dtd.getColumnType(LCOL) != 'number' || 
+      dtd.getColumnType(RCOL) != 'number') {
+    newStatus("Cannot plot non-numbers!");
+  } else {
+    $('#dataplot').css('height', '500px');
+    var data = dtd.clone();
+    data.removeColumn(ABSDIFFCOL);
+    data.removeColumns(0, LCOL);
+
+    // TODO use data view?
+    var missing = -999;
+    for (var i = data.getNumberOfRows() - 1; i >= 0; i -= 1) {
+      var lval = data.getValue(i, 0),
+          rval = data.getValue(i, 1);
+      if (!isFinite(lval) || !isFinite(rval)) {
+        data.removeRow(i);
+      } else if (Number(lval).equals_e(missing) || 
+                 Number(rval).equals_e(missing)) {
+        data.removeRow(i);
+      } else {
+        data.setRowProperties(i, null);
+      }
+    }
+
+    if (dataplot) {
+      var xparam = data.getColumnLabel(0);
+      var yparam = data.getColumnLabel(1);
+      function reverse(p) {
+        if (p == 'CTDPRS' || p == 'DEPTH') {
+          return -1;
+        }
+        return 1;
+      }
+      var opts = {
+        title: [xparam, 'vs', yparam].join(' '),
+        pointSize: 3,
+        legend: 'none',
+        hAxis: {title: xparam, direction: reverse(xparam)},
+        vAxis: {title: yparam, direction: reverse(yparam)},
+        height: $('#dataplot').height(),
+        width: $('#dataplot').width()
+      };
+      dataplot.draw(data, opts);
+    }
+    newStatus();
+  }
+};
+function copyscroll(obj, objs) {
+  // Scroll opposing objs when this obj is scrolled
+  obj.scroll(function () {
+    $.each(objs, function () {
+      /* XXX HACK: Webkit - focus and blur to redraw the contents */
+      $(this).scrollTop(obj.scrollTop()).focus().blur();
+    });
+  });
+  // If nothing is selected automatically select the same parameter on the opposing objs.
+  obj.single_double_click(function () {
+    $.each(objs, function () {
+      if (!$(this).val()) {
+        $(this).val(obj.val()).change();
+      }
+    });
+    $('#parameters').trigger('redraw');
+  },
+  // If double-clicked select the same parameter on the opposing objs.
+  function () {
+    $.each(objs, function (i) {
+      $(this).val(obj.val()).change();
+    });
+    $('#parameters').trigger('redraw');
+  });
+};
+function newStatus() {
+  console.log(arguments);
+  if (!arguments) {
+    $('#statusbar').hide('fast');
+  } else {
+    var a = [];
+    for (var i = 0; i < arguments.length; i += 1) {
+      a.push(arguments[i]);
+    }
+    $('#statusbar').html(a.join(' ')).show();
+  }
+};
+function update_dtd(column, label, data) {
+  if (!data || !dtd) {
+    return;
+  }
+  newStatus("Loading", label, "for", ((column === LCOL) ? "left" : "right"),
+            "column. Please wait...");
+  
+  dtd.setColumnLabel(column, label);
+  ensureColumnType(dtd, column, data);
+
+  merge(column, label, data);
+};
+resize = draw_plot;
+
+var _ = function () {
+  var self = this;
+  $('#parameters,#plots,#datatable').hide();
+
+  $('#lparams').change(function () {
+    var p = $(this).val();
+    if (p) {
+      update_dtd.call(self, LCOL, p, get_col(ldt, p));
+    }
+  });
+  $('#rparams').change(function () {
+    var p = $(this).val();
+    if (p) {
+      update_dtd.call(self, RCOL, p, get_col(rdt, p));
+    }
+  });
+
+  copyscroll($('#lparams'), [$('#rparams')]);
+  copyscroll($('#rparams'), [$('#lparams')]);
+
+  $('#parameters').bind('redraw', function () {
+    var self = $(this);
+    // Sync scrolling
+    self.find('select:eq(0)').scroll();
+    self.data('bg', self.css('background')).css('background', '#ffa');
+    // Let bg color change
+    setTimeout(function () {
+      draw_plot();
+      absdiff();
+      redraw_data_table();
+      newStatus();
+      self.css('background', self.data('bg'));
+    }, 0);
+  });
+
+  data_table = new GV.Table($('#datatable')[0]);
+  dataplot = new GV.ScatterChart($('#dataplot')[0]);
+  dtd = new GV.DataTable({
+    cols: [
+      {label: 'Cast', type: 'string'}, {label: 'Station', type: 'string'},
+      {label: 'Sample', type: 'string'}, {label: 'Bottle', type: 'string'},
+      {label: '?', type: 'number'}, {label: '?', type: 'number'},
+      {label: '|&Delta;|', type: 'number'}]
+  }, GVDT_VER);
+
+  $(window).resize(resize);
+};
+var _p = _.prototype = function () {};
+_p.google_wire_to_datatable_and_cache = function (gw) {
+  var df = google_wire_to_datatable(gw);
+  return [df, get_id_cache(df)];
+};
+_p.update_files = function () {
+  var files = $('#files input:file');
+  var lf = $(files[0]), rf = $(files[1]);
+  ldt = lf.data('data');
+  lid_cache = lf.data('id_cache');
+  rdt = rf.data('data');
+  rid_cache = rf.data('id_cache');
+  if (!ldt || !rdt) {
+    return;
+  }
+  console.log(ldt, lid_cache, lf.data('changed'), rdt, rid_cache, rf.data('changed'));
+
+  $('#parameters,#plots,#datatable').show();
+
+  /* Clear previous state */
+  $('#fileinfo .merge p').empty();
+  dtd.setColumnLabel(LCOL, '?');
+  dtd.setColumnLabel(RCOL, '?');
+
+  /* Create parameter selection UI */
+  var lp = new Array(ldt.getNumberOfColumns()),
+      rp = new Array(rdt.getNumberOfColumns());
+  for (var i = 0; i < lp.length; i += 1) {
+    lp[i] = ldt.getColumnLabel(i);
+  }
+  for (var i = 0; i < rp.length; i += 1) {
+    rp[i] = rdt.getColumnLabel(i);
+  }
+
+  var totalparams = lp.concat(rp).unique();
+  var lop = lp.difference(rp), rop = rp.difference(lp);
+  var common = totalparams.difference(lop).difference(rop);
+
+  /* Collect id information */
+  var lids = getIds(ldt), rids = getIds(rdt);
+  var uniqids = lids.concat(rids).unique();
+
+  /* Put ids in dtd */
+  dtd.removeRows(0, dtd.getNumberOfRows());
+  function addId(i, x) {
+    dtd.addRow($.map(x.toArray(), function (x) { return String(x); })
+                .pad(dtd.getNumberOfColumns()));
+  }
+  if (ldt) {
+    lids.difference(uniqids).each(addId);
+    uniqids.each(addId);
+  }
+  if (rdt) {
+    rids.difference(uniqids).each(addId);
+  }
+
+  /* Perform ID merge */
+  var merge_info = mergeIDs();
+  var lmatched_ids = merge_info[0],
+      lunmatched_ids = merge_info[1],
+      rmatched_ids = merge_info[2],
+      runmatched_ids = merge_info[3];
+
+  /* Talk about the data */
+  $('#fileinfo .left').html([
+    '<h2>', 'Left file', '</h2>', 
+    '<ul>', 
+    '<li>', lp.length, ' parameters</li>', 
+    '<li>', ldt.getNumberOfRows(), ' data rows</li>', 
+    '<li>', lids.length, ' ids (', lunmatched_ids, ' unmatched)',
+    '</ul>'].join(''));
+  $('#fileinfo .right').html([
+    '<h2>', 'Right file', '</h2>', 
+    '<ul>',
+    '<li>', rp.length, ' parameters</li>', 
+    '<li>', rdt.getNumberOfRows(), ' data rows</li>', 
+    '<li>', rids.length, ' ids (', runmatched_ids, ' unmatched)',
+    '</ul>'].join(''));
+
+  function parametersDisplay(isLeft) {
+    var selector = null;
+    function addOption(i, p) {
+      selector.append($(['<option value="', p, '">', p, '</option>'].join('')));
+    }
+    if (isLeft) {
+      selector = $('#lparams').empty().val(null);
+      $.each(lop, addOption);
+      $.each(common, addOption);
+      for (var i = 0; i < totalparams.length - lp.length; i += 1) {
+        addOption(0, '');
+      }
+    } else {
+      selector = $('#rparams').empty().val(null);
+      for (var i = 0; i < totalparams.length - rp.length; i += 1) {
+        addOption(0, '');
+      }
+      $.each(common, addOption);
+      $.each(rop, addOption);
+    }
+    selector.attr('size', Math.min(10, totalparams.length)).val(null);
+    return selector;
+  }
+  if (lf.data('changed')) {
+    parametersDisplay(true);
+  }
+  if (rf.data('changed')) {
+    parametersDisplay(false);
+  }
+
+  var numnewids = rids.length - uniqids.length;
+  var mergeidstr = 'No id difference';
+  if (numnewids != 0) {
+    mergeidstr = ['right file has ', Math.abs(numnewids),
+      (numnewids >= 0 ? ' new ids' : ' fewer ids')].join('');
+  }
+  $('#fileinfo .diff').html([
+    '<h2>Diff</h2>',
+    '<ul>',
+    '<li>', common.length, ' common parameters</li>', 
+    '<li>', mergeidstr, '</li>',
+    '</ul>'].join(''));
+
+  /* Color parameters based on absdiff */
+  for (var k = 0; k < common.length; k += 1) {
+    var param = common[k];
+    var selector = $(['#parameters [value=', param, ']'].join(''));
+    if (anydiff(param)) {
+      selector.addClass('not-identical');
+    } else {
+      selector.addClass('identical');
+    }
+  }
+  
+  redraw_data_table();
+  draw_plot();
+  $('.params').scrollTop(0);
+};
+return new _();
+})();
+
+$(function () {
+  $('#file_errors h1').click(function () {
+    var t = $('#file_errors table');
+    if (t.hasClass('open')) {
+      t.hide();
+    } else {
+      t.show();
+    }
+    t.toggleClass('open');
+  });
+  $('#files select').each(function () {
+    $(this).change(function () {
+      var file = $(this).siblings(':file:eq(0)');
+      if (file.val()) {
+        file.change();
+      }
+    });
+  });
+  $('#files input:file').each(function () {
+    var file = $(this);
+    var errors = null;
+    if (file.attr('id') == 'lfile_prompt') {
+      errors = $($('#file_errors td')[0]);
+    } else {
+      errors = $($('#file_errors td')[1]);
+    }
+    file.parent().ajaxForm({
+      url: '/webtool/convert/any_to_google_wire',
+      type: 'POST',
+      dataType: 'json',
+      beforeSend: function (xhr) {
+        if (file.data('xhr')) {
+          file.data('xhr').abort();
+        }
+        file.data('xhr', xhr);
+      },
+      success: function (data) {
+        errors.empty();
+        if (data.error) {
+          file.css('background', '#fcc');
+          file.data('data', null);
+          console.log(data.error);
+          errors.append(['<p>', data.error, '</p>'].join(''));
+          $('#file_errors h1').show('fast');
+        } else {
+          var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(data.data);
+          file.data('data', dtc[0]);
+          file.data('id_cache', dtc[1]);
+          file.data('changed', true);
+          file.css('background', '#cfc');
+
+          /* Breathe so everything redraws */
+          setTimeout(function () {
+            for (var i = 0; i < data.errors.length; i += 1) {
+              errors.append(['<p>', data.errors[i], '</p>'].join(''));
+            }
+            if (data.errors.length > 0) {
+              $('#file_errors h1').show('fast');
+            } else {
+              errors.append('<p>No warnings.</p>');
+            }
+          }, 0);
+        }
+        CCHDO.btlcmp.update_files();
+      },
+      error: function (xhr) {
+        errors.empty();
+        errors.append('<p>Corrupt response from server.</p>');
+        $('#file_errors h1').show('fast');
+        console.log('Could not get data:', xhr.responseText);
+        file.css('background', '#fcc');
+      },
+      iframe: true
+    });
+    file.change(function () {
+      if (! $(this).val()) {
+        $(this).css('background', 'none');
+        file.data('data', null);
+        file.data('changed', true);
+        CCHDO.btlcmp.update_files();
+        return;
+      }
+      $(this).css('background', '#ffc');
+      $(this).parent().submit();
+    });
+  });
+});
+var test = (function () {
+  var origin = [window.location.protocol, '//', window.location.host].join('');
+  var ldata = null, rdata = null;
+
+  $(document).ajaxSuccess(function () {
+    if (!(ldata && rdata)) { return; }
+    var x = true;
+    $('#files :file').each(function () {
+      var dtc = CCHDO.btlcmp.google_wire_to_datatable_and_cache(x ? ldata : rdata);
+      x = !x;
+      $(this).data('data', dtc[0]);
+      $(this).data('id_cache', dtc[1]);
+      $(this).data('changed', true);
+    });
+    CCHDO.btlcmp.update_files();
+
+    $('#lparams').val('CTDPRS').change().click();
+  });
+  return function (left, right) {
+    if (!left) {
+      left = 'btlcmp_test_data_0l.json';
+    }
+    if (!right) {
+      right = 'btlcmp_test_data_0r.json';
+    }
+
+    $.get([origin, '/', left].join(''), 
+      function (data) {
+        ldata = data;
+      }, 'json');
+    $.get([origin, '/', right].join(''), 
+      function (data) {
+        rdata = data;
+      }, 'json');
+  }
+})();
+//test('btlcmp_test_data_2l.json', 'btlcmp_test_data_2r.json');
+</script>
+{%- endblock js %}

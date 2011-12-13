@@ -1,0 +1,70 @@
+{%- extends "templates/fullwidth.jinja2" %}
+{%- block title %}Webtool | Visual{%- endblock %}
+{%- block head %}
+  <link rel="stylesheet" type="text/css" href="/static/webtools/css/overcast/jquery-ui-1.7.2.custom.css">
+  <style>
+    .boxed .box_content { padding: 0; }
+    #columns,
+    #parameters { width: 100%; }
+    #controls { width: 30%; background-color: #ddd; }
+  </style>
+{%- endblock %}
+{%- block content %}
+  {% call h.boxed('Visual') %}
+<table id="columns">
+  <tr>
+    <td id="controls">
+      {{ whh.tags.form('/webtool/convert/any_to_google_wire', multipart=True) }}
+        <table id="parameters">
+          <tr>
+            <td style="width: 20em;"><input type="file" id="file" name="file"></td>
+            <td id="status"></td>
+          </tr>
+        </table>
+      {{ whh.tags.end_form() }}
+  </td>
+</tr>
+</table>
+<div id="visual">
+  <div id="toolbox"></div>
+  <div id="station"></div>
+  <div id="observation"></div>
+  <div id="map" style="height: 400px; width: 100%;"></div>
+  <table style="width: 100%">
+    <tr>
+      <td>
+        <div id="chart"></div>
+      </td>
+      <td>
+        <div id="legend"></div>
+      </td>
+    </tr>
+  </table>
+</div>
+  {% endcall %}
+{%- endblock %}
+{%- block js %}
+{{- h.GAPI_autoload(request, [
+        {
+            'name': 'jquery',
+            'version': '1.3',
+        },
+        {
+            'name': 'jqueryui',
+            'version': '1.7.2',
+        },
+        {
+            'name': 'maps',
+            'version': '2.x',
+        },
+        {
+            'name': 'visualization',
+            'version': '1',
+            'packages': ['scatterchart', 'table'],
+        }
+    ]) }}
+<script src="/static/js/jquery.form.js"></script>
+<script src="/static/webtools/js/grat.js"></script>
+<script src="/static/webtools/js/cchdo.vis.js"></script>
+<script src="/static/webtools/js/vis.js"></script>
+{%- endblock %}

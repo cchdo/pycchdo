@@ -34,8 +34,6 @@ def add_renderer_globals(event):
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
     event['h'] = helpers
-    event['urlquote'] = quote
-    event['json'] = dumps
 
 
 def obj_routes(config, obj, plural_obj=None):
@@ -181,6 +179,22 @@ def main(global_config, **settings):
     config.add_route('submit_no_ext', '/submit')
     config.add_view('pycchdo.views.legacy.add_extension',
                     route_name='submit_no_ext')
+
+    # Webtool
+    config.add_route('webtool_data_cmp', '/webtool/data_cmp.html')
+    config.add_view('pycchdo.views.webtool.data_cmp', route_name='webtool_data_cmp',
+                    renderer='templates/webtool/data_cmp.jinja2')
+    config.add_route('webtool_visual', '/webtool/visual.html')
+    config.add_view('pycchdo.views.webtool.visual',
+                    route_name='webtool_visual',
+                    renderer='templates/webtool/visual.jinja2')
+    config.add_route('webtool_convert', '/webtool/convert.html')
+    config.add_view('pycchdo.views.webtool.convert',
+                    route_name='webtool_convert',
+                    renderer='templates/webtool/convert.jinja2')
+    config.add_route('webtool_convert_any_to_google_wire', '/webtool/convert/any_to_google_wire')
+    config.add_view('pycchdo.views.webtool.convert_any_to_google_wire',
+                    route_name='webtool_convert_any_to_google_wire', renderer='json')
 
     # Staff
     config.add_route('staff_index', '/staff')

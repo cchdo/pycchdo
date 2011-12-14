@@ -5,18 +5,27 @@
 {% endblock %}
 {% block content -%}
   {% call h.boxed('Submissions') -%}
-    {% for submission in submissions %}
-      <div class="submission">
-        <span class="person">{{ submission.creation_stamp.person }}</span> would
-        like the CCHDO to <span class="actions">{{ submission.get('action') }}</span>
-        the cruise identified by
-        <span class="expocode">{{ submission.get('expocode') }}</span>
-        <span class="cruise_date">{{ submission.get('cruise_date') }}</span>
-        <span class="ship_name">{{ submission.get('ship_name') }}</span>
-        <span class="line">{{ submission.get('line') }}</span>
-        <p>{% if submission.get('public') %}Public{% else %}Non-public{% endif %}</p>
-        <p>{{ submission.get('suggested') }}</p>
-      </div>
-    {% endfor %}
+    <p class="TODO">This page is incomplete. Each submission should be either
+    accepted or rejected.
+    When submissions are accepted, the given file is then attached to the identified cruise.
+    </p>
+
+    {%- if submissions %}
+      {%- for submission in submissions %}
+        <div class="submission">
+          <span class="person">{{ h.link_person(submission.creation_stamp.person) }}</span> would
+          like the CCHDO to <span class="actions">{{ submission.get('action') }}</span>
+          the cruise identified by
+          <span class="expocode">{{ submission.get('expocode') }}</span>
+          <span class="cruise_date">{{ submission.get('cruise_date') }}</span>
+          <span class="ship_name">{{ submission.get('ship_name') }}</span>
+          <span class="line">{{ submission.get('line') }}</span>
+          <p>{% if submission.get('public') %}Public{% else %}Non-public{% endif %}</p>
+          <p>{{ submission.get('suggested') }}</p>
+        </div>
+      {%- endfor %}
+    {%- else %}
+      <p>No submissions.</p>
+    {%- endif %}
   {%- endcall %}
 {%- endblock %}

@@ -1,0 +1,48 @@
+{%- extends "templates/base.jinja2" %}
+{%- block title %}Parameters{%- endblock %}
+{%- block head %}
+  {{ whh.tags.stylesheet_link('/static/css/parameters.css') }}
+{%- endblock %}
+{%- macro parameter_row(p, odd) %}
+  <tr class="parameter {{ odd }}">
+    <th class="name">{{ p.get('name') or '' }}</th>
+    <td class="aliases">{{ p.aliases|join(', ') }}</td>
+    <td class="fullname">{{ p.get('full_name') or '' }}</td>
+    <td class="name_nc_os">{{ p.get('name_netcdf') or '' }}</td>
+    <td class="description">{{ p.get('description') or '' }}</td>
+    <td class="units">{%- if p.unit %}{{ p.unit.get('name') }}{%- endif %}</td>
+    <td class="woce_unit_mnemonic">{%- if p.unit %}{{ p.unit.get('mnemonic') }}{%- endif %}</td>
+    <td class="range">{{ p.bounds|join(', ') }}</td>
+    <td class="format">{{ p.get('format') or '' }}</td>
+  </tr>
+{%- endmacro %}
+{%- macro parameter_level(name, params) %}
+  <div class="subsection">
+    <h2>{{ name }} Parameters</h2>
+    <table>
+      <tr class="header">
+        <th class="name">Name</th>
+        <th class="aliases">Aliases</th>
+        <th class="fullname">Full Name</th>
+        <th class="name_nc_os">NetCDF OceanSITES name</th>
+        <th class="description">Description</th>
+        <th class="units">Units</th>
+        <th class="woce_unit_mnemonic">WOCE Unit Mnemonic</th>
+        <th class="range">Range</th>
+        <th class="format">Format</th>
+      </tr>
+      {%- for p in params %}
+        {{ parameter_row(p, loop.cycle('even', 'odd')) }}
+      {%- endfor %}
+    </table>
+  </div>
+{%- endmacro %}
+{%- block content %}
+  {%- call h.boxed('Parameters') %}
+    {{ parameter_level('Primary', parameters[1]) }}
+
+    {{ parameter_level('Secondary', parameters[2]) }}
+
+    {{ parameter_level('Tertiary', parameters[3]) }}
+  {%- endcall %}
+{%- endblock %}

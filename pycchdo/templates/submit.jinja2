@@ -46,7 +46,7 @@
       </tr>
       <tr>
         <th><label for="cruise_dates">Cruise dates</label></th>
-        <td><input name="cruise_dates" type="date">{{ h.form_entered(request, 'cruise_dates') }}</td>
+        <td>{{ whh.tags.text('cruise_dates', h.form_entered(request, 'cruise_dates'), type='date') }}</td>
         <td>{{ h.form_errors(request, 'cruise_dates') }}</td>
       </tr>
       <th><label for="notes">Notes</label></th>
@@ -111,6 +111,12 @@
       {%- endfor %}
       </ul>
     </div>
+  {%- else %}
+    {%- if h.form_errors(request, 'files') %}
+      <div id="file_reselect_warn">
+        <p>{{ h.form_errors(request, 'files') }}</p>
+      </div>
+    {%- endif %}
   {%- endif %}
   <div id="files">
     <p>{{ whh.tags.file('files', multiple='multiple') }}</p>

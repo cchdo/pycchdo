@@ -1705,8 +1705,10 @@ class Parameter(Obj):
 
         Attributes:
         name - the WOCE mnemonic
+        aliases - other names for the parameter
         full_name - the full name of the parameter
         name_netcdf - the accepted name for the parameter in WOCE NetCDF format
+        description - a description of the parameter
         format - a C format string. This should actually be the number of
             significant figures but this is how the data was stored.
         unit - the unit for the parameter
@@ -1718,9 +1720,21 @@ class Parameter(Obj):
 
     """
     @property
+    def aliases(self):
+        return self.get('aliases') or []
+
+    @property
     def unit(self):
         return Unit.get_id(self.get('unit'))
 
+    @property
+    def bounds(self):
+        bounds = self.get('bounds') or []
+        if all(x is None for x in bounds):
+            return []
+        return bounds
+
+    @property
     def display_order(self):
         # TODO
         return 0
@@ -1745,4 +1759,7 @@ class ParameterOrder(Obj):
     order - the list of parameters in the order they should appear
 
     """
-    pass
+    @property
+    def order(self):
+        order = self.get('order')
+        return [Parameter.get_id(id) for id in order]

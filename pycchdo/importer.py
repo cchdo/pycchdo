@@ -1216,10 +1216,10 @@ def _import_parameter_descriptions(importer):
             p.set_accept('name', parameter.name, importer)
             p.set_accept('full_name', parameter.full_name, importer)
             p.set_accept('name_netcdf', parameter.name_netcdf, importer)
+            p.set_accept('description', parameter.description, importer)
             p.set_accept('format', parameter.format, importer)
             if parameter.units:
-                p.set_accept(
-                    'unit',
+                p.set_accept('unit',
                     _import_unit(importer, parameter.units).id, importer)
             p.set_accept('bounds', (parameter.bound_lower,
                                     parameter.bound_upper), importer)
@@ -1241,18 +1241,20 @@ def _import_parameter_groups(session, importer):
             g.save()
             g.set_accept('name', group.group, importer)
             order = group.ordered_parameters
-            parameters = []
+            porder = []
             for p in order:
-                parameter = models.Parameter.get_by_attrs(name=p)
-                if not parameter:
+                parameters = models.Parameter.get_by_attrs(name=p)
+                if len(parameters) < 1:
                     implog.warn("Could not find parameter %s for order" % p)
                     parameter = models.Parameter(importer)
                     parameter.accept(importer)
                     parameter.save()
                     parameter.set_accept('name', p, importer)
                     parameter.set_accept('in_groups_but_did_not_exist', True, importer)
-                parameters.append(parameter)
-            g.set_accept('order', parameters, importer)
+                else:
+                    parameter = parameters[0]
+                porder.append(parameter.id)
+            g.set_accept('order', porder, importer)
 
 
 def _import_bottle_dbs(session, importer):

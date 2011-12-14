@@ -1,0 +1,36 @@
+.boxed .box_content {
+  padding-top: 0;
+}
+.subsection h2 {
+  background: #7889AB;
+  color: #FFFFFF;
+  font-size: 1.38em;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 0.25em;
+  margin: 0.7em 0;
+}
+.subsection table {
+  width: 100%;
+  padding: 0.5em;
+}
+.subsection tr.header {
+  border: 1px solid #DDDDDD;
+  border-left: 0;
+  border-right: 0;
+}
+.subsection th,
+.subsection td {
+  padding: 0.3em;
+}
+.subsection .header th {
+  font-size: 1.2em;
+}
+.subsection tr .description {
+  width: 13em;
+}
+.subsection tr .range {
+  white-space: nowrap;
+}
+
+tr.odd { background-color: #EEEEEE; }

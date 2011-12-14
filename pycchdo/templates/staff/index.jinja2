@@ -2,5 +2,15 @@
 {% block title %}Staff | Home{% endblock %}
 {% block content -%}
   {% call h.boxed('Staff Home') -%}
+    <h2>List of servers that CCHDO is maintaining</h1>
+    <p>The order is by importance</p>
+    <ol>
+      <li><a href="http://cchdo.ucsd.edu:80">CCHDO</a> http://cchdo.ucsd.edu:80 (CCHDO)</li>
+      <li><a href="http://ushydro.ucsd.edu:80">USHYDRO</a> http://ushydro.ucsd.edu:80 (USHYDRO)</li>
+      <li><a href="http://seahunt.ucsd.edu:80">Seahunt</a> http://seahunt.ucsd.edu:80 (SEAHUNT)</li>
+      <li><a href="http://goship.ucsd.edu">goship</a> http://goship.ucsd.edu (old goship)</li>
+      <li><a href="http://joa.ucsd.edu">JOA</a> http://joa.ucsd.edu (virtual named host on goship)</li>
+      <li><a href="git@cchdo.ucsd.edu">repositories</a> git@cchdo.ucsd.edu (repositories)</li>
+    </ol>
   {%- endcall %}
 {%- endblock %}

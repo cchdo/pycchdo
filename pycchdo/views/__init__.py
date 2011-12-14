@@ -127,7 +127,15 @@ def _humanize(obj):
 
 
 def parameters(request):
-    return {}
+    def get_params_for_order(order):
+        try:
+            return models.ParameterOrder.get_by_attrs({'name': order})[0].order
+        except IndexError:
+            return []
+    primary = get_params_for_order('CCHDO Primary Parameters')
+    secondary = get_params_for_order('CCHDO Secondary Parameters')
+    tertiary = get_params_for_order('CCHDO Tertiary Parameters')
+    return {'parameters': {1: primary, 2: secondary, 3: tertiary}}
 
 
 def _file_response(file):

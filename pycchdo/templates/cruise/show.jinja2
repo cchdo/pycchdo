@@ -1,4 +1,8 @@
-{% extends "templates/base.jinja2" %}
+{%- if 'US Repeat Hydrography' in h.collection_names(cruise.collections) %}
+  {% extends "templates/ushydro.jinja2" %}
+{%- else %}
+  {% extends "templates/base.jinja2" %}
+{%- endif %}
 {%- from "templates/_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
 {% block title %}Cruise {{cruise.expocode or ''}}{% endblock %}
 {% block head -%}

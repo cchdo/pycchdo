@@ -4,15 +4,16 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="google-site-verification" content="xBVm_AfJYEdA-tbww41dajF9RuGbZHAjpOBhwWwqbcM">
-  <title>CCHDO{% call h.title() %}{% block title %}{% endblock %}{% endcall %}</title>
+  <title>CCHDO{%- call h.title() %}{%- block subtitle %}{%- endblock %}{%- block title %}{%- endblock %}{%- endcall %}</title>
   <link rel="shortcut icon" href="/static/favicon.ico">
   <link rel="icon" type="image/png" href="/static/favicon.png">
   {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
   {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
   {%- if _static %}{{ whh.tags.stylesheet_link('/static/css/static.css') }}{%- endif %}
   {%- include 'templates/_ie_compat.jinja2' ignore missing %}
-  {%- block staff_head -%}{%- endblock -%}
-  {%- block head -%}{%- endblock -%}
+  {%- block staff_head %}{%- endblock %}
+  {%- block head %}{%- endblock %}
+  {%- block subhead %}{%- endblock %}
 </head>
 <body>
   <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
@@ -30,7 +31,8 @@
           <h1 class="flash help">{{ whh.HTML.literal(helper) }}</h1>
         {% endfor %}
       {%- endif -%}
-      {%- block staff_content -%}{%- endblock -%}
+      {%- block staff_content %}{%- endblock %}
+      {%- block subcontent %}{%- endblock %}
       {% block content -%}
         {% if _static -%}{% include _static %}{%- endif %}
       {%- endblock %}

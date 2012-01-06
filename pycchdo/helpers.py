@@ -323,6 +323,10 @@ def cruise_listing(cruises, verbose=False):
     return whh.HTML.table(*list)
 
 
+def collection_names(coll_list):
+    return filter(None, [c.name for c in coll_list])
+
+
 def link_obj(obj):
     if not obj:
         return ''

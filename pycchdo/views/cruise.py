@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound
+from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound, HTTPSeeOther
 
 from webob.multidict import MultiDict
 
@@ -10,7 +10,6 @@ import pycchdo.helpers as h
 
 from . import *
 from pycchdo.models.search import search
-from pycchdo.models.models import data_file_human_names
 from session import require_signin
 
 
@@ -44,24 +43,10 @@ for k, v in CRUISE_ATTRS.items():
         ([(x, CRUISE_ATTRS_HUMAN_NAMES[x]) for x in v], k))
 
 
-FILE_GROUPS = MultiDict([
-    ['Exchange', ['bottle_exchange', 'bottlezip_exchange', 'ctdzip_exchange']],
-    ['NetCDF', ['bottlezip_netcdf', 'ctdzip_netcdf']],
-    ['WOCE', ['bottle_woce', 'ctdzip_woce', 'sum_woce']],
-    ['Map', ['map_thumb', 'map_full']],
-    ['Documentation', ['doc_txt', 'doc_pdf']],
-])
-
-
-FILE_GROUPS_SELECT = []
-for k, v in FILE_GROUPS.items():
-    FILE_GROUPS_SELECT.append(
-        ([(x, data_file_human_names[x]) for x in v], k))
-FILE_GROUPS_SELECT.append('Other')
-
-
 def cruises_index(request):
-    return {'cruises': models.Cruise.map_mongo(models.Cruise.find())}
+    cruises = models.Cruise.map_mongo(models.Cruise.find())
+    cruises = _paged(request, cruises)
+    return {'cruises': cruises}
 
 
 def _suggest_file(request, cruise_obj):
@@ -71,7 +56,7 @@ def _suggest_file(request, cruise_obj):
             logging.warn('Attempted to suggest file with improper type')
             request.response_status_int = 400
             request.session.flash(
-                'Invalid file type %s. Please try again.' % type, 'help')
+                'Invalid file type %s.' % type, 'help')
             request.session.flash(
                 'File type must be one of %s' % \
                 ', '.join(models.data_file_descriptions.keys()), 'help')
@@ -80,24 +65,36 @@ def _suggest_file(request, cruise_obj):
         logging.warn('Attempted to suggest file without type')
         request.response_status = '400 Bad Request'
         request.session.flash(
-            'Your file submission was missing a type. Please try again.',
-            'help')
-        return
-    try:
-        file = request.params['file']
-        if file == '':
-            raise KeyError()
-    except KeyError:
-        logging.warn('Attempted to suggest file without file')
-        request.response_status = '400 Bad Request'
-        request.session.flash(
-            'You did not select a file. Please try again.', 'help')
+            'Your file submission was missing a type.', 'help')
         return
     try:
         note = models.Note(request.user, request.params['notes'])
     except KeyError:
         note = None
-    cruise_obj.set(type, file, request.user, note)
+
+    try:
+        add_file_action = request.params['add_file_action']
+    except KeyError:
+        logging.warn('Attempted to modify file without action')
+        request.response_status = '400 Bad Request'
+        request.session.flash(
+            'You must specify what to do to that file type.', 'help')
+        return
+
+    if add_file_action == 'Set file':
+        try:
+            file = request.params['file']
+            if file == '':
+                raise KeyError()
+        except KeyError:
+            logging.warn('Attempted to suggest file without file')
+            request.response_status = '400 Bad Request'
+            request.session.flash(
+                'You did not select a file. Please try again.', 'help')
+            return
+        cruise_obj.set(type, file, request.user, note)
+    elif add_file_action == 'Delete file':
+        cruise_obj.delete(type, request.user, note)
 
 
 def _edit_attr(request, cruise_obj):
@@ -116,25 +113,40 @@ def _edit_attr(request, cruise_obj):
         request.session.flash('You must specify a key to edit', 'help')
         return
     try:
-        value = request.params['value']
+        edit_action = request.params['edit_action']
     except KeyError:
-        logging.warn('Attempted to edit attribute without value')
+        logging.warn('Attempted to edit attribute without a specified action')
         request.response_status = '400 Bad Request'
-        request.session.flash('You did not give a value for the attribute.',
-                              'help')
+        request.session.flash('You must specify what to do to the key', 'help')
         return
+
     try:
         note = models.Note(request.user, request.params['notes'])
     except KeyError:
         note = None
 
-    value_type = [k for k, v in CRUISE_ATTRS.iteritems() 
-                  if key in v][0].lower().replace(' ', '_')
-    value = text_to_obj(value, value_type)
+    if edit_action == 'Set':
+        try:
+            value = request.params['value']
+        except KeyError:
+            logging.warn('Attempted to edit attribute without value')
+            request.response_status = '400 Bad Request'
+            request.session.flash(
+                'You did not give a value for the attribute.', 'help')
+            return
 
-    cruise_obj.set(key, value, request.user, note)
-    request.session.flash('Suggested that %s should become %s' % (key, value),
-                          'action_taken')
+        value_type = [k for k, v in CRUISE_ATTRS.iteritems() 
+                      if key in v][0].lower().replace(' ', '_')
+        value = text_to_obj(value, value_type)
+
+        cruise_obj.set(key, value, request.user, note)
+        request.session.flash(
+            'Suggested that %s should become %s' % (key, value), 'action_taken')
+    elif edit_action == 'Delete':
+        cruise_obj.delete(key, request.user, note)
+        request.session.flash(
+            'Suggested that %s be deleted' % key, 'action_taken')
+
 
 
 def _add_note_to_attr(request):
@@ -225,7 +237,8 @@ def cruise_show(request):
         if len(cruises) > 0:
             cruise_obj = cruises[0]
         else:
-            return HTTPNotFound()
+            return HTTPSeeOther(
+                location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     method = _http_method(request)
 
@@ -302,28 +315,12 @@ def cruise_show(request):
             if attr.key in CRUISE_ATTRS_LIST:
                 suggested_attrs.append(attr)
 
-        as_received = []
-        for file in cruise_obj.pending_tracked_data():
-            d = {
-                'file': file,
-                'date': file.creation_stamp.timestamp.strftime('%F'),
-            }
-            if request.user:
-                d['notes'] = file.notes
-            else:
-                d['notes'] = file.notes_public
-            as_received.append(d)
-        merged = []
-        for file in cruise_obj.accepted_tracked_merged_data():
-            d = {
-                'file': file,
-                'date': file.judgment_stamp.timestamp.strftime('%F'),
-            }
-            if request.user:
-                d['notes'] = file.notes
-            else:
-                d['notes'] = file.notes_public
-            merged.append(d)
+        if h.has_mod(request):
+            # Only show unacknowledged suggestions to mods
+            as_received = cruise_obj.unjudged_tracked_data()
+        else:
+            as_received = cruise_obj.pending_tracked_data()
+        merged = cruise_obj.accepted_tracked_data()
         updates = {
             'attrs': suggested_attrs,
             'as_received': as_received,
@@ -340,3 +337,6 @@ def cruise_show(request):
         'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,
         }
 
+
+def cruise_new(request):
+    return {'cruise_id': request.matchdict.get('cruise_id', '')}

@@ -633,8 +633,8 @@ class TestView(unittest.TestCase):
 
         dictionary = cruise_show(request)
 
-        response = render_to_response('templates/cruise/show.jinja2',
-                                      cruise_show(request), request=request)
+        #response = render_to_response('templates/cruise/show.jinja2',
+        #                              cruise_show(request), request=request)
         # TODO test response for recognizing bad type
 
         c.remove()

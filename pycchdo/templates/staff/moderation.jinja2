@@ -1,15 +1,76 @@
 {% extends "templates/staff.jinja2" %}
 {% block title -%}Staff | Moderation{%- endblock %}
 {% block head -%}
-  {# whh.tags.stylesheet_link('/static/css/staff/submissions.css') #}
+  {{ whh.tags.stylesheet_link('/static/css/staff/moderation.css') }}
 {% endblock %}
 {% block content -%}
   {% call h.boxed('Moderation') -%}
-    <div class="pending">
+    <div class="TODO">
+      Moderation is a replacement for Queue.
+      These files are "queued"
+      How should these files be displayed?
+    </div>
+    <div class="pending autopagerize_page_element">
+      {%- for ps in parameters %}
+        {%- set cruises = files_by_parameters[ps] %}
+        <h2>{{ ps }}</h2>
+        <table>
+          <tr class="header">
+            <th class="staff">
+              Staff
+            </th>
+            <th class="collection">
+              Collection
+            </th>
+            <th class="cruise">
+              Cruise
+            </th>
+            <th class="contact">
+              Contact
+            </th>
+            <th class="file">
+              File
+            </th>
+            <th class="notes">
+              Notes
+            </th>
+          </tr>
+        {%- for cruise, files in cruises|dictsort %}
+          {%- set cruise_loop = loop %}
+          {%- for file in files %}
+            <tr class="{{ cruise_loop.cycle('even', 'odd') }}">
+              <td class="staff">
+                {{ h.link_person(file.pending_stamp.person) }}
+              </td>
+              <td class="collection">
+                {{ h.link_collection(cruise.collections[0]) }}
+              </td>
+              <td class="cruise">
+                {{ h.link_cruise(cruise) }}
+              </td>
+              <td class="contact">
+                {{ h.link_person(file.creation_stamp.person) }}
+              </td>
+              <td class="file">
+                {{ h.link_file_holder(file) }}
+              </td>
+              <td class="notes">
+                <ol>
+                {%- for note in file.notes %}
+                  <li>{{ note.data_type }}: {{ note.body }}</li>
+                {%- endfor %}
+                </ol>
+              </td>
+            </tr>
+          {%- endfor %}
+        {%- endfor %}
+        </table>
+      {%- endfor %}
       <table>
-      {% for p in pending %}
+      {# for p in pending %}
         <tr>
-          <td>{{p}}</td><td>{{ p.obj }}</td>
+          <td>{{ h.link_cruise(p.obj) }}</td>
+          <td><a href="/obj/{{p.obj.id}}/a/{{p.id}}">{{p}}</a></td>
           <td>
             <h3>Discussion</h3>
           </td>
@@ -26,7 +87,8 @@
         </tr>
       {% endfor %}
       </table>
+      {{ h.pager_for(pending) #}
+      {{ h.pager_for(parameters) }}
     </div>
   {%- endcall %}
 {%- endblock %}
-

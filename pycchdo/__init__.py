@@ -38,17 +38,36 @@ def add_renderer_globals(event):
     event['json'] = dumps
 
 
-def obj_routes(config, obj, plural_obj=None):
+def obj_routes(config, obj, plural_obj=None,
+               new=False, mergeable=False, editable=False):
     if not plural_obj:
         plural_obj = obj + 's'
     config.add_route(plural_obj, '/' + plural_obj)
     config.add_view('pycchdo.views.{obj}.{plural_obj}_index'.format(
         obj=obj, plural_obj=plural_obj), route_name=plural_obj,
         renderer='templates/{obj}/index.jinja2'.format(obj=obj))
-    config.add_route('{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
-    config.add_view('pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
-                    route_name='{obj}_show'.format(obj=obj),
-                    renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+    config.add_route(
+        '{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
+    config.add_view(
+        'pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
+        route_name='{obj}_show'.format(obj=obj),
+        renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+    if new:
+        config.add_route('{obj}_new'.format(obj=obj),
+                         '/{obj}/{{{obj}_id}}/new'.format(obj=obj))
+        config.add_view('pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
+                        route_name='{obj}_new'.format(obj=obj),
+                        renderer='templates/{obj}/new.jinja2'.format(obj=obj))
+    if mergeable:
+        config.add_view('pycchdo.views.{obj}.{obj}_merge'.format(obj=obj),
+                        route_name='{obj}_merge'.format(obj=obj))
+        config.add_route('{obj}_merge'.format(obj=obj),
+                         '/{obj}/{{{obj}_id}}/merge'.format(obj=obj))
+    if editable:
+        config.add_view('pycchdo.views.{obj}.{obj}_edit'.format(obj=obj),
+                        route_name='{obj}_edit'.format(obj=obj))
+        config.add_route('{obj}_edit'.format(obj=obj),
+                         '/{obj}/{{{obj}_id}}/edit'.format(obj=obj))
 
 
 def main(global_config, **settings):
@@ -127,12 +146,12 @@ def main(global_config, **settings):
     config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
     config.add_view('pycchdo.views.obj.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
 
-    obj_routes(config, 'cruise')
-    obj_routes(config, 'collection')
-    obj_routes(config, 'country', 'countries')
-    obj_routes(config, 'person', 'people')
-    obj_routes(config, 'institution')
-    obj_routes(config, 'ship')
+    obj_routes(config, 'cruise', new=True)
+    obj_routes(config, 'collection', mergeable=True, editable=True)
+    obj_routes(config, 'country', 'countries', mergeable=True, editable=True)
+    obj_routes(config, 'person', 'people', mergeable=True, editable=True)
+    obj_routes(config, 'institution', mergeable=True, editable=True)
+    obj_routes(config, 'ship', mergeable=True, editable=True)
 
     # Argo Secure File Repository
     config.add_route('argo_index', '/argo')

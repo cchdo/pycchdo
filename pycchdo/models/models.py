@@ -5,7 +5,7 @@ import socket
 from warnings import warn
 
 import pymongo
-from pymongo.objectid import ObjectId
+from pymongo.objectid import ObjectId, InvalidId
 
 from shapely.geometry import linestring
 from geojson import LineString
@@ -134,6 +134,8 @@ def ensure_objectid(idobj):
             return ObjectId(idobj)
         except TypeError:
             return None
+        except InvalidId:
+            raise ValueError()
     return idobj
 
 
@@ -167,7 +169,7 @@ def is_valid_ipv6(ip):
         return False
 
 
-def _sort_by_stamp(query, stamp='creation', direction=pymongo.DESCENDING):
+def sort_by_stamp(query, stamp='creation', direction=pymongo.DESCENDING):
     """ Applies a sort to the mongodb query by the given stamp's timestamp key.
 
         Valid stamp arguments:
@@ -214,6 +216,7 @@ class mongodoc(dict):
             d.bar == 'baz'
 
     """
+    __allowed_untracked_keys = []
 
     def copy_keys_from(self, o, keys):
         """ Used by from_mongo to copy saved keys from mongodb into instances.
@@ -229,7 +232,7 @@ class mongodoc(dict):
             except KeyError:
                 pass
 
-    def from_mongo(cls, doc):
+    def from_mongo(self, doc):
         """ Used by map_mongo to copy saved data from mongodb into a new
         instances.
 
@@ -237,7 +240,12 @@ class mongodoc(dict):
         instance.
 
         """
-        return None
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        return self
+
+    @property
+    def allowed_untracked_keys(self):
+        return self.__allowed_untracked_keys
 
     def mapobj(self, doc, key, cls):
         """Project a key-value pair from a document onto oneself.
@@ -327,12 +335,14 @@ class mongodoc(dict):
             else:
                 return cls(get_person(d)).from_mongo(d)
 
-        if type(cursor_or_dict) is dict:
+        if issubclass(type(cursor_or_dict), dict):
             return get_instance(cursor_or_dict)
         return map(get_instance, cursor_or_dict)
 
 
 class Stamp(mongodoc):
+    __allowed_untracked_keys = ['timestamp', 'person', ]
+
     def __init__(self, person):
         self.timestamp = timestamp()
         if type(person) is ObjectId:
@@ -347,7 +357,7 @@ class Stamp(mongodoc):
 
     def from_mongo(self, doc):
         super(Stamp, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('timestamp', 'person', ))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     @property
@@ -364,6 +374,8 @@ class idablemongodoc(mongodoc):
         ever be stored inside these.
 
     """
+    __allowed_untracked_keys = ['_id', ]
+
     def attribute_map(self, attr):
         if attr == 'id':
             attr = '_id'
@@ -371,7 +383,7 @@ class idablemongodoc(mongodoc):
 
     def from_mongo(self, doc):
         super(idablemongodoc, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('_id', ))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     def __eq__(self, o):
@@ -464,6 +476,9 @@ class Note(collectablemongodoc):
                      for mergers.
                      
     """
+    __allowed_untracked_keys = ['creation_stamp', 'body', 'action', 'data_type',
+                                'subject', 'discussion']
+
     @classmethod
     def _mongo_collection(cls):
         return cchdo().notes
@@ -486,8 +501,7 @@ class Note(collectablemongodoc):
 
     def from_mongo(self, doc):
         super(Note, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('creation_stamp', 'body', 'action',
-                                  'data_type', 'subject', 'discussion'))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     @property
@@ -513,6 +527,9 @@ class _Change(collectablemongodoc):
     which may themselves be public or for dicussion purposes only.
 
     """
+    __allowed_untracked_keys = ['creation_stamp', 'pending_stamp',
+                                'judgment_stamp', 'accepted', 'notes', ]
+
     @classmethod
     def _mongo_collection(cls):
         return cchdo().changes
@@ -531,9 +548,7 @@ class _Change(collectablemongodoc):
 
     def from_mongo(self, doc):
         super(_Change, self).from_mongo(doc)
-        self.copy_keys_from(doc, (
-            'creation_stamp', 'pending_stamp', 'judgment_stamp', 'accepted',
-            'notes', ))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     @property
@@ -682,22 +697,28 @@ class _FileHolder(_RequestTracker):
 
     """
 
-    def store_file(self, field):
-        """ Stores the file described by field in the filesystem and keeps a
-        reference.
+    def store_file(self, field_or_gridout):
+        """ Stores the file described by field_or_gridout in the filesystem and keeps a
+            reference.
 
             The reference will be stored in the object's file attribute.
+
+            If field_or_gridout is a gridfs.grid_file.GridOut object then the
+            reference is stored and no new file is created.
 
             Raises: AttributeError when field does not have file, filename, and
                     type
         """
-        try:
-            gridfile = fs().put(field.file, filename=field.filename,
-                                contentType=field.type)
-            self.file_ = gridfile
-        except Exception, e:
-            self.file_ = None
-            raise e
+        self.file_ = None
+        if type(field_or_gridout) is gridfs.grid_file.GridOut:
+            self.file_ = field_or_gridout._id
+        else:
+            field = field_or_gridout
+            try:
+                self.file_ = fs().put(field.file, filename=field.filename,
+                                      contentType=field.type)
+            except Exception, e:
+                raise e
 
     def _get_file(self, fileid):
         """ Retrieves the file from the filesystem using the given reference """
@@ -727,6 +748,9 @@ class _Attr(_Change, _FileHolder):
         Not for general use. Please defer to Obj's get, set, and delete methods
 
     """
+    __allowed_untracked_keys = ['key', 'value', '_requests', 'file', 'track',
+                                'obj', 'deleted', 'accepted_value', ]
+
     @classmethod
     def _mongo_collection(cls):
         return cchdo().attrs
@@ -743,8 +767,7 @@ class _Attr(_Change, _FileHolder):
 
     def from_mongo(self, doc):
         super(_Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('key', 'value', '_requests', 'file', 'track',
-                                  'obj', 'deleted', 'accepted_value', ))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     def set(self, key, value):
@@ -792,6 +815,7 @@ class _Attr(_Change, _FileHolder):
         warn('deprecated', DeprecationWarning)
         return self.file_
 
+    # TODO just check for presence of track
     def is_track(self):
         warn('deprecated', DeprecationWarning)
         return self.track
@@ -897,6 +921,8 @@ class Obj(_Change):
             delete.
 
     """
+    __allowed_untracked_keys = ['_obj_type', '_attrs', ]
+
     @classmethod
     def _mongo_collection(cls):
         return cchdo().objs
@@ -908,7 +934,7 @@ class Obj(_Change):
 
     def from_mongo(self, doc):
         super(Obj, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('_obj_type', '_attrs',))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     def attribute_map(self, attr):
@@ -939,10 +965,10 @@ class Obj(_Change):
     def history(self, key=None, **kwargs):
         if key:
             kwargs['key'] = key
-        return _sort_by_stamp(self.find_attrs(**kwargs))
+        return sort_by_stamp(self.find_attrs(**kwargs))
 
     def tracked(self, *args, **kwargs):
-        return _Attr.map_mongo(_sort_by_stamp(self.find_attrs(*args, **kwargs),
+        return _Attr.map_mongo(sort_by_stamp(self.find_attrs(*args, **kwargs),
                                               'judgment'))
 
     def tracked_data(self):
@@ -972,7 +998,7 @@ class Obj(_Change):
     def accepted_tracked_data(self):
         return self.tracked({'accepted': True, 'file': {'$ne': None}})
 
-    def accepted_tracked_merged_data(self):
+    def accepted_tracked_changed_data(self):
         return self.tracked({'accepted': True, 'file': {'$ne': None},
                              'accepted_value': {'$ne': None}})
 
@@ -1059,10 +1085,10 @@ class Obj(_Change):
 
         """
         try:
-            klass = cls.subclass_map().get(self['_obj_type'], self.__class__)
+            klass = Obj.subclass_map().get(self._obj_type, self.__class__)
             return klass.map_mongo(self)
         except (TypeError, KeyError) as e:
-            return cls.map_mongo(self)
+            return self
 
     def save(self):
         super(Obj, self).save()
@@ -1322,6 +1348,56 @@ class _Participants(dict):
 class Cruise(Obj):
     """ The basic unit of metadata storage for the CCHDO
 
+        Adding files
+        ============
+        Files are acquired by PIs submitting their data.
+
+        There are two cases for adding files to a Cruise:
+          1. Through the submit form and then through moderator intervention
+          2. Added directly to the cruise as a suggested update to a file type
+
+        Submit form
+        -----------
+        Each file stored with a copy of the submission information in the
+        form of a Submission object.
+
+        Submission objects can then be connected to a particular attribute on a
+        cruise as is done for direct suggestions. A human must provide the type
+        of file being suggested. In this manner, they are similar to imported
+        legacy Queue files.
+
+        NOTE: A difference exists between imported legacy submissions and
+        created submissions. Imported submissions that have already been queued
+        have their _Attr attachment set to True instead of being linked to a
+        direct suggestion. This is because there is no easy inferred link from
+        legacy submission to legacy queue file.
+
+        Imported legacy Queue files
+        ---------------------------
+        Imported Queue files are direct suggestions but are abnormal in that
+        their keys are "data_suggestion". This is because there is no guaranteed
+        way to determine the type of file being suggested. This is left to a
+        human and will require the imported queue files to be updated
+        accordingly.
+
+        Direct suggestion
+        -----------------
+        A direct suggestion involves an attribute attached to a particular
+        Cruise that has a key associated with a file type. This state is similar
+        to the legacy queue state of "as-received", but is not visible anywhere
+        until the attribute has been acknowledged.
+        
+        Once the attribute has been acknowledged, it becomes visible to the
+        public along with any visible notes. This is synonymous with the legacy
+        queue state of "as-received". Public or discussion notes may be made on
+        these attributes. The acknowledger becomes the equivalent of the legacy
+        queue file CCHDO contact.
+
+        An acknowledged file attribute may be rejected, accepted, or even
+        accepted with a different value. Accepting a file attribute results in
+        the legacy queue state of "merged". The accepted value becomes the most
+        recent version of the value for the given file.
+
         Attributes:
         basin - imported from "internal"
         parameter_informations - list of documents containing
@@ -1411,7 +1487,7 @@ class Cruise(Obj):
 
     @classmethod
     def get_by_expocode(cls, expocode):
-        attrs = _sort_by_stamp(_Attr.find({'key': 'expocode'}))
+        attrs = sort_by_stamp(_Attr.find({'key': 'expocode'}))
         # Get Attrs that represent most current key value for objs
         obj_expocodes = {}
         for attr in attrs:
@@ -1431,25 +1507,70 @@ class CruiseAssociate(Obj):
     """
     cruise_associate_key = ''
 
-    def cruises(self):
-        attrs = _Attr.find(
-            {'key': self.cruise_associate_key,
-             '$or': [{'value': self.id},
-                     {'accepted_value': self.id}],
-            })
+    def _or_key(self, key, value_key=None):
+        return '.'.join(filter(None, [key, value_key]))
+
+    def cruises(self, value_key=None):
+        # TODO what about value match but accepted does not?
+        query = {'key': self.cruise_associate_key,
+             '$or': [{self._or_key('value', value_key): self.id},
+                     {self._or_key('accepted_value', value_key): self.id}],
+            }
+        attrs = _Attr.find(query)
         attr_obj_ids = set([x['obj'] for x in attrs])
         objs = [Obj._mongo_collection().find_one(
             {'_id': id, '_obj_type': Cruise.__name__}) for id in attr_obj_ids]
         objs = filter(None, objs)
+        # TODO filter rejected cruises
         return Cruise.map_mongo(objs)
 
 
-class Person(CruiseAssociate):
+class CruiseParticipantAssociate(CruiseAssociate):
+    """ Provide a way to get the cruises that an Participant attribute is
+        associated to
+
+        These are people or institutions.
+
+    """
+    cruise_associate_key = 'participants'
+    cruise_participant_associate_key = None
+
+    def cruises(self):
+        return super(CruiseParticipantAssociate, self).cruises(
+            self.cruise_participant_associate_key)
+
+
+class Country(CruiseAssociate):
+    cruise_associate_key = 'country'
+
+    @property
+    def name(self):
+        return self.get('iso_3166-1', None)
+
+    def iso_code(self, length=2):
+        if length != 2:
+            length = 3
+        return self.get('iso_3166-1_alpha-' + str(length), None)
+
+    def people(self):
+        return Person.get_all({'country': self.id})
+
+    def __unicode__(self):
+        try:
+            return u'Country ("{name}", {id})'.format(
+                name=self.name, id=self.id)
+        except AttributeError:
+            return u'Country ()'
+
+
+class Person(CruiseParticipantAssociate):
     """ People may be either verified or not.
         If they are associated with an ID provider then they are verified.
 
     """
-    cruise_association_key = 'participants.person'
+    cruise_participant_associate_key = 'person'
+    __allowed_untracked_keys = ['identifier', 'name_first', 'name_last',
+                                'institution', 'country', 'email', ]
 
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
@@ -1462,7 +1583,7 @@ class Person(CruiseAssociate):
         self.name_first = name_first
         self.name_last = name_last
         self.institution_ = institution
-        self.country = country
+        self.country_ = country
         self.email = email
 
         if identifier is None and None in (
@@ -1473,9 +1594,7 @@ class Person(CruiseAssociate):
 
     def from_mongo(self, doc):
         super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, (
-            'identifier', 'name_first', 'name_last', 'institution', 'country',
-            'email', ))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     def full_name(self):
@@ -1488,6 +1607,9 @@ class Person(CruiseAssociate):
     def institution(self):
         return Institution.get_id(self.institution_)
 
+    @property
+    def country(self):
+        return Country.get_id(self.country_)
 
     def save(self):
         super(Person, self).save()
@@ -1502,12 +1624,45 @@ class Person(CruiseAssociate):
             return u'Person ()'
 
 
-class Institution(CruiseAssociate):
-    cruise_associate_key = 'participants.institution'
+class MultiNameObj(Obj):
+    """ MultiNameObjs have multiple possible names
+
+        The first stored name is taken as the default.
+
+        TODO perhaps Institutions and Ships may also have multiple names. For
+        now let them have just one canonical name.
+
+    """
+
+    @property
+    def names(self):
+        return self.get('names', [])
+
+    @property
+    def name(self):
+        try:
+            return self.names[0]
+        except IndexError:
+            return None
+
+    def __unicode__(self):
+        try:
+            return u'{klass} ("{names}", {id})'.format(
+                klass=self.__class__.__name__,
+                names=', '.join(self.names), id=self.id)
+        except AttributeError:
+            return u'{klass} ()'.format(klass=self.__class__.__name__)
+    
+
+class Institution(CruiseParticipantAssociate):
+    cruise_participant_associate_key = 'institution'
 
     @property
     def name(self):
         return self.get('name', None)
+
+    def people(self):
+        return Person.get_all({'institution': self.id})
 
     def __unicode__(self):
         try:
@@ -1527,20 +1682,7 @@ class Ship(CruiseAssociate):
         return u'Ship(%s)' % self.name
 
 
-class Country(CruiseAssociate):
-    cruise_associate_key = 'country'
-
-    @property
-    def name(self):
-        return self.get('iso_3166-1', None)
-
-    def iso_code(self, length=2):
-        if length != 2:
-            length = 3
-        return self.get('iso_3166-1_alpha-' + str(length), None)
-
-
-class Collection(CruiseAssociate):
+class Collection(CruiseAssociate, MultiNameObj):
     """ Essentially tags for Cruises.
     
         A Cruise may belong to Basin Collection, WOCE line Collection, etc.
@@ -1557,17 +1699,6 @@ class Collection(CruiseAssociate):
     
     """
     cruise_associate_key = 'collections'
-
-    @property
-    def names(self):
-        return self.get('names', [])
-
-    @property
-    def name(self):
-        try:
-            return self.names[0]
-        except IndexError:
-            return None
 
 
 class AutoAcceptingObj(Obj):
@@ -1605,6 +1736,9 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         display - whether or not the file is meant to be visible
 
     """
+    __allowed_untracked_keys = ['text_identifier', '_requests', 'file',
+                                'description', 'display', ]
+
     def __init__(self, person):
         super(ArgoFile, self).__init__(person)
         self.text_identifier = None
@@ -1614,8 +1748,7 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
 
     def from_mongo(self, doc):
         super(ArgoFile, self).from_mongo(doc)
-        self.copy_keys_from(doc, ('text_identifier', '_requests', 'file',
-                                  'description', 'display', ))
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
         return self
 
     @property
@@ -1661,15 +1794,23 @@ class OldSubmission(Obj):
                 an attribute "old_submission" marked True.
 
     """
+    __allowed_untracked_keys = ['date', 'stamp', 'submitter', 'line', 'folder',
+                                'files', ]
+
+    def from_mongo(self, doc):
+        super(OldSubmission, self).from_mongo(doc)
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        return self
+
     def remove(self):
-        for file in self.get('files'):
+        for file in self.files_:
             fs().delete(file)
         super(OldSubmission, self).remove()
 
 
 class Submission(Obj, _FileHolder):
     """ A Submission to the CCHDO. These interface with humans so they need
-        intervention to make everything behave nicely before going into the
+        intervention to make everything behaves nicely before going into the
         system.
 
         Attributes:
@@ -1678,21 +1819,52 @@ class Submission(Obj, _FileHolder):
         line
         action
         public - whether the submission is of public or non-public data
-        assigned - whether the submission has been assigned
         cruise_date - the date of the cruise being submitted
-        suggested - an _Attr. When this is set, the submission has been
-                    looked at by a human and the corresponding _Attr represents
-                    verified information representing this submission.
         file - the file that is being suggested
+        attached - an _Attr id.
+            When this is set, the submission has been looked at by a human and
+            the corresponding _Attr represents verified information representing
+            this submission.
+
+            SPECIAL CASE: This is set to True during legacy import because there
+            is no way to determine it without human help.
 
     """
-    def attach(self, attr):
+    __allowed_untracked_keys = ['expocode', 'ship_name', 'line', 'action',
+                                'public', 'cruise_date', 'attached', 'file', ] 
+
+    def from_mongo(self, doc):
+        super(Submission, self).from_mongo(doc)
+        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        return self
+
+    @property
+    def identifier(self):
+        return self.expocode_
+
+    def cruises_from_identifier(self):
+        cruises = Cruise.get_by_attrs(expocode=self.expocode)
+        if len(cruises) > 0:
+            return cruises
+        return []
+
+    @property
+    def attached(self):
+        """ Gives the _Attr that the submission is attached into OR True if
+            the submission was imported and attached already.
+
+        """
+        if self.attached_ == True:
+            return True
+        return _Attr.get_id(self.attached_)
+
+    def attach(self, attr, signer):
         """ Attaches the submission to a new _Attr. The submission will be also
             be accepted.
 
         """
-        if not data_type in data_file_descriptions.keys():
-            pass # TODO
+        self.attached_ = attr.id
+        self.accept(signer)
 
     @classmethod
     def unacknowledged(cls):

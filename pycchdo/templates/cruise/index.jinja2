@@ -2,12 +2,12 @@
 {% block title %}Cruises{% endblock %}
 {% block content %}
   {% call h.boxed('Cruises') -%}
-    <ul>
+    <ul class="autopagerize_page_element">
     {% for cruise in cruises %}
-      {% set expo = cruise.expocode %}
-      <li><a href="/cruise/{{expo}}">{{expo}}</a></li>
+      <li>{{ h.link_cruise(cruise) }}</li>
     {% endfor %}
     </ul>
+    {{ h.pager_for(cruises) }}
     <a href="/objs/new?_obj_type=Cruise">New Cruise</a>
   {%- endcall %}
 {% endblock %}

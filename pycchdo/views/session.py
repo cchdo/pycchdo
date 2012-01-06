@@ -14,7 +14,8 @@ _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
 def _save_request(request, uri=None):
     if uri is None:
         uri = request.referrer
-    print 'saving return uri', uri
+    if uri is None:
+        uri = request.url
     request.session['signin_return_uri'] = uri
 
 
@@ -23,6 +24,8 @@ def _redirect_uri(request):
         redirect_uri = request.session['signin_return_uri']
         del request.session['signin_return_uri']
     except KeyError:
+        redirect_uri = '/session/identify'
+    if redirect_uri is None:
         redirect_uri = '/session/identify'
     return redirect_uri
 
@@ -46,6 +49,10 @@ def session_show(request):
 def session_identify(request):
     if not request.session.get('skip_save_signin_return_uri', False):
         _save_request(request)
+        try:
+            del request.session['skip_save_signin_return_uri']
+        except KeyError:
+            pass
     try:
         del request.session['anonymous']
     except KeyError:
@@ -93,16 +100,16 @@ def session_new(request):
     # read the json response
     auth_info_json = http_response.read()
      
-    # Step 3) process the json response
+    # process the json response
     auth_info = json.loads(auth_info_json)
      
-    # Step 4) use the response to sign the user in
+    # use the response to sign the user in
     if auth_info['stat'] == 'ok':
         profile = auth_info['profile']
         return _restore_request(request, profile)
     else:
         print 'ERROR: During signin: ' + auth_info['err']['msg']
-        return HTTPInternalServerError()
+        return HTTPSeeOther(location='/session/identify')
 
 
 def session_delete(request):

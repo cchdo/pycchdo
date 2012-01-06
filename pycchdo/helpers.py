@@ -1,7 +1,10 @@
 import logging
+import os.path
 
 import webhelpers.html as whh
 import webhelpers.html.tags
+
+from gridfs.grid_file import GridOut
 
 import models
 
@@ -10,24 +13,37 @@ def has_edit(request):
     return request.user is not None
 
 
+def is_staff(user):
+    if not user:
+        return False
+    # TODO check against actual list
+    if user.name_last == 'Shen' and \
+       user.name_first in ['Matthew', 'Andrew']:
+        return True
+    if user.name_last == 'Berys' and \
+       user.name_first == 'Carolina':
+        return True
+    if user.name_last == 'Fields' and \
+       user.naem_first == 'Justin':
+        return True
+    if user.name_last == 'Diggs' and \
+       user.naem_first == 'Steve':
+        return True
+
+
 def has_mod(request):
     if not request.user:
         return False
-
-    # TODO check against actual list
-    if request.user.name_last == 'Shen' and \
-       request.user.name_first in ['Matthew', 'Andrew']:
+    if is_staff(request.user):
         return True
-    if request.user.name_last == 'Berys' and \
-       request.user.name_first == 'Carolina':
-        return True
-    if request.user.name_last == 'Fields' and \
-       request.user.naem_first == 'Justin':
-        return True
-    if request.user.name_last == 'Diggs' and \
-       request.user.naem_first == 'Steve':
-        return True
+    # TODO other possibilities of being mod?
     return False
+
+
+def get_visible_notes(request, attr):
+    if not request.user:
+        return attr.notes_public
+    return attr.notes
 
 
 def title(**kwargs):
@@ -69,7 +85,19 @@ def form_errors_for(request, key, value=None):
 form_errors = form_errors_for
 
 
-def email_link(email, microformat_type=None, microformat_classes=[], content=None):
+PAGER_FORMAT = '$link_first $link_previous ~5~ $link_next $link_last'
+
+
+def pager_for(page, format=PAGER_FORMAT):
+    next_url = whh.HTML.literal(page._url_generator(page.next_page))
+    return whh.HTML.div(
+        page.pager(format),
+        whh.HTML.a(rel='next', href=next_url, style='display: none;'),
+        class_='pager autopagerize_insert_before')
+
+
+def email_link(email, microformat_type=None, microformat_classes=[],
+               content=None):
     """ Gives back a mailto link that is slightly obfuscated. """
     obfuscator = '+anti spam'
     parts = email.split('@')
@@ -120,13 +148,41 @@ def boxed(title='', bottom='', **attrs):
             ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
 
 
+# Pretty printers
+
+
+def date(d, format='%F'):
+    if not d:
+        return ''
+    try:
+        return d.strftime(format)
+    except AttributeError:
+        return str(d)
+
+
+def datetime(dt, format='%F %T'):
+    if not dt:
+        return ''
+    try:
+        return dt.strftime(format)
+    except AttributeError:
+        return str(dt)
+
+
+def attr_value(a):
+    v = a.value
+    if type(v) is GridOut:
+        return 'file(%s)' % v.name
+    return a.value
+
+
 def cruise_dates(cruise):
     try:
-        start = cruise.date_start.strftime('%F')
+        start = date(cruise.date_start)
     except AttributeError:
         start = None
     try:
-        end = cruise.date_end.strftime('%F')
+        end = date(cruise.date_end)
     except AttributeError:
         end = None
     combined = '/'.join(map(str, filter(None, (start, end))))
@@ -183,9 +239,8 @@ def cruise_history_rows(change, i, hl):
     baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
 
     if type(change) == models.Note:
-        time = change.creation_stamp.timestamp.strftime('%Y-%m-%d')
-        # TODO link to person?
-        person = change.creation_stamp.person.full_name()
+        time = date(change.creation_stamp.timestamp, '%Y-%m-%d')
+        person = link_person(change.creation_stamp.person)
         data_type = change['data_type']
         action = change['action']
         summary = change['subject']
@@ -193,9 +248,8 @@ def cruise_history_rows(change, i, hl):
         if change.discussion:
             baseclass += ' discussion'
     else:
-        time = change.creation_stamp.timestamp.strftime('%Y-%m-%d')
-        # TODO link to person?
-        person = change.creation_stamp.person.full_name()
+        time = date(change.creation_stamp.timestamp, '%Y-%m-%d')
+        person = link_person(change.creation_stamp.person)
         data_type = change['key']
         if change['deleted']:
             action = 'Deleted'
@@ -218,11 +272,48 @@ def cruise_history_rows(change, i, hl):
         )
 
 
+def cruise_listing(cruises, verbose=False):
+    list = []
+    for cruise in cruises:
+        list.append(
+            whh.HTML.tr(whh.HTML.td(link_cruise(cruise)), 
+                        whh.HTML.td(link_ship(cruise.ship)),
+                        whh.HTML.td(date(cruise.date_start))))
+    return whh.HTML.table(*list)
+
+
+def link_obj(obj):
+    if not obj:
+        return ''
+    return whh.tags.link_to(obj.id, u'/obj/%s' % obj.id)
+
+
+def link_file_holder(fh, full=False):
+    if not fh:
+        return ''
+    name = fh.file.name
+    if not full:
+        name = os.path.basename(name)
+    return whh.tags.link_to(name, data_uri(fh))
+
+
+def link_cruise(c):
+    if not c:
+        return ''
+    if not c.expocode:
+        return whh.tags.link_to(c.id, u'/cruise/%s' % c.id)
+    return whh.tags.link_to(c.expocode, u'/cruise/%s' % c.expocode)
+
+
 def link_person(p):
+    if not p:
+        return ''
     return whh.tags.link_to(p.full_name(), u'/person/%s' % p.id)
 
 
 def link_institution(i):
+    if not i:
+        return ''
     return whh.tags.link_to(i.get('name'), '/institution/%s' % i.id)
 
 
@@ -246,19 +337,27 @@ def link_person_institutions(pis):
 
 
 def link_collection(c):
+    if not c:
+        return ''
     return whh.tags.link_to(c.name, '/collection/%s' % c.id)
 
 
 def link_collections(cs):
+    if not cs:
+        return ''
     links = map(link_collection, cs)
     return whh.HTML.literal(', '.join(links))
 
 
 def link_ship(s):
+    if not s:
+        return ''
     return whh.HTML.literal(whh.tags.link_to(s.name, '/ship/%s' % s.id))
 
 
 def link_country(c):
+    if not c:
+        return ''
     return whh.HTML.literal(whh.tags.link_to(c.name, '/country/%s' %
                                              c.name))
 
@@ -299,7 +398,7 @@ def data_uri(data):
     """ Given an _Attr with a file, provides a link to a file. """
     if not data or not data.file_:
         if not data:
-            raise ValueError('Cannot link to nothing')
+            logging.error('Cannot link to nothing')
         else:
             logging.error('Cannot link to a non file _Attr #%s' % data.id)
         return '/404.html'

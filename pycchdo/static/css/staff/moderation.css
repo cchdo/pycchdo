@@ -1,0 +1,26 @@
+.pending table {
+  width: 100%;
+  margin: 0.5em 0;
+}
+tr.header { 
+  border: 1px solid #EEEEEE;
+  border-left: 0;
+  border-right: 0;
+  font-size: 1.1em;
+}
+.staff, 
+.collection,
+.cruise,
+.contact { 
+  width: 10%;
+}
+.file {
+  width: 20%;
+}
+.notes { 
+  width: 40%;
+}
+
+.pending h2 {
+  font-size: 1.2em;
+}

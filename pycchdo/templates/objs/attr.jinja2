@@ -5,25 +5,46 @@
     {%- if attr.deleted %}
       <p>del {{ attr.key }}
     {%- else %}
-      <p>{{ attr.key }} = {{ attr.value }}</p>
+      <p>{{ attr.key }} = {{ h.attr_value(attr) }} </p>
     {%- endif %}
+
+    <table>
+      {%- for k, v in attr.items() %}
+        {%- if not k.endswith('_stamp') and k not in ['key', '_id', 'obj'] %}
+          {%- if k == 'notes' %}
+            <tr>
+              <th>{{ k }}</th>
+              <td>
+                <ol>
+                {%- for note in attr.notes %}
+                  <li>{{ note.body }}</li>
+                {%- endfor %}
+                </ol>
+              </td>
+            </tr>
+          {%- else %}
+            <tr><th>{{ k }}</th><td>{{ v }}</td></tr>
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+    </table>
 
     <h2>Created</h2>
     <p>
       {{ attr.creation_stamp.timestamp }}
-      {{ attr.creation_stamp.person }}
+      {{ h.link_person(attr.creation_stamp.person) }}
     </p>
 
     <h2>Pending</h2>
     <p>
       {{ attr.pending_stamp.timestamp }}
-      {{ attr.pending_stamp.person }}
+      {{ h.link_person(attr.pending_stamp.person) }}
     </p>
 
     <h2>Judged</h2>
     <p>
       {{ attr.judgment_stamp.timestamp }}
-      {{ attr.judgment_stamp.person }}
+      {{ h.link_person(attr.judgment_stamp.person) }}
     </p>
     <a href="../a">Back to obj attrs</a>
   {%- endcall %}

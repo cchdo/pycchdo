@@ -10,20 +10,45 @@ from session import require_signin
 
 
 def objs(request):
-    return {'objs': models.Obj.all()}
+    objs = models.Obj.get_all()
+    objs = _paged(request, objs)
+    return {'objs': objs}
 
 
 def obj_new(request):
     if not request.user:
         return require_signin(request)
 
+    if _http_method(request) != 'PUT':
+        return HTTPBadRequest()
+
     obj_type = request.params.get('_obj_type', models.Obj.__name__)
+    attributes = {}
+    attrs = {}
+    for k, v in request.params.items():
+        if k.startswith('attr_'):
+            attrs[k[len('attr_'):]] = v
+        elif k.startswith('attribute_'):
+            attributes[k[len('attribute_'):]] = v
 
     try:
         obj = models.__dict__[obj_type](request.user)
         obj.save()
     except KeyError:
         raise ValueError('No such obj type (%s) allowed' % obj_type)
+    if attributes:
+        for k, v in attributes.items():
+            if k in obj.allowed_untracked_keys:
+                obj[k] = v
+        obj.save()
+    if attrs:
+        for k, v in attrs.items():
+            print obj, k, v, request.user
+            obj.set(k, v, request.user)
+
+    if obj._obj_type == models.Cruise.__name__:
+        return HTTPSeeOther(location=request.route_path('cruise_show',
+                                                        cruise_id=obj.id))
     return {'obj': obj}
 
 
@@ -144,34 +169,58 @@ def obj_attr(request):
             return require_signin(request)
         if not has_mod(request):
             return HTTPUnauthorized()
+
+        def redirect():
+            # Special case for accepting expocode. The cruise will not exist any
+            # more under the original expocode so redirect to the new expocode.
+            if attr.key == 'expocode' and action == 'Accept':
+                return HTTPSeeOther(location=request.route_url(
+                                    'cruise_show', cruise_id=attr.value))
+            return HTTPSeeOther(location=request.referrer)
+
         try:
             action = request.params['action']
         except KeyError:
             return HTTPBadRequest()
+
         if action == 'Accept':
+            if attr.key == 'data_suggestion':
+                try:
+                    accept_key = request.params['accept_key']
+                except KeyError:
+                    request.session.flash('You must provide a new key that is '
+                                          'a file type', 'help')
+                    return redirect()
+                if accept_key not in models.data_file_descriptions.keys():
+                    request.session.flash(
+                        '%s is not a valid file type' % accept_key, 'help')
+                    return redirect()
+                else:
+                    attr.key = accept_key
+                    request.session.flash(
+                        'Attr key changed to "%s"' % accept_key,
+                        'action_taken')
+
+            def accept_suggested():
+                attr.accept(request.user)
+                request.session.flash('Attr change accepted',
+                                      'action_taken')
             try:
                 accept_value = request.params['accept_value']
-                attr.accept_value(text_to_obj(accept_value), request.user)
-                request.session.flash(
-                    'Attr change accepted with new value "%s"' % accept_value,
-                    'action_taken')
+                if accept_value:
+                    attr.accept_value(text_to_obj(accept_value), request.user)
+                    request.session.flash(
+                        'Attr change accepted with new value "%s"' % (
+                            accept_value), 'action_taken')
+                else:
+                    accept_suggested()
             except KeyError:
-                attr.accept(request.user)
-                request.session.flash('Attr change accepted', 'action_taken')
+                accept_suggested()
         elif action == 'Acknowledge':
             attr.acknowledge(request.user)
             request.session.flash('Attr change acknowledged', 'action_taken')
         elif action == 'Reject':
             attr.reject(request.user)
             request.session.flash('Attr change rejected', 'action_taken')
-        else:
-            return HTTPBadRequest()
-
-        # Special case for accepting expocode. The cruise will not exist any
-        # more under the original expocode so redirect to the new expocode.
-        if attr.key == 'expocode' and action == 'Accept':
-            return HTTPSeeOther(location=request.route_url(
-                                'cruise_show', cruise_id=attr.value))
-        return HTTPSeeOther(location=request.referrer)
-
+        return redirect()
     return {'attr': attr}

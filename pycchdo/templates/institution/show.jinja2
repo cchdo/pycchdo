@@ -2,19 +2,34 @@
 {% block title %}Institution {{ institution.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Institution ' + (institution.name or '')) -%}
-    <div class="subsection editor">
-      {{ whh.tags.form() }}
-        <label for="name">Name</label> <input type="text" name="name">
+    <table class="info">
+      <tr><th>Name</th><td>{{ institution.name }}</td></tr>
+      <tr><th>ID</th><td>{{ institution.id }}</td></tr>
+    </table>
+    {%- if h.has_edit(request) %}
+      <div class="subsection editor">
+        {{ whh.tags.form(request.route_path('institution_edit', institution_id=institution.id), 'PUT') }}
+          <table>
+            <tr><th><label for="name">Name</label></th><td><input type="text" name="name" value="{{institution.name}}"></td></tr>
+          </table>
+          <input type="submit" value="Save">
+        {{ whh.tags.end_form() }}
+      </div>
+    {%- endif %}
+    {%- if h.has_mod(request) %}
+    <div class="subsection editor merger">
+      <h2>This institution is exactly the same as another one</h2>
+      <p>Enter the other institution's id here to replace the other with this one.</p>
+      {{ whh.tags.form(request.route_path('institution_merge', institution_id=institution.id), 'PUT') }}
+        <label for="institution_id">institution ID</label>
+        <input type="text" id="institution_id" name="mergee_institution_id" value="">
+        <input type="submit" value="Merge">
       {{ whh.tags.end_form() }}
     </div>
+    {%- endif %}
     <div class="subsection">
       <h2>Cruises</h2>
-      <ul>
-      {%- for cruise in institution.cruises() %}
-        <li>{{ whh.tags.link_to(cruise.expocode,
-                                '/cruise/%s' % cruise.expocode) }}</li>
-      {%- endfor %}
-      </ul>
+      {{ h.cruise_listing(institution.cruises()) }}
     </div>
   {%- endcall %}
 {%- endblock %}

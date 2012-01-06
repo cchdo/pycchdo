@@ -2,10 +2,11 @@
 {% block title %}Institutions{% endblock %}
 {% block content -%}
   {% call h.boxed('Institutions') -%}
-    <ul>
+    <ul class="autopagerize_page_element">
     {%- for institution in institutions %}
       <li>{{ whh.tags.link_to(institution.name, '/institution/%s' % institution.id) }}</li>
     {%- endfor %}
     </ul>
+    {{ h.pager_for(institutions) }}
   {%- endcall %}
 {%- endblock %}

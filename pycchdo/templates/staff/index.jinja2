@@ -3,14 +3,13 @@
 {% block content -%}
   {% call h.boxed('Staff Home') -%}
     <h2>List of servers that CCHDO is maintaining</h1>
-    <p>The order is by importance</p>
-    <ol>
-      <li><a href="http://cchdo.ucsd.edu:80">CCHDO</a> http://cchdo.ucsd.edu:80 (CCHDO)</li>
-      <li><a href="http://ushydro.ucsd.edu:80">USHYDRO</a> http://ushydro.ucsd.edu:80 (USHYDRO)</li>
-      <li><a href="http://seahunt.ucsd.edu:80">Seahunt</a> http://seahunt.ucsd.edu:80 (SEAHUNT)</li>
-      <li><a href="http://goship.ucsd.edu">goship</a> http://goship.ucsd.edu (old goship)</li>
-      <li><a href="http://joa.ucsd.edu">JOA</a> http://joa.ucsd.edu (virtual named host on goship)</li>
-      <li><a href="git@cchdo.ucsd.edu">repositories</a> git@cchdo.ucsd.edu (repositories)</li>
-    </ol>
+    <table>
+      <tr><th><a href="http://cchdo.ucsd.edu:80">CCHDO</a></th><td>http://cchdo.ucsd.edu:80</td><td>CCHDO</td></tr>
+      <tr><th><a href="http://ushydro.ucsd.edu:80">USHYDRO</a></th><td>http://ushydro.ucsd.edu:80</td><td>USHYDRO</td></tr>
+      <tr><th><a href="http://seahunt.ucsd.edu:80">Seahunt</a></th><td>http://seahunt.ucsd.edu:80</td><td>SEAHUNT</td></tr>
+      <tr><th><a href="http://goship.ucsd.edu">goship</a></th><td>http://goship.ucsd.edu</td><td>old goship</td></tr>
+      <tr><th><a href="http://joa.ucsd.edu">JOA</a></th><td>http://joa.ucsd.edu</td><td>virtual named host on goship</td></tr>
+      <tr><th><a href="git@cchdo.ucsd.edu">repositories</a></th><td>git@cchdo.ucsd.edu</td><td>repositories</td></tr>
+    </table>
   {%- endcall %}
 {%- endblock %}

@@ -1,20 +1,18 @@
-{% extends "templates/fullwidth.jinja2" %}
-{% block staff_head -%}
+{%- extends "templates/fullwidth.jinja2" %}
+{%- block staff_head %}
   {{ whh.tags.stylesheet_link('/static/css/staff.css') }}
 {%- endblock %}
-{% block staff_content -%}
+{%- block staff_content %}
   <div id="staff-header">
     <h1>Staff</h1>
-    <a id="staff-signout" href="/session/delete">Not {{ request.user.name }}?</a>
+    <a id="staff-signout" href="/session/delete">Not {{ request.user.name_first }}?</a>
   </div>
   <div id="staff-nav" class="nav">
     <a href="/staff"{% if self.title() == 'Staff | Home' %} class="current"{% endif %}>Staff home</a>
-    <a href="/staff/">Data entry</a>
     <a href="/staff/submissions"{% if self.title() == 'Staff | Submissions' %} class="current"{% endif %}>Submissions</a>
     <a href="/staff/moderation"{% if self.title() == 'Staff | Moderation' %} class="current"{% endif %}>Moderation</a>
     <a href="/staff/">Cruise Overviews</a>
     <a href="/staff/">Recent Updates</a>
-    <a href="/staff/">Queue</a>
     <a href="/staff/">Tasks (Dave)</a>
     <a href="/staff/">File Calendar</a>
   </div>

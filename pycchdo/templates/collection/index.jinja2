@@ -2,10 +2,11 @@
 {% block title %}Collections{% endblock %}
 {% block content -%}
   {% call h.boxed('Collections') -%}
-    <ul>
+    <ul class="autopagerize_page_element">
     {%- for collection in collections %}
       <li>{{ whh.tags.link_to(collection.name, '/collection/%s' % collection.id) }}</li>
     {%- endfor %}
     </ul>
+    {{ h.pager_for(collections) }}
   {%- endcall %}
 {%- endblock %}

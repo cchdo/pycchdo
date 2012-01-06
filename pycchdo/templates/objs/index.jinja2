@@ -7,7 +7,10 @@
       <li><a href="/obj/{{ obj['_id'] }}">Go</a> {{obj}}</li>
     {%- endfor %}
     </ul>
-    {{ whh.tags.form('/objs/new', method="GET") }}
+
+    {{ h.pager_for(objs) }}
+
+    {{ whh.tags.form('/objs/new', method="PUT") }}
       <p>
         New
         <select name="_obj_type">
@@ -17,7 +20,7 @@
           <option>Country</option>
           <option>Collection</option>
         </select>
-        <input type="submit" value="Make">
+        <input type="submit" value="Suggest">
       </p>
     </form>
   {%- endcall %}

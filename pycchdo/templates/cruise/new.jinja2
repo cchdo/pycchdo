@@ -1,0 +1,17 @@
+{% extends "templates/base.jinja2" %}
+{% block title %}Cruise | Suggest {{ cruise_id }}?{% endblock %}
+{% block head -%}
+  {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
+{%- endblock %}
+{%- block content_attrs %} class="cruise-page"{%- endblock %}
+{%- block content %}
+{%- call h.boxed('Cruise <span class="cruise_id">%s</span> was not found' % cruise_id) %}
+    <div class="editor">
+      {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise',
+                                                         'attr_expocode': cruise_id}) }}
+        <p>Would you like to suggest that <span class="cruise_id">{{ cruise_id }}</span> be added?</p>
+        <p><input type="submit" value="Suggest cruise"></p>
+      {{ whh.tags.end_form() }}
+    </div>
+  {%- endcall %}
+{%- endblock %}

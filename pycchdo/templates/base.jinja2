@@ -1,4 +1,4 @@
-{% import "templates/_helpers_layout.jinja2" as helpers_layout -%}
+{%- import "templates/_helpers_layout.jinja2" as helpers_layout %}
 {{ whh.tags.Doctype().html5() }}
 <html>
 <head>
@@ -11,24 +11,23 @@
   {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
   {%- if _static %}{{ whh.tags.stylesheet_link('/static/css/static.css') }}{%- endif %}
   {%- include 'templates/_ie_compat.jinja2' ignore missing %}
-  {%- block fullwidth_head -%}{%- endblock -%}
   {%- block staff_head -%}{%- endblock -%}
   {%- block head -%}{%- endblock -%}
 </head>
 <body>
-  <div id="centering">
-    {% include 'templates/_base_header.jinja2' %}
+  <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
+    {% include 'templates/_base_header.jinja2' with context %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
       {%- if request.session.peek_flash('action_taken') -%}
         {% set actions_taken = request.session.pop_flash('action_taken') %}
         {% for action in actions_taken %}
-          <h1 class="flash action_taken">{{ action }}</h1>
+          <h1 class="flash action_taken">{{ whh.HTML.literal(action) }}</h1>
         {% endfor %}
       {%- endif -%}
       {%- if request.session.peek_flash('help') %}
         {% set help = request.session.pop_flash('help') %}
         {% for helper in help %}
-          <h1 class="flash help">{{ helper }}</h1>
+          <h1 class="flash help">{{ whh.HTML.literal(helper) }}</h1>
         {% endfor %}
       {%- endif -%}
       {%- block staff_content -%}{%- endblock -%}

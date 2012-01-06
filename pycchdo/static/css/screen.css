@@ -9,8 +9,30 @@ a:visited, .visited_link { color: #88673E; }
 
 pre {
   line-height: 1.2em;
-  font-size: 0.9em;
-  font-family: Andale Mono, Courier New, Courier, Fixed, monospace;
+  font-size: 1em;
+  letter-spacing: 0.05em;
+  font-family: Inconsolata, Consolas, Deja Vu Sans Mono, Andale Mono, Courier New, Courier, Fixed, monospace;
+}
+th, td {
+  padding: 0.2em;
+}
+
+/* fullwidth */
+#centering.fullwidth {
+  width: 99%;
+  min-width: 1024px;
+}
+.fullwidth #bannerA,
+.fullwidth #bannerB {
+  width: 1024px;
+  margin-left: 50%;
+  left: -512px;
+}
+.banner.fullwidth {
+  display: none;
+}
+.fullwidth .banner.fullwidth {
+  display: block;
 }
 
 /* Flash messages */
@@ -46,6 +68,37 @@ pre {
 /* Hide email obfuscation. Different from display: none because the text needs
  * to actually be present in DOM */
 .copythis { position: absolute; left: -10000px; }
+
+/* Pagers */
+.pager {
+  text-align: center;
+  margin: 0.5em 25em;
+  border: 1px solid #EEEEEE;
+  border-left: 0;
+  border-right: 0;
+}
+.pager a {
+  display: inline-block;
+  padding: 0.2em;
+  text-decoration: none;
+}
+.pager a:hover {
+  text-shadow: 0 0 1em #CB4310;
+  -webkit-transition: text-shadow .3s ease;
+  -moz-transition: text-shadow .3s ease;
+  -o-transition: text-shadow .3s ease;
+  transition: text-shadow .3s ease;
+}
+.pager_curpage {
+  font-size: 1.25em;
+  color: #DDDDDD;
+  vertical-align: -0.1em;
+}
+
+/* Default table row styling */
+tr.odd {
+  background: #EEEEEE;
+}
 
 #centering {
   margin: 0 auto;
@@ -174,8 +227,6 @@ input[type="submit"]:active {
   position: absolute;
   width: 100%;
   height: 125px;
-}
-#bannerA, #bannerB {
   background: url('/static/img/banners/banner.jpg');
 }
 
@@ -308,17 +359,25 @@ input[type="submit"]:active {
   bottom: 0;
   clear: both;
   margin: 1em 0;
+  opacity: 0.3;
+  -webkit-transition: opacity .8s ease;
+  -moz-transition: opacity .8s ease;
+  -o-transition: opacity .8s ease;
+  transition: opacity .8s ease;
+}
+#gfooter:hover {
+  opacity: 1;
 }
 #gcredit {
   text-align: center;
-  font-size: x-small;
+  font-size: 0.5em;
 }
 #gcredit p {
-  width: 57em;
+  width: 59em;
   margin: 0 auto;
 }
 #gcredit #nsfcredit {
-  font-size: larger;
+  font-size: 1.5em;
 }
 #footer_logos {
   position: absolute;
@@ -370,6 +429,15 @@ input[type="submit"]:active {
   border: 1px solid #EEEEEE;
   border-left: 0;
   border-right: 0;
+}
+.editor.continued-top {
+  border-bottom: 0;
+}
+.editor.continued {
+  border: 0;
+}
+.editor.continued-bottom {
+  border-top: 0;
 }
 
 /* search_adv */
@@ -434,6 +502,33 @@ input[type="submit"]:active {
 }
 .search_adv #timeline5 {
   right: 0;
+}
+
+/* Attribute notes */
+table.notes {
+  width: 100%;
+}
+.notes .note {
+  border-top: 1px solid rgba(208, 208, 208, 0.5);
+}
+.notes .note .person,
+.notes .note .date {
+  width: 11em;
+  font-size: 0.8em;
+}
+.notes .note .person {
+  text-align: right;
+  padding-right: 1em;
+}
+.notes .note.discussion {
+  color: rgba(255, 100, 0, 0.7);
+}
+.notes .note.add-note td {
+  vertical-align: baseline;
+}
+.notes .note textarea {
+  width: 100%;
+  min-height: 6em;
 }
 
 /*

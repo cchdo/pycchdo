@@ -1,31 +1,116 @@
 {% extends "templates/staff.jinja2" %}
+{% from "templates/_notes.jinja2" import show_notes, note_editor with context %}
+{%- macro row_if_exists(t, x) %}
+  {%- if x %}
+    <tr><th>{{ t }}</th><td>{{ x }}</td></tr>
+  {%- endif %}
+{%- endmacro %}
 {% block title -%}Staff | Submissions{%- endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/staff/submissions.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
 {% endblock %}
 {% block content -%}
   {% call h.boxed('Submissions') -%}
-    <p class="TODO">This page is incomplete. Each submission should be either
-    accepted or rejected.
-    When submissions are accepted, the given file is then attached to the identified cruise.
-    </p>
+    <div class="help">
+      <p>The key here is to attach submissions to specific cruises.</p>
+      <ol>
+        <li>Try to figure out what kind of data and which cruise each submission belongs to</li>
+        <li>Then enter the cruise ID or expocode and data type and <span class="action">Accept</span></li>
+      </ol>
+      <p>
+        If the submission is junk, <span class="action">Reject</span> it.
+      </p>
+      <p>
+        If you're actively working on figuring a submission out, claim it by
+        clicking <span class="action">Acknowledge</span>. You can add notes to
+        the submission for your and others' reference.
+      </p>
+    </div>
 
     {%- if submissions %}
+      <table class="has-meta-bodies autopagerize_page_element">
+        <tr class="header">
+          <th class="identifier">Identifier</th>
+          <th class="actions">Actions</th>
+          <th class="person">Person</th>
+          <th class="file">File</th>
+          <th class="date_submitted">Date submitted</th>
+          <th class="public">Public</th>
+          <th class="attached">Attached</th>
+        </tr>
       {%- for submission in submissions %}
-        <div class="submission">
-          <span class="person">{{ h.link_person(submission.creation_stamp.person) }}</span> would
-          like the CCHDO to <span class="actions">{{ submission.get('action') }}</span>
-          the cruise identified by
-          <span class="expocode">{{ submission.get('expocode') }}</span>
-          <span class="cruise_date">{{ submission.get('cruise_date') }}</span>
-          <span class="ship_name">{{ submission.get('ship_name') }}</span>
-          <span class="line">{{ submission.get('line') }}</span>
-          <p>{% if submission.get('public') %}Public{% else %}Non-public{% endif %}</p>
-          <p>{{ submission.get('suggested') }}</p>
-        </div>
+        {%- set hl = loop.cycle('even', 'odd') %}
+        {%- set attached = submission.attached or '' %}
+        <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
+          {%- set ident = submission.get('expocode') or ' ' %}
+          <td class="identifier">{{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}</td>
+          <td class="actions">{{ submission.get('action') or '' }}</td>
+          <td class="person">{{ h.link_person(submission.creation_stamp.person) }}</td>
+          <td class="file">{{ h.link_file_holder(submission) }}</td>
+          <td class="date_submitted">{{ h.date(submission.creation_stamp.timestamp) }}</td>
+          <td class="public">{% if submission.get('public') %}yes{% else %}NO{% endif %}</td>
+          <td class="attached">{%- if attached != True %}{{ h.link_cruise(attached.obj) }}{%- elif attached == True %}Yes{%- endif %}</td>
+        </tr>
+        <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
+          <td colspan="4">
+            <table class="info">
+              {{ row_if_exists('ID', h.link_obj(submission)) }}
+              {{ row_if_exists('Acknowledged by', h.link_person(submission.pending_stamp.person)) }}
+              {{ row_if_exists('Acknowledged on', h.date(submission.pending_stamp.timestamp)) }}
+              {{ row_if_exists('Cruise dates', h.date(submission.get('cruise_date'))) }}
+              {{ row_if_exists('Ship', submission.get('ship_name') or '') }}
+              {{ row_if_exists('WOCE Line', submission.get('line') or '') }}
+            </table>
+          </td>
+          <td colspan="3">
+          {%- if not attached %}
+            {{ whh.tags.form('', 'PUT', hidden_fields={'submission_id': submission.id}) }}
+            <table class="editor">
+              <tr>
+                <th><label for="submission{{ loop.index0 }}_cruise_id">Cruise ID/ExpoCode</label></th>
+                {%- set cruises = submission.cruises_from_identifier() %}
+                <td><input id="submission{{ loop.index0 }}_cruise_id" type="text" name="cruise_id"
+                           value="{%- if cruises %}{{ cruises[0].get('expocode') or cruises[0].id }}{%- endif %}"></td>
+              </tr>
+              {%- set data_type_id = 'submission%s_data_type' % loop.index0 %}
+              <tr>
+                <th><label for="{{ data_type_id }}">Data type</label></th>
+                <td>{{ whh.tags.select('data_type', None, FILE_GROUPS_SELECT, id=data_type_id) }}</td>
+              </tr>
+              <tr>
+                <td colspan="2">
+                  <input type="submit" name="action" value="Accept">
+                  {%- if not submission.is_acknowledged() %}
+                    <input type="submit" name="action" value="Acknowledge">
+                  {%- endif %}
+                  <input type="submit" name="action" value="Reject">
+                </td>
+              </tr>
+            </table>
+            {{ whh.tags.end_form() }}
+          {%- endif %}
+          </td>
+        </tr>
+        <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
+          <td colspan="7">
+            {{ whh.tags.form('', 'POST', hidden_fields={'obj_id': submission.id}) }}
+            <table class="notes">
+              {{ show_notes(submission.notes) }}
+              {{ note_editor(loop.index0, 'file') }}
+            </table>
+            {{ whh.tags.end_form() }}
+          </td>
+        </tr>
       {%- endfor %}
+      </table>
+      {{ h.pager_for(submissions) }}
     {%- else %}
       <p>No submissions.</p>
     {%- endif %}
   {%- endcall %}
+{%- endblock %}
+{%- block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
 {%- endblock %}

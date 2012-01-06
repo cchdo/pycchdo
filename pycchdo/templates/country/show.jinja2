@@ -2,26 +2,47 @@
 {% block title %}Country {{ country.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Country ' + (country.name or '')) -%}
-    {%- if h.has_mod(request) %}
+    <table class="info">
+      <tr><th>ISO 3166-1</th><td>{{ country.name }}</td></tr>
+      <tr><th>ISO 3166-1_alpha2</th><td>{{ country.iso_code() }}</td></tr>
+      <tr><th>ISO 3166-1_alpha3</th><td>{{ country.iso_code(3) }}</td></tr>
+      <tr><th>ID</th><td>{{ country.id }}</td></tr>
+    </table>
+    {%- if h.has_edit(request) %}
       <div class="subsection editor">
-        <dl>
-          <dt><label for="name">Name (<a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>)</label></dt>
-          <dd><input type="text" name="name" value="{{ country.name }}"></dd>
-          <dt><label for="name"><a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2">ISO 3166-1 alpha-2</a></label></dt>
-          <dd><input type="text" name="iso_3166-1_alpha-2" value="{{ country.iso_code() or '' }}"></dd>
-          <dt><label for="name"><a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-3">ISO 3166-1 alpha-3</a></label></dt>
-          <dd><input type="text" name="iso_3166-1_alpha-3" value="{{ country.iso_code(3) or '' }}"></dd>
-        </dl>
+        {{ whh.tags.form(request.route_path('country_edit', country_id=country.id), 'PUT') }}
+        <table>
+          <tr>
+            <th><label for="name">Name (<a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>)</label></th>
+            <td><input type="text" name="name" value="{{ country.name }}"></td>
+          </tr>
+          <tr>
+            <th><label for="name"><a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2">ISO 3166-1 alpha-2</a></label></th>
+            <td><input type="text" name="iso_3166-1_alpha-2" value="{{ country.iso_code() or '' }}"></td>
+          </tr>
+          <tr>
+            <th><label for="name"><a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-3">ISO 3166-1 alpha-3</a></label></th>
+            <td><input type="text" name="iso_3166-1_alpha-3" value="{{ country.iso_code(3) or '' }}"></td>
+          </tr>
+        </table>
         <input type="submit" value="Save">
+        {{ whh.tags.end_form() }}
       </div>
+    {%- endif %}
+    {%- if h.has_mod(request) %}
+    <div class="subsection editor merger">
+      <h2>This country is exactly the same as another one</h2>
+      <p>Enter the other country's id here to replace the other with this one.</p>
+      {{ whh.tags.form(request.route_path('country_merge', country_id=country.id), 'PUT') }}
+        <label for="country_id">country ID</label>
+        <input type="text" id="country_id" name="mergee_country_id" value="">
+        <input type="submit" value="Merge">
+      {{ whh.tags.end_form() }}
+    </div>
     {%- endif %}
     <div class="subsection">
       <h2>Cruises</h2>
-      <ul>
-      {%- for cruise in country.cruises() %}
-        <li>{{ whh.tags.link_to(cruise.expocode, '/cruise/%s' % cruise.expocode) }}</li>
-      {%- endfor %}
-      </ul>
+      {{ h.cruise_listing(country.cruises()) }}
     </div>
   {%- endcall %}
 {%- endblock %}

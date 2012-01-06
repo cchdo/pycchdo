@@ -21,6 +21,7 @@ requires = [
     'pymongo',
     'whoosh',
     'geojson',
+    'geoalchemy',
     'shapely',
     ] + _importer_requires
 

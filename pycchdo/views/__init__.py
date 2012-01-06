@@ -5,17 +5,43 @@ import cgi
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
     HTTPNoContent
+from pyramid.url import current_route_url
+
+from webhelpers import paginate
+
+from webob.multidict import MultiDict
 
 import pycchdo.models as models
+from pycchdo.models.models import data_file_human_names
 import pycchdo.helpers as h
 from pycchdo.views.session import require_signin
 
 
+_views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
+          'information_menu', 'parameters', 'data', 'catchall_static', ]
+
+
 __all__ = [
-    'flatten', '_collapsed_dict', '_http_method', '_unescape', 'text_to_obj',
-    'favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-    'information_menu', 'parameters', 'data', 'catchall_static', 
-    ]
+    'flatten', '_collapsed_dict', '_http_method', '_paged', '_unescape',
+    'text_to_obj', 'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
+
+
+FILE_GROUPS = MultiDict([
+    ['Exchange', ['bottle_exchange', 'bottlezip_exchange', 'ctdzip_exchange']],
+    ['NetCDF', ['bottlezip_netcdf', 'ctdzip_netcdf']],
+    ['WOCE', ['bottle_woce', 'ctdzip_woce', 'sum_woce']],
+    ['Map', ['map_thumb', 'map_full']],
+    ['Documentation', ['doc_txt', 'doc_pdf']],
+])
+
+
+FILE_GROUPS_SELECT = []
+for k, v in FILE_GROUPS.items():
+    FILE_GROUPS_SELECT.append(
+        ([(x, data_file_human_names[x]) for x in v], k))
+FILE_GROUPS_SELECT.append('Other')
+
+
 
 
 def flatten(l):
@@ -43,6 +69,16 @@ def _http_method(request):
         return request.method
 
 
+def _paged(request, l):
+    current_page = int(request.params.get('page', 1))
+    items_per_page = int(request.params.get('items_per_page', 20))
+    def page_url(page):
+        return current_route_url(request, _query={
+            'page': page, 'items_per_page': items_per_page})
+    return paginate.Page(
+        l, current_page, items_per_page=items_per_page, url=page_url)
+
+
 def _unescape(s, escape='\\'):
     n = s.find(escape)
     while n > -1:
@@ -51,38 +87,43 @@ def _unescape(s, escape='\\'):
     return s
 
 
+_possible_data_formats = [
+    '%Y-%m-%dT%H:%M:%S.%f%z', 
+    '%Y-%m-%dT%H:%M:%S', 
+    '%Y-%m-%dT%H:%M', 
+    '%Y-%m-%d', 
+]
+
+
+def _ensure_object_id(x):
+    try:
+        return models.ensure_objectid(x)
+    except ValueError:
+        return None
+
+
 def text_to_obj(value, text_type='text'):
     if type(value) is cgi.FieldStorage:
         return value
     if text_type == 'text':
-        return value
+        return value.strip()
     if text_type == 'datetime':
-        try:
-            return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%f%z')
-        except ValueError:
-            pass
-        try:
-            return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
-        except ValueError:
-            pass
-        try:
-            return datetime.strptime(value, '%Y-%m-%dT%H:%M')
-        except ValueError:
-            pass
-        try:
-            return datetime.strptime(value, '%Y-%m-%d')
-        except ValueError:
-            pass
-        return value
+        for df in _possible_data_formats:
+            try:
+                return datetime.strptime(value, df)
+            except ValueError:
+                pass
+        return None
     if text_type == 'text_list':
-        return [_unescape(x) for x in value.split(',')]
+        return [_unescape(x.strip()) for x in value.split(',')]
     if text_type == 'id':
-        return models.ensure_objectid(value)
+        return _ensure_object_id(value)
     if text_type == 'id_list':
-        return map(models.ensure_objectid, value.split(','))
+        return [_ensure_object_id(x.strip()) for x in value.split(',')]
 
 
 _static_root = os.path.join(os.path.dirname(__file__), '..', 'static')
+
 
 try:
     _favicon = open(os.path.join(_static_root, 'favicon.ico')).read()
@@ -163,6 +204,12 @@ def data(request):
         data = models._Attr.get_id(id)
     except ValueError:
         return HTTPNotFound()
+
+    if not data:
+        try:
+            data = models.Submission.get_id(id)
+        except ValueError:
+            return HTTPNotFound()
 
     if not data:
         try:

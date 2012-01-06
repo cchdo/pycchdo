@@ -3,7 +3,32 @@
   {% call h.boxed('Search results for "%s"' % query) -%}
     <table>
     {% for k, v in results.items() -%}
-      <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+      <tr>
+        <td>{{ k }}</td>
+        <td>
+          <ul>
+          {%- for x in v %}
+            <li>
+              {%- if x._obj_type == 'Person' %}
+                {{ h.link_person(x) }}
+              {%- elif x._obj_type == 'Collection' %}
+                {{ h.link_collection(x) }}
+              {%- elif x._obj_type == 'Country' %}
+                {{ h.link_country(x) }}
+              {%- elif x._obj_type == 'Cruise' %}
+                {{ h.link_cruise(x) }}
+              {%- elif x._obj_type == 'Ship' %}
+                {{ h.link_ship(x) }}
+              {%- elif x._obj_type == 'Institution' %}
+                {{ h.link_institution(x) }}
+              {%- else %}
+                {{ x }}
+              {%- endif %}
+            </li>
+          {%- endfor %}
+          </ul>
+        </td>
+      </tr>
     {% endfor %}
     </table>
   {%- endcall %}

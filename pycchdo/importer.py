@@ -19,6 +19,7 @@ import StringIO
 import pwd
 import threading
 import time
+import zipfile
 
 import sqlalchemy.exc
 
@@ -1067,20 +1068,20 @@ def _import_old_submissions(session, importer, sftp_cchdo):
                 submission.creation_stamp['timestamp'] = sub.created_at
                 submission.accept(importer)
                 submission.judgment_stamp['timestamp'] = sub.updated_at
+                submission.folderfolder = sub.Folder
+                submission.date = _date_to_datetime(sub.Date)
+                submission.stamp = sub.Stamp
+                submission.line = sub.Line
+                submission.submitter = sub.Name
+                submission.files = []
                 submission.save()
-                submission.set_accept('folder', sub.Folder, importer)
-                submission.set_accept(
-                    'date', _date_to_datetime(sub.Date), importer)
-                submission.set_accept('stamp', sub.Stamp, importer)
-                submission.set_accept('line', sub.Line, importer)
-                submission.set_accept('submitter', sub.Name, importer)
-                submission.set_accept('files', [], importer)
-
             map_submissions[sub.Folder] = submission
-        attr = submission.get_attr('files')
+
+        files = submission.files_
         if models.fs().exists({'filename': sub.Filename,
                                'old_submission': True}):
             continue
+
         with sftp_dl(sftp_cchdo, sub.Location) as file:
             if file is None:
                 if sub.Location in (
@@ -1105,10 +1106,11 @@ def _import_old_submissions(session, importer, sftp_cchdo):
                 else:
                     raise ValueError('Unable to find file for old submission: '
                                      '%s' % sub.Location)
-            id = models.fs().put(file, filename=sub.Filename,
-                                 old_submission=True)
-            attr.value = attr.value + [id]
-            attr.save()
+            id = models.fs().put(
+                file, filename=sub.Filename, old_submission=True)
+            files += [id]
+            submission.files_ = files
+            submission.save()
 
 
 def _import_spatial_groups(session, importer):
@@ -1399,30 +1401,49 @@ def _import_submissions(session, importer, sftp_cchdo):
             line = sub.line
             action = sub.action
             notes = sub.notes
-            file_name = sub.file
+            file_path = sub.file
 
             if expocode:
-                submission.set_accept('expocode', _ustr2uni(expocode), importer)
+                submission.expocode_ = _ustr2uni(expocode)
             if ship_name:
-                submission.set_accept('ship_name', _ustr2uni(ship_name), importer)
+                submission.ship_name_ = _ustr2uni(ship_name)
             if line:
-                submission.set_accept('line', _ustr2uni(line), importer)
+                submission.line_ = _ustr2uni(line)
             if action:
-                submission.set_accept('action', _ustr2uni(action), importer)
+                submission.action_ = _ustr2uni(action)
             if notes:
-                submission.add_note(models.Note(importer,
-                                                _ustr2uni(notes)).save())
+                submission.add_note(
+                    models.Note(submitter, _ustr2uni(notes)).save())
 
             file = None
-            with sftp_dl(sftp_cchdo, file_name) as file:
+            with sftp_dl(sftp_cchdo, file_path) as file:
                 if not file:
                     submission.remove()
                     implog.warn('unable to get file for Submission %s', sub.id)
                     continue
+
+                file_name = os.path.basename(file_path)
                 actual_file = FieldStorage()
                 actual_file.filename = file_name
-                actual_file.file = file
-                submission.set_accept('file', actual_file, importer)
+
+                # ZipFile.open will clobber a file object so make a copy.
+                temp = StringIO.StringIO()
+                temp.write(file.read())
+                file.seek(0)
+
+                if file_name.startswith('multiple_files') and file_name.endswith('.zip'):
+                    # unzip multiple_files zips that are actually just one file
+                    with zipfile.ZipFile(temp) as zf:
+                        infos = zf.infolist()
+                        if len(infos) == 1:
+                            file = zf.open(infos[0])
+                            actual_file.filename = infos[0].filename
+                        actual_file.file = file
+                        submission.store_file(actual_file)
+                else:   
+                    actual_file.file = file
+                    submission.store_file(actual_file)
+                submission.save()
 
             public = public_to_bool(sub.public, action)
             # 2011-09-16 myshen
@@ -1432,8 +1453,9 @@ def _import_submissions(session, importer, sftp_cchdo):
             # "assimilated" is used to color code the submission table according
             # to whether submission has been put in the queue.
             assimilated = bool(sub.assimilated)
-            submission.set_accept('public', public, importer)
-            submission.set_accept('assimilated', assimilated, importer)
+            submission.public_ = public
+            submission.attached_ = assimilated
+            submission.save()
             try:
                 cruise_date = _date_to_datetime(sub.cruise_date)
                 submission.set_accept('cruise_date', cruise_date, importer)
@@ -1486,7 +1508,11 @@ def _import_queue_files(session, importer, sftp_cchdo):
             queue_file.import_id = qfile.id
 
             name = qfile.contact
-            submitter, inst = _import_person_inst(importer, name, '', '', '')
+            if not name:
+                submitter = importer
+            else:
+                submitter, inst = _import_person_inst(
+                    importer, name, '', '', '')
 
             queue_file.creation_stamp['person'] = submitter.id
             date_received = None
@@ -2030,37 +2056,37 @@ def main(argv):
     with db_session(legacy.session()) as session:
         session.autoflush = False
 
-        _import_users(session, importer)
-        _import_contacts(session, importer)
-        _import_collections(session, importer)
-        _import_cruises(session, importer)
+        #_import_users(session, importer)
+        #_import_contacts(session, importer)
+        #_import_collections(session, importer)
+        #_import_cruises(session, importer)
 
-        # TODO ensure that expocode is unique. or merge cruises that seem to
-        # only just have different line numbers. Watch out for no_expocode
+        ## TODO ensure that expocode is unique. or merge cruises that seem to
+        ## only just have different line numbers. Watch out for no_expocode
 
-        _import_track_lines(session, importer)
-        _import_collections_cruises(session, importer)
-        _import_contacts_cruises(session, importer)
+        #_import_track_lines(session, importer)
+        #_import_collections_cruises(session, importer)
+        #_import_contacts_cruises(session, importer)
 
-        _import_events(session, importer)
+        #_import_events(session, importer)
 
-        _import_spatial_groups(session, importer)
-        _import_internal(session, importer)
-        _import_unused_tracks(session, importer)
+        #_import_spatial_groups(session, importer)
+        #_import_internal(session, importer)
+        #_import_unused_tracks(session, importer)
 
-        _import_parameter_descriptions(importer)
-        _import_parameter_groups(session, importer)
-        _import_bottle_dbs(session, importer)
-        _import_parameter_status(session, importer)
-        _import_parameters(session, importer)
+        #_import_parameter_descriptions(importer)
+        #_import_parameter_groups(session, importer)
+        #_import_bottle_dbs(session, importer)
+        #_import_parameter_status(session, importer)
+        #_import_parameters(session, importer)
 
         with _sftp_cchdo() as (ssh_cchdo, sftp_cchdo):
             _import_submissions(session, importer, sftp_cchdo)
-            _import_old_submissions(session, importer, sftp_cchdo)
-            _import_queue_files(session, importer, sftp_cchdo)
-            _import_documents(session, importer)
-            _import_cchdo_uname_uids(ssh_cchdo, importer)
-            _import_argo_files(session, importer, sftp_cchdo)
+            #_import_old_submissions(session, importer, sftp_cchdo)
+            #_import_queue_files(session, importer, sftp_cchdo)
+            #_import_documents(session, importer)
+            #_import_cchdo_uname_uids(ssh_cchdo, importer)
+            #_import_argo_files(session, importer, sftp_cchdo)
 
     implog.info("Finished import")
     return 0

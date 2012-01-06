@@ -1,0 +1,50 @@
+{%- macro show_notes(notes) %}
+  {%- for note in notes %}
+    <tr class="note{% if note.discussion %} discussion{% endif %}">
+      <td class="body">{{ note.body }}</td>
+      <td class="person">{{ h.link_person(note.creation_stamp.person) }}</td>
+      <td class="date">{{ h.datetime(note.creation_stamp.timestamp) }}</td>
+    </tr>
+  {%- endfor %}
+{%- endmacro %}
+{%- macro note_editor(loop_index, type) %}
+  {%- if h.has_mod(request) %}
+    <tr id="add_note_{{ type }}" class="note add-note">
+      <td class="body"><textarea name="note"></textarea></td>
+      <td class="person">
+        {%- set public_id = '%s%s_add_note_public' % (type, loop_index) %}
+        <label for="{{ public_id }}">Public</label>
+        <input id="{{ public_id }}" type="checkbox" name="public" value="public">
+      </td>
+      <td class="date"><input type="submit" value="Add note"></td>
+    </tr>
+  {%- endif %}
+{%- endmacro %}
+{%- macro show_notes_with_editor(request, loop_index, obj, type) %}
+  {%- set has_mod = h.has_mod(request) %}
+  {%- if has_mod %}
+    {%- if obj.file %}
+      {%- set hidden_fields = {
+            'action': 'add_note_to_file',
+            'file_id': obj.id,
+          }
+      %}
+    {%- else %}
+      {%- set hidden_fields = {
+            'action': 'add_note_to_attr',
+            'attr_id': obj.id,
+          }
+      %}
+    {%- endif %}
+    {{ whh.tags.form('', 'POST', hidden_fields=hidden_fields) }}
+  {%- endif %}
+  <table class="notes">
+    {% if obj %}
+      {{ show_notes(h.get_visible_notes(request, obj)) }}
+    {%- endif %}
+    {{ note_editor(loop_index, type) }}
+  </table>
+  {%- if has_mod %}
+    {{ whh.tags.end_form() }}
+  {%- endif %}
+{%- endmacro %}

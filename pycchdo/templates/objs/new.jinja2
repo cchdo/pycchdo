@@ -1,7 +1,7 @@
 {% extends "templates/base.jinja2" %}
-{% block title %}New Obj{% endblock %}
+{% block title %}Obj | Suggested {{ obj.id }}{% endblock %}
 {% block content %}
-  {% call h.boxed('New Obj') -%}
+  {% call h.boxed('New Obj %s suggested' % obj.id) -%}
     <p>{{ obj }}</p>
     <p>
       <a href="/objs">Back to objs</a>

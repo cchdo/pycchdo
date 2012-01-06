@@ -16,6 +16,9 @@ pre {
 th, td {
   padding: 0.2em;
 }
+#basin_map td {
+  padding: 0;
+}
 
 /* fullwidth */
 #centering.fullwidth {

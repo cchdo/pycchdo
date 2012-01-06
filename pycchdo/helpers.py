@@ -1,3 +1,5 @@
+from urllib import quote
+from json import dumps
 import logging
 import os.path
 
@@ -7,6 +9,45 @@ import webhelpers.html.tags
 from gridfs.grid_file import GridOut
 
 import models
+
+
+GAPI_keys = {
+    'cchdo.ucsd.edu':
+        'ABQIAAAAZICfw-7ifUWoyrSbSFaNixTec8MiBufSHvQnWG6NDHYU8J6t-xTRqsJkl7OBlM2_ox3MeNhe_0-jXA',
+    'whpo.ucsd.edu':
+        'ABQIAAAATXJifusyeTqIXK5-oRfMqRRrtQtAbE2ICKyeJmE150l9FUtvWRQ_qb0gC6W0P4gBV_W3RstdZXEcOw',
+    'watershed.ucsd.edu':
+        'ABQIAAAATXJifusyeTqIXK5-oRfMqRRkZzjLi0nUJ4TwOC8xt4Ov2IJhKBQTGSNz9nt4_eT3w1Wv_O1VSaMyBA',
+    'goship.ucsd.edu:3000':
+        'ABQIAAAATXJifusyeTqIXK5-oRfMqRSVxuI6xAiiU0y37vRLQcURlSg9FhSh-0iK98GAcbE_yabEYgs-ehj6Xg',
+    'ghdc.ucsd.edu:3000':
+        'ABQIAAAATXJifusyeTqIXK5-oRfMqRQbm_T9Aut8KIkQepcdoibG6hz3ZBSwpsEu6JXesbZc0gcOonL9xKdIBA',
+    'dimes.ucsd.edu:8000':
+        'ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw',
+    'dimes.ucsd.edu:6543':
+        'ABQIAAAATXJifusyeTqIXK5-oRfMqRST_Kiy-Bgmypbw3V1qZCFDO_zjLxT0HrIcYAGtKRot6A0EcjEGIIUqZA',
+    'localhost':
+        'ABQIAAAAnfs7bKE82qgb3Zc2YyS-oBT2yXp_ZAY8_ufC3CFXhHIE1NvwkxSySz_REpPq-4WZA27OwgbtyR3VcA',
+}
+
+
+def GAPI_key(request):
+    try:
+        return GAPI_keys[request.host]
+    except KeyError:
+        return GAPI_keys['localhost']
+
+
+def GAPI_autoload(request, module_list):
+    """ Gives a script tag that uses the Google jsapi URI to preload a certain
+        set of modules.
+
+    """
+    jsapiload = quote(dumps({'modules': module_list})) or ''
+    uri = 'http://www.google.com/jsapi?autoload={jsapiload}&key={key}'.format(
+        jsapiload=jsapiload,
+        key=GAPI_key(request))
+    return whh.tags.javascript_link(uri)
 
 
 def has_edit(request):

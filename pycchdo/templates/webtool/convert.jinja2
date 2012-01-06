@@ -1,0 +1,41 @@
+{%- extends "templates/base.jinja2" %}
+{%- block title %}Webtool | Convert file formats{% endblock %}
+{%- block content %}
+  {% call h.boxed('Convert file formats') %}
+    <p>
+      Please be patient. It may take a few minutes for your conversion to
+      complete, especially if you submit large files.
+    </p>
+
+    <h2>Convert a NetCDF CTD to OceanSites NetCDF.</h2>
+
+    {{ whh.tags.form('/webtool/convert/ctd_netcdf_to_ctd_oceansites_netcdf', multipart=True) }}
+      <input type="file" name="file">
+      {{ whh.tags.select('timeseries', None, OCEANSITES_TIMESERIES_SELECT) }}
+      <input type="submit" value="Convert">
+    {{ whh.tags.end_form() }}
+
+    <h2>Convert a NetCDF CTD Zip to OceanSites NetCDF Zip.</h2>
+
+    {{ whh.tags.form('/webtool/convert/ctdzip_netcdf_to_ctdzip_oceansites_netcdf', multipart=True) }}
+      <input type="file" name="file">
+      {{ whh.tags.select('timeseries', None, OCEANSITES_TIMESERIES_SELECT) }}
+      <input type="submit" value="Convert">
+    {{ whh.tags.end_form() }}
+
+    <h2>Convert a CTD Exchange to OceanSites NetCDF Zip.</h2>
+
+    {{ whh.tags.form('/webtool/convert/ctd_exchange_to_ctdzip_oceansites_netcdf', multipart=True) }}
+      <input type="file" name="file">
+      {{ whh.tags.select('timeseries', None, OCEANSITES_TIMESERIES_SELECT) }}
+      <input type="submit" value="Convert">
+    {{ whh.tags.end_form() }}
+
+    <h2>Convert a Bottle Exchange to KML.</h2>
+
+    {{ whh.tags.form('/webtool/convert/bottle_exchange_to_kml', multipart=True) }}
+      <input type="file" name="file">
+      <input type="submit" value="Convert">
+    {{ whh.tags.end_form() }}
+  {% endcall %}
+{%- endblock %}

@@ -19,8 +19,7 @@
 </div>
 {% endblock %}
 {% block js %}
-  {% set modules = {
-        'modules': [
+  {{- h.GAPI_autoload(request, [
             {
                 'name': 'jquery',
                 'version': '1.6.4',
@@ -43,15 +42,7 @@
                 'version': '1',
                 'packages': ['table'],
             }
-        ]
-    }
-  %}
-  {% set jsapiload = urlquote(json(modules)) or '' %}
-  {# dimes:8000 #}
-  {# set key = "ABQIAAAATXJifusyeTqIXK5-oRfMqRTTLLgEU0j8TX6lr26R_f7d8ATJsxRXcK1lEshiZNwEVvZrEPwtw91gQw" #}
-  {# dimes:6543 #}
-  {% set key = "ABQIAAAATXJifusyeTqIXK5-oRfMqRST_Kiy-Bgmypbw3V1qZCFDO_zjLxT0HrIcYAGtKRot6A0EcjEGIIUqZA" %}
-  {{ whh.tags.javascript_link('http://www.google.com/jsapi?autoload={jsapiload}&key={key}'.format(jsapiload=jsapiload, key=key)) }}
+        ]) }}
   {{ whh.tags.javascript_link('/static/cchdomap/js/jquery.form.js') }}
   {{ whh.tags.javascript_link('/static/cchdomap/js/jquery.jgrowl_minimized.js') }}
   {{ whh.tags.javascript_link('/static/cchdomap/js/jquery.tipTipTip.js') }}

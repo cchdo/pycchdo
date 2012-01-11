@@ -4,7 +4,10 @@ import socket
 
 from warnings import warn
 
+from webob.multidict import MultiDict
+
 import pymongo
+from pymongo import DESCENDING
 from pymongo.objectid import ObjectId, InvalidId
 
 from shapely.geometry import linestring
@@ -56,6 +59,10 @@ data_file_descriptions = {
     'doc_txt': 'ASCII cruise and data documentation',
     'doc_pdf': 'Portable Document Format cruise and data documentation',
 }
+
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
 
 
 def init_conn(settings, **kwargs):
@@ -169,7 +176,7 @@ def is_valid_ipv6(ip):
         return False
 
 
-def sort_by_stamp(query, stamp='creation', direction=pymongo.DESCENDING):
+def sort_by_stamp(query, stamp='creation', direction=DESCENDING):
     """ Applies a sort to the mongodb query by the given stamp's timestamp key.
 
         Valid stamp arguments:
@@ -202,11 +209,11 @@ class mongodoc(dict):
             del d.key
 
         Keys, when accessed as attributes, have the additional property of being
-        subject to aliasing. By redefining the attribute_map function, different
+        subject to aliasing. By redefining the _key_alias_resolve function, different
         names can be given to the same attribute.
 
             class specialmongodoc(mongodoc):
-                def attribute_map(self, name):
+                def _key_alias_resolve(self, name):
                     if name == 'foo':
                         name = 'bar'
                     return name
@@ -216,7 +223,7 @@ class mongodoc(dict):
             d.bar == 'baz'
 
     """
-    __allowed_untracked_keys = []
+    __allowed_keys = []
 
     def copy_keys_from(self, o, keys):
         """ Used by from_mongo to copy saved keys from mongodb into instances.
@@ -240,12 +247,12 @@ class mongodoc(dict):
         instance.
 
         """
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     @property
     def allowed_untracked_keys(self):
-        return self.__allowed_untracked_keys
+        return self.__allowed_keys
 
     def mapobj(self, doc, key, cls):
         """Project a key-value pair from a document onto oneself.
@@ -267,21 +274,21 @@ class mongodoc(dict):
 
     def __getattr__(self, name):
         try:
-            return self[self.attribute_map(name)]
+            return self[self._key_alias_resolve(name)]
         except KeyError:
             raise AttributeError(
-                '%r has no attribute %s' % (self, self.attribute_map(name)))
+                '%r has no attribute %s' % (self, self._key_alias_resolve(name)))
 
     def __setattr__(self, name, value):
-        self[self.attribute_map(name)] = value
+        self[self._key_alias_resolve(name)] = value
 
     def __delattr__(self, name):
         try:
-            del self[self.attribute_map(name)]
+            del self[self._key_alias_resolve(name)]
         except KeyError:
             pass
 
-    def attribute_map(self, name):
+    def _key_alias_resolve(self, name):
         """ Used by attribute model to Allow for attribute aliases.
 
         Override to add aliases for attributes.
@@ -341,7 +348,7 @@ class mongodoc(dict):
 
 
 class Stamp(mongodoc):
-    __allowed_untracked_keys = ['timestamp', 'person', ]
+    __allowed_keys = ['timestamp', 'person', ]
 
     def __init__(self, person):
         self.timestamp = timestamp()
@@ -357,7 +364,7 @@ class Stamp(mongodoc):
 
     def from_mongo(self, doc):
         super(Stamp, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     @property
@@ -374,16 +381,16 @@ class idablemongodoc(mongodoc):
         ever be stored inside these.
 
     """
-    __allowed_untracked_keys = ['_id', ]
+    __allowed_keys = ['_id', ]
 
-    def attribute_map(self, attr):
+    def _key_alias_resolve(self, attr):
         if attr == 'id':
             attr = '_id'
-        return super(idablemongodoc, self).attribute_map(attr)
+        return super(idablemongodoc, self)._key_alias_resolve(attr)
 
     def from_mongo(self, doc):
         super(idablemongodoc, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     def __eq__(self, o):
@@ -476,8 +483,8 @@ class Note(collectablemongodoc):
                      for mergers.
                      
     """
-    __allowed_untracked_keys = ['creation_stamp', 'body', 'action', 'data_type',
-                                'subject', 'discussion']
+    __allowed_keys = ['creation_stamp', 'body', 'action', 'data_type',
+                      'subject', 'discussion']
 
     @classmethod
     def _mongo_collection(cls):
@@ -501,7 +508,7 @@ class Note(collectablemongodoc):
 
     def from_mongo(self, doc):
         super(Note, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     @property
@@ -527,8 +534,8 @@ class _Change(collectablemongodoc):
     which may themselves be public or for dicussion purposes only.
 
     """
-    __allowed_untracked_keys = ['creation_stamp', 'pending_stamp',
-                                'judgment_stamp', 'accepted', 'notes', ]
+    __allowed_keys = ['creation_stamp', 'pending_stamp', 'judgment_stamp',
+                      'accepted', 'notes', ]
 
     @classmethod
     def _mongo_collection(cls):
@@ -548,7 +555,7 @@ class _Change(collectablemongodoc):
 
     def from_mongo(self, doc):
         super(_Change, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     @property
@@ -748,8 +755,8 @@ class _Attr(_Change, _FileHolder):
         Not for general use. Please defer to Obj's get, set, and delete methods
 
     """
-    __allowed_untracked_keys = ['key', 'value', '_requests', 'file', 'track',
-                                'obj', 'deleted', 'accepted_value', ]
+    __allowed_keys = ['key', 'value', '_requests', 'file', 'track', 'obj',
+                      'deleted', 'accepted_value', ]
 
     @classmethod
     def _mongo_collection(cls):
@@ -767,7 +774,7 @@ class _Attr(_Change, _FileHolder):
 
     def from_mongo(self, doc):
         super(_Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     def set(self, key, value):
@@ -921,7 +928,8 @@ class Obj(_Change):
             delete.
 
     """
-    __allowed_untracked_keys = ['_obj_type', '_attrs', ]
+    __allowed_keys = ['_obj_type', '_attrs', ]
+    allowed_attrs = MultiDict()
 
     @classmethod
     def _mongo_collection(cls):
@@ -934,15 +942,15 @@ class Obj(_Change):
 
     def from_mongo(self, doc):
         super(Obj, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
-    def attribute_map(self, attr):
+    def _key_alias_resolve(self, attr):
         if attr == 'type':
             attr = '_obj_type'
         if attr == 'attrs':
             attr = '_attrs'
-        return super(Obj, self).attribute_map(attr)
+        return super(Obj, self)._key_alias_resolve(attr)
 
     def find_attrs(self, query={}, **kwargs):
         q = {'obj': self.id}
@@ -968,8 +976,8 @@ class Obj(_Change):
         return sort_by_stamp(self.find_attrs(**kwargs))
 
     def tracked(self, *args, **kwargs):
-        return _Attr.map_mongo(sort_by_stamp(self.find_attrs(*args, **kwargs),
-                                              'judgment'))
+        return _Attr.map_mongo(
+            sort_by_stamp(self.find_attrs(*args, **kwargs), 'judgment'))
 
     def tracked_data(self):
         return self.tracked({'file': {'$ne': None}})
@@ -988,9 +996,9 @@ class Obj(_Change):
                              'pending_stamp': {'$ne': None}})
 
     def pending_tracked_data(self):
-        return self.tracked({'judgment_stamp': None,
-                             'pending_stamp': {'$ne': None},
-                             'file': {'$ne': None}})
+        return self.tracked({
+            'judgment_stamp': None, 'pending_stamp': {'$ne': None},
+            'file': {'$ne': None}})
 
     def accepted_tracked(self):
         return self.tracked({'accepted': True})
@@ -1005,7 +1013,7 @@ class Obj(_Change):
     def get_attr(self, key):
         """ Returns the most recent _Attr document for the given key """
         attr = self.find_attr({'key': key, 'accepted': True},
-            sort=[('judgment_stamp.timestamp', pymongo.DESCENDING)])
+            sort=[('judgment_stamp.timestamp', DESCENDING)])
         if attr:
             return _Attr.map_mongo(attr)
         raise KeyError(key)
@@ -1013,10 +1021,9 @@ class Obj(_Change):
     def current_attrs(self):
         curr = {}
         deleted = set()
-        for attr in _Attr.map_mongo(
-            self.find_attrs({'accepted': True},
-                             sort=[('judgment_stamp.timestamp',
-                                    pymongo.DESCENDING)])):
+        for attr in _Attr.map_mongo(sort_by_stamp(
+                                        self.find_attrs({'accepted': True}),
+                                        'judgment')):
             k = attr.key
             if k not in curr and k not in deleted:
                 if attr.deleted:
@@ -1409,6 +1416,34 @@ class Cruise(Obj):
             ts - some date attached to the status and PI of the parameter
 
     """
+    allowed_attrs = MultiDict([
+        ['Text', ['expocode', 'link']], 
+        ['Datetime', ['date_start', 'date_end']], 
+        ['Text List', ['aliases']],
+        ['ID', ['ship', 'country']],
+        ['ID List', ['collections']],
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'expocode': 'ExpoCode',
+        'link': 'Expedition Link',
+        'aliases': 'Aliases',
+        'ship': 'Ship',
+        'country': 'Country',
+        'collections': 'Collections',
+        'date_start': 'Start Date',
+        'date_end': 'End Date',
+    }
+
+    @classmethod
+    def attr_type(cls, key):
+        types = [k for k, v in cls.allowed_attrs.items() if key in v]
+        if len(types) > 0:
+            return types[0].lower().replace(' ', '_')
+        return 'text'
+
     @property
     def expocode(self):
         return self.get('expocode')
@@ -1569,8 +1604,8 @@ class Person(CruiseParticipantAssociate):
 
     """
     cruise_participant_associate_key = 'person'
-    __allowed_untracked_keys = ['identifier', 'name_first', 'name_last',
-                                'institution', 'country', 'email', ]
+    __allowed_keys = ['identifier', 'name_first', 'name_last', 'institution',
+                      'country', 'email', ]
 
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
@@ -1594,7 +1629,7 @@ class Person(CruiseParticipantAssociate):
 
     def from_mongo(self, doc):
         super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     def full_name(self):
@@ -1736,8 +1771,8 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         display - whether or not the file is meant to be visible
 
     """
-    __allowed_untracked_keys = ['text_identifier', '_requests', 'file',
-                                'description', 'display', ]
+    __allowed_keys = ['text_identifier', '_requests', 'file', 'description',
+                      'display', ]
 
     def __init__(self, person):
         super(ArgoFile, self).__init__(person)
@@ -1748,7 +1783,7 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
 
     def from_mongo(self, doc):
         super(ArgoFile, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     @property
@@ -1794,12 +1829,11 @@ class OldSubmission(Obj):
                 an attribute "old_submission" marked True.
 
     """
-    __allowed_untracked_keys = ['date', 'stamp', 'submitter', 'line', 'folder',
-                                'files', ]
+    __allowed_keys = ['date', 'stamp', 'submitter', 'line', 'folder', 'files', ]
 
     def from_mongo(self, doc):
         super(OldSubmission, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     def remove(self):
@@ -1830,12 +1864,12 @@ class Submission(Obj, _FileHolder):
             is no way to determine it without human help.
 
     """
-    __allowed_untracked_keys = ['expocode', 'ship_name', 'line', 'action',
-                                'public', 'cruise_date', 'attached', 'file', ] 
+    __allowed_keys = ['expocode', 'ship_name', 'line', 'action', 'public',
+                      'cruise_date', 'attached', 'file', ] 
 
     def from_mongo(self, doc):
         super(Submission, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_untracked_keys)
+        self.copy_keys_from(doc, self.__allowed_keys)
         return self
 
     @property

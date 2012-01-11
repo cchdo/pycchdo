@@ -8,7 +8,11 @@
     {% endfor %}
     </ul>
     {{ h.pager_for(cruises) }}
-    <a href="/objs/new?_obj_type=Cruise">New Cruise</a>
+    <p>
+      {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise'}) }}
+        <input type="submit" value="New Cruise">
+      {{ whh.tags.end_form() }}
+    </p>
   {%- endcall %}
 {% endblock %}
 

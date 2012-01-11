@@ -22,8 +22,8 @@ _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
 
 
 __all__ = [
-    'flatten', '_collapsed_dict', '_http_method', '_paged', '_unescape',
-    'text_to_obj', 'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
+    '_collapsed_dict', '_http_method', '_paged', '_unescape', 'text_to_obj',
+    'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
 
 
 FILE_GROUPS = MultiDict([
@@ -40,12 +40,6 @@ for k, v in FILE_GROUPS.items():
     FILE_GROUPS_SELECT.append(
         ([(x, data_file_human_names[x]) for x in v], k))
 FILE_GROUPS_SELECT.append('Other')
-
-
-
-
-def flatten(l):
-    return [item for sublist in l for item in sublist]
 
 
 def _collapsed_dict(d, n=None):

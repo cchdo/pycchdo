@@ -221,16 +221,17 @@ class TestModel(unittest.TestCase):
         """
         objs = []
         ans = None
-        for i in range(0, 101):
+        num = 4
+        for i in range(0, num + 1):
             obj = Obj(self.testPerson)
             obj.save()
             obj.set_accept('a', i, self.testPerson)
-            obj.set_accept('b', 100 - i, self.testPerson)
+            obj.set_accept('b', num - i, self.testPerson)
             objs.append(obj)
-            if i == 50:
+            if i == num / 2:
                 ans = obj
         try:
-            objs_gotten = Obj.get_by_attrs(a=50, b=50)
+            objs_gotten = Obj.get_by_attrs(a=num / 2, b=num / 2)
             obj = objs_gotten[0]
             self.assertEquals(len(objs_gotten), 1)
             self.assertEquals(ans.get('a'), obj.get('a'))

@@ -1,5 +1,44 @@
 // Rotate banner
 (function () {
+  if (window.localStorage) {
+    var clickcount = 0;
+    var clickthresh = 3;
+    var clicklast = new Date();
+    var picdom = document.getElementById('picture');
+    var ok = document.createElement('DIV');
+    ok.innerHTML = '';
+    ok.style.color = 'red';
+    ok.style.font = '3em monospace';
+    ok.style.position = 'relative';
+    ok.style.textShadow = 'white 0 0 0.5em';
+    ok.style.zIndex = 101;
+    picdom.appendChild(ok);
+    picdom.addEventListener('click', function () {
+      var now = new Date();
+      if (now - clicklast < 300) {
+      console.log('+');
+        clickcount++;
+      } else {
+        clickcount = 0;
+      }
+      clicklast = now;
+      if (clickcount >= clickthresh) {
+        var rot = window.localStorage.getItem('bannerOff') !== null;
+        if (rot) {
+          window.localStorage.removeItem('bannerOff');
+        } else {
+          window.localStorage.setItem('bannerOff', '1');
+        }
+        ok.innerHTML = '<p>rotation ' + (rot ? 'on' : 'off') + '; please reload the page</p>';
+        clickcount = 0;
+      }
+    }, false);
+    if (window.localStorage.getItem('bannerOff')) {
+      return;
+    }
+  }
+
+
   var supportTransition = (function () {
     // https://gist.github.com/373874
     var renderers = "Webkit Moz Ms O".split(' ');
@@ -39,7 +78,7 @@
 
   function rotator(domobjA, domobjB, num_banners, zs, delay, animateTime, offset, height) {
     this.zs = defaultTo(zs, [100, 99]);
-    this.delay = defaultTo(delay, 1000 * 6);
+    this.delay = defaultTo(delay, 1000 * 10);
     this.animateTime = defaultTo(animateTime, 1000 * 3);
 
     this.offset = defaultTo(offset, 0);
@@ -57,8 +96,10 @@
     this.domB = domobjB;
     this.styleA = domobjA.style;
     this.styleB = domobjB.style;
-    this.minoffset = -height * num_banners;
+    this.minoffset = -this.height * num_banners;
     setOpacity(this.styleB, 0);
+    setOffset(this.styleA, this.offset);
+    setOffset(this.styleB, this.offset);
 
     setZ(this.styleA, this.zs[0]);
     setZ(this.styleB, this.zs[1]);
@@ -141,6 +182,9 @@
       this.offset = 0;
       next = -this.height;
     }
+    if (window.sessionStorage) {
+      window.sessionStorage.setItem('bannerOffset', this.offset);
+    }
   };
 
   rotator.prototype.nextOffset = function () {
@@ -159,13 +203,17 @@
     })();
   };
 
+  var bannerOffset = 0;
+  if (window.sessionStorage) {
+    bannerOffset = window.sessionStorage.getItem('bannerOffset');
+  }
   var a = [document.getElementById('bannerA'), document.getElementById('bannerB')];
   var b = [document.getElementById('bannerC'), document.getElementById('bannerD')];
   if (a[0] && a[1]) {
-    new rotator(a[0], a[1], 14, [100, 99]).start();
+    new rotator(a[0], a[1], 14, [100, 99], null, null, bannerOffset).start();
   }
   if (b[0] && b[1]) {
-    new rotator(b[0], b[1], 14, [98, 97]).start();
+    new rotator(b[0], b[1], 14, [98, 97], null, null, bannerOffset).start();
   }
 })();
 

@@ -13,34 +13,14 @@ from pycchdo.models.search import search
 from session import require_signin
 
 
-CRUISE_ATTRS = MultiDict([
-    ['Text', ['expocode', 'link']], 
-    ['Datetime', ['date_start', 'date_end']], 
-    ['Text List', ['aliases']],
-    ['ID', ['ship', 'country']],
-    ['ID List', ['collections']],
-])
+def allowed_attrs_select(cls):
+    sel = []
+    for k, v in cls.allowed_attrs.items():
+        sel.append(([(x, cls.allowed_attrs_human_names[x]) for x in v], k))
+    return sel
 
 
-CRUISE_ATTRS_LIST = flatten(CRUISE_ATTRS.values())
-
-
-CRUISE_ATTRS_HUMAN_NAMES = {
-    'expocode': 'ExpoCode',
-    'link': 'Expedition Link',
-    'aliases': 'Aliases',
-    'ship': 'Ship',
-    'country': 'Country',
-    'collections': 'Collections',
-    'date_start': 'Start Date',
-    'date_end': 'End Date',
-}
-
-
-CRUISE_ATTRS_SELECT = []
-for k, v in CRUISE_ATTRS.items():
-    CRUISE_ATTRS_SELECT.append(
-        ([(x, CRUISE_ATTRS_HUMAN_NAMES[x]) for x in v], k))
+CRUISE_ATTRS_SELECT = allowed_attrs_select(models.Cruise)
 
 
 def cruises_index(request):
@@ -100,12 +80,15 @@ def _suggest_file(request, cruise_obj):
 def _edit_attr(request, cruise_obj):
     try:
         key = request.params['key']
-        if key not in CRUISE_ATTRS_LIST:
+        # Allow any Cruise attrs in addition to file_type_status attrs
+        allowed_list = models.Cruise.allowed_attrs_list + \
+            ['%s_status' % x for x in models.data_file_descriptions.keys()]
+        if key not in allowed_list:
             logging.warn('Attempted to edit attribute with illegal key')
             request.response_status = '400 Bad Request'
-            request.session.flash('The attribute key must be one of %r' % \
-                                  sorted(CRUISE_ATTRS_LIST),
-                                  'help')
+            request.session.flash(
+                'The attribute key must be one of %r' % sorted(allowed_list),
+                'help')
             return
     except KeyError:
         logging.warn('Attempted to edit attribute without key')
@@ -135,8 +118,7 @@ def _edit_attr(request, cruise_obj):
                 'You did not give a value for the attribute.', 'help')
             return
 
-        value_type = [k for k, v in CRUISE_ATTRS.iteritems() 
-                      if key in v][0].lower().replace(' ', '_')
+        value_type = models.Cruise.attr_type(key)
         value = text_to_obj(value, value_type)
 
         cruise_obj.set(key, value, request.user, note)
@@ -146,7 +128,28 @@ def _edit_attr(request, cruise_obj):
         cruise_obj.delete(key, request.user, note)
         request.session.flash(
             'Suggested that %s be deleted' % key, 'action_taken')
-
+    elif edit_action == 'Mark reviewed':
+        # Remove a cruise file type's preliminary status
+        if not h.has_mod(request):
+            request.response.status = '403 Forbidden'
+            request.session.flash(
+                'You must be a moderator to mark files as reviewed', 'help')
+            return
+        status = cruise_obj.get(key)
+        try:
+            status = status.remove(u'preliminary')
+            cruise_obj.set_accept(key, status, request.user)
+            request.session.flash(
+                'Marked %s for %s as reviewed' % (key.replace('_status', ''),
+                                                  cruise_obj.expocode),
+                'action_taken')
+        except ValueError:
+            request.session.flash(
+                '%s for %s is already marked reviewed' % (
+                    key.replace('_status', ''), cruise_obj.expocode),
+                'help')
+    else:
+        request.session.flash('Unknown edit action: %s' % edit_action, 'help')
 
 
 def _add_note_to_attr(request):
@@ -312,7 +315,7 @@ def cruise_show(request):
         unjudged = cruise_obj.unjudged_tracked()
         suggested_attrs = []
         for attr in unjudged:
-            if attr.key in CRUISE_ATTRS_LIST:
+            if attr.key in models.Cruise.allowed_attrs_list:
                 suggested_attrs.append(attr)
 
         if h.has_mod(request):

@@ -208,7 +208,10 @@ def obj_attr(request):
             try:
                 accept_value = request.params['accept_value']
                 if accept_value:
-                    attr.accept_value(text_to_obj(accept_value), request.user)
+                    attr.accept_value(
+                        text_to_obj(accept_value,
+                                    attr.obj.__class__.attr_type(attr.key)),
+                        request.user)
                     request.session.flash(
                         'Attr change accepted with new value "%s"' % (
                             accept_value), 'action_taken')

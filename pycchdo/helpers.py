@@ -517,7 +517,6 @@ def data_file_link(type, data):
 
     description = models.data_file_descriptions.get(type, '')
 
-
     preliminary = False
     if data.obj:
         status = data.obj.get(type + '_status', [])
@@ -526,11 +525,23 @@ def data_file_link(type, data):
     else:
         logging.error('%r has no obj' % data)
 
+    items = [
+        whh.HTML.th(whh.tags.link_to(data_type, link)),
+        whh.HTML.td(description),
+    ]
+
     classes = [type.replace('_', ' ')]
     if preliminary:
         classes.append('preliminary')
+        items.append(
+            whh.HTML.td(
+                whh.tags.form('', 'PUT',
+                              hidden_fields={'cruise_id': data.obj.id,
+                                             'action': 'edit_attr',
+                                             'key': type + '_status'}),
+                whh.HTML.input(type='submit', name='edit_action',
+                               value='Mark reviewed'),
+                whh.tags.end_form()))
     classname = ' '.join(classes)
 
-    return whh.HTML.tr(
-        whh.HTML.th(whh.tags.link_to(data_type, link)) + \
-                    whh.HTML.td(description), class_=classname)
+    return whh.HTML.tr(*items, class_=classname)

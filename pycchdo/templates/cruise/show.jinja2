@@ -139,7 +139,9 @@
                       h.link_person_institutions(cruise.chief_scientists)) }}
       {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
       {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
-      {{- cruise_attr('ID', whh.tags.link_to(cruise.id, request.route_url('cruise_show', cruise_id=cruise.id))) }}
+      {%- if h.has_edit(request) %}
+        {{- cruise_attr('ID', cruise.id) }}
+      {%- endif %}
 
       {%- if updates['attrs'] %}
         <a class="updates-available" href="#updates">{{ see_or_discuss() }} suggested attribute changes</a>
@@ -250,9 +252,8 @@
       {%- endif %}
     </div>
   {%- endcall %}
-  {% call h.boxed('Data Histories and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
+  {% call h.boxed('Data History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
     <div class="subsection">
-      <h2>History</h2>
       {%- if h.has_mod(request) %}
         {{ whh.tags.form('', 'POST') }}
           <input type="hidden" name="action" value="add_note">

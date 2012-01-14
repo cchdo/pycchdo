@@ -8,6 +8,7 @@ from pyramid.request import Request
 from pyramid.security import unauthenticated_userid
 
 import models
+from views.basin import basins
 
 
 class RequestWithUserAttribute(Request):
@@ -159,9 +160,14 @@ def main(global_config, **settings):
     config.add_route('argo_entity', '/argo/{id}')
     config.add_view('pycchdo.views.argo.entity', route_name='argo_entity', renderer='templates/argo/show.jinja2')
 
-    # Ocean lists
-    config.add_route('ocean_show', '/ocean/*basin') # /basin/*basin ?
-    config.add_view('pycchdo.views.ocean.ocean_show', route_name='ocean_show', renderer='templates/base.jinja2')
+    # Basin lists
+    basins_re = '|'.join(basins)
+    config.add_route('basin_show', '/basin/{basin:%s}.html' % basins_re)
+    config.add_view('pycchdo.views.basin.basin_show', route_name='basin_show',
+                    renderer='templates/basin.jinja2')
+
+    config.add_route('legacy_basin', '/{basin:%s}{ext:|\.html}' % basins_re)
+    config.add_view('pycchdo.views.legacy.basin', route_name='legacy_basin')
 
 	# Search routes
     config.add_route('search', '/search.html')

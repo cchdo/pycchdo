@@ -6,7 +6,7 @@ import pycchdo.models as models
 
 
 def collections_index(request):
-    collections = models.Collection.map_mongo(models.Collection.find())
+    collections = sorted(models.Collection.get_all(), key=lambda c: c.name)
     collections = _paged(request, collections)
     return {'collections': collections}
 
@@ -38,6 +38,11 @@ def collection_edit(request):
     if collection.names != names:
         collection.set_accept('names', names, request.user)
 
+    type = text_to_obj(request.params.get('type', ''), 'text')
+
+    if collection.type != type:
+        collection.set_accept('type', type, request.user)
+
     return _redirect_response(request, collection.id)
 
 
@@ -67,6 +72,8 @@ def collection_merge(request):
 
     names = set(collection.names).union(mergee.names)
     collection.set_accept('names', list(names), request.user)
+    if collection.type is None and mergee.type is not None:
+        collection.set_accept('type', mergee.type, request.user)
     cruises = set(collection.cruises()).union(mergee.cruises())
     for cruise in cruises:
         colls = cruise.collections

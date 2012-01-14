@@ -85,6 +85,7 @@ def init_conn(settings, **kwargs):
 def ensure_indices():
     cchdo().attrs.ensure_index([('obj', 1), ('value', 1)])
     cchdo().attrs.ensure_index([('key', 1), ('value', 1), ('accepted', 1)])
+    cchdo().attrs.ensure_index([('key', 1), ('accepted_value', 1), ('accepted', 1)])
     # This requires MongoDB >=1.3.3
     cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
     # Indexing by polygon requires MongoDB >=1.9
@@ -1160,15 +1161,31 @@ class Obj(_Change):
             return False
         for k, v in kwargs.items():
             obj_v = obj.get(k)
+
             if type(obj_v) is list and type(v) is not list:
-                if v not in obj_v:
-                    return False
-            elif obj_v != v:
-                return False
+                try:
+                    if not any(v.match(x) for x in obj_v):
+                        return False
+                except AttributeError:
+                    if v not in obj_v:
+                        return False
+            else:
+                try:
+                    if not v.match(obj_v):
+                        return False
+                except AttributeError:
+                    if obj_v != v:
+                        return False
         return True
 
     @classmethod
     def get_by_attrs(cls, d={}, **kwargs):
+        """ Gets all objects that have _Attrs that match all the requested
+            key-value pairs.
+
+            Values may be regular expression objects as compiled by `re`.
+
+        """
         map = d
         if not map:
             map = kwargs
@@ -1176,9 +1193,24 @@ class Obj(_Change):
         if not map:
             raise ValueError("No filters specified. Did you mean get_all()?")
 
-        query = [{'key': unicode(k),
-                  'value': _str2unicode(v),
-                  'accepted': True} for k, v in map.items()]
+        def querygen(k, v):
+            value_query = _str2unicode(v)
+            return {
+                'key': unicode(k),
+                'accepted': True,
+                '$or': [
+                     {'$and': [
+                         {'accepted_value': {'$ne': None}},
+                         {'accepted_value': value_query},
+                     ]}, 
+                     {'$and': [
+                         {'accepted_value': None},
+                         {'value': value_query},
+                     ]}, 
+                ]
+            }
+
+        query = [querygen(k, v) for k, v in map.items()]
 
         len_query = len(query)
         objs_attrs = _Attr._mongo_collection().group(
@@ -1481,6 +1513,22 @@ class Cruise(Obj):
             None, [Collection.get_id(x) for x in collection_ids])
 
     @property
+    def collections_woce_line(self):
+        cs = self.collections
+        colls = []
+        for c in cs:
+            if c.get('type') == 'WOCE line':
+                colls.append(c)
+        return colls
+
+    @property
+    def woce_line(self):
+        coll = self.collections_woce_line
+        if coll:
+            return coll[0].name
+        return None
+
+    @property
     def ship(self):
         ship = self.get('ship', None)
         if ship:
@@ -1542,18 +1590,29 @@ class CruiseAssociate(Obj):
     """
     cruise_associate_key = ''
 
-    def _or_key(self, key, value_key=None):
-        return '.'.join(filter(None, [key, value_key]))
+    def _assoc_key(self, key, value_key=None):
+        if value_key:
+            return '%s.%s' % (key, value_key)
+        return key
 
-    def cruises(self, value_key=None):
-        # TODO what about value match but accepted does not?
-        query = {'key': self.cruise_associate_key,
-             '$or': [{self._or_key('value', value_key): self.id},
-                     {self._or_key('accepted_value', value_key): self.id}],
-            }
-        attrs = _Attr.find(query)
-        attr_obj_ids = set([x['obj'] for x in attrs])
-        objs = [Obj._mongo_collection().find_one(
+    def cruises(self, value_key=None, limit=0):
+        query = {
+            'key': self.cruise_associate_key,
+            '$or': [
+                {'$and': [
+                    {'accepted_value': {'$ne': None}},
+                    {self._assoc_key('accepted_value', value_key): self.id},
+                ]},
+                {'$and': [
+                    {'accepted_value': None},
+                    {self._assoc_key('value', value_key): self.id},
+                ]},
+            ],
+        }
+        attrs = _Attr.find(query, fields=['obj'], limit=limit)
+        attr_obj_ids = set(x['obj'] for x in attrs)
+        obj_coll = Obj._mongo_collection()
+        objs = [obj_coll.find_one(
             {'_id': id, '_obj_type': Cruise.__name__}) for id in attr_obj_ids]
         objs = filter(None, objs)
         # TODO filter rejected cruises
@@ -1730,10 +1789,67 @@ class Collection(CruiseAssociate, MultiNameObj):
             list is the canonical name.
         type - identifier of WOCE line, group, program, spatial_group, basin
         basins - a list of any combination of atlantic, arctic, pacific,
-            indian, southern
+            indian, southern. This is only attached to spatial_group typed
+            collections.
     
     """
     cruise_associate_key = 'collections'
+
+    #@classmethod
+    #def _get_all_by_name_true_match(cls, obj, name):
+    #    """ Make sure the name actually matches
+    #    """
+    #    if obj is None:
+    #        return False
+    #    try:
+    #        return any(name.match(n) for n in obj.names)
+    #    except AttributeError:
+    #        return name in obj.names
+
+
+    @classmethod
+    def get_all_by_name(cls, name):
+        """ Returns all collections that match the given name
+
+            Parameters:
+                name - either a string or a regular expression object
+        
+        """
+
+        return self.get_by_attrs(names=name)
+
+        #try:
+        #    name.match
+        #    name.search
+        #    value_query = {'$regex': name}
+        #except AttributeError:
+        #    value_query = name
+
+        #query = {'key': 'names',
+        #         'accepted': True,
+        #         '$or': [
+        #             {'$and': [
+        #                 {'accepted_value': {'$ne': None}},
+        #                 {'accepted_value': value_query},
+        #             ]}, 
+        #             {'$and': [
+        #                 {'accepted_value': None},
+        #                 {'value': value_query},
+        #             ]}, 
+        #         ],
+        #        }
+
+        #objs_attrs = _Attr._mongo_collection().group(
+        #    ['obj'], query, {'a': 0}, 
+        #    'function (x, o) { o.a++; }')
+
+        ## Filter the matched objs for the correct number of matched attrs
+        #objs = [cls.get_id(oa['obj']) for oa in objs_attrs if oa['a'] == 1.0]
+        #return filter(lambda o: cls._get_all_by_name_true_match(o, name), objs)
+
+    @property
+    def type(self):
+        return self.get('type', None)
 
 
 class AutoAcceptingObj(Obj):

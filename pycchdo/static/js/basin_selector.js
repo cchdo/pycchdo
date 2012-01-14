@@ -14,7 +14,7 @@
 
 var CCHDO = {
   BASIN_MAP: {
-    prefix: '/static/img/maps/basins/',
+    prefix: '/static/img/maps/basin_selector/',
     images: [
       'arctic_f2.jpg','pacific_f4.jpg','atlantic_f4.jpg',
       'cchdo_search_basin_r3_c2_f4.jpg','cchdo_search_basin_r3_c3_f4.jpg',

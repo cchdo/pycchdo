@@ -5,6 +5,12 @@ import pycchdo.models as models
 from . import _file_response
 
 
+def basin(request):
+    return HTTPMovedPermanently(
+        location=request.route_path('basin_show',
+                                    basin=request.matchdict.get('basin')))
+
+
 def add_extension(request, ext='html'):
     return HTTPMovedPermanently(location=u'%s.%s' % (request.url, ext))
 

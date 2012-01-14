@@ -4,13 +4,18 @@
   {% call h.boxed('Collection ' + (collection.name or '')) -%}
     <table class="info">
       <tr><th>Names</th><td>{{ collection.names|join(', ') }}</td></tr>
+      <tr><th>Type</th><td>{{ collection.type }}</td></tr>
+      {%- if collection.get('basins') %}
+        <tr><th>basins</th><td>{{ collection.get('basins')|sort|join(', ') }}</td></tr>
+      {%- endif %}
       <tr><th>ID</th><td>{{ collection.id }}</td></tr>
     </table>
     {%- if h.has_edit(request) %}
     <div class="subsection editor">
       {{ whh.tags.form(request.route_path('collection_edit', collection_id=collection.id), 'PUT') }}
         <table>
-          <tr><th><label for="name">Names</label></th><td><input type="text" name="names" value="{{collection.names|join(',')}}"></td></tr>
+          <tr><th><label for="names">Names</label></th><td><input type="text" name="names" value="{{collection.names|join(',')}}"></td></tr>
+          <tr><th><label for="type">Type</label></th><td><input type="text" name="type" value="{{collection.type}}"></td></tr>
         </table>
         <input type="submit" value="Save">
       {{ whh.tags.end_form() }}

@@ -1,7 +1,7 @@
 {% extends "templates/base.jinja2" %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/home.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/basin_map.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/basin_selector.css') }}
 {%- endblock %}
 {%- block content_attrs %} class="home"{%- endblock %}
 {% block content %}
@@ -33,7 +33,7 @@
     <ul>
       <li id="basin">
         <h2>Click on a basin</h2>
-        {%- include "templates/_basin_map.html" %}
+        {%- include "templates/_basin_selector.html" %}
       </li>
       <li id="search_map">
         <h2><a href="/search/map">Use our interactive map search</a></h2>
@@ -95,5 +95,5 @@
 {% endblock %}
 {% block js %}
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
-  {{ whh.tags.javascript_link('/static/js/basin_map.js') }}
+  {{ whh.tags.javascript_link('/static/js/basin_selector.js') }}
 {% endblock %}

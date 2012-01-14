@@ -2,6 +2,9 @@ from urllib import quote
 from json import dumps
 import logging
 import os.path
+import os
+from os.path import sep as pthsep
+from os.path import join as pthjoin
 
 import webhelpers.html as whh
 import webhelpers.html.tags
@@ -130,7 +133,7 @@ PAGER_FORMAT = '$link_first $link_previous ~5~ $link_next $link_last'
 
 
 def pager_for(page, format=PAGER_FORMAT):
-    next_url = whh.HTML.literal(page._url_generator(page.next_page))
+    next_url = whh.literal(page._url_generator(page.next_page))
     return whh.HTML.div(
         page.pager(format),
         whh.HTML.a(rel='next', href=next_url, style='display: none;'),
@@ -181,7 +184,7 @@ def boxed(title='', bottom='', **attrs):
     except KeyError:
         pass
     return whh.HTML.div(whh.HTML(
-                whh.HTML.h1(whh.HTML.literal(title)),
+                whh.HTML.h1(whh.literal(title)),
                 whh.HTML.div(caller(),
                              class_=whh.tags.css_classes(box_content_classes)),
                 whh.HTML.div(bottom,
@@ -327,6 +330,14 @@ def collection_names(coll_list):
     return filter(None, [c.name for c in coll_list])
 
 
+def path_cruise(c):
+    if not c:
+        return ''
+    if not c.expocode:
+        return u'/cruise/%s' % c.id
+    return u'/cruise/%s' % c.expocode
+
+
 def link_obj(obj):
     if not obj:
         return ''
@@ -345,9 +356,7 @@ def link_file_holder(fh, full=False):
 def link_cruise(c):
     if not c:
         return ''
-    if not c.expocode:
-        return whh.tags.link_to(c.id, u'/cruise/%s' % c.id)
-    return whh.tags.link_to(c.expocode, u'/cruise/%s' % c.expocode)
+    return whh.tags.link_to(c.expocode, path_cruise(c))
 
 
 def link_person(p):
@@ -378,7 +387,7 @@ def link_person_institutions(pis):
         if i:
             inst = '(%s)' % link_institution(i)
         strings.append(' '.join(filter(None, (name, inst))))
-    return whh.HTML.literal(', '.join(strings))
+    return whh.literal(', '.join(strings))
 
 
 def link_collection(c):
@@ -391,19 +400,19 @@ def link_collections(cs):
     if not cs:
         return ''
     links = map(link_collection, cs)
-    return whh.HTML.literal(', '.join(links))
+    return whh.literal(', '.join(links))
 
 
 def link_ship(s):
     if not s:
         return ''
-    return whh.HTML.literal(whh.tags.link_to(s.name, '/ship/%s' % s.id))
+    return whh.literal(whh.tags.link_to(s.name, '/ship/%s' % s.id))
 
 
 def link_country(c):
     if not c:
         return ''
-    return whh.HTML.literal(whh.tags.link_to(c.name, '/country/%s' %
+    return whh.literal(whh.tags.link_to(c.name, '/country/%s' %
                                              c.name))
 
 
@@ -545,3 +554,95 @@ def data_file_link(type, data):
     classname = ' '.join(classes)
 
     return whh.HTML.tr(*items, class_=classname)
+
+
+_here = os.path.dirname(__file__)
+
+
+def _basin_map_exists(path):
+    file_path = os.path.join(_here, path[1:])
+    return os.path.isfile(file_path)
+
+
+def get_basin_map(basin, collection):
+    def cruise():
+        cruise = None
+        if collection:
+            cruises = collection.cruises(limit=1)
+            if len(cruises) > 0:
+                cruise = cruises[0]
+        return cruise
+
+    basin = basin.lower()
+    base_path = os.path.join(os.path.sep, 'static', 'img', 'maps', 'basin',
+                             basin)
+    basin_img_fmt = '%s_%%s.gif' % basin
+
+    if basin == 'arctic':
+        try:
+            path = os.path.join(base_path,
+                                basin_img_fmt % collection.name.upper())
+            if _basin_map_exists(path):
+                return path
+        except AttributeError:
+            pass
+        cruise = cruise()
+        try:
+            path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
+            if _basin_map_exists(path):
+                return path
+        except AttributeError:
+            pass
+    elif basin == 'southern':
+        try:
+            path = os.path.join(base_path,
+                                basin_img_fmt % collection.name.upper())
+            if _basin_map_exists(path):
+                return path
+        except AttributeError:
+            pass
+        cruise = cruise()
+        try:
+            path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
+            if _basin_map_exists(path):
+                return path
+        except AttributeError:
+            pass
+    elif basin == 'indian':
+        try:
+            path = os.path.join(
+                base_path, basin_img_fmt % collection.name.replace('/', '_'))
+            if _basin_map_exists(path):
+                return path
+        except AttributeError:
+            pass
+    return os.path.join(base_path, '%s_base.gif' % basin)
+
+
+def area_attrs_no():
+    return whh.literal('id="base" href="javascript:void(0);"')
+
+
+def area_attrs_cruise(cruise, title=None, reverse=False, img=None):
+    if not title:
+        title = cruise
+    id = cruise
+    if reverse:
+        # use title as image id instead of id
+        id = title
+    if img:
+        id = img
+    return whh.literal(('id="{id}" href="/cruise/{cruise}" title="{title}" '
+                        'alt="{title}"').format(id=id, cruise=cruise,
+                                                title=title))
+
+
+def area_attrs_search(q, title=None, img=None):
+    if not title:
+        title = q
+    id = q
+    if img:
+        id = img
+    return whh.literal(('id="{id}" href="/search?query={q}" title="{title}" '
+                        'alt="{title}"').format(id=id, q=q, title=title))
+

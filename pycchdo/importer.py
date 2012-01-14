@@ -1119,17 +1119,31 @@ def _import_spatial_groups(session, importer):
     for sg in sgs:
         collection = _import_Collection(importer, sg.area, 'spatial_group')
         basins = []
-        if sg.atlantic:
+        if sg.atlantic == '1':
             basins.append('atlantic')
-        if sg.arctic:
+        if sg.arctic == '1':
             basins.append('arctic')
-        if sg.pacific:
+        if sg.pacific == '1':
             basins.append('pacific')
-        if sg.indian:
+        if sg.indian == '1':
             basins.append('indian')
-        if sg.southern:
+        if sg.southern == '1':
             basins.append('southern')
         collection.set_accept('basins', basins, importer)
+
+        cruises = models.Cruise.get_by_attrs(expocode=sg.expocode)
+        if len(cruises) > 0:
+            implog.info("Updating Cruise %s for spatial_groups" % sg.expocode)
+            cruise = cruises[0]
+            collections = libcchdo.fns.uniquify(cruise.collections + [collection])
+            if cruise.collections != collections:
+                a = cruise.get_attr('collections')
+                ids = [c.id for c in collections]
+                if a:
+                    a.value = ids
+                    a.save()
+                else:
+                    cruise.set_accept('collections', ids, request.user)
 
 
 def _import_internal(session, importer):
@@ -2070,7 +2084,7 @@ def main(argv):
 
         #_import_events(session, importer)
 
-        #_import_spatial_groups(session, importer)
+        _import_spatial_groups(session, importer)
         #_import_internal(session, importer)
         #_import_unused_tracks(session, importer)
 
@@ -2080,8 +2094,8 @@ def main(argv):
         #_import_parameter_status(session, importer)
         #_import_parameters(session, importer)
 
-        with _sftp_cchdo() as (ssh_cchdo, sftp_cchdo):
-            _import_submissions(session, importer, sftp_cchdo)
+        #with _sftp_cchdo() as (ssh_cchdo, sftp_cchdo):
+            #_import_submissions(session, importer, sftp_cchdo)
             #_import_old_submissions(session, importer, sftp_cchdo)
             #_import_queue_files(session, importer, sftp_cchdo)
             #_import_documents(session, importer)

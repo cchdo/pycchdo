@@ -6,9 +6,9 @@
 {%- from "templates/_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
 {% block title %}Cruise {{cruise.expocode or ''}}{% endblock %}
 {% block head -%}
-  {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
   {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
 {%- endblock %}
 {% macro cruise_attr(attr='', val='', callback=None, args) -%}
   {% if val %}
@@ -93,7 +93,7 @@
           {%- if not file.is_judged() %}
             {{ file_review_status(loop, hl, file) }}
           {%- endif %}
-          {%- if file or h.has_mod(request) %}
+          {%- if file or h.has_edit(request) %}
             <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
               <td colspan="4">
                 {{ show_notes_with_editor(request, loop.index0, file, subsection_type) }}
@@ -147,7 +147,7 @@
         <a class="updates-available" href="#updates">{{ see_or_discuss() }} suggested attribute changes</a>
       {%- endif %}
 
-      {%- if h.has_mod(request) %}
+      {%- if h.has_edit(request) %}
         <div id="edit_attr" class="editor">
         {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr'}) }} 
           <table>
@@ -227,7 +227,7 @@
              information.</p>
         </div>
       {%- endif %}
-      {%- if h.has_mod(request) %}
+      {%- if h.has_edit(request) %}
         <div id="add_file" class="editor">
         {{ whh.tags.form('', 'PUT', multipart=True,
                          hidden_fields={'action': 'suggest_file'}) }} 
@@ -254,13 +254,13 @@
   {%- endcall %}
   {% call h.boxed('Data History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
     <div class="subsection">
-      {%- if h.has_mod(request) %}
+      {%- if h.has_edit(request) %}
         {{ whh.tags.form('', 'POST') }}
           <input type="hidden" name="action" value="add_note">
       {%- endif %}
       <table class="has-meta-bodies">
         <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
-        {%- if h.has_mod(request) %}
+        {%- if h.has_edit(request) %}
           {%- set i = "new" %}
           {%- set hl="new" %}
           <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
@@ -285,7 +285,7 @@
           {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
         {%- endfor %}
       </table>
-      {%- if h.has_mod(request) %}
+      {%- if h.has_edit(request) %}
         </form>
       {%- endif %}
     </div>
@@ -345,7 +345,7 @@
                     {%- endif %}
                   </td>
                 </tr>
-                {%- if attr or h.has_mod(request) %}
+                {%- if attr or h.has_edit(request) %}
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
                     <td colspan="4">
                       {{ show_notes_with_editor(request, loop.index0, attr, 'attr') }}

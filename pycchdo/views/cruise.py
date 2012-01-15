@@ -227,11 +227,7 @@ def _add_note(request, cruise_obj):
                                     summary, not public))
 
 
-def cruise_show(request):
-    try:
-        cruise_id = request.matchdict['cruise_id']
-    except KeyError:
-        return HTTPBadRequest()
+def _get_cruise(cruise_id):
     cruise_obj = models.Cruise.get_id(cruise_id)
 
     # If the id is not an ObjectId, try searching based on ExpoCode
@@ -240,8 +236,20 @@ def cruise_show(request):
         if len(cruises) > 0:
             cruise_obj = cruises[0]
         else:
-            return HTTPSeeOther(
-                location=request.route_path('cruise_new', cruise_id=cruise_id))
+            raise ValueError()
+    return cruise_obj
+
+
+def cruise_show(request):
+    try:
+        cruise_id = request.matchdict['cruise_id']
+    except KeyError:
+        return HTTPBadRequest()
+    try:
+        cruise_obj = _get_cruise(cruise_id)
+    except ValueError:
+        return HTTPSeeOther(
+            location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     method = _http_method(request)
 
@@ -342,4 +350,42 @@ def cruise_show(request):
 
 
 def cruise_new(request):
-    return {'cruise_id': request.matchdict.get('cruise_id', '')}
+    try:
+        cruise_id = request.matchdict['cruise_id']
+    except KeyError:
+        return HTTPBadRequest()
+    return {'cruise_id': cruise_id}
+
+
+def map_full(request):
+    try:
+        cruise_id = request.matchdict['cruise_id']
+    except KeyError:
+        return HTTPBadRequest()
+    try:
+        cruise_obj = _get_cruise(cruise_id)
+    except ValueError:
+        return HTTPSeeOther(
+            location=request.route_path('cruise_new', cruise_id=cruise_id))
+
+    a = cruise_obj.get_attr('map_full')
+    print a
+    if not a:
+        return HTTPNotFound()
+    return _file_response(a.file)
+
+
+def map_thumb(request):
+    try:
+        cruise_id = request.matchdict['cruise_id']
+    except KeyError:
+        return HTTPBadRequest()
+    try:
+        cruise_obj = _get_cruise(cruise_id)
+    except ValueError:
+        return HTTPSeeOther(
+            location=request.route_path('cruise_new', cruise_id=cruise_id))
+    a = cruise_obj.get_attr('map_thumb')
+    if not a:
+        return HTTPNotFound()
+    return _file_response(a.file)

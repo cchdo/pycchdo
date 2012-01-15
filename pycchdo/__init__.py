@@ -146,6 +146,12 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.obj.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
 
     obj_routes(config, 'cruise', new=True)
+    config.add_route('cruise_map_full', '/cruise/{cruise_id}/map_full')
+    config.add_view('pycchdo.views.cruise.map_full',
+                    route_name='cruise_map_full')
+    config.add_route('cruise_map_thumb', '/cruise/{cruise_id}/map_thumb')
+    config.add_view('pycchdo.views.cruise.map_thumb',
+                    route_name='cruise_map_thumb')
     obj_routes(config, 'collection', mergeable=True, editable=True)
     obj_routes(config, 'country', 'countries', mergeable=True, editable=True)
     obj_routes(config, 'person', 'people', mergeable=True, editable=True)

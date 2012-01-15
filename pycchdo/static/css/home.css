@@ -53,12 +53,15 @@
 }
 #rdev li {
   position: relative;
-  margin: 0.6em 0;
+  margin: 0 0 1em 0;
+}
+#rdev .thumb {
+  height: 8em;
 }
 #rdev img {
   margin-right: 0.5em;
-  width: 80px;
-  height: 80px;
+  height: 100%;
+  max-width: 8em;
 }
 #rdev .info {
   position: absolute;

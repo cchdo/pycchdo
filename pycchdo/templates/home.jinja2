@@ -43,53 +43,30 @@
     <div class="clear"></div>
   {% endcall %}
   
-  {% call h.boxed('Recent Developments', id='rdev', class='right') %}
-    <h2>Updated Data Files</h2>
+  {% call h.boxed('Recently Updated Data', id='rdev', class='right') %}
     <ol>
+    {%- for update in updated %}
+      {%- set cruise = update.obj %}
+      {%- if cruise %}
       <li>
         <div class="thumb">
-          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
+          {%- if cruise.get('map_thumb') %}
+            {{ whh.tags.link_to(whh.tags.image(
+                request.route_path(
+                  'cruise_map_thumb', cruise_id=cruise.expocode),
+                '%s thumbnail' % cruise.expocode),
+              h.path_cruise(cruise)) }}
+          {%- endif %}
         </div>
         <div class="info">
-          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
-          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
-          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
-          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
+          <h3>{{ h.link_cruise(cruise) }}</h3> 
+          <p><strong>Ship:</strong> <span class="ship" title="{%- if cruise.ship %}{{ cruise.ship.name }}{%- endif %}">{{ h.link_ship(cruise.ship) }}</span></p>
+          <p><strong>Cruise dates:</strong> <span class="date-cruise">{{ h.cruise_dates(cruise)[2] }}</span></p>
+          <p><strong>Updated:</strong> <span class="date-updated">{{ h.date(update.judgment_stamp.timestamp) }}</span></p>
         </div>
       </li>
-      <li>
-        <div class="thumb">
-          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
-        </div>
-        <div class="info">
-          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
-          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
-          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
-          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
-        </div>
-      </li>
-      <li>
-        <div class="thumb">
-          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
-        </div>
-        <div class="info">
-          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
-          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
-          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
-          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
-        </div>
-      </li>
-      <li>
-        <div class="thumb">
-          <a href="/cruise/33H420101113"><img src="/data/co2clivar/atlantic/bats/ars01/33H420101113/33H420101113trk.jpg"></a> 
-        </div>
-        <div class="info">
-          <h3><a href="/cruise/33H420101113" title="super expocode that is too long (Line)">super expocode that is too long (Line)</a></h3> 
-          <p><strong>Ship:</strong> <span class="ship" title="Very long ship name that would wrap">Very long ship name that would wrap</span></p>
-          <p><strong>Cruise Date:</strong> <span class="date-cruise">2010-11-13</span></p>
-          <p><strong>Updated:</strong> <span class="date-updated">2011-07-18</span></p>
-        </div>
-      </li>
+      {%- endif %}
+    {%- endfor %}
     </ol>
   {% endcall %}
 {% endblock %}

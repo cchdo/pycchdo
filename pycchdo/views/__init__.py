@@ -23,7 +23,7 @@ _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
 
 __all__ = [
     '_collapsed_dict', '_http_method', '_paged', '_unescape', 'text_to_obj',
-    'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
+    '_file_response', 'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
 
 
 FILE_GROUPS = MultiDict([
@@ -144,7 +144,6 @@ def _empty_view(context, request):
     return {}
 
 
-home = _empty_view
 browse_menu = _empty_view
 search_menu = _empty_view
 information_menu = _empty_view
@@ -161,6 +160,17 @@ def _humanize(obj):
     return str(obj)
 
 
+def home(request):
+    num_updates = 4
+    file_types = models.data_file_descriptions.keys()
+    updated = models._Attr.get_all({
+        'key': {'$in': file_types},
+        'accepted': True},
+        limit=num_updates,
+        sort=[('judgment_stamp.timestamp', models.DESCENDING)])
+    return {'updated': updated}
+
+
 def parameters(request):
     def get_params_for_order(order):
         try:
@@ -174,6 +184,9 @@ def parameters(request):
 
 
 def _file_response(file):
+    if not file:
+        return HTTPNoContent()
+
     resp = Response()
     resp.app_iter = file
     try:
@@ -213,9 +226,6 @@ def data(request):
 
     if not data:
         return HTTPNotFound()
-
-    if not data.file:
-        return HTTPNoContent()
 
     return _file_response(data.file)
 

@@ -1120,12 +1120,12 @@ class Obj(_Change):
             query = args[0].copy()
         except IndexError:
             query = {}
-            args = (query, )
         try:
             query['_obj_type']
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
+        args = (query, )
         return cls._mongo_collection().find(*args, **kwargs)
 
     @classmethod
@@ -1134,12 +1134,12 @@ class Obj(_Change):
             query = args[0].copy()
         except IndexError:
             query = {}
-            args = (query, )
         try:
             query['_obj_type']
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
+        args = (query, )
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod

@@ -13,4 +13,4 @@ class ViewTests(unittest.TestCase):
         from pycchdo.views import home
         request = testing.DummyRequest()
         result = home(request)
-        self.assertEqual(result, {'updated': []})
+        self.assertEqual(result, {'updated': [], 'upcoming': []})

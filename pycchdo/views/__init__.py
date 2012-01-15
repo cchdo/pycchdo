@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, date
 import cgi
 
 from pyramid.response import Response
@@ -18,7 +18,8 @@ from pycchdo.views.session import require_signin
 
 
 _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-          'information_menu', 'parameters', 'data', 'catchall_static', ]
+          'information_menu', 'webtools_menu', 'parameters', 'data',
+          'catchall_static', ]
 
 
 __all__ = [
@@ -147,6 +148,7 @@ def _empty_view(context, request):
 browse_menu = _empty_view
 search_menu = _empty_view
 information_menu = _empty_view
+webtools_menu = _empty_view
 
 
 def _humanize(obj):
@@ -161,14 +163,34 @@ def _humanize(obj):
 
 
 def home(request):
-    num_updates = 4
+    num_updates = 3
     file_types = models.data_file_descriptions.keys()
     updated = models._Attr.get_all({
         'key': {'$in': file_types},
         'accepted': True},
         limit=num_updates,
         sort=[('judgment_stamp.timestamp', models.DESCENDING)])
-    return {'updated': updated}
+
+    upcoming = models.Cruise.get_all({'accepted': False})
+    upcoming = filter(lambda c: c.date_start, upcoming)
+    today = date.today()
+    upcoming = sorted(upcoming, key=lambda c: c.date_start)
+
+    # strip Seahunt cruises that are in the past
+    i = 0
+    while (len(upcoming) > 0 and
+           upcoming[i].date_start and 
+           today > upcoming[i].date_start):
+        i += 1
+    upcoming = upcoming[i:i + num_updates]
+
+    for u in upcoming:
+        print u
+
+    return {
+        'updated': updated,
+        'upcoming': upcoming,
+    }
 
 
 def parameters(request):

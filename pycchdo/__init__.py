@@ -212,6 +212,9 @@ def main(global_config, **settings):
                     route_name='submit_no_ext')
 
     # Webtool
+    config.add_route('webtools_menu', '/webtools.html')
+    config.add_view('pycchdo.views.webtools_menu', route_name='webtools_menu',
+                    renderer='templates/webtools.jinja2')
     config.add_route('webtool_data_cmp', '/webtool/data_cmp.html')
     config.add_view('pycchdo.views.webtool.data_cmp', route_name='webtool_data_cmp',
                     renderer='templates/webtool/data_cmp.jinja2')

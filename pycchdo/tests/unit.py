@@ -340,6 +340,7 @@ class TestModel(unittest.TestCase):
         obj.save()
         self.assertTrue(Obj.find_one({'_id': obj['_id']}) != None)
         self.assertTrue(Person.find_one({'_id': self.testPerson['_id']}) != None)
+        # TODO also make sure that the class retrieved is correct
         obj.remove()
 
     def test_Change_stamp_properties(self):

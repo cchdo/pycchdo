@@ -23,10 +23,9 @@
   <div id="bannerA" class="banner"></div>
   <div id="cchdo_menu">
     <ul class="nav"> 
-      <li><h1><a href="/">Home</a></h1></li>
-      <li><h1><a href="/browse.html">Browse Data</a></h1>
+      <li><h1><a href="/browse.html">Browse</a></h1>
       <ul class="browse-data">
-      <li><a href="/browse.html#ocean">By Ocean &raquo;</a>
+      <li><a href="/browse.html#ocean">Ocean &raquo;</a>
         <ul class="ocean">
           <li>{{ whh.tags.link_to('Arctic Ocean', request.route_path('basin_show', basin='arctic')) }}</li>
           <li>{{ whh.tags.link_to('Atlantic Ocean', request.route_path('basin_show', basin='atlantic')) }}</li>
@@ -35,18 +34,18 @@
           <li>{{ whh.tags.link_to('Southern Ocean', request.route_path('basin_show', basin='southern')) }}</li>
         </ul>
       </li>
-      <li><a href="/browse.html#time-series">By Time Series &raquo;</a>
+      <li><a href="/browse.html#time-series">Time Series &raquo;</a>
         <ul class="time_series">
           <li><a href="/search?query=HOT">HOT</a></li>
           <li><a href="/search?query=BATS">BATS</a></li>
         </ul>
       </li>
-      <li><a href="/browse.html#project">By Projects &raquo;</a>
+      <li><a href="/browse.html#project">Projects &raquo;</a>
         <ul class="contributions_projects">
           <li><a href="/search?query=CARINA">Project Carina</a></li>
         </ul>
       </li>
-      <li><a href="/browse.html#list">By Lists &raquo;</a>
+      <li><a href="/browse.html#list">Lists &raquo;</a>
         <ul class="lists">
           <li><a href="/cruises">Cruises</a></li>
           <li><a href="/countries">Countries</a></li>
@@ -58,23 +57,28 @@
       </li>
       </ul>
     </li>
-    <li><h1><a href="/search.html">Search Data</a></h1>
+    <li><h1><a href="/search.html">Search</a></h1>
       <ul class="search-data">
-        <li><a href="/search/advanced">Advanced Search</a></li>
-        <li><a href="/search/map">Map Search</a></li>
+        <li><a href="/search/advanced">Advanced</a></li>
+        <li><a href="/search/map">Map</a></li>
       </ul>
     </li>
-    <li><h1><a href="/submit.html">Submit Data</a></h1></li>
-    <li><h1><a href="/webtools.html">Webtools</a></h1>
+    <li><h1><a href="/submit.html">Submit</a></h1>
+      <ul class="contribute">
+        <li><a href="/contributions.html">Contributions</a></li>
+        <li><a href="/contribute.html">Add a cruise</a></li>
+      </ul>
+    </li>
+    <li><h1><a href="/tools.html">Tools</a></h1>
       <ul>
-        <li><a href="/webtool/data_cmp.html">Data Compare</a></li>
-        <li><a href="/webtool/visual.html">Visual</a></li>
-        <li><a href="/webtool/convert.html">Convert</a></li>
+        <li><a href="/tool/data_cmp.html">Data Compare</a></li>
+        <li><a href="/tool/visual.html">Visual</a></li>
+        <li><a href="/tool/convert.html">Convert</a></li>
       </ul>
     </li>
-    <li><h1><a href="/contact.html">Contact</a></h1></li>
     <li><h1><a href="/information.html">Information</a></h1>
       <ul>
+        <li><a href="/contact.html">Contact</a></li>
         <li><a href="/manuals.html">Manuals</a></li>
         <li><a href="/policies.html">Policies</a></li>
         <li><a href="/format.html">Format</a></li>

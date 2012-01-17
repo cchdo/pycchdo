@@ -18,7 +18,7 @@ from pycchdo.views.session import require_signin
 
 
 _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-          'information_menu', 'webtools_menu', 'parameters', 'data',
+          'information_menu', 'tools_menu', 'parameters', 'data',
           'catchall_static', ]
 
 
@@ -148,7 +148,7 @@ def _empty_view(context, request):
 browse_menu = _empty_view
 search_menu = _empty_view
 information_menu = _empty_view
-webtools_menu = _empty_view
+tools_menu = _empty_view
 
 
 def _humanize(obj):

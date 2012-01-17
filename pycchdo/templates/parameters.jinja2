@@ -5,7 +5,7 @@
 {%- endblock %}
 {%- macro parameter_row(p, odd) %}
   <tr class="parameter {{ odd }}">
-    <th class="name">{{ p.get('name') or '' }}</th>
+    <th class="name">{{ h.link_parameter(p) }}</th>
     <td class="aliases">{{ p.aliases|join(', ') }}</td>
     <td class="fullname">{{ p.get('full_name') or '' }}</td>
     <td class="name_nc_os">{{ p.get('name_netcdf') or '' }}</td>

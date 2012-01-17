@@ -124,6 +124,10 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.parameters', route_name='parameters',
                     renderer='templates/parameters.jinja2')
 
+    config.add_route('parameter_show', '/parameter/{parameter_id}.json')
+    config.add_view('pycchdo.views.parameter_show', route_name='parameter_show',
+                    renderer='json')
+
     config.add_route('session', '/session')
     config.add_view('pycchdo.views.session.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
     config.add_route('session_identify', '/session/identify')

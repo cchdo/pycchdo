@@ -2049,6 +2049,8 @@ class Parameter(Obj):
     def unit(self):
         return Unit.get_id(self.get('unit'))
 
+    units = unit
+
     @property
     def bounds(self):
         bounds = self.get('bounds') or []

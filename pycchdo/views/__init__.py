@@ -18,8 +18,8 @@ from pycchdo.views.session import require_signin
 
 
 _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-          'information_menu', 'tools_menu', 'parameters', 'data',
-          'catchall_static', ]
+          'information_menu', 'tools_menu', 'parameters', 'parameter_show',
+          'data', 'catchall_static', ]
 
 
 __all__ = [
@@ -203,6 +203,40 @@ def parameters(request):
     secondary = get_params_for_order('CCHDO Secondary Parameters')
     tertiary = get_params_for_order('CCHDO Tertiary Parameters')
     return {'parameters': {1: primary, 2: secondary, 3: tertiary}}
+
+
+def parameter_show(request):
+    try:
+        parameter_id = request.matchdict['parameter_id']
+    except KeyError:
+        return HTTPBadRequest()
+
+    parameter = models.Parameter.get_id(parameter_id)
+    if not parameter:
+        parameters = models.Parameter.get_by_attrs(name=parameter_id)
+        if len(parameters) > 0:
+            parameter = parameters[0]
+        else:
+            return HTTPNotFound()
+
+    response = {'parameter': {
+        'name': parameter.get('name', ''),
+        'aliases': filter(None,
+            [parameter.get('name_netcdf'), parameter.get('full_name')] + \
+            parameter.get('aliases')),
+        'format': parameter.get('format', ''),
+        'bounds': parameter.get('bounds', []),
+        'units': {
+            'unit': {
+                'def': parameter.units.get('name'),
+                'aliases': [
+                    {'name': {'singular': parameter.units.get('mnemonic')}}
+                ]
+            }
+        },
+        'description': parameter.get('description', None),
+    }}
+    return response
 
 
 def _file_response(file):

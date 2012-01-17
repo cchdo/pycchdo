@@ -412,8 +412,16 @@ def link_ship(s):
 def link_country(c):
     if not c:
         return ''
-    return whh.literal(whh.tags.link_to(c.name, '/country/%s' %
-                                             c.name))
+    return whh.literal(whh.tags.link_to(c.name,
+                                        '/country/%s' % c.name))
+
+
+def link_parameter(p):
+    if not p:
+        return ''
+    return whh.literal(
+        whh.tags.link_to(p.get('name'),
+                         '/parameter/%s.json' % p.get('name')))
 
 
 def change_pretty(change):

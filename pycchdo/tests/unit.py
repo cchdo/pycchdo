@@ -230,6 +230,11 @@ class TestModel(unittest.TestCase):
             objs.append(obj)
             if i == num / 2:
                 ans = obj
+
+        # TODO(jfields) Attributes can be accepted either as is or with a new
+        # value. Make sure no Attrs with value matching but accepted_value not
+        # matching are returned.
+
         try:
             objs_gotten = Obj.get_by_attrs(a=num / 2, b=num / 2)
             obj = objs_gotten[0]
@@ -340,8 +345,21 @@ class TestModel(unittest.TestCase):
         obj.save()
         self.assertTrue(Obj.find_one({'_id': obj['_id']}) != None)
         self.assertTrue(Person.find_one({'_id': self.testPerson['_id']}) != None)
-        # TODO also make sure that the class retrieved is correct
+        # _id is not the best option here. try finding based on creation_stamp or
+        # something. That will show the error.
+        # TODO(jfields) also make sure that the class retrieved is correct
+        # basically make sure that Obj.find_one is called instead of
+        # collectablemongodoc.find_one.
         obj.remove()
+
+    def test_Obj_polymorph(self):
+        """ An Obj that has been polymorphed regains the type of the Obj's
+            _obj_type """
+
+        # TODO(jfields) test that getting an Obj by id gives the type of Obj.
+        # After calling obj.polymorph() the returned new obj is of a subclass of
+        # Obj.
+        pass
 
     def test_Change_stamp_properties(self):
         """ The properties for _Changes corresponding to stamps should return a mapped object """

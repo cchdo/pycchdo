@@ -93,7 +93,7 @@
           {%- if not file.is_judged() %}
             {{ file_review_status(loop, hl, file) }}
           {%- endif %}
-          {%- if file or h.has_edit(request) %}
+          {%- if file.notes or h.has_edit(request) %}
             <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
               <td colspan="4">
                 {{ show_notes_with_editor(request, loop.index0, file, subsection_type) }}
@@ -138,6 +138,8 @@
       {{- cruise_attr('Chief Scientists',
                       h.link_person_institutions(cruise.chief_scientists)) }}
       {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
+      {{- cruise_attr('Frequency', cruise.get('frequency', '')) }}
+      {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
       {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
       {%- if h.has_edit(request) %}
         {{- cruise_attr('ID', cruise.id) }}
@@ -188,7 +190,7 @@
         <h3>Exchange</h3>
         <table>
         {% for type, df in h.sort_data_files(data_files.get('exchange')) -%}
-          {{ h.data_file_link(type, df) }}
+          {{ h.data_file_link(request, type, df) }}
         {%- endfor %}
         </table>
       {%- endif %}
@@ -197,7 +199,7 @@
         <h3>NetCDF</h3>
         <table>
         {% for type, df in h.sort_data_files(data_files.get('netcdf')) -%}
-          {{ h.data_file_link(type, df) }}
+          {{ h.data_file_link(request, type, df) }}
         {%- endfor %}
         </table>
       {%- endif %}
@@ -206,7 +208,7 @@
         <h3>WOCE</h3>
         <table>
         {% for type, df in h.sort_data_files(data_files.get('woce')) -%}
-          {{ h.data_file_link(type, df) }}
+          {{ h.data_file_link(request, type, df) }}
         {%- endfor %}
         </table>
       {%- endif %}
@@ -215,7 +217,7 @@
         <h3>Documentation</h3>
         <table>
         {% for type, df in h.sort_data_files(data_files.get('doc')) -%}
-          {{ h.data_file_link(type, df) }}
+          {{ h.data_file_link(request, type, df) }}
         {%- endfor %}
         </table>
       {%- endif %}
@@ -258,35 +260,37 @@
         {{ whh.tags.form('', 'POST') }}
           <input type="hidden" name="action" value="add_note">
       {%- endif %}
-      <table class="has-meta-bodies">
-        <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
+      {% if history or h.has_edit(request) %}
+        <table class="has-meta-bodies">
+          <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
+          {%- if h.has_edit(request) %}
+            {%- set i = "new" %}
+            {%- set hl="new" %}
+            <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
+              <td>Add note</td>
+              <td><input type="text" name="note_data_type"></td>
+              <td><input type="text" name="note_action"></td>
+              <td><input type="text" name="note_summary"></td>
+            </tr>
+            <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
+              <td colspan="4">
+                <p>
+                  <label for="note_discussion_{{ i }}">Public</label>
+                  <input id="note_discussion_{{ i }}" type="checkbox"
+                         name="note_discussion" value="public" checked="checked">
+                 </p>
+                 <textarea name="note_note"></textarea>
+                 <input type="submit" value="Add note">
+              </td>
+            </tr>
+          {%- endif %}
+          {%- for change in history|reverse %}
+            {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
+          {%- endfor %}
+        </table>
         {%- if h.has_edit(request) %}
-          {%- set i = "new" %}
-          {%- set hl="new" %}
-          <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
-            <td>Add note</td>
-            <td><input type="text" name="note_data_type"></td>
-            <td><input type="text" name="note_action"></td>
-            <td><input type="text" name="note_summary"></td>
-          </tr>
-          <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
-            <td colspan="4">
-              <p>
-                <label for="note_discussion_{{ i }}">Public</label>
-                <input id="note_discussion_{{ i }}" type="checkbox"
-                       name="note_discussion" value="public" checked="checked">
-               </p>
-               <textarea name="note_note"></textarea>
-               <input type="submit" value="Add note">
-            </td>
-          </tr>
+          </form>
         {%- endif %}
-        {%- for change in history|reverse %}
-          {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
-        {%- endfor %}
-      </table>
-      {%- if h.has_edit(request) %}
-        </form>
       {%- endif %}
     </div>
   {%- endcall %}

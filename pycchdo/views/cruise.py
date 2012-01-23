@@ -24,7 +24,12 @@ CRUISE_ATTRS_SELECT = allowed_attrs_select(models.Cruise)
 
 
 def cruises_index(request):
-    cruises = models.Cruise.map_mongo(models.Cruise.find())
+    seahunt = request.params.get('seahunt_only', False)
+    if seahunt:
+        cruises = models.Cruise.get_all({'accepted': False})
+    else:
+        cruises = models.Cruise.get_all()
+    cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
     cruises = _paged(request, cruises)
     return {'cruises': cruises}
 

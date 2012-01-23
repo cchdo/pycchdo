@@ -751,9 +751,34 @@ class _FileHolder(_RequestTracker):
 
 
 class _Attr(_Change, _FileHolder):
-    """ An Attr of an Obj
+    """ An _Attr of an Obj
 
         Not for general use. Please defer to Obj's get, set, and delete methods
+
+        An _Attr may be suggested, acknowledged, accepted or rejected.
+
+        An _Attr, in addition to being accepted, may be accepted with a new
+        value. This is useful for handling user suggestions in this way:
+
+            1. suggested: A has been attached to a cruise using a key, e.g.
+                    'bottle_exchange'
+            2. acknowledged: The suggestion has been reviewed by staff and is
+                    being actively worked on.
+
+            The states diverge here for acceptance and acceptance with a new
+            value:
+
+            3. accepted: The suggestion has been accepted as is and becomes part
+                    of the object state.
+            3. accepted (with value): The suggestion has been accepted but a new
+                    value replaces the original. The original value is still
+                    stored but only as a suggested value. E.g. a partial file
+                    has been suggested as "bottle_exchange" on a cruise. A
+                    merger has finished merging the partial file with the
+                    original and accepts the partial file with the merged file
+                    as the new value. Both merged and partial are retained in
+                    history but only the merged becomes part of the object
+                    state.
 
     """
     __allowed_keys = ['key', 'value', '_requests', 'file', 'track', 'obj',
@@ -1449,11 +1474,11 @@ class Cruise(Obj):
 
     """
     allowed_attrs = MultiDict([
-        ['Text', ['expocode', 'link']], 
-        ['Datetime', ['date_start', 'date_end']], 
-        ['Text List', ['aliases']],
+        ['Text', ['expocode', 'link', 'frequency', ]], 
+        ['Datetime', ['date_start', 'date_end', ]], 
+        ['Text List', ['aliases', 'ports', ]],
         ['ID', ['ship', 'country']],
-        ['ID List', ['collections']],
+        ['ID List', ['collections', 'institutions', ]],
     ])
 
     allowed_attrs_list = flatten(allowed_attrs.values())
@@ -1461,12 +1486,15 @@ class Cruise(Obj):
     allowed_attrs_human_names = {
         'expocode': 'ExpoCode',
         'link': 'Expedition Link',
+        'frequency': 'Frequency', 
+        'date_start': 'Start Date',
+        'date_end': 'End Date',
         'aliases': 'Aliases',
+        'ports': 'Ports', 
         'ship': 'Ship',
         'country': 'Country',
         'collections': 'Collections',
-        'date_start': 'Start Date',
-        'date_end': 'End Date',
+        'institutions': 'Institutions',
     }
 
     @classmethod
@@ -1511,6 +1539,17 @@ class Cruise(Obj):
         collection_ids = self.get('collections', [])
         return filter(
             None, [Collection.get_id(x) for x in collection_ids])
+
+    @property
+    def institutions(self):
+        """ These are institutions that are directly attached to the cruise.
+            Suppose a cruise were to be done by an institution but the PI was
+            from a different one.
+
+        """
+        institution_ids = self.get('institutions', [])
+        return filter(
+            None, [Institution.get_id(x) for x in institution_ids])
 
     @property
     def collections_woce_line(self):
@@ -1666,6 +1705,22 @@ class Person(CruiseParticipantAssociate):
     __allowed_keys = ['identifier', 'name_first', 'name_last', 'institution',
                       'country', 'email', ]
 
+    allowed_attrs = MultiDict([
+        ['Text', ['title', 'job_title', 'phone', 'fax', 'address', ]], 
+        ['ID List', ['programs', ]], 
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'title': 'Title',
+        'job_title': 'Job Title',
+        'phone': 'Phone',
+        'fax': 'Fax',
+        'address': 'Address', 
+        'programs': 'Programs', 
+    }
+
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
         # Pretend Person is already saved so Stamp can be set
@@ -1680,8 +1735,7 @@ class Person(CruiseParticipantAssociate):
         self.country_ = country
         self.email = email
 
-        if identifier is None and None in (
-                name_first, name_last):
+        if identifier is None and None in (name_first, name_last):
             raise ValueError(
                 'Person must be initialized either with identifier '
                 'or names.')
@@ -1751,12 +1805,34 @@ class MultiNameObj(Obj):
 class Institution(CruiseParticipantAssociate):
     cruise_participant_associate_key = 'institution'
 
+    allowed_attrs = MultiDict([
+        ['Text', ['name', 'phone', 'address', 'url', ]], 
+        ['ID', ['country', ]], 
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'name': 'Name',
+        'phone': 'Phone',
+        'address': 'Address',
+        'url': 'Link',
+        'country': 'Country', 
+    }
+
     @property
     def name(self):
         return self.get('name', None)
 
     def people(self):
         return Person.get_all({'institution': self.id})
+
+    @property
+    def country(self):
+        country = self.get('country', None)
+        if country:
+            return Country.get_id(country)
+        return None
 
     def __unicode__(self):
         try:
@@ -1768,9 +1844,27 @@ class Institution(CruiseParticipantAssociate):
 class Ship(CruiseAssociate):
     cruise_associate_key = 'ship'
 
+    allowed_attrs = MultiDict([
+        ['Text', ['name', 'nodc_platform_code', 'url', ]], 
+        ['ID', ['country', ]], 
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'name': 'Name',
+        'nodc_platform_code': 'NODC Platform Code', 
+        'url': 'Link', 
+        'country': 'Country', 
+    }
+
     @property
     def name(self):
         return self.get('name', None)
+
+    @property
+    def nodc_platform_code(self):
+        return self.get('nodc_platform_code', None)
 
     def __unicode__(self):
         return u'Ship(%s)' % self.name
@@ -1795,18 +1889,6 @@ class Collection(CruiseAssociate, MultiNameObj):
     """
     cruise_associate_key = 'collections'
 
-    #@classmethod
-    #def _get_all_by_name_true_match(cls, obj, name):
-    #    """ Make sure the name actually matches
-    #    """
-    #    if obj is None:
-    #        return False
-    #    try:
-    #        return any(name.match(n) for n in obj.names)
-    #    except AttributeError:
-    #        return name in obj.names
-
-
     @classmethod
     def get_all_by_name(cls, name):
         """ Returns all collections that match the given name
@@ -1815,37 +1897,7 @@ class Collection(CruiseAssociate, MultiNameObj):
                 name - either a string or a regular expression object
         
         """
-
         return self.get_by_attrs(names=name)
-
-        #try:
-        #    name.match
-        #    name.search
-        #    value_query = {'$regex': name}
-        #except AttributeError:
-        #    value_query = name
-
-        #query = {'key': 'names',
-        #         'accepted': True,
-        #         '$or': [
-        #             {'$and': [
-        #                 {'accepted_value': {'$ne': None}},
-        #                 {'accepted_value': value_query},
-        #             ]}, 
-        #             {'$and': [
-        #                 {'accepted_value': None},
-        #                 {'value': value_query},
-        #             ]}, 
-        #         ],
-        #        }
-
-        #objs_attrs = _Attr._mongo_collection().group(
-        #    ['obj'], query, {'a': 0}, 
-        #    'function (x, o) { o.a++; }')
-
-        ## Filter the matched objs for the correct number of matched attrs
-        #objs = [cls.get_id(oa['obj']) for oa in objs_attrs if oa['a'] == 1.0]
-        #return filter(lambda o: cls._get_all_by_name_true_match(o, name), objs)
 
     @property
     def type(self):

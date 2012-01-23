@@ -116,6 +116,10 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.information_menu', route_name='information_menu',
                     renderer='templates/information.jinja2')
 
+    config.add_route('contribute_menu', '/contribute.html')
+    config.add_view('pycchdo.views.contribute_menu', route_name='contribute_menu',
+                    renderer='templates/contribute.jinja2')
+
     config.add_route('submit', '/submit.html')
     config.add_view('pycchdo.views.submit.submit', route_name='submit',
                     renderer='templates/submit.jinja2')
@@ -235,11 +239,11 @@ def main(global_config, **settings):
                     route_name='tool_convert_any_to_google_wire', renderer='json')
 
     # Staff
-    config.add_route('staff_index', '/staff')
+    config.add_route('staff_index', '/staff.html')
     config.add_view('pycchdo.views.staff.index', route_name='staff_index', renderer='templates/staff/index.jinja2')
-    config.add_route('staff_submissions', '/staff/submissions')
+    config.add_route('staff_submissions', '/staff/submissions.html')
     config.add_view('pycchdo.views.staff.submissions', route_name='staff_submissions', renderer='templates/staff/submissions.jinja2')
-    config.add_route('staff_moderation', '/staff/moderation')
+    config.add_route('staff_moderation', '/staff/moderation.html')
     config.add_view('pycchdo.views.staff.moderation', route_name='staff_moderation', renderer='templates/staff/moderation.jinja2')
 
     # Serve data blobs

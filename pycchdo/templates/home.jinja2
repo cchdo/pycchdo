@@ -5,6 +5,17 @@
   {{ whh.tags.stylesheet_link('/static/css/basin_selector.css') }}
 {%- endblock %}
 {%- block content_attrs %} class="home"{%- endblock %}
+{%- macro show_thumb(cruise) %}
+  {%- if cruise.get('map_thumb') %}
+    {{ whh.tags.link_to(whh.tags.image(
+        request.route_path(
+          'cruise_map_thumb', cruise_id=cruise.expocode),
+        '%s thumbnail' % cruise.expocode),
+      h.path_cruise(cruise)) }}
+  {%- else %}
+    {{ whh.tags.image('/static/img/etopo_static/etopo_thumb_no_track.png', 'No track available') }}
+  {%- endif %}
+{%- endmacro %}
 {% block content %}
   {% call h.boxed('Welcome to the CCHDO', id='intro', class='left') %}
     <img src="/static/img/ctd_recovery.png">
@@ -34,7 +45,7 @@
     <ul>
       <li id="basin">
         <h2>Click on a basin</h2>
-        {%- include "templates/_basin_selector.html" %}
+        {%- include "templates/_basin_selector.jinja2" %}
       </li>
       <li id="search_map">
         <h2><a href="/search/map">Use our interactive map search</a></h2>
@@ -44,7 +55,7 @@
     <div class="clear"></div>
   {% endcall %}
   
-  {% call h.boxed('Updates', id='rdev', class='right') %}
+  {% call h.boxed('Updates', id='rdev', class='right', box_content_class='scrollable-y') %}
     <div id="updated">
       <h2>Recently updated data</h2>
       <ol>
@@ -53,18 +64,14 @@
         {%- if cruise %}
         <li>
           <div class="thumb">
-            {%- if cruise.get('map_thumb') %}
-              {{ whh.tags.link_to(whh.tags.image(
-                  request.route_path(
-                    'cruise_map_thumb', cruise_id=cruise.expocode),
-                  '%s thumbnail' % cruise.expocode),
-                h.path_cruise(cruise)) }}
-            {%- endif %}
+            {{ show_thumb(cruise) }}
           </div>
           <div class="info">
             <h3>{{ h.link_cruise(cruise) }}</h3> 
-            <p><strong>Ship:</strong> <span class="ship" title="{%- if cruise.ship %}{{ cruise.ship.name }}{%- endif %}">{{ h.link_ship(cruise.ship) }}</span></p>
-            <p><strong>Cruise dates:</strong> <span class="date-cruise">{{ h.cruise_dates(cruise)[2] }}</span></p>
+            {%- if cruise.ship %}
+              <p><strong>Ship:</strong> <span class="ship" title="{{ cruise.ship.name }}">{{ h.link_ship(cruise.ship) }}</span></p>
+            {%- endif %}
+            <p><strong>Dates:</strong> <span class="date-cruise" title="{{ h.cruise_dates(cruise)[2] }}">{{ h.cruise_dates(cruise)[2] }}</span></p>
             <p><strong>Updated:</strong> <span class="date-updated">{{ h.date(update.judgment_stamp.timestamp) }}</span></p>
           </div>
         </li>
@@ -78,17 +85,11 @@
       {%- for cruise in upcoming %}
         <li>
           <div class="thumb">
-            {%- if cruise.get('map_thumb') %}
-              {{ whh.tags.link_to(whh.tags.image(
-                  request.route_path(
-                    'cruise_map_thumb', cruise_id=cruise.expocode),
-                  '%s thumbnail' % cruise.expocode),
-                h.path_cruise(cruise)) }}
-            {%- endif %}
+            {{ show_thumb(cruise) }}
           </div>
           <div class="info">
             <h3>{{ h.link_cruise(cruise) }}</h3> 
-            <p><strong>Cruise dates:</strong> <span class="date-cruise">{{ h.cruise_dates(cruise)[2] }}</span></p>
+            <p><strong>Dates:</strong> <span class="date-cruise" title="{{ h.cruise_dates(cruise)[2]}}">{{ h.cruise_dates(cruise)[2] }}</span></p>
           </div>
         </li>
       {%- endfor %}

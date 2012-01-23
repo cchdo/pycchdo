@@ -546,6 +546,7 @@ class TestHelper(unittest.TestCase):
     def test_helper_data_file_link(self):
         """ Given an _Attr with a file, provide a link to a file next to its description """
         from pycchdo.helpers import data_file_link
+        request = testing.DummyRequest()
         file_data = StringIO('')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         data = _Attr(self.testPerson, 'testid', 'a', file)
@@ -554,11 +555,11 @@ class TestHelper(unittest.TestCase):
         answer = ('<tr class="bottle exchange"><th><a href="/data/b/{id}">BOT'
                   '</a></th><td>ASCII .csv bottle data with station '
                   'information</td></tr>').format(id=id)
-        self.assertEquals(data_file_link('bottle_exchange', data), answer)
+        self.assertEquals(data_file_link(request, 'bottle_exchange', data), answer)
         answer = ('<tr class="ctdzip exchange"><th><a href="/data/b/{id}">CTD'
                   '</a></th><td>ZIP archive of ASCII .csv CTD data with '
                   'station information</td></tr>').format(id=id)
-        self.assertEquals(data_file_link('ctdzip_exchange', data), answer)
+        self.assertEquals(data_file_link(request, 'ctdzip_exchange', data), answer)
         data.remove()
 
         data = _Attr(self.testPerson, 'testid', 'a', 'b')
@@ -566,7 +567,7 @@ class TestHelper(unittest.TestCase):
         self.assertEquals('<tr class="ctdzip exchange"><th><a href="/404.html">CTD'
                           '</a></th><td>ZIP archive of ASCII .csv CTD data with '
                           'station information</td></tr>',
-                          data_file_link('ctdzip_exchange', data))
+                          data_file_link(request, 'ctdzip_exchange', data))
         data.remove()
 
 

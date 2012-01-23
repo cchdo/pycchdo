@@ -236,9 +236,9 @@
     return link;
   }
 
-  div.appendChild(link('/staff', String.fromCharCode(9731)));
-  div.appendChild(link('/staff/submissions', String.fromCharCode(9732)));
-  div.appendChild(link('/staff/moderation', String.fromCharCode(9733)));
+  div.appendChild(link('/staff.html', String.fromCharCode(9731)));
+  div.appendChild(link('/staff/submissions.html', String.fromCharCode(9732)));
+  div.appendChild(link('/staff/moderation.html', String.fromCharCode(9733)));
 
   document.body.appendChild(div);
 

@@ -7,6 +7,7 @@
   <title>CCHDO{%- call h.title() %}{%- block subtitle %}{%- endblock %}{%- block title %}{%- endblock %}{%- endcall %}</title>
   <link rel="shortcut icon" href="/static/favicon.ico">
   <link rel="icon" type="image/png" href="/static/favicon.png">
+  {{ whh.tags.stylesheet_link('http://fonts.googleapis.com/css?family=Open+Sans&subset=latin') }}
   {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
   {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
   {%- if _static %}{{ whh.tags.stylesheet_link('/static/css/static.css') }}{%- endif %}

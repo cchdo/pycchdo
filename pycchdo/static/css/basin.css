@@ -21,7 +21,7 @@
 }
 
 #cruises {
-  max-height: 40em;
+  max-height: 50em;
   overflow: auto;
 }
 #cruises h2 {

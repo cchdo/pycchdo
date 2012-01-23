@@ -1,5 +1,6 @@
 .expander a {
   text-decoration: none;
+  border: none;
   color: inherit;
 }
 th.expander,
@@ -11,5 +12,5 @@ tr.expander {
   background: #FFFFEE;
 }
 .open.odd {
-  background: #F0EBDD;
+  background: #F0EEDD;
 }

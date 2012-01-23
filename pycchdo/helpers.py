@@ -54,6 +54,8 @@ def GAPI_autoload(request, module_list):
 
 
 def has_edit(request):
+    if not request:
+        return False
     return request.user is not None
 
 
@@ -76,6 +78,8 @@ def is_staff(user):
 
 
 def has_mod(request):
+    if not request:
+        return False
     if not request.user:
         return False
     if is_staff(request.user):
@@ -133,6 +137,9 @@ PAGER_FORMAT = '$link_first $link_previous ~5~ $link_next $link_last'
 
 
 def pager_for(page, format=PAGER_FORMAT):
+    if not page.next_page:
+        return ''
+
     next_url = whh.literal(page._url_generator(page.next_page))
     return whh.HTML.div(
         page.pager(format),
@@ -356,19 +363,20 @@ def link_file_holder(fh, full=False):
 def link_cruise(c):
     if not c:
         return ''
-    return whh.tags.link_to(c.expocode, path_cruise(c))
+    label = c.expocode or c.id
+    return whh.tags.link_to(label, path_cruise(c), title=label)
 
 
 def link_person(p):
     if not p:
         return ''
-    return whh.tags.link_to(p.full_name(), u'/person/%s' % p.id)
+    return whh.tags.link_to(p.full_name() or p.id, u'/person/%s' % p.id)
 
 
 def link_institution(i):
     if not i:
         return ''
-    return whh.tags.link_to(i.get('name'), '/institution/%s' % i.id)
+    return whh.tags.link_to(i.get('name') or i.id, '/institution/%s' % i.id)
 
 
 def link_person_institutions(pis):
@@ -517,7 +525,7 @@ def sort_data_files(d):
     return filter(None, preferred)
 
 
-def data_file_link(type, data):
+def data_file_link(request, type, data):
     """ Given an _Attr with a file, provides a link to a file next to its
         description as a table row
 
@@ -550,15 +558,17 @@ def data_file_link(type, data):
     classes = [type.replace('_', ' ')]
     if preliminary:
         classes.append('preliminary')
-        items.append(
-            whh.HTML.td(
-                whh.tags.form('', 'PUT',
-                              hidden_fields={'cruise_id': data.obj.id,
-                                             'action': 'edit_attr',
-                                             'key': type + '_status'}),
-                whh.HTML.input(type='submit', name='edit_action',
-                               value='Mark reviewed'),
-                whh.tags.end_form()))
+        if has_mod(request.user):
+            items.append(
+                whh.HTML.td(
+                    whh.tags.form(
+                        '', 'PUT', hidden_fields={
+                            'cruise_id': data.obj.id,
+                            'action': 'edit_attr',
+                            'key': type + '_status'}),
+                    whh.HTML.input(type='submit', name='edit_action',
+                                   value='Mark reviewed'),
+                    whh.tags.end_form()))
     classname = ' '.join(classes)
 
     return whh.HTML.tr(*items, class_=classname)

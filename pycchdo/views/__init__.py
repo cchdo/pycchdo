@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, date
+from datetime import datetime
 import cgi
 
 from pyramid.response import Response
@@ -18,8 +18,8 @@ from pycchdo.views.session import require_signin
 
 
 _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-          'information_menu', 'tools_menu', 'parameters', 'parameter_show',
-          'data', 'catchall_static', ]
+          'contribute_menu', 'information_menu', 'tools_menu', 'parameters',
+          'parameter_show', 'data', 'catchall_static', ]
 
 
 __all__ = [
@@ -68,8 +68,10 @@ def _paged(request, l):
     current_page = int(request.params.get('page', 1))
     items_per_page = int(request.params.get('items_per_page', 20))
     def page_url(page):
-        return current_route_url(request, _query={
-            'page': page, 'items_per_page': items_per_page})
+        query = request.params.copy()
+        query['page'] = page
+        query['items_per_page'] = items_per_page
+        return current_route_url(request, _query=query)
     return paginate.Page(
         l, current_page, items_per_page=items_per_page, url=page_url)
 
@@ -147,6 +149,7 @@ def _empty_view(context, request):
 
 browse_menu = _empty_view
 search_menu = _empty_view
+contribute_menu = _empty_view
 information_menu = _empty_view
 tools_menu = _empty_view
 
@@ -163,7 +166,7 @@ def _humanize(obj):
 
 
 def home(request):
-    num_updates = 3
+    num_updates = 2
     file_types = models.data_file_descriptions.keys()
     updated = models._Attr.get_all({
         'key': {'$in': file_types},
@@ -173,14 +176,14 @@ def home(request):
 
     upcoming = models.Cruise.get_all({'accepted': False})
     upcoming = filter(lambda c: c.date_start, upcoming)
-    today = date.today()
+    now = datetime.utcnow()
     upcoming = sorted(upcoming, key=lambda c: c.date_start)
 
     # strip Seahunt cruises that are in the past
     i = 0
     while (len(upcoming) > 0 and
            upcoming[i].date_start and 
-           today > upcoming[i].date_start):
+           now > upcoming[i].date_start):
         i += 1
     upcoming = upcoming[i:i + num_updates]
 

@@ -15,14 +15,15 @@
 }
 
 .cruise-page h2 {
-  border-bottom: 1px solid #ddefff;
   color: #006F89;
   font-size: 1.2em;
+  margin-bottom: 0.2em;
 }
 .cruise-page h3 { margin: 0.5em 0 0.25em 0; }
 
-.cruise-page .thumb { margin-top: 1em; margin-left: 1em; float: right; text-align: right; }
+.cruise-page .thumb { margin-top: -1.2em; margin-left: 1em; float: right; text-align: right; }
 .cruise-page .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
+.cruise-page .thumb a { border: none; }
 .cruise-page .thumb img { width: 80px; height: 80px; }
 
 .cruise-page #preliminary {
@@ -32,7 +33,7 @@
 }
 .cruise-page .updates-available {
   display: block;
-  color: #ff0900;
+  color: #ff5960;
   margin: 0.5em 0;
 }
 
@@ -105,10 +106,6 @@
 .editor textarea {
   width: 100%;
   min-height: 6em;
-}
-
-.scrollable-y {
-  overflow-y: auto;
 }
 
 /* pending */

@@ -42,9 +42,14 @@
   float: right;
   margin-right: 0.5em;
 }
+#geo_search #search_map a {
+  border: none;
+}
 
+#rdev .box_content {
+  max-height: 42em;
+}
 #rdev h2 {
-  border-bottom: 1px solid #DDEFFF;
   margin-top: 0;
   margin-bottom: 0.5em;
 }
@@ -58,6 +63,9 @@
 #rdev .thumb {
   height: 8em;
 }
+#rdev .thumb a {
+  border: none;
+}
 #rdev img {
   margin-right: 0.5em;
   height: 100%;
@@ -66,7 +74,7 @@
 #rdev .info {
   position: absolute;
   top: 0;
-  left: 90px;
+  left: 8.5em;
 }
 #rdev .info p {
   margin-left: 1em;

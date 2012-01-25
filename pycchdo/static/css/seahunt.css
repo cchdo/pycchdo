@@ -1,0 +1,11 @@
+#pending-review {
+  padding: 0.5em;
+  font-size: 1.2em;
+  background: #aaddff url('/static/img/logos/project_seahunt_logo.png') no-repeat 100%;
+  background-size: auto 100%;
+}
+.pending .boxed h1,
+.pending .boxed .box_bottom {
+  background: #aaddff;
+}
+

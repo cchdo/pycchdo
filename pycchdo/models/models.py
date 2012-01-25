@@ -1547,6 +1547,10 @@ class Cruise(Obj):
         return expo
 
     @property
+    def aliases(self):
+        return self.get('aliases', [])
+
+    @property
     def statuses(self):
         return self.get('statuses', [])
 
@@ -1662,11 +1666,29 @@ class Cruise(Obj):
     @classmethod
     def updated(cls, limit):
         file_types = data_file_descriptions.keys()
-        updated = _Attr.get_all({
+        query = {
             'key': {'$in': file_types},
-            'accepted': True},
-            limit=limit,
-            sort=[('judgment_stamp.timestamp', DESCENDING)])
+            'accepted': True
+        }
+        sort = [('judgment_stamp.timestamp', DESCENDING)]
+
+        skip = 0
+        step = limit * 4
+        updated = []
+        cruises = set()
+
+        while len(updated) < limit:
+            attrs = _Attr.get_all(query, sort=sort, skip=skip, limit=step)
+            if not attrs:
+                break
+            for attr in attrs:
+                cruise = attr.obj
+                if cruise not in cruises:
+                    cruises.add(cruise)
+                    updated.append(attr)
+                if len(updated) >= limit:
+                    break
+            skip += step
         return updated
 
     @classmethod

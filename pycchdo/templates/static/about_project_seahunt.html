@@ -1,0 +1,16 @@
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}About Project Seahunt{%- endblock %}
+{%- block head %}
+  {{ whh.tags.stylesheet_link('/static/css/seahunt.css') }}
+{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('About Project Seahunt', class='pending') %}
+    <p>
+      Project Seahunt is an interactive web-based tool that provides up-to-date
+      metadata and cruise tracks for proposed, planned, and current research
+      cruises, and allows users to post the same information about their own
+      cruises. Researchers and support staff collaborate to keep this information
+      up-to-date.
+    </p>
+  {%- endcall %}
+{%- endblock %}

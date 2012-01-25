@@ -1,92 +1,295 @@
-<map name="meter_map">
-<area alt="ACM1 (A05)" coords="70,94,102,108" href="/search?query=29HE06_1" shape="RECT">
-<area alt="ACM3 and ACM12 (AR15)" coords="83,207,129,221" href="/search?query=ar15" shape="RECT">
-<area alt="ACM4 (AR09)" coords="192,181,225,195" href="/search?query=ar09" shape="RECT">
-<area alt="ACM6 (AR19)" coords="118,65,150,79" href="/search?query=ar19" shape="RECT">
-<area alt="ACM7 (AR04)" coords="88,126,120,139" href="/search?query=ar04" shape="RECT">
-<area alt="ACM8 (AR25)" coords="137,35,169,48" href="/search?query=ar25" shape="RECT">
-<area alt="ACM9 (NO ASSOCIATED HYDROGRAPHY)" coords="188,72,220,86" nohref shape="RECT">
-<area alt="ACM10 (AR04 and AR15)" coords="123,128,161,142" href="/search?query=ar04" shape="RECT">
-<area alt="ACM11 (AR15)" coords="175,142,213,156" href="/search?query=ar15" shape="RECT">
-<area alt="ACM13 (AR15)" coords="140,185,178,199" href="/search?query=ar15" shape="RECT">
-<area alt="ACM24 (AR15 and A15)" coords="135,162,173,176" href="/search?query=ar15" shape="RECT">
-<area alt="ACM25 and ACM26 (AR11)" coords="149,95,201,108" href="/search?query=ar11" shape="RECT">
-<area alt="ACM27 and ACM28 (AR16 and AR07W)" coords="173,55,224,68" href="/search?query=ar16" shape="RECT">
-<area alt="ACM29 (AR7W and AR1W)" coords="100,48,137,61" href="/search?query=ar07" shape="RECT">
-<area alt="ICM1 (ISSO1)" coords="256,199,286,213" href="/search?query=iss01" shape="RECT">
-<area alt="ICM3 (IR03)" coords="310,165,340,180" href="/search?query=ir03" shape="RECT">
-<area alt="ICM4 (NO ASSOCIATED HYDROGRAPHY)" coords="406,145,436,159" nohref shape="RECT">
-<area alt="ICM6 (IR06)" coords="370,170,400,184" href="/search?query=ir06" shape="RECT">
-<area alt="ICM7 (ISS02)" coords="295,116,325,130" href="/search?query=iss02" shape="RECT">
-<area alt="ICM8 (NO ASSOCIATED HYDROGRAPHY)" coords="345,136,374,150" nohref shape="RECT">
-<area alt="ICM10 (NO ASSOCIATED HYDROGRAPHY)" coords="253,106,285,119" nohref shape="RECT">
-<area alt="PCM1 (NO ASSOCIATED HYDROGRAPHY)" coords="387,85,419,98" nohref shape="RECT">
-<area alt="PCM2 (NO ASSOCIATED HYDROGRAPHY)" coords="578,62,611,77" nohref shape="RECT">
-<area alt="PCM3 (PR11)" coords="474,182,507,196" href="/search?query=pr11" shape="RECT">
-<area alt="PCM5 (PR17?)" coords="442,103,475,116" href="/search?query=pr17" shape="RECT">
-<area alt="PCM6 (NO ASSOCIATED HYDROGRAPHY)" coords="466,63,498,77" nohref shape="RECT">
-<area alt="PCM7 (NO ASSOCIATED HYDROGRAPHY)" coords="456,86,488,100" nohref shape="RECT">
-<area alt="PCM9 (P06)" coords="546,197,578,211" href="/search?query=p06" shape="RECT">
-<area alt="PCM11 (P31)" coords="540,150,578,163" href="/search?query=3250031_1" shape="RECT">
-<area alt="PCM15" coords="460,139,498,153" href="/search?query=pr33" nohref shape="RECT">
-<area alt="SCM02 (SR02 and A12)" coords="196,255,229,269" href="/search?query=sr02" shape="RECT">
-<area alt="SCM02 (SR02 and A12)" coords="196,255,229,269" href="/search?query=sr02" shape="RECT">
-<area alt="SCM03 (SR03 and S04)" coords="457,235,490,248" href="/search?query=sr03" shape="RECT">
-<area alt="SCM04 (ISS03 and I05E)" coords="366,212,399,225" href="/search?query=iss03" shape="RECT">
-<area alt="SCM06 (ISS01)" coords="310,228,343,242" href="/search?query=iss01" shape="RECT">
-<area alt="SCM07 (SR04 and A12)" coords="86,241,118,255" href="/search?query=sr04" shape="RECT">
-<area alt="SCM09 (ISS01)" coords="233,229,266,242" href="/search?query=iss01" shape="RECT">
-</map>
+{%- extends 'templates/static/static.jinja2' %}
+{# TODO DEPRECATED? #}
+{%- block title %}Meter map{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('Meter map', class='meter-map') %}
 
-<div class='boxed'>
-<h1>Current Meter</h1>
-<div class='box_content'>
-<h2>Associated WOCE Data</h2>
-<div class='mapimg'><img src="/static/img/basin_maps/metermap.gif" width="686" height="305" usemap="#meter_map"></div>
-<p>Click on any current meter label to go to the associated hydrographic data.</p>
-<p>Note: Most current meter arrays have associated hydrographic data under different WOCE line labels.</p>
+    <p>Click on any current meter label to go to the associated hydrographic data.</p>
 
-<table>
-<tr><td>ACM01</td><td><a href="/search?query=a05">A05</a></td><td></td></tr>
-<tr><td>ACM03</td><td><a href="/search?query=ar15">AR15</a></td><td></td></tr>
-<tr><td>ACM04</td><td><a href="/search?query=ar09">AR09</a></td><td></td></tr>
-<tr><td>ACM06</td><td><a href="/search?query=ar19">AR19</a></td><td></td></tr>
-<tr><td>ACM07</td><td><a href="/search?query=ar04">AR04</a></td><td></td></tr>
-<tr><td>ACM08</td><td><a href="/search?query=ar25">AR25</a></td><td></td></tr>
-<tr><td>ACM09</td><td></td><td></td></tr>
-<tr><td>ACM10</td><td><a href="/search?query=ar04">AR04</a></td><td><a href="/search?query=ar15">AR15</a></td></tr>
-<tr><td>ACM11</td><td><a href="/search?query=ar15">AR15</a></td><td></td></tr>
-<tr><td>ACM12</td><td><a href="/search?query=ar15">AR15</a></td><td></td></tr>
-<tr><td>ACM13</td><td><a href="/search?query=ar15">AR15</a></td><td></td></tr>
-<tr><td>ACM24</td><td><a href="/search?query=a15">A15</a></td><td><a href="/search?query=ar15">AR15</a></td></tr>
-<tr><td>ACM25</td><td><a href="/search?query=ar11">AR11</a></td><td></td></tr>
-<tr><td>ACM26</td><td><a href="/search?query=ar11">AR11</a></td><td></td></tr>
-<tr><td>ACM27</td><td><a href="/search?query=ar16">AR16</a></td><td><a href="/search?query=ar07">AR07W</a></td></tr>
-<tr><td>ACM28</td><td><a href="/search?query=ar16">AR16</a></td><td><a href="/search?query=ar07">AR07W</a></td></tr>
-<tr><td>ACM29</td><td><a href="/search?query=ar01">AR01W</a></td><td><a href="/search?query=ar07">AR07W</a></td></tr>
-<tr><td>ICM01</td><td><a href="/search?query=iss01">ISS01</a></td><td></td></tr>
-<tr><td>ICM03</td><td><a href="/search?query=ir03">IR03</a></td><td></td></tr>
-<tr><td>ICM04</td><td></td><td></td></tr>
-<tr><td>ICM06</td><td><a href="/search?query=ir06">IR06</a></td><td></td></tr>
-<tr><td>ICM07</td><td><a href="/search?query=iss02">ISS02</a></td><td></td></tr>
-<tr><td>ICM08</td><td></td><td></td></tr>
-<tr><td>ICM10</td><td></td><td></td></tr>
-<tr><td>PCM01</td><td></td><td></td></tr>
-<tr><td>PCM02</td><td></td><td></td></tr>
-<tr><td>PCM03</td><td><a href="/search?query=pr11">PR11</a></td><td></td></tr>
-<tr><td>PCM05</td><td><a href="/search?query=pr17">PR17</a></td><td></td></tr>
-<tr><td>PCM06</td><td></td><td></td></tr>
-<tr><td>PCM07</td><td></td><td></td></tr>
-<tr><td>PCM09</td><td><a href="/search?query=p06">P06</a></td><td></td></tr>
-<tr><td>PCM11</td><td><a href="/search?query=p31">P31</a></td><td></td></tr>
-<tr><td>PCM15</td><td><a href="/search?query=pr33">PR33</a></td><td></td></tr>
-<tr><td>SCM02</td><td><a href="/search?query=sr02">SR02</a></td><td><a href="/search?query=a12">A12</a></td></tr>
-<tr><td>SCM03</td><td><a href="/search?query=sr03">SR03</a></td><td><a href="/search?query=s04">S04</a></td></tr>
-<tr><td>SCM04</td><td><a href="/search?query=iss03">ISS03</a></td><td><a href="/search?query=i05">I05E</a></td></tr>
-<tr><td>SCM06</td><td><a href="/search?query=iss01">ISS01</a></td><td></td></tr>
-<tr><td>SCM07</td><td><a href="/search?query=sr04">SR04</a></td><td><a href="/search?query=a12">A12</a></td></tr>
-<tr><td>SCM09</td><td><a href="/search?query=iss01">ISS01</a></td><td></td></tr>
-</table>
-</div>
-<div class='box_bottom'></div>
-</div>
+    <p>
+      Note: Most current meter arrays have associated hydrographic data under different WOCE line labels.
+    </p>
+
+    <map name="meter_map">
+      <area alt="ACM1 (A05)" coords="70,94,102,108" href="/data_access?ExpoCode=29HE06_1" shape="RECT">
+      <area alt="ACM3 and ACM12 (AR15)" coords="83,207,129,221" href="/table?id=ar15" shape="RECT">
+      <area alt="ACM4 (AR09)" coords="192,181,225,195" href="/table?id=ar09" shape="RECT">
+      <area alt="ACM6 (AR19)" coords="118,65,150,79" href="/table?id=ar19" shape="RECT">
+      <area alt="ACM7 (AR04)" coords="88,126,120,139" href="/table?id=ar04" shape="RECT">
+      <area alt="ACM8 (AR25)" coords="137,35,169,48" href="/table?id=ar25" shape="RECT">
+      <area alt="ACM9 (NO ASSOCIATED HYDROGRAPHY)" coords="188,72,220,86" nohref shape="RECT">
+      <area alt="ACM10 (AR04 and AR15)" coords="123,128,161,142" href="/table?id=ar04" shape="RECT">
+      <area alt="ACM11 (AR15)" coords="175,142,213,156" href="/table?id=ar15" shape="RECT">
+      <area alt="ACM13 (AR15)" coords="140,185,178,199" href="/table?id=ar15" shape="RECT">
+      <area alt="ACM24 (AR15 and A15)" coords="135,162,173,176" href="/table?id=ar15" shape="RECT">
+      <area alt="ACM25 and ACM26 (AR11)" coords="149,95,201,108" href="/table?id=ar11" shape="RECT">
+      <area alt="ACM27 and ACM28 (AR16 and AR07W)" coords="173,55,224,68" href="/table?id=ar16" shape="RECT">
+      <area alt="ACM29 (AR7W and AR1W)" coords="100,48,137,61" href="/table?id=ar07" shape="RECT">
+      <area alt="ICM1 (ISSO1)" coords="256,199,286,213" href="/table?id=iss01" shape="RECT">
+      <area alt="ICM3 (IR03)" coords="310,165,340,180" href="/table?id=ir03" shape="RECT">
+      <area alt="ICM4 (NO ASSOCIATED HYDROGRAPHY)" coords="406,145,436,159" nohref shape="RECT">
+      <area alt="ICM6 (IR06)" coords="370,170,400,184" href="/table?id=ir06" shape="RECT">
+      <area alt="ICM7 (ISS02)" coords="295,116,325,130" href="/table?id=iss02" shape="RECT">
+      <area alt="ICM8 (NO ASSOCIATED HYDROGRAPHY)" coords="345,136,374,150" nohref shape="RECT">
+      <area alt="ICM10 (NO ASSOCIATED HYDROGRAPHY)" coords="253,106,285,119" nohref shape="RECT">
+      <area alt="PCM1 (NO ASSOCIATED HYDROGRAPHY)" coords="387,85,419,98" nohref shape="RECT">
+      <area alt="PCM2 (NO ASSOCIATED HYDROGRAPHY)" coords="578,62,611,77" nohref shape="RECT">
+      <area alt="PCM3 (PR11)" coords="474,182,507,196" href="/table?id=pr11" shape="RECT">
+      <area alt="PCM5 (PR17?)" coords="442,103,475,116" href="/table?id=pr17" shape="RECT">
+      <area alt="PCM6 (NO ASSOCIATED HYDROGRAPHY)" coords="466,63,498,77" nohref shape="RECT">
+      <area alt="PCM7 (NO ASSOCIATED HYDROGRAPHY)" coords="456,86,488,100" nohref shape="RECT">
+      <area alt="PCM9 (P06)" coords="546,197,578,211" href="/table?id=p06" shape="RECT">
+      <area alt="PCM11 (P31)" coords="540,150,578,163" href="/data_access?ExpoCode=3250031_1" shape="RECT">
+      <area alt="PCM15" coords="460,139,498,153" href="/table?id=pr33" nohref shape="RECT">
+      <area alt="SCM02 (SR02 and A12)" coords="196,255,229,269" href="/table?id=sr02" shape="RECT">
+      <area alt="SCM02 (SR02 and A12)" coords="196,255,229,269" href="/table?id=sr02" shape="RECT">
+      <area alt="SCM03 (SR03 and S04)" coords="457,235,490,248" href="/table?id=sr03" shape="RECT">
+      <area alt="SCM04 (ISS03 and I05E)" coords="366,212,399,225" href="/table?id=iss03" shape="RECT">
+      <area alt="SCM06 (ISS01)" coords="310,228,343,242" href="/table?id=iss01" shape="RECT">
+      <area alt="SCM07 (SR04 and A12)" coords="86,241,118,255" href="/table?id=sr04" shape="RECT">
+      <area alt="SCM09 (ISS01)" coords="233,229,266,242" href="/table?id=iss01" shape="RECT">
+    </map>
+    <img src="/static/img/basin_maps/metermap.gif" width="686" height="305" alt="" border="0" usemap="#meter_map">
+
+    <table>
+      <tr class="header">
+        <th>Current Meter</th>
+        <th colspan="2">Associated WOCE Data</th>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM01</th>
+        <td><a href="/table?id=a05">A05</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM03</th>
+        <td><a href="/table?id=ar15">AR15</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM04</th>
+        <td><a href="/table?id=ar09">AR09</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM06</th>
+        <td><a href="/table?id=ar19">AR19</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM07</th>
+        <td><a href="/table?id=ar04">AR04</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM08</th>
+        <td><a href="/table?id=ar25">AR25</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM09</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM10</th>
+        <td><a href="/table?id=ar04">AR04</a></td>
+        <td><a href="/table?id=ar15">AR15</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM11</th>
+        <td><a href="/table?id=ar15">AR15</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM12</th>
+        <td><a href="/table?id=ar15">AR15</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM13</th>
+        <td><a href="/table?id=ar15">AR15</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM24</th>
+        <td><a href="/table?id=a15">A15</a></td>
+        <td><a href="/table?id=ar15">AR15</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM25</th>
+        <td><a href="/table?id=ar11">AR11</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM26</th>
+        <td><a href="/table?id=ar11">AR11</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM27</th>
+        <td><a href="/table?id=ar16">AR16</a></td>
+        <td><a href="/table?id=ar07">AR07W</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM28</th>
+        <td><a href="/table?id=ar16">AR16</a></td>
+        <td><a href="/table?id=ar07">AR07W</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ACM29</th>
+        <td><a href="/table?id=ar01">AR01W</a></td>
+        <td><a href="/table?id=ar07">AR07W</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM01</th>
+        <td><a href="/table?id=iss01">ISS01</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM03</th>
+        <td><a href="/table?id=ir03">IR03</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM04</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM06</th>
+        <td><a href="/table?id=ir06">IR06</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM07</th>
+        <td><a href="/table?id=iss02">ISS02</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM08</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">ICM10</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM01</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM02</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM03</th>
+        <td><a href="/table?id=pr11">PR11</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM05</th>
+        <td><a href="/table?id=pr17">PR17</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM06</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM07</th>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM09</th>
+        <td><a href="/table?id=p06">P06</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM11</th>
+        <td><a href="/table?id=p31">P31</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">PCM15</th>
+        <td><a href="/table?id=pr33">PR33</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">SCM02</th>
+        <td><a href="/table?id=sr02">SR02</a></td>
+        <td><a href="/table?id=a12">A12</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">SCM03</th>
+        <td><a href="/table?id=sr03">SR03</a></td>
+        <td><a href="/table?id=s04">S04</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">SCM04</th>
+        <td><a href="/table?id=iss03">ISS03</a></td>
+        <td><a href="/table?id=i05">I05E</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">SCM06</th>
+        <td><a href="/table?id=iss01">ISS01</a></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">SCM07</th>
+        <td><a href="/table?id=sr04">SR04</a></td>
+        <td><a href="/table?id=a12">A12</a></td>
+      </tr>
+
+      <tr>
+        <th class="current_meter">SCM09</th>
+        <td><a href="/table?id=iss01">ISS01</a></td>
+        <td></td>
+      </tr>
+    </table>
+  {%- endcall %}
+{%- endblock %}

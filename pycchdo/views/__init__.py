@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import cgi
 
+from pyramid.renderers import render_to_response, get_renderer
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
     HTTPNoContent
@@ -280,5 +281,5 @@ def catchall_static(request):
     relpath = os.path.join(static_path, subpath)
 
     if os.path.isfile(path):
-        return {'_static': relpath}
+        return render_to_response(relpath, {}, request)
     return HTTPNotFound()

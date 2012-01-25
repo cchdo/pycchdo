@@ -26,6 +26,7 @@ a.updates-available {
   border: none;
 }
 
+.preformatted,
 pre {
   line-height: 1.2em;
   font-size: 1em;
@@ -90,6 +91,9 @@ th, td {
 /* generic classes */
 .scrollable-y {
   overflow-y: auto;
+}
+.scrollable-x {
+  overflow-x: auto;
 }
 .clear { clear: both; }
 

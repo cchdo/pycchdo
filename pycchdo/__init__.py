@@ -69,6 +69,11 @@ def obj_routes(config, obj, plural_obj=None,
                          '/{obj}/{{{obj}_id}}/edit'.format(obj=obj))
 
 
+def route_for_path(config, route_name, path, view_callable):
+    config.add_route(route_name, path)
+    config.add_view(view_callable, route_name=route_name)
+
+
 def main(global_config, **settings):
     """ This function returns a Pyramid WSGI application.
     """
@@ -92,6 +97,7 @@ def main(global_config, **settings):
     config.include('pyramid_jinja2')
     config.include('pyramid_mailer')
     config.add_subscriber(add_renderer_globals, BeforeRender)
+    config.add_renderer('.html', 'pyramid_jinja2.renderer_factory')
 
     # Serve static files from root
     config.add_route('favicon', '/favicon.ico')
@@ -206,18 +212,24 @@ def main(global_config, **settings):
                     route_name='search_map_layer')
 
     # maintain legacy data_access
-    config.add_route('parameter_descriptions', '/parameter_descriptions')
-    config.add_view('pycchdo.views.legacy.parameter_descriptions',
-                    route_name='parameter_descriptions')
-    config.add_route('data_access','/data_access')
-    config.add_view('pycchdo.views.legacy.data_access', route_name='data_access')
+    route_for_path(config, 'parameter_descriptions',
+                   '/parameter_descriptions.html',
+                   'pycchdo.views.legacy.parameter_descriptions')
+    route_for_path(config, 'data_access', '/data_access',
+                   'pycchdo.views.legacy.data_access')
+    route_for_path(config, 'data_access_show_cruise',
+                   '/data_access/show_cruise',
+                   'pycchdo.views.legacy.data_access_show_cruise')
+    route_for_path(config, 'submit_no_ext', '/submit',
+                   'pycchdo.views.legacy.add_extension')
 
-    config.add_route('data_access_show_cruise','/data_access/show_cruise')
-    config.add_view('pycchdo.views.legacy.data_access_show_cruise',
-                    route_name='data_access_show_cruise')
-    config.add_route('submit_no_ext', '/submit')
-    config.add_view('pycchdo.views.legacy.add_extension',
-                    route_name='submit_no_ext')
+    # legacy static files
+    route_for_path(config, 'static_metermap', '/metermap.html',
+                   'pycchdo.views.legacy.static_metermap')
+    route_for_path(config, 'static_policies_parameters', '/policies/parameters.html',
+                   'pycchdo.views.legacy.static_policies_parameters')
+    route_for_path(config, 'static_policies_name', '/policies/name.html',
+                   'pycchdo.views.legacy.static_policies_name')
 
     # Tools
     config.add_route('tools_menu', '/tools.html')
@@ -251,11 +263,11 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.data', route_name='data')
 
     # Serve legacy /data prefix data files
-    config.add_route('data_df', '/data/*rest')
-    config.add_view('pycchdo.views.legacy.data_df', route_name='data_df')
+    route_for_path(config, 'data_df', '/data/*rest',
+                   'pycchdo.views.legacy.data_df')
 
 	# catchall_static must be last route
     config.add_route('catchall_static', '/*subpath')
-    config.add_view('pycchdo.views.catchall_static', route_name='catchall_static', renderer='templates/base.jinja2')
+    config.add_view('pycchdo.views.catchall_static', route_name='catchall_static')
 
     return config.make_wsgi_app()

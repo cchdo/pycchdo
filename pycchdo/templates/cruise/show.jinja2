@@ -9,6 +9,9 @@
   {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
   {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
+  {%- if not cruise.accepted %}
+    {{ whh.tags.stylesheet_link('/static/css/seahunt.css') }}
+  {%- endif %}
 {%- endblock %}
 {% macro cruise_attr(attr='', val='', callback=None, args) -%}
   {% if val %}
@@ -108,7 +111,7 @@
 {%- block content_attrs %} {% if cruise.accepted %}class="cruise-page"{% else %}class="cruise-page pending"{% endif %}{%- endblock %}
 {%- block content %}
   {%- if not cruise.accepted %}
-    <div id="pending-review" class="flash warning">
+    <div id="pending-review" class="pending flash warning">
       {%- if h.has_mod(request) %}
         <p>This cruise was entered by the public and needs to be reviewed.</p>
         {{ whh.tags.form('/obj/%s' % cruise.id, 'PUT') }}

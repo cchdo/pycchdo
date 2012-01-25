@@ -104,7 +104,7 @@ def title(**kwargs):
     except KeyError:
         content = None
     if content:
-        return ' | ' + content
+        return content + ' | '
     return ''
 
 
@@ -370,7 +370,13 @@ def link_file_holder(fh, full=False):
 def link_cruise(c):
     if not c:
         return ''
-    label = c.expocode or c.id
+    label = c.expocode
+    if not label:
+        aliases = c.aliases
+        if aliases:
+            label = aliases[0]
+        else:
+            label = c.id
     return whh.tags.link_to(label, path_cruise(c), title=label)
 
 

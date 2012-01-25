@@ -135,9 +135,7 @@ def basin_show(request):
     if basin not in allowed_basins:
         if basin in static_basins:
             request.matchdict = {'subpath': [u'basin/%s.html' % basin]}
-            response = catchall_static(request)
-            return render_to_response('templates/base.jinja2',
-                                      response, request=request)
+            return catchall_static(request)
         return HTTPNotFound()
 
     collections = None

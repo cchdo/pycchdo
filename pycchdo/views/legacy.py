@@ -38,3 +38,14 @@ def data_df(request):
 
 def parameter_descriptions(request):
     return HTTPMovedPermanently(location=request.route_path('parameters'))
+
+
+static_policies_parameters = parameter_descriptions
+
+
+def static_metermap(request):
+    return HTTPMovedPermanently(location='/maps/metermap.html')
+
+
+def static_policies_name(request):
+    return HTTPMovedPermanently(location='/policies/woce_name.html')

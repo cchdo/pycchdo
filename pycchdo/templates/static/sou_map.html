@@ -1,3 +1,7 @@
+{%- extends 'templates/static/static.jinja2' %}
+{# TODO DEPRECATED? #}
+{%- block title %}Southern | WOCE Reference Map{%- endblock %}
+{%- block content %}
 {%- call h.boxed('WOCE Reference Map Southern') %}
   <p>Click on any line label</p>
   <img src="/static/img/maps/basin/sou_map.jpg" width="562" height="569" usemap="#sou_map">
@@ -45,3 +49,4 @@
     <area shape="rect" coords="297,503,332,518" href="/cruise/316N138_7">
   </map>
 {%- endcall %}
+{%- endblock %}

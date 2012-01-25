@@ -1,102 +1,107 @@
-{% call h.boxed('Data Sharing Policy', class='data-sharing-policy') -%}
-  <h2>Data Sharing &dash; Official WOCE Statement</h2>
+{%- extends 'templates/static/static.jinja2' %}
+{# TODO format to match style #}
+{%- block title %}Data Sharing Policy{%- endblock %}
+{%- block content %}
+  {% call h.boxed('Data Sharing Policy', class='data-sharing-policy') -%}
+    <h2>Data Sharing &dash; Official WOCE Statement</h2>
 
-  <p>Our community is faced with a fundamental trade-off - on the one hand, the
-  protection of the intellectual effort and time of originating investigators
-  (those who plan an experiment, collect, calibrate, and process a data set to
-  answer some questions about the ocean), and on the other hand the need to
-  compare various data sets and data types to check their consistency, to better
-  understand the ocean processes involved, and to see how well the numerical
-  models describe the real ocean.</p>
+    <p>Our community is faced with a fundamental trade-off - on the one hand, the
+    protection of the intellectual effort and time of originating investigators
+    (those who plan an experiment, collect, calibrate, and process a data set to
+    answer some questions about the ocean), and on the other hand the need to
+    compare various data sets and data types to check their consistency, to better
+    understand the ocean processes involved, and to see how well the numerical
+    models describe the real ocean.</p>
 
-  <p>The WOCE program during the 1990s asked that any data collected as part of
-  WOCE should be made publicly available no later than two years from collection,
-  unless differing proprietary rights were specifically granted by the WOCE
-  Scientific Steering Group (SSG) and funding agencies.  The funding agencies
-  supporting the US Global Ocean Carbon and Repeat Hydrography Program, which
-  began its sea work in 2003, require essentially immediate (5-week from end of
-  cruise) public availability of shipboard data and two-year availability of most
-  other cruise data.  Other nations and other funding agencies impose various
-  different requirements on their investigators.  These are to be respected.</p>
+    <p>The WOCE program during the 1990s asked that any data collected as part of
+    WOCE should be made publicly available no later than two years from collection,
+    unless differing proprietary rights were specifically granted by the WOCE
+    Scientific Steering Group (SSG) and funding agencies.  The funding agencies
+    supporting the US Global Ocean Carbon and Repeat Hydrography Program, which
+    began its sea work in 2003, require essentially immediate (5-week from end of
+    cruise) public availability of shipboard data and two-year availability of most
+    other cruise data.  Other nations and other funding agencies impose various
+    different requirements on their investigators.  These are to be respected.</p>
 
-  <p>Global ocean change, ocean carbon, ocean modeling, climate and other studies
-  are most expeditiously advanced when data are freely and widely, but
-  appropriately, shared.  Originating investigators are thus strongly encouraged
-  to share their data even before being required to do so.  This means, however,
-  that some preliminary data will be in use in the community.  Data users who
-  make use of recently obtained data should contact the data originators not only
-  for the benefits of collegial nicety, but also to ensure that the data in use
-  have not been updated in some manner related to the analyses. This courtesy
-  also helps to insure that data originators are aware of the uses of their data
-  in the community - an important item they may wish to provide to their support
-  agencies - and it provides increased opportunities for collaboration. Data
-  originators are also aware of modifications to their data and documentation,
-  and of sources of additional data or documentation.</p>
+    <p>Global ocean change, ocean carbon, ocean modeling, climate and other studies
+    are most expeditiously advanced when data are freely and widely, but
+    appropriately, shared.  Originating investigators are thus strongly encouraged
+    to share their data even before being required to do so.  This means, however,
+    that some preliminary data will be in use in the community.  Data users who
+    make use of recently obtained data should contact the data originators not only
+    for the benefits of collegial nicety, but also to ensure that the data in use
+    have not been updated in some manner related to the analyses. This courtesy
+    also helps to insure that data originators are aware of the uses of their data
+    in the community - an important item they may wish to provide to their support
+    agencies - and it provides increased opportunities for collaboration. Data
+    originators are also aware of modifications to their data and documentation,
+    and of sources of additional data or documentation.</p>
 
-  <p>The primary distinction regarding data sharing within the CCHDO is whether
-  the data are "public" or, instead, whether they are "non-public". __"Public"
-  data may be placed on-line. They may be exchanged between investigators as
-  desired. They may or may not be preliminary, and especially for preliminary
-  public data users are strongly advised to contact the originating investigators
-  regarding the status of updates or further data processing. __"Non-public" data
-  cannot and will not be placed on-line at the CCHDO in open form. If available
-  from the CCHDO they must be encrypted or in password-controlled areas, with
-  passwords held by the data providers (and the CCHDO). Investigators who wish to
-  use non-public data then must contact the data originator(s) for permission to
-  use the data and, if permission is granted, for the password(s).</p>
+    <p>The primary distinction regarding data sharing within the CCHDO is whether
+    the data are "public" or, instead, whether they are "non-public". "Public"
+    data may be placed on-line. They may be exchanged between investigators as
+    desired. They may or may not be preliminary, and especially for preliminary
+    public data users are strongly advised to contact the originating investigators
+    regarding the status of updates or further data processing. "Non-public" data
+    cannot and will not be placed on-line at the CCHDO in open form. If available
+    from the CCHDO they must be encrypted or in password-controlled areas, with
+    passwords held by the data providers (and the CCHDO). Investigators who wish to
+    use non-public data then must contact the data originator(s) for permission to
+    use the data and, if permission is granted, for the password(s).</p>
 
-  <p>ALL CCHDO-relevant data, preliminary or final, public or non-public, should
-  be at the CCHDO. Preliminary data should be sent to the CCHDO as soon as they
-  are available. They will be closely guarded from public dissemination if the
-  data originators indicate they are to remain "non-public". This action permits
-  the CCHDO to work with investigators quietly, "behind the scenes", to correct
-  minor format and content problems common in most data files.  The CCHDO, on its
-  own initiative, will not make "public" any "non-public" data files without
-  approval from the data originator(s).</p>
+    <p>ALL CCHDO-relevant data, preliminary or final, public or non-public, should
+    be at the CCHDO. Preliminary data should be sent to the CCHDO as soon as they
+    are available. They will be closely guarded from public dissemination if the
+    data originators indicate they are to remain "non-public". This action permits
+    the CCHDO to work with investigators quietly, "behind the scenes", to correct
+    minor format and content problems common in most data files.  The CCHDO, on its
+    own initiative, will not make "public" any "non-public" data files without
+    approval from the data originator(s).</p>
 
-  <h2>Data Sharing Policy &dash; Addenda to Official Policy, from the WHP Office</h2>
+    <h2>Data Sharing Policy &dash; Addenda to Official Policy, from the WHP Office</h2>
 
-  <ol>
-    <li>
-      <p>The primary distinction regarding data sharing within the WHP is whether
-      the data are "public" or, instead, whether they are "non-public".</p>
-      <p>"Public" data may be placed on-line at the WHPO or other web sites, or
-      on WHPO CD-ROMs. They may be exchanged between investigators as desired.
-      They may or may not be preliminary, and especially for preliminary public
-      data users are strongly advised to contact the WHP Office (for example at
-      our online website) and/or the originating investigator regarding the
-      status of updates or further data processing.</p>
-      <p>"Non-public" data cannot be placed on-line in open form at the WHPO or
-      other web sites, or on WHPO CD-ROMs. If available from such locations they
-      must be encrypted or locked, with passwords held by the data provider (and
-      the WHP Office). Investigators who wish to use non-public data must contact
-      the data originator(s) for permission to use the data and, if permission is
-      granted, for the password(s).</p>
-    </li>
-    <li>
-      <p>WHP data originators may keep their data "non-public" as long as they
-      wish, and they shall be the only ones to choose when their data shall
-      become "public". Data originators are, however, greatly encouraged to abide
-      by WOCE data sharing guidelines (above).</p>
-    </li>
-    <li>
-      <p>Investigators using "public" WHP data are strongly advised to contact
-      data originators to inform them of their plans.This courtesy helps to
-      insure that data originators are aware of the uses of their data in the
-      community - an important item they may wish to provide to their support
-      agencies - and it provides increased opportunities for collaboration. Data
-      originators are also aware of modifications to their data and
-      documentation, and of sources of additional data or documentation.</p>
-    </li>
-    <li>
-      <p>ALL WHP data, preliminary or final, public or non-public, should be at
-      the WHP Office. Preliminary data should be sent to the WHP Office as soon
-      as they are available. They will be password-protected and closely guarded
-      from public dissemination. This action permits the WHP Office to work with
-      investigators quietly, "behind the scenes", to correct minor format and
-      content problems common in most WHP data files, and permits the
-      investigators to place onto the WHP Office the burden of data dissemination
-      to their co-investigators.</p>
-    </li>
-  </ol>
-{%- endcall %}
+    <ol>
+      <li>
+        <p>The primary distinction regarding data sharing within the WHP is whether
+        the data are "public" or, instead, whether they are "non-public".</p>
+        <p>"Public" data may be placed on-line at the WHPO or other web sites, or
+        on WHPO CD-ROMs. They may be exchanged between investigators as desired.
+        They may or may not be preliminary, and especially for preliminary public
+        data users are strongly advised to contact the WHP Office (for example at
+        our online website) and/or the originating investigator regarding the
+        status of updates or further data processing.</p>
+        <p>"Non-public" data cannot be placed on-line in open form at the WHPO or
+        other web sites, or on WHPO CD-ROMs. If available from such locations they
+        must be encrypted or locked, with passwords held by the data provider (and
+        the WHP Office). Investigators who wish to use non-public data must contact
+        the data originator(s) for permission to use the data and, if permission is
+        granted, for the password(s).</p>
+      </li>
+      <li>
+        <p>WHP data originators may keep their data "non-public" as long as they
+        wish, and they shall be the only ones to choose when their data shall
+        become "public". Data originators are, however, greatly encouraged to abide
+        by WOCE data sharing guidelines (above).</p>
+      </li>
+      <li>
+        <p>Investigators using "public" WHP data are strongly advised to contact
+        data originators to inform them of their plans.This courtesy helps to
+        insure that data originators are aware of the uses of their data in the
+        community - an important item they may wish to provide to their support
+        agencies - and it provides increased opportunities for collaboration. Data
+        originators are also aware of modifications to their data and
+        documentation, and of sources of additional data or documentation.</p>
+      </li>
+      <li>
+        <p>ALL WHP data, preliminary or final, public or non-public, should be at
+        the WHP Office. Preliminary data should be sent to the WHP Office as soon
+        as they are available. They will be password-protected and closely guarded
+        from public dissemination. This action permits the WHP Office to work with
+        investigators quietly, "behind the scenes", to correct minor format and
+        content problems common in most WHP data files, and permits the
+        investigators to place onto the WHP Office the burden of data dissemination
+        to their co-investigators.</p>
+      </li>
+    </ol>
+  {%- endcall %}
+{%- endblock %}

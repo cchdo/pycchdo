@@ -1,22 +1,23 @@
-<p>
-ExpoCode Conventions
-</p>
-<hr />
-<pre class="fixed">
-<font face="Courier New, Courier">
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}ExpoCode conventions{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('ExpoCode conventions') %}
+    <p>ExpoCodes created after January 2006 will have the following format:</p>
 
-<b>ExpoCodes created after January 2006 will have the following format:</b><br>
-ExpoCode Syntax: NODCShipCodeYearMonthDay
-Example: Line - pr40
-         Ship Name - Roger Revelle
-         ExpoCode - 33RR20090329
-         Cruise date March 29, 2009
-<br>
-<b>ExpoCodes created before January 2006 will keep their established name,
-but will also be discoverable by the newer style ExpoCode.</b>
-</font>
-</pre>
+    <p>NODCShipCodeYearMonthDay</p>
 
-<hr size="1">
-<br><br>
-Questions/Comments: <a href="mailto:sdiggs(at)ucsd.edu">Steve Diggs</a> &#149; 858-534-1108<br><br>
+    <h2>Example derivation</h2>
+    <table>
+      <tr><th>Ship Name</th><td>Roger Revelle (<a href="http://www.nodc.noaa.gov/General/NODC-Archive/platformlist.txt">NODC Ship Code</a>: 33RR)</td>
+      <tr><th>Cruise start date</th><td>March 29, 2009 (2009-03-29)</td>
+      <tr><th>ExpoCode</th><td>33RR20090329</td>
+    </table>
+
+    <p>
+      ExpoCodes created before January 2006 will keep their established name,
+      but will also be discoverable by the newer style ExpoCode.
+    </p>
+
+    {{ questions_for_steve() }}
+  {%- endcall %}
+{%- endblock %}

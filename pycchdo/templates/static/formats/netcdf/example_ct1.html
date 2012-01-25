@@ -1,113 +1,116 @@
-{% call h.boxed('NetCDF CTD ncdump Example') -%}
-<pre class="fixed"><font face="Courier New, Courier">
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}NetCDF CTD ncdump Example | Formats {%- endblock %}
+{%- block content %}
+  {% call h.boxed('NetCDF CTD ncdump Example') -%}
+  <pre class="scrollable-x">
 netcdf a08_267_00002_ctd {
 dimensions:
-	time = 1 ;
-	pressure = 1858 ;
-	latitude = 1 ;
-	longitude = 1 ;
-	string_dimension = 40 ;
+  time = 1 ;
+  pressure = 1858 ;
+  latitude = 1 ;
+  longitude = 1 ;
+  string_dimension = 40 ;
 variables:
-	int time(time) ;
-		time:long_name = "time" ;
-		time:units = "minutes since 1980-01-01 00:00:00" ;
-		time:data_min = 7540256 ;
-		time:data_max = 7540256 ;
-		time:C_format = "%10d" ;
-	double pressure(pressure) ;
-		pressure:long_name = "pressure" ;
-		pressure:units = "dbar" ;
-		pressure:positive = "down" ;
-		pressure:data_min = 0.f ;
-		pressure:data_max = 3716.f ;
-		pressure:C_format = "%8.1f" ;
-		pressure:WHPO_Variable_Name = "CTDPRS" ;
-		pressure:OBS_QC_VARIABLE = "pressure_QC" ;
-	short pressure_QC(pressure) ;
-		pressure_QC:long_name = "pressure_QC_flag" ;
-		pressure_QC:units = "woce_flags" ;
-		pressure_QC:C_format = "%1d" ;
-	double temperature(pressure) ;
-		temperature:long_name = "temperature" ;
-		temperature:units = "its-90" ;
-		temperature:data_min = 2.3844f ;
-		temperature:data_max = 27.1433f ;
-		temperature:C_format = "%8.4f" ;
-		temperature:WHPO_Variable_Name = "CTDTMP" ;
-		temperature:OBS_QC_VARIABLE = "temperature_QC" ;
-	short temperature_QC(pressure) ;
-		temperature_QC:long_name = "temperature_QC_flag" ;
-		temperature_QC:units = "woce_flags" ;
-		temperature_QC:C_format = "%1d" ;
-	double salinity(pressure) ;
-		salinity:long_name = "ctd salinity" ;
-		salinity:units = "pss-78" ;
-		salinity:data_min = 34.5066f ;
-		salinity:data_max = 36.1761f ;
-		salinity:C_format = "%8.4f" ;
-		salinity:WHPO_Variable_Name = "CTDSAL" ;
-		salinity:OBS_QC_VARIABLE = "salinity_QC" ;
-	short salinity_QC(pressure) ;
-		salinity_QC:long_name = "ctd salinity_QC_flag" ;
-		salinity_QC:units = "woce_flags" ;
-		salinity_QC:C_format = "%1d" ;
-	double oxygen(pressure) ;
-		oxygen:long_name = "ctd oxygen" ;
-		oxygen:units = "umol/kg" ;
-		oxygen:data_min = -999.f ;
-		oxygen:data_max = 0.f ;
-		oxygen:C_format = "%8.1f" ;
-		oxygen:WHPO_Variable_Name = "CTDOXY" ;
-		oxygen:OBS_QC_VARIABLE = "oxygen_QC" ;
-	short oxygen_QC(pressure) ;
-		oxygen_QC:long_name = "ctd oxygen_QC_flag" ;
-		oxygen_QC:units = "woce_flags" ;
-		oxygen_QC:C_format = "%1d" ;
-	double latitude(latitude) ;
-		latitude:long_name = "latitude" ;
-		latitude:units = "degrees_N" ;
-		latitude:data_min = -11.3338f ;
-		latitude:data_max = -11.3338f ;
-		latitude:C_format = "%9.4f" ;
-	double longitude(longitude) ;
-		longitude:long_name = "longitude" ;
-		longitude:units = "degrees_E" ;
-		longitude:data_min = 11.2497f ;
-		longitude:data_max = 11.2497f ;
-		longitude:C_format = "%9.4f" ;
-	int woce_date(time) ;
-		woce_date:long_name = "WOCE date" ;
-		woce_date:units = "yyyymmdd UTC" ;
-		woce_date:data_min = 1.99405e+07f ;
-		woce_date:data_max = 1.99405e+07f ;
-		woce_date:C_format = "%8d" ;
-	int woce_time(time) ;
-		woce_time:long_name = "WOCE time" ;
-		woce_time:units = "hhmm UTC" ;
-		woce_time:data_min = 756.f ;
-		woce_time:data_max = 756.f ;
-		woce_time:C_format = "%4d" ;
-	char station(string_dimension) ;
-		station:long_name = "STATION" ;
-		station:units = "unspecified" ;
-		station:C_format = "%s" ;
-	char cast(string_dimension) ;
-		cast:long_name = "CAST" ;
-		cast:units = "unspecified" ;
-		cast:C_format = "%s" ;
+  int time(time) ;
+    time:long_name = "time" ;
+    time:units = "minutes since 1980-01-01 00:00:00" ;
+    time:data_min = 7540256 ;
+    time:data_max = 7540256 ;
+    time:C_format = "%10d" ;
+  double pressure(pressure) ;
+    pressure:long_name = "pressure" ;
+    pressure:units = "dbar" ;
+    pressure:positive = "down" ;
+    pressure:data_min = 0.f ;
+    pressure:data_max = 3716.f ;
+    pressure:C_format = "%8.1f" ;
+    pressure:WHPO_Variable_Name = "CTDPRS" ;
+    pressure:OBS_QC_VARIABLE = "pressure_QC" ;
+  short pressure_QC(pressure) ;
+    pressure_QC:long_name = "pressure_QC_flag" ;
+    pressure_QC:units = "woce_flags" ;
+    pressure_QC:C_format = "%1d" ;
+  double temperature(pressure) ;
+    temperature:long_name = "temperature" ;
+    temperature:units = "its-90" ;
+    temperature:data_min = 2.3844f ;
+    temperature:data_max = 27.1433f ;
+    temperature:C_format = "%8.4f" ;
+    temperature:WHPO_Variable_Name = "CTDTMP" ;
+    temperature:OBS_QC_VARIABLE = "temperature_QC" ;
+  short temperature_QC(pressure) ;
+    temperature_QC:long_name = "temperature_QC_flag" ;
+    temperature_QC:units = "woce_flags" ;
+    temperature_QC:C_format = "%1d" ;
+  double salinity(pressure) ;
+    salinity:long_name = "ctd salinity" ;
+    salinity:units = "pss-78" ;
+    salinity:data_min = 34.5066f ;
+    salinity:data_max = 36.1761f ;
+    salinity:C_format = "%8.4f" ;
+    salinity:WHPO_Variable_Name = "CTDSAL" ;
+    salinity:OBS_QC_VARIABLE = "salinity_QC" ;
+  short salinity_QC(pressure) ;
+    salinity_QC:long_name = "ctd salinity_QC_flag" ;
+    salinity_QC:units = "woce_flags" ;
+    salinity_QC:C_format = "%1d" ;
+  double oxygen(pressure) ;
+    oxygen:long_name = "ctd oxygen" ;
+    oxygen:units = "umol/kg" ;
+    oxygen:data_min = -999.f ;
+    oxygen:data_max = 0.f ;
+    oxygen:C_format = "%8.1f" ;
+    oxygen:WHPO_Variable_Name = "CTDOXY" ;
+    oxygen:OBS_QC_VARIABLE = "oxygen_QC" ;
+  short oxygen_QC(pressure) ;
+    oxygen_QC:long_name = "ctd oxygen_QC_flag" ;
+    oxygen_QC:units = "woce_flags" ;
+    oxygen_QC:C_format = "%1d" ;
+  double latitude(latitude) ;
+    latitude:long_name = "latitude" ;
+    latitude:units = "degrees_N" ;
+    latitude:data_min = -11.3338f ;
+    latitude:data_max = -11.3338f ;
+    latitude:C_format = "%9.4f" ;
+  double longitude(longitude) ;
+    longitude:long_name = "longitude" ;
+    longitude:units = "degrees_E" ;
+    longitude:data_min = 11.2497f ;
+    longitude:data_max = 11.2497f ;
+    longitude:C_format = "%9.4f" ;
+  int woce_date(time) ;
+    woce_date:long_name = "WOCE date" ;
+    woce_date:units = "yyyymmdd UTC" ;
+    woce_date:data_min = 1.99405e+07f ;
+    woce_date:data_max = 1.99405e+07f ;
+    woce_date:C_format = "%8d" ;
+  int woce_time(time) ;
+    woce_time:long_name = "WOCE time" ;
+    woce_time:units = "hhmm UTC" ;
+    woce_time:data_min = 756.f ;
+    woce_time:data_max = 756.f ;
+    woce_time:C_format = "%4d" ;
+  char station(string_dimension) ;
+    station:long_name = "STATION" ;
+    station:units = "unspecified" ;
+    station:C_format = "%s" ;
+  char cast(string_dimension) ;
+    cast:long_name = "CAST" ;
+    cast:units = "unspecified" ;
+    cast:C_format = "%s" ;
 
 // global attributes:
-		:EXPOCODE = "06MT28_1" ;
-		:Conventions = "COARDS/WOCE" ;
-		:WOCE_VERSION = "3.0" ;
-		:WOCE_ID = "A08" ;
-		:DATA_TYPE = "WOCE CTD" ;
-		:STATION_NUMBER = "267" ;
-		:CAST_NUMBER = "2" ;
-		:BOTTOM_DEPTH_METERS = -999 ;
-		:Creation_Time = "Diggs Code Version 1.2: Wed Jul  3 18:50:24 2002 GMT" ;
-		:ORIGINAL_HEADER = ":CTD,20011218WHPOSIOKJU:#Software Version: CTD_Exchange_Encode_v1.0e (Diggs):#SUMFILE_NAME:     a08su.txt:#SUMFILE_MOD_DATE: Tue Dec 18 15:11:08 2001:#CTDFILE_NAME:     a08_0267.wct:#CTDFILE_MOD_DATE: Tue Dec 18 15:12:15 2001:#DEPTH_TYPE      : COR:#EVENT_CODE      : BO:" ;
-		:WOCE_CTD_FLAG_DESCRIPTION = "::1=Not calibrated:2=Acceptable measurement:3=Questionable measurement:4=Bad measurement:5=Not reported:6=Interpolated over >2 dbar interval:7=Despiked:8=Not assigned for CTD data:9=Not sampled::" ;
+    :EXPOCODE = "06MT28_1" ;
+    :Conventions = "COARDS/WOCE" ;
+    :WOCE_VERSION = "3.0" ;
+    :WOCE_ID = "A08" ;
+    :DATA_TYPE = "WOCE CTD" ;
+    :STATION_NUMBER = "267" ;
+    :CAST_NUMBER = "2" ;
+    :BOTTOM_DEPTH_METERS = -999 ;
+    :Creation_Time = "Diggs Code Version 1.2: Wed Jul  3 18:50:24 2002 GMT" ;
+    :ORIGINAL_HEADER = ":CTD,20011218WHPOSIOKJU:#Software Version: CTD_Exchange_Encode_v1.0e (Diggs):#SUMFILE_NAME:     a08su.txt:#SUMFILE_MOD_DATE: Tue Dec 18 15:11:08 2001:#CTDFILE_NAME:     a08_0267.wct:#CTDFILE_MOD_DATE: Tue Dec 18 15:12:15 2001:#DEPTH_TYPE      : COR:#EVENT_CODE      : BO:" ;
+    :WOCE_CTD_FLAG_DESCRIPTION = "::1=Not calibrated:2=Acceptable measurement:3=Questionable measurement:4=Bad measurement:5=Not reported:6=Interpolated over >2 dbar interval:7=Despiked:8=Not assigned for CTD data:9=Not sampled::" ;
 data:
 
  time =    7540256 ;
@@ -1508,5 +1511,6 @@ data:
 
  cast = "2" ;
 }
-</pre>
-{%- endcall %}
+  </pre>
+  {%- endcall %}
+{%- endblock %}

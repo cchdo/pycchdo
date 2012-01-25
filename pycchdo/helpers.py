@@ -1,3 +1,4 @@
+import datetime as dt
 from urllib import quote
 from json import dumps
 import logging
@@ -66,14 +67,17 @@ def is_staff(user):
     if user.name_last == 'Shen' and \
        user.name_first in ['Matthew', 'Andrew']:
         return True
+    if user.name_last == 'Barna' and \
+       user.name_first == 'Andrew':
+        return True
     if user.name_last == 'Berys' and \
        user.name_first == 'Carolina':
         return True
     if user.name_last == 'Fields' and \
-       user.naem_first == 'Justin':
+       user.name_first == 'Justin':
         return True
     if user.name_last == 'Diggs' and \
-       user.naem_first == 'Steve':
+       user.name_first == 'Steve':
         return True
 
 
@@ -323,6 +327,11 @@ def cruise_history_rows(change, i, hl):
         )
 
 
+def cruises_sort_by_date_start(cruises):
+    zero = dt.datetime(1, 1, 1)
+    return sorted(cruises, key=lambda c: c.date_start or zero)
+
+
 def cruise_listing(cruises, verbose=False):
     list = []
     for cruise in cruises:
@@ -340,9 +349,7 @@ def collection_names(coll_list):
 def path_cruise(c):
     if not c:
         return ''
-    if not c.expocode:
-        return u'/cruise/%s' % c.id
-    return u'/cruise/%s' % c.expocode
+    return u'/cruise/%s' % c.identifier
 
 
 def link_obj(obj):
@@ -582,14 +589,10 @@ def _basin_map_exists(path):
     return os.path.isfile(file_path)
 
 
-def get_basin_map(basin, collection):
-    def cruise():
-        cruise = None
-        if collection:
-            cruises = collection.cruises(limit=1)
-            if len(cruises) > 0:
-                cruise = cruises[0]
-        return cruise
+def get_basin_map(basin, collection, cruises=[]):
+    cruise = None
+    if len(cruises) > 0:
+        cruise = cruises[0]
 
     basin = basin.lower()
     base_path = os.path.join(os.path.sep, 'static', 'img', 'maps', 'basin',
@@ -604,7 +607,6 @@ def get_basin_map(basin, collection):
                 return path
         except AttributeError:
             pass
-        cruise = cruise()
         try:
             path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
             if _basin_map_exists(path):
@@ -619,7 +621,6 @@ def get_basin_map(basin, collection):
                 return path
         except AttributeError:
             pass
-        cruise = cruise()
         try:
             path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
             if _basin_map_exists(path):
@@ -635,6 +636,15 @@ def get_basin_map(basin, collection):
         except AttributeError:
             pass
     return os.path.join(base_path, '%s_base.gif' % basin)
+
+
+def image_map_id(basin):
+    if basin == 'Arctic':
+        return '#m_arctic'
+    elif basin == 'Indian':
+        return '#m_indian'
+    elif basin == 'Southern':
+        return '#m_southern'
 
 
 def area_attrs_no():

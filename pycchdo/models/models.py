@@ -85,10 +85,19 @@ def init_conn(settings, **kwargs):
 def ensure_indices():
     cchdo().attrs.ensure_index([('obj', 1), ('value', 1)])
     cchdo().attrs.ensure_index([('key', 1), ('value', 1), ('accepted', 1)])
-    cchdo().attrs.ensure_index([('key', 1), ('accepted_value', 1), ('accepted', 1)])
-    # This requires MongoDB >=1.3.3
+    cchdo().attrs.ensure_index([
+        ('obj', 1), ('key', 1), ('accepted', 1),
+        ('judgment_stamp.timestamp', -1), ])
+    cchdo().attrs.ensure_index([
+        ('key', 1), ('value', 1), ('accepted', 1), ])
+    cchdo().attrs.ensure_index([
+        ('key', 1), ('accepted_value', 1), ('accepted', 1), ])
+    # GEO2D index requires MongoDB >=1.3.3
     cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
-    # Indexing by polygon requires MongoDB >=1.9
+    # Indexing by polygon requires MongoDB >=1.9 It is not included.
+    cchdo().objs.ensure_index([('_id', 1), ('_obj_type', 1), ])
+    cchdo().objs.ensure_index([('creation_stamp.timestamp', 1), ])
+    cchdo().objs.ensure_index([('judgment_stamp.timestamp', 1), ])
 
 
 def cchdo():
@@ -142,8 +151,6 @@ def ensure_objectid(idobj):
             return ObjectId(idobj)
         except TypeError:
             return None
-        except InvalidId:
-            raise ValueError()
     return idobj
 
 
@@ -441,9 +448,11 @@ class collectablemongodoc(idablemongodoc):
     def find_id(cls, idobj):
         try:
             idobj = ensure_objectid(idobj)
-        except pymongo.objectid.InvalidId:
+        except InvalidId:
             raise ValueError()
-        return cls.find_one({'_id': idobj})
+        except ValueError:
+            return None
+        return cls._mongo_collection().find_one(idobj)
 
     @classmethod
     def get_all(cls, *args, **kwargs):
@@ -456,6 +465,10 @@ class collectablemongodoc(idablemongodoc):
     @classmethod
     def get_id(cls, idobj):
         return cls.map_mongo(cls.find_id(idobj))
+
+    @classmethod
+    def get_all_by_ids(cls, obj_ids):
+        return cls.get_all({'_id': {'$in': obj_ids}})
 
     def __str__(self):
         return unicode(self).encode('ascii', 'replace')
@@ -1047,9 +1060,9 @@ class Obj(_Change):
     def current_attrs(self):
         curr = {}
         deleted = set()
-        for attr in _Attr.map_mongo(sort_by_stamp(
-                                        self.find_attrs({'accepted': True}),
-                                        'judgment')):
+        for attr in _Attr.map_mongo(
+                        sort_by_stamp(self.find_attrs({'accepted': True}),
+                                      'judgment')):
             k = attr.key
             if k not in curr and k not in deleted:
                 if attr.deleted:
@@ -1070,7 +1083,7 @@ class Obj(_Change):
 
     def get(self, key, default=None):
         try:
-            return super(Obj, self).__getitem__(key)
+            return self.__getitem__(key)
         except KeyError:
             try:
                 return self.get_attr(key).value
@@ -1168,26 +1181,34 @@ class Obj(_Change):
         return cls._mongo_collection().find_one(*args, **kwargs)
 
     @classmethod
-    def find_id(cls, idobj):
-        if type(idobj) is not ObjectId:
-            try:
-                idobj = ObjectId(idobj)
-            except pymongo.objectid.InvalidId:
-                return None
-        if cls is Obj:
-            return cls.find_one({'_id': idobj})
-        return cls.find_one({'_id': idobj, '_obj_type': cls.__name__})
+    def _attr_value_key(cls, key, value_key=None):
+        if value_key:
+            return '%s.%s' % (key, value_key)
+        return key
 
     @classmethod
-    def _get_by_attrs_true_match(cls, obj, **kwargs):
+    def _get_by_attrs_true_match(cls, obj, value_key, **kwargs):
         """ Make sure the most current values match by filtering resulting objs
         """
         if obj is None:
             return False
         for k, v in kwargs.items():
+            key = cls._attr_value_key(k, value_key)
             obj_v = obj.get(k)
 
             if type(obj_v) is list and type(v) is not list:
+                if '.' in key:
+                    try:
+                        i = int(key.split('.')[1])
+                        try:
+                            return v.match(obj_v[i])
+                        except AttributeError:
+                            return v == obj_v[i]
+                    except ValueError:
+                        # The user has specified a non integer in the array
+                        # index portion of the query. Things should have failed
+                        # long ago.
+                        pass
                 try:
                     if not any(v.match(x) for x in obj_v):
                         return False
@@ -1202,13 +1223,37 @@ class Obj(_Change):
                     if obj_v != v:
                         return False
         return True
+    
+    @classmethod
+    def _get_by_attrs_query(cls, k, v, value_key):
+        value_query = _str2unicode(v)
+        return {
+            'key': unicode(k),
+            'accepted': True,
+            '$or': [
+                 {'$and': [
+                     {'accepted_value': {'$ne': None}},
+                     {cls._attr_value_key('accepted_value', value_key):
+                      value_query},
+                 ]}, 
+                 {'$and': [
+                     {'accepted_value': None},
+                     {cls._attr_value_key('value', value_key): value_query},
+                 ]}, 
+            ]
+        }
 
     @classmethod
-    def get_by_attrs(cls, d={}, **kwargs):
+    def get_by_attrs(cls, d={}, value_key=None, **kwargs):
         """ Gets all objects that have _Attrs that match all the requested
             key-value pairs.
 
             Values may be regular expression objects as compiled by `re`.
+
+            value_key - (str) an additional key to be appended to the value key.
+                This is useful for querying on sub-objects in the _Attr value
+                e.g.  requiring a specific value for a specific element of the
+                _Attr value array.
 
         """
         map = d
@@ -1218,24 +1263,8 @@ class Obj(_Change):
         if not map:
             raise ValueError("No filters specified. Did you mean get_all()?")
 
-        def querygen(k, v):
-            value_query = _str2unicode(v)
-            return {
-                'key': unicode(k),
-                'accepted': True,
-                '$or': [
-                     {'$and': [
-                         {'accepted_value': {'$ne': None}},
-                         {'accepted_value': value_query},
-                     ]}, 
-                     {'$and': [
-                         {'accepted_value': None},
-                         {'value': value_query},
-                     ]}, 
-                ]
-            }
-
-        query = [querygen(k, v) for k, v in map.items()]
+        query = [cls._get_by_attrs_query(k, v, value_key) 
+                 for k, v in map.items()]
 
         len_query = len(query)
         objs_attrs = _Attr._mongo_collection().group(
@@ -1244,11 +1273,13 @@ class Obj(_Change):
             {'a': 0}, 
             'function (x, o) { o.a++; }')
 
-        # Filter the matched objs for the correct number of matched attrs
-        objs = [cls.get_id(oa['obj']) for oa in objs_attrs \
-                                       if oa['a'] == len_query]
-        return filter(lambda o: cls._get_by_attrs_true_match(o, **kwargs),
-                      objs)
+        # Filter the matched ids for the correct number of matched attrs
+        obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] == len_query]
+        objs = cls.get_all_by_ids(obj_ids)
+
+        return filter(
+            lambda o: cls._get_by_attrs_true_match(o, value_key, **map),
+            objs)
 
     @classmethod
     def descendant_classes(cls):
@@ -1509,6 +1540,13 @@ class Cruise(Obj):
         return self.get('expocode')
 
     @property
+    def identifier(self):
+        expo = self.expocode
+        if not expo or ' ' in expo or '/' in expo:
+            return self.id
+        return expo
+
+    @property
     def statuses(self):
         return self.get('statuses', [])
 
@@ -1537,8 +1575,7 @@ class Cruise(Obj):
     @property
     def collections(self):
         collection_ids = self.get('collections', [])
-        return filter(
-            None, [Collection.get_id(x) for x in collection_ids])
+        return Collection.get_all_by_ids(collection_ids)
 
     @property
     def institutions(self):
@@ -1548,8 +1585,7 @@ class Cruise(Obj):
 
         """
         institution_ids = self.get('institutions', [])
-        return filter(
-            None, [Institution.get_id(x) for x in institution_ids])
+        return Institution.get_all_by_ids(institution_ids)
 
     @property
     def collections_woce_line(self):
@@ -1609,7 +1645,8 @@ class Cruise(Obj):
 
     @classmethod
     def get_by_expocode(cls, expocode):
-        attrs = sort_by_stamp(_Attr.find({'key': 'expocode'}))
+        attrs = sort_by_stamp(_Attr.find({'key': 'expocode',
+                                          'accepted': True}))
         # Get Attrs that represent most current key value for objs
         obj_expocodes = {}
         for attr in attrs:
@@ -1620,7 +1657,32 @@ class Cruise(Obj):
         obj_ids = [o for o, e in obj_expocodes.items() if e == expocode]
 
         # 1. Multiple cruises might have the same expocode
-        return Cruise.map_mongo(Cruise.find({'_id': {'$in': obj_ids}}))
+        return Cruise.get_all_by_ids(obj_ids)
+
+    @classmethod
+    def updated(cls, limit):
+        file_types = data_file_descriptions.keys()
+        updated = _Attr.get_all({
+            'key': {'$in': file_types},
+            'accepted': True},
+            limit=limit,
+            sort=[('judgment_stamp.timestamp', DESCENDING)])
+        return updated
+
+    @classmethod
+    def upcoming(cls, limit):
+        upcoming = Cruise.get_all({'accepted': False})
+        upcoming = filter(lambda c: c.date_start, upcoming)
+        now = datetime.datetime.utcnow()
+        upcoming = sorted(upcoming, key=lambda c: c.date_start)
+
+        # strip Seahunt cruises that are in the past
+        i = 0
+        while (len(upcoming) > 0 and
+               upcoming[i].date_start and 
+               now > upcoming[i].date_start):
+            i += 1
+        return upcoming[i:i + limit]
 
 
 class CruiseAssociate(Obj):
@@ -1629,33 +1691,14 @@ class CruiseAssociate(Obj):
     """
     cruise_associate_key = ''
 
-    def _assoc_key(self, key, value_key=None):
-        if value_key:
-            return '%s.%s' % (key, value_key)
-        return key
-
     def cruises(self, value_key=None, limit=0):
-        query = {
-            'key': self.cruise_associate_key,
-            '$or': [
-                {'$and': [
-                    {'accepted_value': {'$ne': None}},
-                    {self._assoc_key('accepted_value', value_key): self.id},
-                ]},
-                {'$and': [
-                    {'accepted_value': None},
-                    {self._assoc_key('value', value_key): self.id},
-                ]},
-            ],
-        }
+        query = self._get_by_attrs_query(
+            self.cruise_associate_key, self.id, value_key)
         attrs = _Attr.find(query, fields=['obj'], limit=limit)
-        attr_obj_ids = set(x['obj'] for x in attrs)
-        obj_coll = Obj._mongo_collection()
-        objs = [obj_coll.find_one(
-            {'_id': id, '_obj_type': Cruise.__name__}) for id in attr_obj_ids]
-        objs = filter(None, objs)
-        # TODO filter rejected cruises
-        return Cruise.map_mongo(objs)
+        attr_obj_ids = list(set(x['obj'] for x in attrs))
+        if attr_obj_ids:
+            return Cruise.get_all_by_ids(attr_obj_ids)
+        return []
 
 
 class CruiseParticipantAssociate(CruiseAssociate):
@@ -1902,6 +1945,10 @@ class Collection(CruiseAssociate, MultiNameObj):
     @property
     def type(self):
         return self.get('type', None)
+
+    @classmethod
+    def get_by_name(cls, name):
+        return cls.get_by_attrs({'names': name}, value_key='0')
 
 
 class AutoAcceptingObj(Obj):

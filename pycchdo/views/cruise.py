@@ -233,7 +233,10 @@ def _add_note(request, cruise_obj):
 
 
 def _get_cruise(cruise_id):
-    cruise_obj = models.Cruise.get_id(cruise_id)
+    try:
+        cruise_obj = models.Cruise.get_id(cruise_id)
+    except ValueError:
+        cruise_obj = None
 
     # If the id is not an ObjectId, try searching based on ExpoCode
     if not cruise_obj:

@@ -335,9 +335,9 @@ class TestModel(unittest.TestCase):
         o = Obj.get_id(id)
         self.assertEquals(o['_obj_type'], 'Person')
 
-    def test_Obj_find_id_with_invalid_id_returns_None(self):
-        """ Attempting to find an invalid ObjectId returns None. """
-        self.assertEquals(None, Obj.find_id('invalid_object_id'))
+    def test_Obj_find_id_with_invalid_id_raises_ValueError(self):
+        """ Attempting to find an invalid ObjectId raises ValueError. """
+        self.assertRaises(ValueError, lambda: Obj.find_id('invalid_object_id'))
 
     def test_Obj_finders_find_Objs(self):
         """ Obj finders should find Objs based on their class """
@@ -550,6 +550,7 @@ class TestHelper(unittest.TestCase):
         file_data = StringIO('')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         data = _Attr(self.testPerson, 'testid', 'a', file)
+        data.obj = self.testPerson.id
         data.save()
         id = data['_id']
         answer = ('<tr class="bottle exchange"><th><a href="/data/b/{id}">BOT'
@@ -563,6 +564,7 @@ class TestHelper(unittest.TestCase):
         data.remove()
 
         data = _Attr(self.testPerson, 'testid', 'a', 'b')
+        data.obj = self.testPerson.id
         data.save()
         self.assertEquals('<tr class="ctdzip exchange"><th><a href="/404.html">CTD'
                           '</a></th><td>ZIP archive of ASCII .csv CTD data with '

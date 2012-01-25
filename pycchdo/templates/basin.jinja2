@@ -8,27 +8,27 @@
   {%- if area %}
     <h2 id="area-{{area}}">{{ area }}</h2>
   {%- endif %}
-  <table class="has-meta-bodies">
+  <table class="has-meta-bodies pre-expand">
     <tr class="header">
       <th>Collection</th>
       <th>Year</th>
       <th>Ship</th>
       <th>Chief Scientist</th>
-      <th>Country</th>
     </tr>
     {%- for collection in collections %}
       {%- set hl = loop.cycle('even', 'odd') %}
       {%- set loopi = loop.index0 %}
+      {%- set cruises = collection.cruises() %}
       <tr class="meta mb-link{{ loopi }} {{ hl }}">
         <td>{{h.link_collection(collection)}}</td>
         <td colspan="4">
-          <img class="map" src="{{h.get_basin_map(basin, collection)}}">
+          <img class="map" src="{{h.get_basin_map(basin, collection, cruises)}}">
         </td>
       </tr>
-      {%- for cruise in collection.cruises() %}
+      {%- for cruise in h.cruises_sort_by_date_start(cruises) %}
         <tr class="body mb-link{{ loopi }} {{ hl }} {{ loop.cycle('even1', 'odd1') }}{%- if not cruise.track %} no_plot{%- endif %}">
           <td></td>
-          <td>{{whh.tags.link_to(cruise.date_start.year, h.path_cruise(cruise))}}</td>
+          <td>{{whh.tags.link_to(cruise.date_start.year or cruise.identifier, h.path_cruise(cruise))}}</td>
           <td>{{h.link_ship(cruise.ship)}}</td>
           <td>
             {%- set css = cruise.chief_scientists %}
@@ -36,20 +36,10 @@
               {{h.link_person(css[0]['person'])}}
             {%- endif %}
           </td>
-          <td>{{h.link_country(cruise.country)}}</td>
         </tr>
       {%- endfor %}
     {%- endfor %}
   </table>
-{%- endmacro %}
-{%- macro image_map_id(basin) %}
-  {%- if basin == 'Arctic' %}
-    #m_arctic
-  {%- elif basin == 'Indian' %}
-    #m_indian
-  {%- elif basin == 'Southern' %}
-    #m_southern
-  {%- endif %}
 {%- endmacro %}
 {%- macro image_map_for(basin) %}
   {%- if basin == 'Arctic' %}
@@ -314,7 +304,7 @@
         <p><a href="/sou_map.html">WOCE Reference Map</a></p>
       {%- endif %}
       <div id="map">
-        <img src="{{h.get_basin_map(basin, None)}}" usemap="{{ image_map_id(basin) }}">
+        <img src="{{h.get_basin_map(basin, None)}}" usemap="{{ h.image_map_id(basin) }}">
         {{ image_map_for(basin) }}
       </div>
     </div>

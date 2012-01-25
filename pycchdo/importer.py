@@ -782,9 +782,7 @@ def _import_collections(session, importer):
             implog.info("Updating Collection %s" % collection.id)
             continue
 
-        imported_collection = models.Collection.get_by_attrs(names=collection.Name)
-        # Filter again for collection's exact name to be the importee name
-        imported_collection = [c for c in imported_collection if c.name == collection.Name]
+        imported_collection = models.Collection.get_by_name(collection.Name)
         if imported_collection:
             implog.info("Updating Collection %s" % collection.id)
             continue
@@ -1935,45 +1933,50 @@ def main(argv):
     # be done during the import
     libcchdo.check_cache = False
 
-    #implog.info("Connecting to cchdo db")
-    #with db_session(legacy.session()) as session:
-    #    session.autoflush = False
+    cchdo_import = True
+    seahunt_import = True
 
-    #    _import_users(session, importer)
-    #    _import_contacts(session, importer)
-    #    _import_collections(session, importer)
-    #    _import_cruises(session, importer)
+    if cchdo_import:
+        implog.info("Connecting to cchdo db")
+        with db_session(legacy.session()) as session:
+            session.autoflush = False
 
-    #    # TODO ensure that expocode is unique. or merge cruises that seem to
-    #    # only just have different line numbers. Watch out for no_expocode
+            _import_users(session, importer)
+            _import_contacts(session, importer)
+            _import_collections(session, importer)
+            _import_cruises(session, importer)
 
-    #    _import_track_lines(session, importer)
-    #    _import_collections_cruises(session, importer)
-    #    _import_contacts_cruises(session, importer)
+            # TODO ensure that expocode is unique. or merge cruises that seem to
+            # only just have different line numbers. Watch out for no_expocode
 
-    #    _import_events(session, importer)
+            _import_track_lines(session, importer)
+            _import_collections_cruises(session, importer)
+            _import_contacts_cruises(session, importer)
 
-    #    _import_spatial_groups(session, importer)
-    #    _import_internal(session, importer)
-    #    _import_unused_tracks(session, importer)
+            _import_events(session, importer)
 
-    #    _import_parameter_descriptions(importer)
-    #    _import_parameter_groups(session, importer)
-    #    _import_bottle_dbs(session, importer)
-    #    _import_parameter_status(session, importer)
-    #    _import_parameters(session, importer)
+            _import_spatial_groups(session, importer)
+            _import_internal(session, importer)
+            _import_unused_tracks(session, importer)
 
-    #    with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
-    #        _import_submissions(session, importer, sftp_cchdo)
-    #        _import_old_submissions(session, importer, sftp_cchdo)
-    #        _import_queue_files(session, importer, sftp_cchdo)
-    #        _import_documents(session, importer)
-    #        _import_cchdo_uname_uids(ssh_cchdo, importer)
-    #        _import_argo_files(session, importer, sftp_cchdo)
+            _import_parameter_descriptions(importer)
+            _import_parameter_groups(session, importer)
+            _import_bottle_dbs(session, importer)
+            _import_parameter_status(session, importer)
+            _import_parameters(session, importer)
 
-    implog.info('Connecting to seahunt db')
-    with db_session(seahunt.session()) as session:
-        seahunt.import_(session, importer)
+            with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
+                _import_submissions(session, importer, sftp_cchdo)
+                _import_old_submissions(session, importer, sftp_cchdo)
+                _import_queue_files(session, importer, sftp_cchdo)
+                _import_documents(session, importer)
+                _import_cchdo_uname_uids(ssh_cchdo, importer)
+                _import_argo_files(session, importer, sftp_cchdo)
+
+    if seahunt_import:
+        implog.info('Connecting to seahunt db')
+        with db_session(seahunt.session()) as session:
+            seahunt.import_(session, importer)
 
     implog.info("Finished import")
     return 0

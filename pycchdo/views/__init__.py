@@ -66,7 +66,7 @@ def _http_method(request):
 
 def _paged(request, l):
     current_page = int(request.params.get('page', 1))
-    items_per_page = int(request.params.get('items_per_page', 20))
+    items_per_page = int(request.params.get('items_per_page', 50))
     def page_url(page):
         query = request.params.copy()
         query['page'] = page
@@ -167,28 +167,8 @@ def _humanize(obj):
 
 def home(request):
     num_updates = 2
-    file_types = models.data_file_descriptions.keys()
-    updated = models._Attr.get_all({
-        'key': {'$in': file_types},
-        'accepted': True},
-        limit=num_updates,
-        sort=[('judgment_stamp.timestamp', models.DESCENDING)])
-
-    upcoming = models.Cruise.get_all({'accepted': False})
-    upcoming = filter(lambda c: c.date_start, upcoming)
-    now = datetime.utcnow()
-    upcoming = sorted(upcoming, key=lambda c: c.date_start)
-
-    # strip Seahunt cruises that are in the past
-    i = 0
-    while (len(upcoming) > 0 and
-           upcoming[i].date_start and 
-           now > upcoming[i].date_start):
-        i += 1
-    upcoming = upcoming[i:i + num_updates]
-
-    for u in upcoming:
-        print u
+    updated = models.Cruise.updated(num_updates)
+    upcoming = models.Cruise.upcoming(num_updates)
 
     return {
         'updated': updated,

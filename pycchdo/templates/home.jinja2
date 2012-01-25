@@ -9,11 +9,14 @@
   {%- if cruise.get('map_thumb') %}
     {{ whh.tags.link_to(whh.tags.image(
         request.route_path(
-          'cruise_map_thumb', cruise_id=cruise.expocode),
+          'cruise_map_thumb', cruise_id=cruise.identifier),
         '%s thumbnail' % cruise.expocode),
       h.path_cruise(cruise)) }}
   {%- else %}
-    {{ whh.tags.image('/static/img/etopo_static/etopo_thumb_no_track.png', 'No track available') }}
+    {{ whh.tags.link_to(whh.tags.image(
+        '/static/img/etopo_static/etopo_thumb_no_track.png',
+        'No track available'),
+      h.path_cruise(cruise)) }}
   {%- endif %}
 {%- endmacro %}
 {% block content %}
@@ -73,6 +76,7 @@
             {%- endif %}
             <p><strong>Dates:</strong> <span class="date-cruise" title="{{ h.cruise_dates(cruise)[2] }}">{{ h.cruise_dates(cruise)[2] }}</span></p>
             <p><strong>Updated:</strong> <span class="date-updated">{{ h.date(update.judgment_stamp.timestamp) }}</span></p>
+            <p><strong>Data:</strong> <span class="key-updated">{{ update.key }}</span></p>
           </div>
         </li>
         {%- endif %}

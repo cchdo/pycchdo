@@ -216,37 +216,3 @@
     new rotator(b[0], b[1], 14, [98, 97], null, null, bannerOffset).start();
   }
 })();
-
-/** XXX quick links for staff pages */
-(function () {
-  var div = document.createElement('DIV');
-  var div_s = div.style;
-  div_s.position = 'absolute';
-  div_s.left = 0;
-  div_s.bottom = 0;
-  div_s.opacity = 0.1;
-  div_s.fontSize = '1.5em';
-  div_s['-webkit-transition'] = 'opacity .3s ease';
-
-  function link(href, text) {
-    var link = document.createElement('A');
-    link.href = href;
-    link.appendChild(document.createTextNode(text));
-    link.style.textDecoration = 'none';
-    return link;
-  }
-
-  div.appendChild(link('/staff.html', String.fromCharCode(9731)));
-  div.appendChild(link('/staff/submissions.html', String.fromCharCode(9732)));
-  div.appendChild(link('/staff/moderation.html', String.fromCharCode(9733)));
-
-  document.body.appendChild(div);
-
-  div.addEventListener('mouseover', function () {
-    div_s.opacity = 1;
-  }, false);
-
-  div.addEventListener('mouseout', function () {
-    div_s.opacity = 0.1;
-  }, false);
-})();

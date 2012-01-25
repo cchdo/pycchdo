@@ -93,6 +93,9 @@ function metaTable(table) {
       exa.focus(open);
       exa.blur(close);
     }
+    if (table.hasClass('pre-expand')) {
+      exa.click();
+    }
   });
 }
 $('table.has-meta-bodies').each(function () { metaTable($(this)); });

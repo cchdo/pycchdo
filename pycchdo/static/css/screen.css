@@ -204,7 +204,6 @@ input[type="search"] {
 }
 
 input[type="submit"] { 
-  text-transform: uppercase;
   letter-spacing: -1px;
   border: 1px solid #afafaf;
   color: #4f4f4f;
@@ -283,7 +282,7 @@ input[type="submit"]:active {
 #cchdo_menu li {
   /* Make all entries a little bigger */
   height: 1.5em;
-  line-height: 1.7em;
+  line-height: 1.5em;
   padding: 0 2em;
   position: relative;
   display: inline;

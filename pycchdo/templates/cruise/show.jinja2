@@ -113,15 +113,18 @@
   {%- if not cruise.accepted %}
     <div id="pending-review" class="pending flash warning">
       {%- if h.has_mod(request) %}
-        <p>This cruise was entered by the public and needs to be reviewed.</p>
+        <p>This cruise needs to be reviewed.</p>
         {{ whh.tags.form('/obj/%s' % cruise.id, 'PUT') }}
           <input type="submit" name="action" value="Accept">
           <input type="submit" name="action" value="Reject">
         {{ whh.tags.end_form() }}
       {%- else %}
-        <p>This cruise was entered by the public and has not yet been reviewed.</p>
+        <p>This cruise may or may not be actual.</p>
       {%- endif %}
     </div>
+    {%- call h.boxed('Summary') %}
+      <p>{{ h.cruise_summary(cruise) }}</p>
+    {%- endcall %}
   {%- endif %}
   {%- call h.boxed('General Information and Files', id='info', class='upper', box_content_class='scrollable-y') %}
     <div class="subsection general-information">
@@ -144,6 +147,7 @@
       {{- cruise_attr('Frequency', cruise.get('frequency', '')) }}
       {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
       {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
+      {{- cruise_attr('Statuses', cruise.statuses|join(', ')) }}
       {%- if h.has_edit(request) %}
         {{- cruise_attr('ID', cruise.id) }}
       {%- endif %}

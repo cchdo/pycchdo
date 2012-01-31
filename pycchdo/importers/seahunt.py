@@ -540,9 +540,9 @@ def _import_resource(resource, importer, sftp_goship):
         return None
     cruise = _ensure_cruise(resource.cruise, importer)
     if resource.type == 'URLResource':
-        a = update_attr(cruise, 'url', resource.url, importer)
-        if resource.description or resource.note:
-            update_note(a, resource.note, importer, resource.description)
+        update_note(a, ''.join(['<a href="', resource.url, '">', resource.url,
+                                '</a> ', resource.note]),
+                    importer, resource.description)
     elif resource.type == 'NoteResource':
         update_note(cruise, resource.note, importer, resource.description)
     elif (resource.type == 'FileResource' or
@@ -554,7 +554,6 @@ def _import_resource(resource, importer, sftp_goship):
         cruise_id = cruise.get('import_id').replace('seahunt', '')
         path = os.path.join(rails_root, 'public', 'docs', 'ids', cruise_id,
                             file.filename)
-        print path
         with sftp_dl(sftp_goship, path) as downloaded:
             file.file = downloaded
             if resource.type == 'FileResource':

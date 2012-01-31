@@ -20,7 +20,7 @@ from pycchdo.views.session import require_signin
 
 _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
           'contribute_menu', 'information_menu', 'tools_menu', 'parameters',
-          'parameter_show', 'data', 'catchall_static', ]
+          'contributions', 'parameter_show', 'data', 'catchall_static', ]
 
 
 __all__ = [
@@ -189,6 +189,15 @@ def parameters(request):
     return {'parameters': {1: primary, 2: secondary, 3: tertiary}}
 
 
+def contributions(request):
+    from pycchdo.views.cruise import _contributions, _contribution_kmzs
+    from pycchdo.views.search_map import index as map_index
+    contributions = _contribution_kmzs(request) + _contributions(request)
+    commands = ','.join(['kmllink:%s' % url for url in contributions] + 
+                        ['map_type:earth'])
+    return map_index(request, commands)
+
+
 def parameter_show(request):
     try:
         parameter_id = request.matchdict['parameter_id']
@@ -234,7 +243,8 @@ def _file_response(file):
     except AttributeError:
         pass
     try:
-        resp.content_type = file.content_type
+        # TODO test that this must be string.
+        resp.content_type = str(file.content_type)
     except AttributeError:
         pass
     try:

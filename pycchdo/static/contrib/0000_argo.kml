@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+        <name>Argo</name>
+<NetworkLink>
+	<name>Argo</name>
+	<visibility>1</visibility>
+	<open>1</open>
+	<refreshVisibility>1</refreshVisibility>
+	<Link>
+		<href>http://www.jcommops.org/jcommops-kml/WebObjects/jcommops-kml.woa/wa/createKml?masterProg=Argo</href>
+		<refreshMode>onInterval</refreshMode>
+		<refreshInterval>3600</refreshInterval>
+		<viewRefreshTime>0</viewRefreshTime>
+		<viewBoundScale>0</viewBoundScale>
+	</Link>
+</NetworkLink>
+</Document>
+</kml>

@@ -9,3 +9,30 @@
   background: #aaddff;
 }
 
+#seahunt-about p {
+  margin-bottom: 0.5em;
+}
+#seahunt-about #years h2 {
+  float: left;
+  padding: 0.2em;
+  margin-right: 0.5em;
+}
+#seahunt-about #years ul {
+  float: left;
+}
+#seahunt-about #years li {
+  float: left;
+}
+#seahunt-about #years a {
+  display: block;
+  padding: 0.2em 1em;
+  border: none;
+}
+#seahunt-about #years .active a,
+#seahunt-about #years a:hover {
+  background: #CCDDEE;
+}
+#seahunt-about #map {
+  clear: left;
+  height: 40em;
+}

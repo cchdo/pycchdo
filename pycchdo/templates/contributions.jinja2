@@ -1,0 +1,398 @@
+<div id="earth"></div>
+
+<div id="bar">
+  <div id="contribute" class="content">
+    <h1>Contribute</h1>
+    <p>Make your own layer <a href="/cruises/new">here</a>.</p>
+  </div>
+  <div id="layers" class="content">
+
+    <h1>Layers</h1>
+    <div class="scroll-table">
+      <table>
+        <tr class="layers control"><td class="visibility"><input type="checkbox" name="graticules" /></td><td><label for="graticules">Graticules</label></td></tr>
+        <tr class="layers control"><td class="visibility"><input type="checkbox" name="atmosphere" checked="checked" /></td><td><label for="atmosphere">Atmosphere</label></td></tr>
+        <tr class="layers control"><td class="visibility"><input type="checkbox" name="earthstatus" /></td><td><label for="earthstatus">Earth status</label></td></tr>
+        <tr class="layers control"><td class="visibility"><input type="checkbox" name="showall" /></td><td><label for="showall">Show all</label></td></tr>
+
+      </table>
+    </div>
+  </div>
+</div>
+
+{%- block title %}Contributions{%- endblock %}
+{%- block head %}
+  {{ whh.tags.stylesheet_link('/static/css/cupertino/jquery-ui-1.7.2.custom.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/suggestions.contributions') }}
+{%- endblock %}
+{%- block js %}
+<%= javascript_include_tag "https://www.google.com/jsapi?key=#{getGAPIkey(request.env['HTTP_HOST'])}" %>
+<script type="text/javascript"> 
+  google.load('earth', '1');
+  google.load('jquery', '1.5.1');
+  google.load('jqueryui', '1.8.10');
+</script> 
+<script type="text/javascript">
+/*
+ *  Shim jQuery Plug-in $ Revision: 3 $
+ *  <https://sourceforge.net/projects/jqueryshim>
+ *  
+ *  Copyright (c) 2010 Dave Willkomm
+ *  Licensed under the MIT License
+ *  <http://www.opensource.org/licenses/mit-license.php>
+ */
+(function($) {
+  $.fn.shim = function() {
+    if (!$.browser.webkit) {
+      this.each(function() {
+        var element = $(this),
+            offset = element.offset(),
+            html = ['<iframe class="shim" frameborder="0" style="' +
+            'display: block;',
+            'position: absolute;',
+            'top:', offset.top + 'px;',
+            'left:', offset.left + 'px;',
+            'width:', element.outerWidth(), 'px;',
+            'height:', element.outerHeight(), 'px;',
+            'z-index:', Number.MAX_VALUE, ';',
+            '"/>'].join('');
+        element.before(html);
+      });
+    }
+    
+    return this;
+  };
+  
+  $.fn.unshim = function() {
+    if (!$.browser.webkit) {
+      this.each(function() {
+        $(this).prev("iframe.shim").remove();
+      });
+    }
+    
+    return this;
+  };
+  
+})(jQuery);
+// Author:  Jacek Becela
+// Source:  http://gist.github.com/399624
+// License: MIT
+
+jQuery.fn.single_double_click = function(single_click_callback, double_click_callback, timeout) {
+  return this.each(function(){
+    var clicks = 0, self = this;
+    jQuery(this).click(function(event){
+      clicks++;
+      if (clicks == 1) {
+        setTimeout(function(){
+          if(clicks == 1) {
+            single_click_callback.call(self, event);
+          } else {
+            double_click_callback.call(self, event);
+          }
+          clicks = 0;
+        }, timeout || 300);
+      }
+    });
+  });
+}
+</script>
+<script type="text/javascript">
+  var modberry = null
+  var modberry_prompt = null
+  var ge;
+  var isEarth = false;
+
+  function loadKml(url, callback) {
+    url = [window.location.protocol, '//', window.location.hostname, ':', window.location.port, url].join('');
+    if (isEarth) {
+      google.earth.fetchKml(ge, url, function (kml) {
+
+         // detection routine
+        var kmlobj = kml;
+        if (kmlobj.getType() == 'KmlNetworkLink' && 
+            kmlobj.getLink().getHref() == 'http://www.jcommops.org/jcommops-kml/WebObjects/jcommops-kml.woa/wa/createKml?masterProg=Argo') {
+          function operateOnArgoKml(linkedkml) {
+            linkedkml.setOpen(true);
+            linkedkml.setVisibility(true);
+          }
+
+          var timeout = 60;
+          (function () {
+            var container = kmlobj.getFeatures();
+            if (container.hasChildNodes()) {
+              var linkedkml = container.getFirstChild();
+              if (linkedkml) {
+                operateOnArgoKml(linkedkml);
+                return;
+              }
+            }
+            timeout -= 1;
+            if (timeout <= 0) {
+              return;
+            }
+            setTimeout(arguments.callee, 1000);
+          })();
+        }
+
+        callback(kml);
+      });
+    } else {
+      callback(new google.maps.KmlLayer(url));
+    }
+  }
+
+  var createLayerEntry = (function () {
+    var count = 0;
+    function layername() {
+      return 'layername' + count;
+    }
+    return function (url) {
+      var lname = layername();
+      var entry = $(['<tr class="layers kml loading"><td class="visibility">',
+        '<input type="checkbox" name="', lname, '" /></td><td><label for="', lname, '" title="', url, '"></label></td></tr>'].join(''));
+      entry.data('url', url);
+      if (modberry) {
+        var deleter = $('<td></td>');
+        deleter.css('cursor', 'pointer');
+        deleter.click(function () {
+          var url = entry.data('url');
+          $.ajax({
+            url: url,
+            data: {'_method': 'DELETE', 'pass': modberry},
+            success: function () {
+              entry.remove();
+            },
+            error: function (xhr) {
+              if (xhr.status == 404) {
+                entry.remove();
+              } else {
+                modberry_prompt.dialog('open');
+              }
+            }
+          });
+        });
+        entry.hover(function () {
+          deleter.html('&#9760;');
+        }, function () {
+          deleter.html('&nbsp;');
+        });
+        entry.append(deleter);
+      }
+      entry.bind('loaded', function (e, name) {
+        $(this).find('label').html(name);
+        $(this).removeClass('loading');
+      });
+      entry.bind('failed', function (e, msg) {
+        $(this).removeClass('loading').addClass('failed');
+        $(this).find(':checkbox').attr('disabled', 'disabled');
+        $(this).find('label').attr('title', msg);
+      });
+      entry.find('label').single_double_click(function () {
+        entry.find(':checkbox').click().change();
+      }, function () {
+        entry.find(':checkbox').attr('checked', 'checked').change();
+        entry.trigger('center');
+      });
+      return entry;
+    }
+  })();
+
+  function showKml(kml, flyto) {
+    if (isEarth) {
+      kml.setVisibility(true);
+      if (flyto && kml.getAbstractView()) {
+        ge.getView().setAbstractView(kml.getAbstractView());
+      }
+    } else {
+      kml.setMap(ge);
+    }
+  }
+
+  function hideKml(kml) {
+    if (isEarth) {
+      kml.setVisibility(false);
+    } else {
+      kml.setMap(null);
+    }
+  }
+
+  function removeKml(kml) {
+    if (isEarth) {
+      ge.getFeatures().removeChild(kml);
+    } else {
+      kml.setMap(null);
+    }
+  }
+
+  function addLayer(url) {
+    var layer = createLayerEntry(url);
+    $('#layers table').append(layer);
+    loadKml(url, function (kml) {
+      if (!kml) {
+        layer.trigger('failed', 'Unable to load KML');
+        return;
+      }
+      if (isEarth) {
+        ge.getFeatures().appendChild(kml);
+        kml.setVisibility(false);
+      }
+      layer.bind('center', function () {
+        showKml(kml, true);
+      });
+      layer.bind('show', function () {
+        showKml(kml);
+      });
+      layer.bind('hide', function () {
+        hideKml(kml);
+      });
+      layer.bind('remove', function () {
+        removeKml(kml);
+      });
+      if (isEarth) {
+        var name = kml.getName();
+        if (!name) {
+          name = kml.getFeatures().getFirstChild().getName();
+        }
+        if (!name) {
+          name = '';
+        }
+      } else {
+        name = kml.url;
+      }
+      layer.trigger('loaded', name);
+    });
+  }
+
+  function init(o) {
+    var hash = window.location.hash.slice(1).split('-');
+    if (hash.indexOf('modberry') > -1) {
+      modberry = true;
+      $('#layers h1').after($('<p>Welcome mod!</p>').css({color: '#ffaaaa', padding: '0.25em'}).hide());
+      $('#layers h1 ~ p').show('fast')
+      $('.layers.control').each(function () {
+        $(this).append($('<td></td>'));
+      });
+      modberry_prompt = $('<div><form><input type="password" /><input type="submit" value="Let me in!" /></form></div>').dialog({
+        modal: true, resizable: false, title: 'Speak friend and enter.', autoOpen: false,
+        beforeClose: function () {
+          if ($(this).find(':password').val()) {
+            modberry = $(this).find(':password').val();
+          }
+          $(this).dialog('widget').siblings('.ui-widget-overlay').unshim();
+        }
+      });
+      modberry_prompt.find('form').submit(function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        modberry_prompt.dialog('close');
+        return false;
+      });
+      modberry_prompt.dialog({open: function () {
+        modberry_prompt.dialog('widget').siblings('.ui-widget-overlay').shim();
+      }});
+    }
+    ge = o;
+    if (ge && !google.hasOwnProperty('maps')) {
+      isEarth = true;
+      ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
+    }
+
+    $('.layers.control label').live('click', function () {
+      $(this).parents('tr').find(':checkbox').click().change();
+    });
+    $('.layers :checkbox').live('change', function () {
+      if ($(this).is(':checked')) {
+        $(this).parents('tr').addClass('on');
+        $(this).trigger('show');
+      } else {
+        $(this).parents('tr').removeClass('on');
+        $(this).trigger('hide');
+      }
+    });
+
+    function showAll(yes) {
+      if (yes) {
+        $('.layers.kml').find(':checkbox').attr('checked', 'checked').change();
+      } else {
+        $('.layers.kml').find(':checkbox').attr('checked', '').change();
+      }
+    }
+
+    if (isEarth) {
+      $(':checkbox[name=graticules]').change(function () {
+        ge.getOptions().setGridVisibility($(this).is(':checked'));
+      }).change();
+      $(':checkbox[name=atmosphere]').change(function () {
+        ge.getOptions().setAtmosphereVisibility($(this).is(':checked'));
+      }).change();
+      $(':checkbox[name=earthstatus]').change(function () {
+        ge.getOptions().setStatusBarVisibility($(this).is(':checked'));
+      }).change();
+      $(':checkbox[name=showall]').change(function () {
+        showAll($(this).is(':checked'));
+      }).change();
+    }
+
+    // load a list of kmls
+    $.get('/contributions.json', function (kmls) {
+      for (var i = 0; i < kmls.length; i += 1) {
+        addLayer(kmls[i]);
+      }
+    }, 'json');
+  }
+
+  $(window).resize(function () {
+    $('#earth').height($(window).height() - $('#nav').height());
+    //$('#earth').height($(window).height() - $('#banner').height());
+    $('#bar').height($('#earth').height());
+    $('.scroll-table').css('max-height', ($('#bar').height() - $('#layers h1').outerHeight() - $('#contribute').outerHeight()) * 0.99);
+  }).resize();
+
+  function initMaps() {
+    var map = new google.maps.Map(document.getElementById('earth'), {
+      zoom: 2,
+      center: new google.maps.LatLng(0, 0),
+      mapTypeId: google.maps.MapTypeId.SATELLITE
+    });
+    init(map);
+  }
+  google.setOnLoadCallback(function () {
+    google.earth.createInstance('earth', function (ge) {
+      ge.getWindow().setVisibility(true);
+      init(ge);
+      google.earth.addEventListener(ge, 'balloonopening', function (event) {
+        // Mass rewrite placemark balloons to be unsafe because they include iframes.
+        event.preventDefault();
+        var placemark = event.getFeature();
+        if (placemark.getType() == 'KmlPlacemark') {
+          var content = placemark.getBalloonHtmlUnsafe();
+          var balloon = ge.createHtmlStringBalloon('');
+          balloon.setFeature(placemark);
+          balloon.setContentString(content);
+          ge.setBalloon(balloon);
+        }
+        return false;
+      });
+    }, function () {
+      // No earth!
+      var script = document.createElement("script");
+      script.type = "text/javascript";
+      script.src = "http://maps.google.com/maps/api/js?sensor=false&callback=initMaps";
+      document.body.appendChild(script);
+    });
+  });
+</script>
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-2167386-11']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+{%- endblock %}

@@ -1,9 +1,22 @@
 import datetime
 import logging
+import os
 
 from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound, HTTPSeeOther
+from pyramid.response import Response
+from pyramid.path import AssetResolver
 
 from webob.multidict import MultiDict
+
+import geojson.mapping
+
+from pykml.factory import KML_ElementMaker as KML
+from pykml.factory import ATOM_ElementMaker as ATOM
+from pykml.factory import GX_ElementMaker as GX
+
+from lxml import etree
+
+from webhelpers import text as whtext
 
 import pycchdo.models as models
 import pycchdo.helpers as h
@@ -397,3 +410,239 @@ def map_thumb(request):
     if not a:
         return HTTPNotFound()
     return _file_response(a.file)
+
+
+def _cruise_to_json(cruise):
+    obj = {
+        'type': 'Cruise',
+        'id': str(cruise.id),
+        'obj_url': h.path_cruise(cruise), 
+    }
+    for attr_key in cruise.allowed_attrs_list:
+        v = cruise.__getattr__(attr_key)
+        if v:
+            if type(v) is not list:
+                obj[attr_key] = str(v)
+            else:
+                obj[attr_key] = map(str, v)
+
+    track = cruise.track
+    if track:
+        obj['track'] = dict(geojson.mapping.to_mapping(track))
+    return obj
+
+
+def kml(request):
+    try:
+        cruise_id = request.matchdict['cruise_id']
+    except KeyError:
+        return HTTPBadRequest()
+    try:
+        cruise = _get_cruise(cruise_id)
+    except ValueError:
+        return HTTPSeeOther(
+            location=request.route_path('cruise_new', cruise_id=cruise_id))
+
+    kml = KML.kml()
+
+    cruise_nice_name = h.cruise_nice_name(cruise)
+    kmldoc = KML.Document(
+        KML.name(cruise_nice_name),
+        KML.description(request.route_url('cruise_show', cruise_id=cruise_id)),
+    )
+    kml.append(kmldoc)
+
+    cruise_placemark = KML.Placemark(
+        KML.name(cruise_nice_name),
+    )
+    cruise_description = etree.Element('description')
+    cruise_description.text = etree.CDATA(h.cruise_summary(cruise))
+    cruise_placemark.append(cruise_description)
+    kmldoc.append(cruise_placemark)
+
+    cruise_style = KML.Style(
+        KML.IconStyle(
+            KML.Icon(
+                # TODO make sure this icon is real
+                KML.href(request.static_url('pycchdo:static/img/ship.png')),
+            )
+        ),
+        KML.LineStyle(
+            KML.color('ff66ff66'),
+            KML.width(5),
+        ),
+    )
+    cruise_placemark.append(cruise_style)
+
+    def str_if_exists(x, str):
+        if x:
+            return str
+        return ''
+
+    H = h.whh.HTML
+    # TODO figure out image_url
+    image_url = True
+    balloon_text = H(
+        H.tag('h1', '$[name]'),
+        str_if_exists(
+            image_url,
+            H.img(src='$[image]',
+                  style='border: 1px solid black; border-left: 0; '
+                        'border-right: 0;')),
+        H.p('$[description]', style="max-width: 25em;"),
+        str_if_exists(cruise.link, H.p(h.whh.tags.link_to('$[website]'))),
+
+        H.table(
+            str_if_exists(cruise.ports,
+                          H.tr(H.td('Ports'), H.td('$[ports]'))),
+            str_if_exists(cruise.date_start or cruise.date_end,
+                          H.tr(H.td('Dates'), H.td('$[dates]'))),
+            str_if_exists(cruise.country,
+                          H.tr(H.td('Country'), H.td('$[country]'))),
+            str_if_exists(cruise.ship, H.tr(H.td('Ship'), H.td('$[ship]'))),
+            str_if_exists(cruise.collections,
+                          H.tr(H.td('Collections'), H.td('$[collections]'))),
+            str_if_exists(cruise.chief_scientists,
+                          H.tr(H.td('Contacts'), H.td('$[contacts]'))),
+            str_if_exists(cruise.institutions,
+                          H.tr(H.td('Institutions'), H.td('$[institutions]'))),
+        ),
+    )
+    cruise_style_balloon = KML.BalloonStyle(
+        KML.textColor('ff000000'),
+        KML.displayMode('default'),
+    )
+    cruise_style.append(cruise_style_balloon)
+
+    cruise_style_balloon_text = etree.Element('text')
+    cruise_style_balloon_text.text = etree.CDATA(balloon_text)
+    cruise_style_balloon.append(cruise_style_balloon_text)
+
+    cruise_edata = KML.ExtendedData()
+
+    def append_data_if_exists(name, x):
+        if x:
+            data = KML.Data(name=name)
+            value = etree.Element('value')
+            value.text = etree.CDATA(unicode(x))
+            data.append(value)
+            cruise_edata.append(data)
+
+    append_data_if_exists('image', image_url)
+    append_data_if_exists('website', cruise.link)
+    if cruise.ports:
+        append_data_if_exists('ports', ' to '.join(cruise.ports))
+    append_data_if_exists('dates', '/'.join(h.cruise_dates(cruise)[:2]))
+    append_data_if_exists('country', h.link_country(cruise.country))
+    append_data_if_exists('ship', h.link_ship(cruise.ship))
+    if cruise.participants:
+        pi_table = H()
+        for role, pis in cruise.participants.items():
+            for pi in pis:
+                person = pi['person']
+                inst = pi['institution']
+                pi_table += H.tr(H.td(h.link_person(person)), H.td(role))
+        table = H.table(
+            H.tr(H.th('Person'), H.th('Role')),
+            pi_table,
+        )
+        append_data_if_exists('contacts', table)
+    append_data_if_exists(
+        'collections',
+        whtext.series([h.link_collection(c) for c in cruise.collections]))
+    append_data_if_exists(
+        'institutions',
+        whtext.series([h.link_institution(i) for i in cruise.institutions]))
+    cruise_placemark.append(cruise_edata)
+
+    def shape_coords_to_kml_coords(coords):
+        return ' '.join(
+            [','.join(map(str, coord)) for coord in coords])
+
+    track = cruise.track
+    if track:
+        centroid = track.centroid.coords[0]
+        lookat = KML.LookAt(
+            KML.longitude(centroid[0]),
+            KML.latitude(centroid[1]),
+            KML.altitude(0),
+            KML.heading(0),
+            KML.tilt(0),
+            KML.range(9.6e6),
+            KML.altitudeMode('relativeToGround'),
+        )
+        cruise_placemark.append(lookat)
+        multigeom = KML.MultiGeometry(
+            KML.Point(
+                KML.coordinates(shape_coords_to_kml_coords([track.coords[0]]))
+            ),
+            KML.LineString(
+                KML.tessellate(1),
+                KML.coordinates(shape_coords_to_kml_coords(track.coords))
+            ),
+        )
+        cruise_placemark.append(multigeom)
+    else:
+        lookat = KML.LookAt(
+            KML.latitude(0),
+            KML.longitude(0),
+            KML.altitude(0),
+            KML.heading(0),
+            KML.tilt(0),
+            KML.range(9.6e6),
+            KML.altitudeMode('relativeToGround'),
+        )
+        cruise_placemark.append(lookat)
+        point = KML.Point(
+            KML.coordinates('0,0,0'),
+        )
+        cruise_placemark.append(point)
+
+    response = Response(etree.tostring(kml, pretty_print=True))
+    return response
+
+
+def _contributions(request):
+    pending_cruises = models.Cruise.get_all({'accepted': False})
+    def has_track(c):
+        try:
+            c.get_attr('track')
+            return True
+        except KeyError:
+            return False
+    pending_with_tracks = filter(has_track, pending_cruises)
+    return [request.route_url('cruise_kml', cruise_id=c.identifier)
+            for c in pending_with_tracks]
+
+
+def _contribution_kmzs(request):
+    static_path = 'static/contrib'
+    kmz_dir = AssetResolver('pycchdo').resolve(
+        static_path).abspath()
+    return [request.route_url('catchall_static',
+                              subpath=os.path.join(static_path, x)
+                             ) for x in os.listdir(kmz_dir)]
+
+
+def json(request):
+    if request.params.get('pending_years'):
+        return models.Cruise.pending_years()
+    elif request.params.get('id'):
+        id = request.params.get('id')
+        try:
+            cruise = _get_cruise(id)
+        except ValueError:
+            return HTTPBadRequest()
+        return _cruise_to_json(cruise)
+    elif request.params.get('ids'):
+        ids = [x.strip() for x in request.params.get('ids').split(',')]
+        try:
+            cruises = [_get_cruise(cruise_id) for cruise_id in ids]
+        except ValueError:
+            return HTTPBadRequest()
+        return [_cruise_to_json(cruise) for cruise in cruises]
+    elif request.params.get('contributions'):
+        return _contributions(request)
+    elif request.params.get('contribution_kmzs'):
+        return _contribution_kmzs(request)
+    return HTTPBadRequest()

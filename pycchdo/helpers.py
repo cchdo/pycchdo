@@ -9,6 +9,7 @@ from os.path import join as pthjoin
 
 import webhelpers.html as whh
 import webhelpers.html.tags
+import webhelpers.text as whtext
 
 from gridfs.grid_file import GridOut
 
@@ -244,6 +245,79 @@ def cruise_dates(cruise):
     return (start, end, combined)
 
 
+def cruise_date_summary(cruise):
+    """ Provide an English summary of the cruise's dates
+
+    """
+    text = ''
+    if cruise.date_start:
+        text += 'starting %s ' % date(cruise.date_start)
+        if cruise.date_end:
+            text += 'and ending %s' % date(cruise.date_end)
+    elif cruise.date_end:
+        text += 'ending %s' % date(cruise.date_end)
+    return text
+
+
+def cruise_nice_name(cruise):
+    """ Runs through the cruise's attributes to try to produce a nice name
+        before falling back to the id
+
+    """
+    label = cruise.expocode
+    if not label:
+        aliases = cruise.aliases
+        if aliases:
+            label = aliases[0]
+        else:
+            label = cruise.id
+    return label
+
+
+def cruise_summary(cruise):
+    """ Provide an English summary of the cruise's salient facts.
+
+    """
+    sentences = []
+    sentence = '%s is planned ' % cruise_nice_name(cruise)
+    if cruise.ship:
+        sentence += "on the %s " % link_ship(cruise.ship)
+    if cruise.ports:
+        sentence += "from %s " % cruise.ports[0]
+        if len(cruise.ports) > 1:
+            sentence += "to %s " % cruise.ports[1]
+    sentence += cruise_date_summary(cruise)
+    sentences.append(sentence)
+
+    sentence = 'It is being run '
+    institutions = []
+    if cruise.institutions:
+        institutions = [link_institution(i) for i in cruise.institutions]
+    if institutions or cruise.country:
+        sentence += 'by '
+    if institutions:
+        sentence += whh.literal(whtext.series(institutions)) + ' '
+        if cruise.country:
+            sentence += 'and '
+    if cruise.country:
+        sentence += link_country(cruise.country)
+
+    collections = [link_collection(c) for c in cruise.collections]
+    if collections:
+        sentence += ' as part of the '
+        sentence += whh.literal(whtext.series(collections)) + ' '
+        sentence += whtext.plural(
+                        len(collections), 'collection', 'collections', False)
+    if institutions or cruise.country or programs:
+        sentences.append(sentence)
+
+    if cruise.statuses:
+        sentences.append(
+            "The cruise is %s" % whtext.series(cruise.statuses))
+
+    return whh.literal(' '.join(["%s." % x for x in sentences]))
+
+
 def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
     thumb_link = ''
     thumb_img = whh.tags.image(data_uri(thumb), 'Cruise Map thumbnail')
@@ -370,13 +444,7 @@ def link_file_holder(fh, full=False):
 def link_cruise(c):
     if not c:
         return ''
-    label = c.expocode
-    if not label:
-        aliases = c.aliases
-        if aliases:
-            label = aliases[0]
-        else:
-            label = c.id
+    label = cruise_nice_name(c)
     return whh.tags.link_to(label, path_cruise(c), title=label)
 
 
@@ -443,6 +511,13 @@ def link_parameter(p):
     return whh.literal(
         whh.tags.link_to(p.get('name'),
                          '/parameter/%s.json' % p.get('name')))
+
+
+def link_pdf_preview(link):
+    """ Gives a URL that uses Google Docs to preview a PDF """
+    # TODO add preview link for pdf docs?
+    # Another option that gview takes is "embedded=true"
+    return "http://docs.google.com/gview?url={link}".format(link=link)
 
 
 def change_pretty(change):

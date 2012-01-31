@@ -1,0 +1,768 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+	<name>ARGO_CTD_2010</name>
+        <Folder>
+		<name>33RO20100308 (1).kml</name>
+		<Style id="h_cchdo">
+			<IconStyle>
+				<scale>1.3</scale>
+				<Icon>
+					<href>http://cchdo.ucsd.edu/images/map_search/cruise_start_icon.png</href>
+				</Icon>
+				<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+			</IconStyle>
+			<BalloonStyle>
+				<text><![CDATA[<!DOCTYPE html>
+  <style>
+#preview * {border-radius:0.4em;}#preview{width:35em;top:-1em;overflow:hidden;height:13.5em;}
+#preview #slidebed{width:70em;position:relative;margin:0;height:inherit;}
+#preview div{width:35em;font-family:Futura,Helvetica,sans-serif;}#preview h1,#preview h2{font-size:
+1.5em;font-weight:normal;color:#94b6d1;background:#e4f3f8;padding:0.3em;
+position:relative;}button{background:#c4d3f8;color:#84a6c1;font-size:
+0.8em;width:3.5em;padding:0.2em;display:inline-block;position:absolute;
+top:0.25em;right:0.5em;text-align:center;cursor:pointer;border:0;
+text-shadow:#fff 1px 1px -1px;}button:active{background:#b4c3e8;}#preview h1 img{
+height:1.5em;display:block;float:left;margin:-4px 0.3em 0 0;}h2{text-align:
+right;margin:0;}h2 button{width:5em;position:absolute;left:0.5em;}.expocode
+{color:#243766;}.map{width:9em;}dl{margin-left:9.1em;margin-top:-8.5em;
+font-size:1.1em;margin-bottom:2em;}dt{float:left;clear:left;margin-right:
+0.5em;color:#a9b9d5;}dt:after{content:":";}dd{margin:0;}a{color:#243766;}
+#data{margin-left:35em;position:absolute;top:0;}  </style>
+  <div class="cchdo" id="preview">
+    <div id="slidebed">
+      <div class="cchdo general" id="general">
+        <h1>
+          <img src="http://cchdo.ucsd.edu/favicon.png"/>
+          <span class="alias">$[main_alias]</span>
+          <a class="expocode" href="http://cchdo.ucsd.edu/cruise/$[expocode]">$[expocode]</a>
+          <button id="button-data" onclick="var slidebed=document.getElementById('slidebed');
+function a(x){
+  function s(x){slidebed.style.marginLeft=x+'px';}
+  var start=new Date();var time=200;
+  var val=Number(slidebed.style.marginLeft.slice(0,-2));
+  (function(){var elapsed=new Date() - start;
+  if(elapsed >=time) {s(x);}else{s(val - (val - x) * elapsed / time);
+  setTimeout(arguments.callee,0);}})();}a(slidebed.offsetWidth / -2);">Data &amp;#155;</button>
+        </h1>
+$[map]
+        <dl>
+          <dt>Alias</dt>
+          <dd>$[aliases]</dd>
+          <dt>Ship/Country</dt>
+          <dd>$[ship]/$[country]</dd>
+          <dt>Chief Scientists</dt>
+          <dd>$[chief_scis]</dd>
+          <dt>Cruise dates</dt>
+          <dd>$[dates]</dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">CCHDO data page</a>
+          </dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">Data history</a>
+          </dd>
+        </dl>
+      </div>
+      <div class="cchdo data" id="data">
+        <h2>
+          <button id="button-general" onclick="var slidebed=document.getElementById('slidebed');
+function a(x){
+  function s(x){slidebed.style.marginLeft=x+'px';}
+  var start=new Date();var time=200;
+  var val=Number(slidebed.style.marginLeft.slice(0,-2));
+  (function(){var elapsed=new Date() - start;
+  if(elapsed >=time) {s(x);}else{s(val - (val - x) * elapsed / time);
+  setTimeout(arguments.callee,0);}})();}a(0);">&amp;#139; General</button>
+          <span class="expocode">$[expocode]</span>
+ Data subset        </h2>
+        <ul>
+          <li>
+            <a href="#">Exchange Bottle</a>
+          </li>
+          <li>
+            <a href="#">Exchange CTD</a>
+          </li>
+          <li>
+            <a href="#">Text Documentation</a>
+          </li>
+          <li>
+            <a href="#">PDF Documentation</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+]]></text>
+			</BalloonStyle>
+			<LineStyle>
+				<color>ffcccccc</color>
+				<width>3</width>
+			</LineStyle>
+		</Style>
+		<Style id="n_cchdo">
+			<IconStyle>
+				<scale>1.3</scale>
+				<Icon>
+					<href>http://cchdo.ucsd.edu/images/map_search/cruise_start_icon.png</href>
+				</Icon>
+				<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+			</IconStyle>
+			<BalloonStyle>
+				<text><![CDATA[<!DOCTYPE html>
+<html>
+  <style>
+#preview * {border-radius:0.4em;}#preview{width:35em;top:-1em;overflow:hidden;height:13.5em;}
+#preview #slidebed{width:70em;position:relative;margin:0;height:inherit;}
+#preview div{width:35em;font-family:Futura,Helvetica,sans-serif;}#preview h1,#preview h2{font-size:
+1.5em;font-weight:normal;color:#94b6d1;background:#e4f3f8;padding:0.3em;
+position:relative;}button{background:#c4d3f8;color:#84a6c1;font-size:
+0.8em;width:3.5em;padding:0.2em;display:inline-block;position:absolute;
+top:0.25em;right:0.5em;text-align:center;cursor:pointer;border:0;
+text-shadow:#fff 1px 1px -1px;}button:active{background:#b4c3e8;}#preview h1 img{
+height:1.5em;display:block;float:left;margin:-4px 0.3em 0 0;}h2{text-align:
+right;margin:0;}h2 button{width:5em;position:absolute;left:0.5em;}.expocode
+{color:#243766;}.map{width:9em;}dl{margin-left:9.1em;margin-top:-8.5em;
+font-size:1.1em;margin-bottom:2em;}dt{float:left;clear:left;margin-right:
+0.5em;color:#a9b9d5;}dt:after{content:":";}dd{margin:0;}a{color:#243766;}
+#data{margin-left:35em;position:absolute;top:0;}  </style>
+  <div class="cchdo" id="preview">
+    <div id="slidebed">
+      <div class="cchdo general" id="general">
+        <h1>
+          <img src="http://cchdo.ucsd.edu/favicon.png"/>
+          <span class="alias">$[main_alias]</span>
+          <a class="expocode" href="http://cchdo.ucsd.edu/cruise/$[expocode]">$[expocode]</a>
+          <button id="button-data" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(slidebed.offsetWidth / -2);">Data &amp;#155;</button>
+        </h1>
+$[map]
+        <dl>
+          <dt>Alias</dt>
+          <dd>$[aliases]</dd>
+          <dt>Ship/Country</dt>
+          <dd>$[ship]/$[country]</dd>
+          <dt>Chief Scientists</dt>
+          <dd>$[chief_scis]</dd>
+          <dt>Cruise dates</dt>
+          <dd>$[dates]</dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">CCHDO data page</a>
+          </dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">Data history</a>
+          </dd>
+        </dl>
+      </div>
+      <div class="cchdo data" id="data">
+        <h2>
+          <button id="button-general" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(0);">&amp;#139; General</button>
+          <span class="expocode">$[expocode]</span>
+ Data subset        </h2>
+        <ul>
+          <li>
+            <a href="#">Exchange Bottle</a>
+          </li>
+          <li>
+            <a href="#">Exchange CTD</a>
+          </li>
+          <li>
+            <a href="#">Text Documentation</a>
+          </li>
+          <li>
+            <a href="#">PDF Documentation</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</html>]]></text>
+			</BalloonStyle>
+			<LineStyle>
+				<color>ffcccccc</color>
+				<width>3</width>
+			</LineStyle>
+		</Style>
+		<StyleMap id="cchdo">
+			<Pair>
+				<key>normal</key>
+				<styleUrl>#n_cchdo</styleUrl>
+			</Pair>
+			<Pair>
+				<key>highlight</key>
+				<styleUrl>#h_cchdo</styleUrl>
+			</Pair>
+		</StyleMap>
+		<Placemark>
+			<name>33RO20100308</name>
+			<styleUrl>#cchdo</styleUrl>
+			<ExtendedData>
+				<Data name="main_alias">
+					<value>A13.5</value>
+				</Data>
+				<Data name="expocode">
+					<value>33RO20100308</value>
+				</Data>
+				<Data name="aliases">
+					<value>RB 07-05,AJAX</value>
+				</Data>
+				<Data name="map">
+					<value><![CDATA[<img class="map" src="http://cchdo.ucsd.edu/data/co2clivar/atlantic/a13.5/33RO20100308/a13.5-33RO20100308trk.jpg" />]]></value>
+				</Data>
+				<Data name="ship">
+					<value>RONALD H. BROWN</value>
+				</Data>
+				<Data name="country">
+					<value>USA</value>
+				</Data>
+				<Data name="chief_scis">
+					<value>Bullister/PMEL</value>
+				</Data>
+				<Data name="dates">
+					<value>2010-03-08/2010-04-17</value>
+				</Data>
+			</ExtendedData>
+			<MultiGeometry>
+				<Point>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>0.0002,-54.0007,0</coordinates>
+				</Point>
+				<LineString>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>
+						0.0002,-54.0007,0 0.06950000000000001,-53.5,0 0.1452,-52.9995,0 0.2515,-52.5102,0 0.338,-52.0087,0 0.3478,-51.5002,0 0.416,-51,0 0.4854999999999999,-50.5002,0 0.5545,-50,0 0.6254999999999999,-49.4993,0 0.6928,-48.99980000000001,0 0.7618,-48.5007,0 0.8313,-48,0 0.9012000000000001,-47.5002,0 0.9699999999999999,-47,0 1.0397,-46.4998,0 1.1085,-46,0 1.1777,-45.5003,0 1.247,-45,0 1.3153,-44.501,0 1.35,-44.0002,0 1.3413,-43.5007,0 1.3312,-42.8333,0 1.2892,-42.4137,0 1.1497,-41.9993,0 1.0092,-41.5833,0 0.9717,-40.9995,0 0.9772999999999999,-40.4998,0 0.9828000000000001,-39.9998,0 0.979,-39.5,0 0.9758,-39.0003,0 0.9792,-38.5,0 0.9838000000000001,-37.9998,0 0.9918,-37.4998,0 1.0002,-37.0005,0 1.0047,-36.4992,0 1.0085,-35.9998,0 1.0507,-35.4997,0 1.0927,-34.9998,0 1.1577,-34.4998,0 1.2187,-34,0 1.0998,-33.4998,0 0.9797,-32.9998,0 1.1238,-32.4998,0 1.2707,-31.9997,0 1.416,-31.5017,0 1.5643,-31,0 1.6967,-30.5015,0 1.833,-29.9998,0 1.8083,-29.4998,0 1.7832,-28.9998,0 1.7513,-28.4998,0 1.719,-27.9995,0 1.689,-27.4998,0 1.66,-26.9998,0 1.6467,-26.4997,0 1.6332,-25.9998,0 1.5928,-25.5002,0 1.5498,-24.9998,0 1.5255,-24.5,0 1.5007,-24,0 1.4718,-23.4998,0 1.4432,-23,0 1.4135,-22.5,0 1.3858,-22.0007,0 1.3543,-21.5,0 1.3233,-20.9997,0 1.2915,-20.5,0 1.2595,-19.9998,0 1.2415,-19.5,0 1.2248,-19,0 1.2,-18.5,0 1.2,-18.5,0 1.1748,-18,0 1.1422,-17.5,0 1.1082,-16.9998,0 1.0555,-16.4997,0 1.0017,-16,0 0.9998,-15.4998,0 0.9998,-15,0 1,-15,0 0.9797999999999999,-14.5002,0 0.9582000000000001,-14,0 0.9409999999999999,-13.5005,0 0.9409999999999999,-13.5005,0 0.925,-12.9998,0 0.8967000000000001,-12.4998,0 0.8662,-12,0 0.8465,-11.4998,0 0.8257000000000001,-11,0 0.8022,-10.4992,0 0.7782,-9.9998,0 0.5573,-9.500500000000001,0 0.1395,-9,0 -0.2857,-8.497999999999999,0 -0.7166999999999999,-7.9997,0 -1.1495,-7.5007,0 -1.5615,-6.9995,0 -1.9735,-6.4998,0 -2.4077,-5.9998,0 -2.8468,-5.4998,0 -3.0003,-4.9997,0 -3.0002,-4.5,0 -3.0002,-4.0003,0 -3.0005,-3.5002,0 -2.9997,-2.999200000000001,0 -3.0003,-2.6667,0 -3.0007,-2.3333,0 -3,-1.9998,0 -3.0018,-1.666,0 -3,-1.3337,0 -3.000999999999999,-0.9992,0 -3.001300000000001,-0.6647999999999999,0 -3.0005,-0.3333,0 -3.000999999999999,0.0008000000000000001,0 -3.0005,0.3343,0 -3.000999999999999,0.6652,0 -3.0003,0.9997000000000001,0 -3.000999999999999,1.334,0 -3,1.6672,0 -3.000999999999999,2.002,0 -2.9997,2.3335,0 -2.9998,2.6673,0 -2.9995,3.0002,0 -2.9995,3.3103,0 -3.0005,3.4032,0 -2.9998,3.4748,0 -3.0003,3.823300000000001,0 -2.9995,4.1715,0 -3,4.432,0 -2.9997,4.622,0 -3,4.7108,0 
+					</coordinates>
+				</LineString>
+			</MultiGeometry>
+		</Placemark>
+	</Document>
+	<Document>
+		<name>318M20100105_318M20091121.kml</name>
+		<Style id="n_cchdo0">
+			<IconStyle>
+				<scale>1.3</scale>
+				<Icon>
+					<href>http://cchdo.ucsd.edu/images/map_search/cruise_start_icon.png</href>
+				</Icon>
+				<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+			</IconStyle>
+			<BalloonStyle>
+				<text><![CDATA[<!DOCTYPE html>
+<html>
+  <style>
+#preview * {border-radius:0.4em;}#preview{width:35em;top:-1em;overflow:hidden;height:13.5em;}
+#preview #slidebed{width:70em;position:relative;margin:0;height:inherit;}
+#preview div{width:35em;font-family:Futura,Helvetica,sans-serif;}#preview h1,#preview h2{font-size:
+1.5em;font-weight:normal;color:#94b6d1;background:#e4f3f8;padding:0.3em;
+position:relative;}button{background:#c4d3f8;color:#84a6c1;font-size:
+0.8em;width:3.5em;padding:0.2em;display:inline-block;position:absolute;
+top:0.25em;right:0.5em;text-align:center;cursor:pointer;border:0;
+text-shadow:#fff 1px 1px -1px;}button:active{background:#b4c3e8;}#preview h1 img{
+height:1.5em;display:block;float:left;margin:-4px 0.3em 0 0;}h2{text-align:
+right;margin:0;}h2 button{width:5em;position:absolute;left:0.5em;}.expocode
+{color:#243766;}.map{width:9em;}dl{margin-left:9.1em;margin-top:-8.5em;
+font-size:1.1em;margin-bottom:2em;}dt{float:left;clear:left;margin-right:
+0.5em;color:#a9b9d5;}dt:after{content:":";}dd{margin:0;}a{color:#243766;}
+#data{margin-left:35em;position:absolute;top:0;}  </style>
+  <div class="cchdo" id="preview">
+    <div id="slidebed">
+      <div class="cchdo general" id="general">
+        <h1>
+          <img src="http://cchdo.ucsd.edu/favicon.png"/>
+          <span class="alias">$[main_alias]</span>
+          <a class="expocode" href="http://cchdo.ucsd.edu/cruise/$[expocode]">$[expocode]</a>
+          <button id="button-data" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(slidebed.offsetWidth / -2);">Data &amp;#155;</button>
+        </h1>
+$[map]
+        <dl>
+          <dt>Alias</dt>
+          <dd>$[aliases]</dd>
+          <dt>Ship/Country</dt>
+          <dd>$[ship]/$[country]</dd>
+          <dt>Chief Scientists</dt>
+          <dd>$[chief_scis]</dd>
+          <dt>Cruise dates</dt>
+          <dd>$[dates]</dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">CCHDO data page</a>
+          </dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">Data history</a>
+          </dd>
+        </dl>
+      </div>
+      <div class="cchdo data" id="data">
+        <h2>
+          <button id="button-general" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(0);">&amp;#139; General</button>
+          <span class="expocode">$[expocode]</span>
+ Data subset        </h2>
+        <ul>
+          <li>
+            <a href="#">Exchange Bottle</a>
+          </li>
+          <li>
+            <a href="#">Exchange CTD</a>
+          </li>
+          <li>
+            <a href="#">Text Documentation</a>
+          </li>
+          <li>
+            <a href="#">PDF Documentation</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</html>]]></text>
+			</BalloonStyle>
+			<LineStyle>
+				<color>ffcccccc</color>
+				<width>3</width>
+			</LineStyle>
+		</Style>
+		<Style id="h_cchdo0">
+			<IconStyle>
+				<scale>1.3</scale>
+				<Icon>
+					<href>http://cchdo.ucsd.edu/images/map_search/cruise_start_icon.png</href>
+				</Icon>
+				<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+			</IconStyle>
+			<BalloonStyle>
+				<text><![CDATA[<!DOCTYPE html>
+<html>
+  <style>
+#preview * {border-radius:0.4em;}#preview{width:35em;top:-1em;overflow:hidden;height:13.5em;}
+#preview #slidebed{width:70em;position:relative;margin:0;height:inherit;}
+#preview div{width:35em;font-family:Futura,Helvetica,sans-serif;}#preview h1,#preview h2{font-size:
+1.5em;font-weight:normal;color:#94b6d1;background:#e4f3f8;padding:0.3em;
+position:relative;}button{background:#c4d3f8;color:#84a6c1;font-size:
+0.8em;width:3.5em;padding:0.2em;display:inline-block;position:absolute;
+top:0.25em;right:0.5em;text-align:center;cursor:pointer;border:0;
+text-shadow:#fff 1px 1px -1px;}button:active{background:#b4c3e8;}#preview h1 img{
+height:1.5em;display:block;float:left;margin:-4px 0.3em 0 0;}h2{text-align:
+right;margin:0;}h2 button{width:5em;position:absolute;left:0.5em;}.expocode
+{color:#243766;}.map{width:9em;}dl{margin-left:9.1em;margin-top:-8.5em;
+font-size:1.1em;margin-bottom:2em;}dt{float:left;clear:left;margin-right:
+0.5em;color:#a9b9d5;}dt:after{content:":";}dd{margin:0;}a{color:#243766;}
+#data{margin-left:35em;position:absolute;top:0;}  </style>
+  <div class="cchdo" id="preview">
+    <div id="slidebed">
+      <div class="cchdo general" id="general">
+        <h1>
+          <img src="http://cchdo.ucsd.edu/favicon.png"/>
+          <span class="alias">$[main_alias]</span>
+          <a class="expocode" href="http://cchdo.ucsd.edu/cruise/$[expocode]">$[expocode]</a>
+          <button id="button-data" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(slidebed.offsetWidth / -2);">Data &amp;#155;</button>
+        </h1>
+$[map]
+        <dl>
+          <dt>Alias</dt>
+          <dd>$[aliases]</dd>
+          <dt>Ship/Country</dt>
+          <dd>$[ship]/$[country]</dd>
+          <dt>Chief Scientists</dt>
+          <dd>$[chief_scis]</dd>
+          <dt>Cruise dates</dt>
+          <dd>$[dates]</dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">CCHDO data page</a>
+          </dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">Data history</a>
+          </dd>
+        </dl>
+      </div>
+      <div class="cchdo data" id="data">
+        <h2>
+          <button id="button-general" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(0);">&amp;#139; General</button>
+          <span class="expocode">$[expocode]</span>
+ Data subset        </h2>
+        <ul>
+          <li>
+            <a href="#">Exchange Bottle</a>
+          </li>
+          <li>
+            <a href="#">Exchange CTD</a>
+          </li>
+          <li>
+            <a href="#">Text Documentation</a>
+          </li>
+          <li>
+            <a href="#">PDF Documentation</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</html>]]></text>
+			</BalloonStyle>
+			<LineStyle>
+				<color>ffcccccc</color>
+				<width>3</width>
+			</LineStyle>
+		</Style>
+		<StyleMap id="cchdo0">
+			<Pair>
+				<key>normal</key>
+				<styleUrl>#n_cchdo0</styleUrl>
+			</Pair>
+			<Pair>
+				<key>highlight</key>
+				<styleUrl>#h_cchdo0</styleUrl>
+			</Pair>
+		</StyleMap>
+		<Placemark>
+			<name>318M20100105</name>
+			<styleUrl>#cchdo0</styleUrl>
+			<ExtendedData>
+				<Data name="main_alias">
+					<value>P06</value>
+				</Data>
+				<Data name="expocode">
+					<value>318M20100105</value>
+				</Data>
+				<Data name="aliases">
+					<value>P6,NSF-0752970,MV0912</value>
+				</Data>
+				<Data name="map">
+					<value><![CDATA[<img class="map" src="http://cchdo.ucsd.edu/data/co2clivar/pacific/p06/p06_318M20100105/p06_318M20100105trk.jpg" />]]></value>
+				</Data>
+				<Data name="ship">
+					<value>MELVILLE</value>
+				</Data>
+				<Data name="country">
+					<value>USA</value>
+				</Data>
+				<Data name="chief_scis">
+					<value>Curry/WHOI</value>
+				</Data>
+				<Data name="dates">
+					<value>2010-01-05/2010-02-10</value>
+				</Data>
+			</ExtendedData>
+			<MultiGeometry>
+				<Point>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>-145.8415,-32.4997,0</coordinates>
+				</Point>
+				<LineString>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>
+						-145.8415,-32.4997,0 -145.2485,-32.5003,0 -144.6565,-32.4998,0 -144.0695,-32.4995,0 -143.4717,-32.5,0 -142.8783,-32.4997,0 -142.2863,-32.4992,0 -141.6963,-32.5,0 -141.1015,-32.5,0 -140.51,-32.5,0 -139.9162,-32.501,0 -139.3248,-32.4998,0 -138.732,-32.5,0 -138.1428,-32.4998,0 -137.5493,-32.5,0 -136.9567,-32.4998,0 -136.3617,-32.5,0 -135.7703,-32.5003,0 -135.1783,-32.5002,0 -134.5853,-32.5,0 -133.9933,-32.5,0 -133.4033,-32.5003,0 -132.8102,-32.5002,0 -132.14,-32.5,0 -131.47,-32.5017,0 -130.791,-32.4998,0 -130.1175,-32.4992,0 -129.45,-32.5,0 -128.7812,-32.4978,0 -128.11,-32.4998,0 -127.4285,-32.4983,0 -126.76,-32.5,0 -126.0915,-32.5003,0 -125.42,-32.5,0 -124.7515,-32.4998,0 -124.08,-32.5,0 -123.401,-32.5018,0 -122.73,-32.5,0 -122.0597,-32.5007,0 -121.3895,-32.5003,0 -120.7202,-32.5028,0 -120.0442,-32.5043,0 -119.3685,-32.4995,0 -118.6998,-32.5,0 -118.03,-32.5017,0 -117.3582,-32.5005,0 -116.6805,-32.499,0 -116.01,-32.5,0 -115.3408,-32.4995,0 -114.6703,-32.5003,0 -113.9985,-32.4983,0 -113.3312,-32.4997,0 -112.6495,-32.4983,0 -111.98,-32.4997,0 -111.3088,-32.5,0 -110.6405,-32.5,0 -109.9707,-32.4985,0 -109.2898,-32.4998,0 -108.6193,-32.4988,0 -107.9498,-32.4998,0 -107.2798,-32.4995,0 -106.6098,-32.5,0 -105.928,-32.4993,0 -105.26,-32.4998,0 -104.5903,-32.4998,0 -103.9198,-32.5,0 -103.2503,-32.4987,0 -102.5712,-32.4992,0 -101.9025,-32.4987,0 -101.2287,-32.5002,0 -100.5603,-32.5,0 -99.89,-32.5007,0 -99.25979999999998,-32.501,0 -98.6293,-32.5002,0 -97.99079999999999,-32.5,0 -97.36,-32.5,0 -96.73,-32.5,0 -96.09979999999999,-32.4997,0 -95.4598,-32.5,0 -94.82980000000001,-32.4998,0 -94.2,-32.5,0 -93.57020000000001,-32.5,0 -92.93019999999999,-32.5002,0 -92.3,-32.5,0 -91.67000000000002,-32.5,0 -91.03830000000001,-32.4997,0 -90.40000000000001,-32.5,0 -89.7698,-32.5,0 -89.13979999999999,-32.5,0 -88.51049999999999,-32.5002,0 -87.8798,-32.5,0 -87.2397,-32.5002,0 -86.61,-32.4998,0 -85.98,-32.5,0 -85.35120000000001,-32.5003,0 -84.7103,-32.5,0 -84.0808,-32.5002,0 -83.4512,-32.5007,0 -82.8203,-32.5002,0 -82.1798,-32.5,0 -81.55,-32.5,0 -80.9198,-32.5,0 -80.2897,-32.5002,0 -79.65179999999999,-32.5013,0 -79.0198,-32.5005,0 -78.38930000000001,-32.4998,0 -77.76000000000001,-32.5003,0 -77.1198,-32.5007,0 -76.4898,-32.4998,0 -75.85850000000001,-32.4997,0 -75.22969999999999,-32.4998,0 -74.6002,-32.5,0 -73.9598,-32.4998,0 -73.3295,-32.501,0 -73.0005,-32.5,0 -72.6828,-32.4998,0 -72.4897,-32.5,0 -72.41379999999999,-32.5,0 -72.343,-32.4993,0 -72.1307,-32.5007,0 -71.923,-32.5015,0 -71.7818,-32.5005,0 -71.7045,-32.5008,0 
+					</coordinates>
+				</LineString>
+			</MultiGeometry>
+		</Placemark>
+		<Placemark>
+			<name>318M20091121</name>
+			<styleUrl>#cchdo0</styleUrl>
+			<ExtendedData>
+				<Data name="main_alias">
+					<value>P06</value>
+				</Data>
+				<Data name="expocode">
+					<value>318M20091121</value>
+				</Data>
+				<Data name="aliases">
+					<value>MV0911,P6,NSF-0752970</value>
+				</Data>
+				<Data name="map">
+					<value><![CDATA[<img class="map" src="http://cchdo.ucsd.edu/data/co2clivar/pacific/p06/p06_318M20091121/p06_318M20091121trk.jpg" />]]></value>
+				</Data>
+				<Data name="ship">
+					<value>MELVILLE</value>
+				</Data>
+				<Data name="country">
+					<value>USA</value>
+				</Data>
+				<Data name="chief_scis">
+					<value>MacDonald/WHOI</value>
+				</Data>
+				<Data name="dates">
+					<value>2009-11-21/2010-01-02</value>
+				</Data>
+			</ExtendedData>
+			<MultiGeometry>
+				<Point>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>153.48,-30.09,0</coordinates>
+				</Point>
+				<LineString>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>
+						153.48,-30.09,0 153.5197,-30.0805,0 153.6,-30.08,0 153.6,-30.08,0 153.68,-30.08,0 153.75,-30.08,0 153.9202,-30.08,0 153.96,-30.08,0 154,-30.08,0 154.16,-30.08,0 154.5,-30.09,0 155,-30.08,0 155.4898,-30.079,0 155.99,-30.07,0 156.2318,-30.0795,0 156.4705,-30.0792,0 156.71,-30.08,0 156.92,-30.08,0 157.1208,-30.0798,0 157.3998,-30.0797,0 157.6698,-30.09,0 158.0002,-30.0802,0 158.3398,-30.08,0 158.68,-30.0802,0 159.08,-30.3298,0 159.5,-30.0802,0 160.0002,-30.0803,0 160.5053,-30.08,0 161,-30.0803,0 161.4998,-30.0808,0 161.9998,-30.0803,0 162.5,-30.08,0 163,-30.0792,0 163.5,-30.0805,0 163.9202,-30.08,0 164.3405,-30.081,0 164.8302,-30.0803,0 165.1198,-30.08,0 165.4102,-30.08,0 165.94,-30.08,0 166.4695,-30.0803,0 167,-30.0798,0 167.5,-30.0798,0 168.0003,-30.0798,0 168.4997,-30.0798,0 169,-30.0798,0 169.5,-30.08,0 170.0002,-30.0798,0 170.5002,-30.0795,0 170.997,-30.0803,0 171.27,-30.0798,0 171.4998,-30.08,0 172.0002,-30.08,0 172.4998,-30.0795,0 173.0002,-30.0797,0 173.5002,-30.0852,0 174.0012,-30.0817,0 174.5002,-30.0798,0 175,-30.0805,0 175.5,-30.08,0 175.9998,-30.08,0 176.5003,-30.0798,0 176.75,-30.33,0 177,-30.57999999999999,0 177.3183,-30.9002,0 177.6368,-31.221,0 177.955,-31.54,0 178.273,-31.8603,0 178.5918,-32.18,0 178.9103,-32.4995,0 179.42,-32.5,0 179.9197,-32.5,0 -179.5,-32.5,0 -178.9105,-32.4995,0 -178.6497,-32.5,0 -178.47,-32.4998,0 -178.2792,-32.5,0 -178.0008,-32.4992,0 -177.67,-32.4998,0 -177.25,-32.5002,0 -176.7503,-32.5003,0 -176.25,-32.4997,0 -175.75,-32.5,0 -175.2602,-32.4998,0 -174.84,-32.5,0 -174.3298,-32.4998,0 -173.9997,-32.4997,0 -173.6698,-32.4998,0 -173.1698,-32.5,0 -172.91,-32.5,0 -172.4202,-32.5,0 -171.9202,-32.5,0 -171.7602,-32.5,0 -171.59,-32.5,0 -171.25,-32.5,0 -170.7502,-32.4997,0 -170.249,-32.496,0 -169.4997,-32.5002,0 -168.5,-32.5,0 -167.4362,-32.5,0 -166.3723,-32.5,0 -165.3083,-32.5,0 -164.2443,-32.5,0 -163.1788,-32.5,0 -162.4307,-32.4997,0 -161.8385,-32.5002,0 -161.0493,-32.5002,0 -160.0605,-32.5,0 -159.4712,-32.498,0 -158.877,-32.5,0 -157.8603,-32.5002,0 -157.0985,-32.5,0 -156.3867,-32.5,0 -155.6767,-32.5,0 -154.965,-32.5,0 -154.253,-32.5,0 -153.5433,-32.5,0 -152.8333,-32.5,0 -152.1267,-32.5,0 -151.4167,-32.5,0 -150.7083,-32.5002,0 -150.0002,-32.4997,0 -149.3002,-32.5,0 -148.6083,-32.5,0 -147.9172,-32.5002,0 -147.225,-32.5,0 -146.5333,-32.5,0 -145.8417,-32.5002,0 
+					</coordinates>
+				</LineString>
+			</MultiGeometry>
+		</Placemark>
+	</Document>
+	<Document>
+		<name>49UP20100706.kml</name>
+		<Style id="n_cchdo1">
+			<IconStyle>
+				<scale>1.3</scale>
+				<Icon>
+					<href>http://cchdo.ucsd.edu/images/map_search/cruise_start_icon.png</href>
+				</Icon>
+				<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+			</IconStyle>
+			<BalloonStyle>
+				<text><![CDATA[<!DOCTYPE html>
+<html>
+  <style>
+#preview * {border-radius:0.4em;}#preview{width:35em;top:-1em;overflow:hidden;height:13.5em;}
+#preview #slidebed{width:70em;position:relative;margin:0;height:inherit;}
+#preview div{width:35em;font-family:Futura,Helvetica,sans-serif;}#preview h1,#preview h2{font-size:
+1.5em;font-weight:normal;color:#94b6d1;background:#e4f3f8;padding:0.3em;
+position:relative;}button{background:#c4d3f8;color:#84a6c1;font-size:
+0.8em;width:3.5em;padding:0.2em;display:inline-block;position:absolute;
+top:0.25em;right:0.5em;text-align:center;cursor:pointer;border:0;
+text-shadow:#fff 1px 1px -1px;}button:active{background:#b4c3e8;}#preview h1 img{
+height:1.5em;display:block;float:left;margin:-4px 0.3em 0 0;}h2{text-align:
+right;margin:0;}h2 button{width:5em;position:absolute;left:0.5em;}.expocode
+{color:#243766;}.map{width:9em;}dl{margin-left:9.1em;margin-top:-8.5em;
+font-size:1.1em;margin-bottom:2em;}dt{float:left;clear:left;margin-right:
+0.5em;color:#a9b9d5;}dt:after{content:":";}dd{margin:0;}a{color:#243766;}
+#data{margin-left:35em;position:absolute;top:0;}  </style>
+  <div class="cchdo" id="preview">
+    <div id="slidebed">
+      <div class="cchdo general" id="general">
+        <h1>
+          <img src="http://cchdo.ucsd.edu/favicon.png"/>
+          <span class="alias">$[main_alias]</span>
+          <a class="expocode" href="http://cchdo.ucsd.edu/cruise/$[expocode]">$[expocode]</a>
+          <button id="button-data" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(slidebed.offsetWidth / -2);">Data &amp;#155;</button>
+        </h1>
+$[map]
+        <dl>
+          <dt>Alias</dt>
+          <dd>$[aliases]</dd>
+          <dt>Ship/Country</dt>
+          <dd>$[ship]/$[country]</dd>
+          <dt>Chief Scientists</dt>
+          <dd>$[chief_scis]</dd>
+          <dt>Cruise dates</dt>
+          <dd>$[dates]</dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">CCHDO data page</a>
+          </dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">Data history</a>
+          </dd>
+        </dl>
+      </div>
+      <div class="cchdo data" id="data">
+        <h2>
+          <button id="button-general" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(0);">&amp;#139; General</button>
+          <span class="expocode">$[expocode]</span>
+ Data subset        </h2>
+        <ul>
+          <li>
+            <a href="#">Exchange Bottle</a>
+          </li>
+          <li>
+            <a href="#">Exchange CTD</a>
+          </li>
+          <li>
+            <a href="#">Text Documentation</a>
+          </li>
+          <li>
+            <a href="#">PDF Documentation</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</html>]]></text>
+			</BalloonStyle>
+			<LineStyle>
+				<color>ffcccccc</color>
+				<width>3</width>
+			</LineStyle>
+		</Style>
+		<Style id="h_cchdo1">
+			<IconStyle>
+				<scale>1.3</scale>
+				<Icon>
+					<href>http://cchdo.ucsd.edu/images/map_search/cruise_start_icon.png</href>
+				</Icon>
+				<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+			</IconStyle>
+			<BalloonStyle>
+				<text><![CDATA[<!DOCTYPE html>
+<html>
+  <style>
+#preview * {border-radius:0.4em;}#preview{width:35em;top:-1em;overflow:hidden;height:13.5em;}
+#preview #slidebed{width:70em;position:relative;margin:0;height:inherit;}
+#preview div{width:35em;font-family:Futura,Helvetica,sans-serif;}#preview h1,#preview h2{font-size:
+1.5em;font-weight:normal;color:#94b6d1;background:#e4f3f8;padding:0.3em;
+position:relative;}button{background:#c4d3f8;color:#84a6c1;font-size:
+0.8em;width:3.5em;padding:0.2em;display:inline-block;position:absolute;
+top:0.25em;right:0.5em;text-align:center;cursor:pointer;border:0;
+text-shadow:#fff 1px 1px -1px;}button:active{background:#b4c3e8;}#preview h1 img{
+height:1.5em;display:block;float:left;margin:-4px 0.3em 0 0;}h2{text-align:
+right;margin:0;}h2 button{width:5em;position:absolute;left:0.5em;}.expocode
+{color:#243766;}.map{width:9em;}dl{margin-left:9.1em;margin-top:-8.5em;
+font-size:1.1em;margin-bottom:2em;}dt{float:left;clear:left;margin-right:
+0.5em;color:#a9b9d5;}dt:after{content:":";}dd{margin:0;}a{color:#243766;}
+#data{margin-left:35em;position:absolute;top:0;}  </style>
+  <div class="cchdo" id="preview">
+    <div id="slidebed">
+      <div class="cchdo general" id="general">
+        <h1>
+          <img src="http://cchdo.ucsd.edu/favicon.png"/>
+          <span class="alias">$[main_alias]</span>
+          <a class="expocode" href="http://cchdo.ucsd.edu/cruise/$[expocode]">$[expocode]</a>
+          <button id="button-data" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(slidebed.offsetWidth / -2);">Data &amp;#155;</button>
+        </h1>
+$[map]
+        <dl>
+          <dt>Alias</dt>
+          <dd>$[aliases]</dd>
+          <dt>Ship/Country</dt>
+          <dd>$[ship]/$[country]</dd>
+          <dt>Chief Scientists</dt>
+          <dd>$[chief_scis]</dd>
+          <dt>Cruise dates</dt>
+          <dd>$[dates]</dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">CCHDO data page</a>
+          </dd>
+          <dd>
+            <a href="http://cchdo.ucsd.edu/cruise/$[expocode]">Data history</a>
+          </dd>
+        </dl>
+      </div>
+      <div class="cchdo data" id="data">
+        <h2>
+          <button id="button-general" onclick="var slidebed=document.getElementById(
+'slidebed');function a(x){function s(x){slidebed.style.marginLeft=x+'px';}
+var start=new Date();var time=200;var val=Number(
+slidebed.style.marginLeft.slice(0,-2));(function(){var elapsed=new Date() -
+start;if(elapsed&gt;=time){s(x);}else{s(val - (val - x) * elapsed / time);
+setTimeout(arguments.callee,0);}})();}a(0);">&amp;#139; General</button>
+          <span class="expocode">$[expocode]</span>
+ Data subset        </h2>
+        <ul>
+          <li>
+            <a href="#">Exchange Bottle</a>
+          </li>
+          <li>
+            <a href="#">Exchange CTD</a>
+          </li>
+          <li>
+            <a href="#">Text Documentation</a>
+          </li>
+          <li>
+            <a href="#">PDF Documentation</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</html>]]></text>
+			</BalloonStyle>
+			<LineStyle>
+				<color>ffcccccc</color>
+				<width>3</width>
+			</LineStyle>
+		</Style>
+		<StyleMap id="cchdo1">
+			<Pair>
+				<key>normal</key>
+				<styleUrl>#n_cchdo1</styleUrl>
+			</Pair>
+			<Pair>
+				<key>highlight</key>
+				<styleUrl>#h_cchdo1</styleUrl>
+			</Pair>
+		</StyleMap>
+		<Placemark>
+			<name>49UP20100706</name>
+			<styleUrl>#cchdo1</styleUrl>
+			<ExtendedData>
+				<Data name="main_alias">
+					<value>P09</value>
+				</Data>
+				<Data name="expocode">
+					<value>49UP20100706</value>
+				</Data>
+				<Data name="aliases">
+					<value>RF10-05,P9</value>
+				</Data>
+				<Data name="map">
+					<value><![CDATA[<img class="map" src="http://cchdo.ucsd.edu/data/co2clivar/pacific/p09/p09_49UP20100706/p09_49RY9407_1trk.jpg" />]]></value>
+				</Data>
+				<Data name="ship">
+					<value>RYOFU MARU</value>
+				</Data>
+				<Data name="country">
+					<value>JPN</value>
+				</Data>
+				<Data name="chief_scis">
+					<value>Nakano/JMA</value>
+				</Data>
+				<Data name="dates">
+					<value>2010-07-06/2010-08-22</value>
+				</Data>
+			</ExtendedData>
+			<MultiGeometry>
+				<Point>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>136.9912,34.2475,0</coordinates>
+				</Point>
+				<LineString>
+					<altitudeMode>absolute</altitudeMode>
+					<coordinates>
+						136.9912,34.2475,0 136.9873,34.1118,0 136.9733,34.0157,0 137.0137,33.8357,0 137.0132,33.687,0 137.0258,33.5052,0 137.0367,33.352,0 137.039,33.1878,0 137.0335,33.026,0 137.0108,32.7042,0 137.0323,32.3483,0 137.0125,32.0102,0 136.9785,31.694,0 137.0083,31.3532,0 137.019,30.991,0 136.9948,30.6535,0 136.9987,30.3595,0 137.0238,30.0017,0 137.1988,29.4778,0 136.9982,29.0292,0 137.0003,28.518,0 136.9888,27.9983,0 136.9828,27.5242,0 136.9977,27.0087,0 136.9617,26.5067,0 136.9865,25.9972,0 136.9885,25.4862,0 137.0035,25.0108,0 136.9777,24.5073,0 136.9987,24.0157,0 136.9945,23.4962,0 137.3137,23.0153,0 137.3067,22.4895,0 137.3095,21.9995,0 136.9753,21.4967,0 136.9702,20.9972,0 136.9902,20.4843,0 137.0065,19.9708,0 136.988,19.4898,0 136.984,18.9957,0 136.999,18.5087,0 137.0302,18.0097,0 136.9635,17.5088,0 136.9595,17.0045,0 136.9805,16.5063,0 136.9763,16.0102,0 136.9848,15.4885,0 136.9817,14.9818,0 136.9683,14.4943,0 136.9697,14.0005,0 136.9593,13.4978,0 136.971,12.9993,0 136.9722,12.5008,0 136.9708,12.0052,0 136.9783,11.496,0 136.9768,11.0043,0 136.9768,10.4975,0 136.9805,10.0013,0 136.9775,9.5123,0 136.9742,9.004,0 136.993,8.671200000000001,0 136.9997,8.335000000000001,0 136.9867,7.9962,0 136.8273,7.6675,0 136.8228,7.507999999999999,0 136.8123,7.337700000000001,0 136.9822,7.0007,0 136.996,7.0147,0 137.3647,6.658200000000001,0 137.7178,6.2957,0 138.0665,5.9278,0 138.4298,5.5552,0 138.8073,5.1982,0 139.1753,4.8337,0 139.5292,4.4512,0 139.9095,4.1007,0 140.2622,3.7492,0 140.6285,3.3657,0 140.978,3.0128,0 141.2352,2.7575,0 141.482,2.5057,0 141.7457,2.2402,0 141.9842,1.991,0 141.7408,2.0523,0 141.4927,2.1027,0 141.2307,2.1582,0 141.9788,1.7465,0 141.976,1.492,0 141.9978,1.2385,0 141.9845,0.9919999999999999,0 141.9982,0.7452,0 141.9918,0.4937,0 141.9877,0.2417,0 141.9852,0.004,0 141.9868,-0.257,0 141.9923,-0.4992,0 141.9898,-0.7483,0 141.9802,-1.0023,0 141.1575,-2.3267,0 141.2273,-2.2518,0 141.4928,-2.1445,0 141.7265,-2.0875,0 141.9848,-2.0018,0 141.982,-1.7537,0 141.9797,-1.5182,0 141.9747,-1.2502,0 142.002,1.9905,0 140.9945,2.195,0 140.479,2.2918,0 139.9953,2.4037,0 139.502,2.5003,0 138.992,2.5958,0 138.5145,2.6978,0 138.0018,2.7998,0 137.4988,2.9092,0 136.9938,2.993,0 136.9968,3.4932,0 136.9745,4.0218,0 136.9925,4.4925,0 136.9958,4.999,0 137.001,5.5027,0 136.9702,5.987,0 136.9843,6.4843,0 136.986,7.0033,0 
+					</coordinates>
+				</LineString>
+			</MultiGeometry>
+		</Placemark>
+        </Folder>
+</Document>
+</kml>

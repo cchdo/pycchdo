@@ -134,6 +134,10 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.parameters', route_name='parameters',
                     renderer='templates/parameters.jinja2')
 
+    config.add_route('contributions', '/contributions.html')
+    config.add_view('pycchdo.views.contributions', route_name='contributions',
+                    renderer='templates/search/map.jinja2')
+
     config.add_route('parameter_show', '/parameter/{parameter_id}.json')
     config.add_view('pycchdo.views.parameter_show', route_name='parameter_show',
                     renderer='json')
@@ -159,6 +163,9 @@ def main(global_config, **settings):
     config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
     config.add_view('pycchdo.views.obj.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
 
+    # Need precedence for extension to catch before ending up a cruise identifier
+    config.add_route('cruise_kml', '/cruise/{cruise_id}.kml')
+    config.add_view('pycchdo.views.cruise.kml', route_name='cruise_kml')
     obj_routes(config, 'cruise', new=True)
     config.add_route('cruise_map_full', '/cruise/{cruise_id}/map_full')
     config.add_view('pycchdo.views.cruise.map_full',
@@ -166,6 +173,10 @@ def main(global_config, **settings):
     config.add_route('cruise_map_thumb', '/cruise/{cruise_id}/map_thumb')
     config.add_view('pycchdo.views.cruise.map_thumb',
                     route_name='cruise_map_thumb')
+    config.add_route('cruises_json', '/cruises.json')
+    config.add_view('pycchdo.views.cruise.json', route_name='cruises_json',
+                    renderer='json')
+
     obj_routes(config, 'collection', mergeable=True, editable=True)
     obj_routes(config, 'country', 'countries', mergeable=True, editable=True)
     obj_routes(config, 'person', 'people', mergeable=True, editable=True)
@@ -197,6 +208,10 @@ def main(global_config, **settings):
 
     config.add_route('search_results', '/search/results')
     config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
+
+    config.add_route('search_results_json', '/search/results.json')
+    config.add_view('pycchdo.views.search.search_results_json',
+                    route_name='search_results_json', renderer='json')
 
     config.add_route('advanced_search', '/search/advanced')
     config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')

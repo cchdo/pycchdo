@@ -6,19 +6,19 @@ import pycchdo.models as models
 
 from . import *
 from pycchdo.helpers import has_mod
+from pycchdo.views.staff import staff_signin_required
 from session import require_signin
 
 
+@staff_signin_required
 def objs(request):
     objs = models.Obj.get_all()
     objs = _paged(request, objs)
     return {'objs': objs}
 
 
+@staff_signin_required
 def obj_new(request):
-    if not request.user:
-        return require_signin(request)
-
     if _http_method(request) != 'PUT':
         return HTTPBadRequest()
 
@@ -52,6 +52,7 @@ def obj_new(request):
     return {'obj': obj}
 
 
+@staff_signin_required
 def obj_show(request):
     obj_id = request.matchdict['obj_id']
     obj = models.Obj.get_id(obj_id)
@@ -88,9 +89,9 @@ def obj_show(request):
                 return HTTPSeeOther(location=request.referrer)
         except KeyError:
             pass
-    if obj.type == 'Cruise':
+    if obj.obj_type == 'Cruise':
         link = request.url.replace('/obj/', '/cruise/')
-    elif obj.type == 'Obj':
+    elif obj.obj_type == 'Obj':
         link = None
 
     return {
@@ -100,6 +101,7 @@ def obj_show(request):
     }
 
 
+@staff_signin_required
 def obj_attrs(request):
     method = _http_method(request)
 
@@ -152,6 +154,7 @@ def obj_attrs(request):
     return {'obj': obj, 'type': __builtins__['type']}
 
 
+@staff_signin_required
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
     key = request.matchdict['key']

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+        <name>(ARG) SAMOC</name>
+	<Placemark>
+		<name>
+			(ARG) SAMOC
+		</name>
+		<description>
+			&lt;img src=&quot;http://www.aoml.noaa.gov/phod/research/moc/samoc/sam/SAM_SADCP_Map_plot_alt_w740px.jpg&quot; height=200&gt;
+&lt;hr&gt;
+&lt;a mailto:&quot;ahtroisi@gmail.com&quot;&gt;Ariel Troisi&lt;/a&gt;
+&lt;hr&gt;
+SHN, &lt;b&gt;Argentina&lt;/b&gt;&lt;br&gt;
+Depart: Mar Del Pata, Argentina
+
+		</description>
+		<LookAt>
+			<latitude>
+				-41.25
+			</latitude>
+			<longitude>
+				-51
+			</longitude>
+			<altitude>
+				0
+			</altitude>
+			<heading>
+				0
+			</heading>
+			<tilt>
+				0
+			</tilt>
+			<range>
+				3495253.3333333335
+			</range>
+			<altitudeMode>
+				relativeToGround
+			</altitudeMode>
+		</LookAt>
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>
+						http://cchdo.ucsd.edu/images/ship.png
+					</href>
+				</Icon>
+			</IconStyle>
+			<BalloonStyle>
+				<text>
+<![CDATA[<h1>$[name]</h1><p>$[description]</p><p><a href="$[website]">$[website]</a></p>]]>				</text>
+				<textColor>
+					ff000000
+				</textColor>
+				<displayMode>
+					default
+				</displayMode>
+			</BalloonStyle>
+			<LineStyle>
+				<color>
+					ff66ff66
+				</color>
+				<width>
+					5
+				</width>
+			</LineStyle>
+		</Style>
+		<ExtendedData>
+			<Data name="website">
+				<value>
+					http://www.aoml.noaa.gov/phod/research/moc/samoc/
+				</value>
+			</Data>
+		</ExtendedData>
+		<MultiGeometry>
+			<Point>
+				<coordinates>
+					-52,-34.5,0
+				</coordinates>
+			</Point>
+			<LineString>
+				<tessellate>
+					1
+				</tessellate>
+				<coordinates>
+					-52,-34.5,0 -44,-34.5,0
+				</coordinates>
+				<!--coordinates>
+					-52,-34.5,0 -50,-34.5,0 -50,-48,0 -50,-44,0
+				</coordinates-->
+			</LineString>
+		</MultiGeometry>
+	</Placemark>
+</Document>
+</kml>

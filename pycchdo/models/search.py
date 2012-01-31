@@ -158,7 +158,7 @@ def ensure_indices():
     except OSError:
         pass
     except IOError, e:
-        print "Unable to access/create search index"
+        logging.error("Unable to access/create search index")
         raise e
 
     for name in _schemas.keys():
@@ -169,7 +169,7 @@ _model_id_to_index_id = unicode
 
 
 def save_obj(obj, writer=None):
-    name = obj.type.lower()
+    name = obj.obj_type.lower()
     if not writer:
         try:
             ix = open_or_create_index(name)
@@ -194,7 +194,7 @@ def save_obj(obj, writer=None):
         doc['name'] = unicode(obj.name)
     elif name == 'country':
         names = filter(None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
-        print names
+        names = [name.strip() for name in names]
         doc['names'] = u','.join(names)
     elif name == 'institution':
         doc['name'] = unicode(obj.name)
@@ -233,7 +233,7 @@ def save_note(note, writer=None):
 
 
 def remove_obj(obj, writer=None):
-    name = obj.type.lower()
+    name = obj.obj_type.lower()
     if not writer:
         try:
             ix = open_or_create_index(name)
@@ -316,7 +316,8 @@ def rebuild_index(clear=False):
         logging.debug(objs)
 
         logging.info('Indexing new and modified docs for %s' % name)
-        for obj in objs:
+        l = float(len(objs))
+        for i, obj in enumerate(objs):
             # Index modified and new docs
             if obj.id in to_index or obj.id not in indexed_ids:
                 logging.debug('Indexing %s' % obj.id)
@@ -324,6 +325,8 @@ def rebuild_index(clear=False):
                     save_note(obj, ixw)
                 else:
                     save_obj(obj, ixw)
+            if i % 100 == 0:
+                logging.info('%d/%d = %3.4f' % (i, l, i / l))
 
         ixw.commit()
         ixw.close()

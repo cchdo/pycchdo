@@ -985,7 +985,7 @@ class Obj(_Change):
         return self
 
     def _key_alias_resolve(self, attr):
-        if attr == 'type':
+        if attr == 'obj_type':
             attr = '_obj_type'
         if attr == 'attrs':
             attr = '_attrs'
@@ -1117,7 +1117,10 @@ class Obj(_Change):
         if not accepted:
             return creation_time
         last_attr_creation_time = accepted[0].creation_stamp.timestamp
-        return max(creation_time, last_attr_creation_time)
+        try:
+            return max(creation_time, last_attr_creation_time)
+        except TypeError:
+            return creation_time
 
     def polymorph(self):
         """ Gives back a subclass instance based on _obj_type. All the data
@@ -1535,9 +1538,11 @@ class Cruise(Obj):
             return types[0].lower().replace(' ', '_')
         return 'text'
 
-    @property
-    def expocode(self):
-        return self.get('expocode')
+    def __getattr__(self, key):
+        sup_attr = super(Cruise, self).__getattr__
+        if key in self.allowed_attrs_list:
+            return self.get(key)
+        return sup_attr(key)
 
     @property
     def identifier(self):
@@ -1567,14 +1572,6 @@ class Cruise(Obj):
                             'value': 'preliminary'}).count() > 0:
             return True
         return 'preliminary' in self.get('statuses', []) 
-
-    @property
-    def date_start(self):
-        return self.get('date_start')
-
-    @property
-    def date_end(self):
-        return self.get('date_end')
 
     @property
     def collections(self):
@@ -1692,9 +1689,14 @@ class Cruise(Obj):
         return updated
 
     @classmethod
+    def pending_with_date_starts(cls):
+        """ Gives a list of all pending cruises that have start dates """
+        pending = Cruise.get_all({'accepted': False})
+        return filter(lambda c: c.date_start, pending)
+
+    @classmethod
     def upcoming(cls, limit):
-        upcoming = Cruise.get_all({'accepted': False})
-        upcoming = filter(lambda c: c.date_start, upcoming)
+        upcoming = Cruise.pending_with_date_starts()
         now = datetime.datetime.utcnow()
         upcoming = sorted(upcoming, key=lambda c: c.date_start)
 
@@ -1705,6 +1707,15 @@ class Cruise(Obj):
                now > upcoming[i].date_start):
             i += 1
         return upcoming[i:i + limit]
+
+    @classmethod
+    def pending_years(cls):
+        """ Gives a list of integer years that have pending cruises. """
+        pending_with_date_starts = Cruise.pending_with_date_starts()
+        years = set()
+        for cruise in pending_with_date_starts:
+            years.add(cruise.date_start.year)
+        return list(years)
 
 
 class CruiseAssociate(Obj):

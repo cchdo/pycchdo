@@ -73,8 +73,11 @@ class MapsJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def index(request):
-    return {'default': DEFAULTS}
+def index(request, commands=''):
+    context = {'default': DEFAULTS}
+    if commands:
+        context['commands'] = commands
+    return context
 
 
 def ids(request):
@@ -236,7 +239,8 @@ def layer(request):
         temp_file.close()
 
         response = {
-            'url': 'search/map/layer?path=%s' % os.path.basename(temp_path)}
+            'url': request.current_route_url(
+                _query={'path': os.path.basename(temp_path)})}
         return Response(unicode(whh.HTML.textarea(
                                     whh.literal(json.dumps(response)))))
     return HTTPNotFound()
@@ -310,9 +314,11 @@ def getTracksInSelection(selection, time_min, time_max):
     if len(attrs) == limit:
         limited = models._Attr.count(query) > limit
 
-    cruises = set()
-    for attr in attrs:
-        cruises.add(attr.obj)
+    objs = set(attr.obj for attr in attrs)
+    cruises = []
+    for obj in objs:
+        if obj.obj_type == models.Cruise.__name__:
+            cruises.append(obj)
 
     def date_filter(cruise):
         return time_min <= cruise.date_start.date().year and \

@@ -5,6 +5,7 @@ from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest
 
 from ..models.search import search as searcher
+from pycchdo.views.cruise import _cruise_to_json
 
 
 def advanced_search(request):
@@ -21,6 +22,18 @@ def search_results(request):
         return HTTPSeeOther(location='/search/advanced')
     return {'query': query,
             'results': searcher(unicode(query))}
+
+
+def search_results_json(request):
+    query = request.params.get('query', None)
+    if not query:
+        return HTTPBadRequest()
+    results = searcher(unicode(query))
+    cruises = map(_cruise_to_json, results['cruise'])
+    return {
+        'query': query,
+        'results': cruises,
+    }
 
 
 def _quote(str):

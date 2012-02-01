@@ -359,7 +359,15 @@ class TestModel(unittest.TestCase):
         # TODO(jfields) test that getting an Obj by id gives the type of Obj.
         # After calling obj.polymorph() the returned new obj is of a subclass of
         # Obj.
-        pass
+        obj = Obj(self.testPerson)
+        obj.save()
+        found_obj = Obj.find_one({'_id': obj['_id']})
+        self.assertTrue( found_obj['_id'] == obj.id )
+        self.assertTrue( found_obj['_obj_type'] == 'Obj' )
+        obj['_obj_type'] = 'Cruise'
+        new_obj = obj.polymorph()
+        self.assertTrue( issubclass(type( new_obj ), Obj ))
+        obj.remove()
 
     def test_Change_stamp_properties(self):
         """ The properties for _Changes corresponding to stamps should return a mapped object """

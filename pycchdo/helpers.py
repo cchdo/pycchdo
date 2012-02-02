@@ -308,7 +308,7 @@ def cruise_summary(cruise):
         sentence += whh.literal(whtext.series(collections)) + ' '
         sentence += whtext.plural(
                         len(collections), 'collection', 'collections', False)
-    if institutions or cruise.country or programs:
+    if institutions or cruise.country or collections:
         sentences.append(sentence)
 
     if cruise.statuses:

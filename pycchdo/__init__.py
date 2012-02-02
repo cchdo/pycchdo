@@ -57,6 +57,12 @@ def obj_routes(config, obj, plural_obj=None,
         config.add_view('pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
                         route_name='{obj}_new'.format(obj=obj),
                         renderer='templates/{obj}/new.jinja2'.format(obj=obj))
+        config.add_route('{plural_obj}_new'.format(plural_obj=plural_obj),
+                         '/{plural_obj}/new.html'.format(plural_obj=plural_obj))
+        config.add_view(
+            'pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
+            route_name='{plural_obj}_new'.format(plural_obj=plural_obj),
+            renderer='templates/{obj}/new.jinja2'.format(obj=obj))
     if mergeable:
         config.add_view('pycchdo.views.{obj}.{obj}_merge'.format(obj=obj),
                         route_name='{obj}_merge'.format(obj=obj))

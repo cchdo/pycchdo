@@ -63,9 +63,6 @@
 #rdev .thumb {
   height: 8em;
 }
-#rdev .thumb a {
-  border: none;
-}
 #rdev img {
   margin-right: 0.5em;
   height: 100%;

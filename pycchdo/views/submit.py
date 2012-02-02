@@ -14,9 +14,7 @@ def submit(request):
     if method == 'GET':
         if request.user or request.session.get('anonymous', False):
             return {}
-        request.session.flash(
-            'Please help us better process your data by leaving a way to '
-            'contact you.', 'help')
+        request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')
         request.referrer = request.url
         return require_signin(request)
     elif method == 'POST':

@@ -1,3 +1,6 @@
+html {
+  background: url('/static/img/bg.png');
+}
 body {
   font-family: 'Open Sans', Futura, Verdana, Tahoma, sans-serif;
   font-size: 0.85em;
@@ -7,22 +10,33 @@ body {
 a, .link {
   color: #405381;
   text-decoration: none;
-  border-bottom: 1px dashed #CFE2FF;
-}
-a:hover, .link.hover{
-  border-bottom: 1px solid #A0B3E1;
 }
 a:visited, .link.visited {
   color: #88673E;
-  border-bottom: 1px dashed #F8D7BE;
-}
-a:hover:visited, .link.visited.hover {
-  border-bottom: 1px solid #E8C79E;
 }
 a:active {
   color: #DD4B39;
 }
-a.updates-available {
+
+.box_content a, .box_content .link,
+p a, p .link {
+  border-bottom: 1px dashed #CFE2FF;
+}
+.box_content a:hover, .box_content .link.hover,
+p a:hover, p .link.hover {
+  border-bottom: 1px solid #A0B3E1;
+}
+.box_content a:visited, .box_content .link.visited,
+p a:visited, p .link.visited {
+  border-bottom: 1px dashed #F8D7BE;
+}
+.box_content a:hover:visited, .box_content .link.visited.hover,
+p a:hover:visited, p .link.visited.hover {
+  border-bottom: 1px solid #E8C79E;
+}
+.box_content #no_accounts a,
+.box_content .thumb a,
+.box_content a.updates-available {
   border: none;
 }
 
@@ -102,32 +116,6 @@ th, td {
  * to actually be present in DOM */
 .copythis { position: absolute; left: -10000px; }
 
-/* Pagers */
-.pager {
-  text-align: center;
-  margin: 0.5em 25em;
-  border: 1px solid #EEEEEE;
-  border-left: 0;
-  border-right: 0;
-}
-.pager a {
-  display: inline-block;
-  padding: 0.2em;
-  border: none;
-}
-.pager a:hover {
-  text-shadow: 0 0 1em #CB4310;
-  -webkit-transition: text-shadow .3s ease;
-  -moz-transition: text-shadow .3s ease;
-  -o-transition: text-shadow .3s ease;
-  transition: text-shadow .3s ease;
-}
-.pager_curpage {
-  font-size: 1.25em;
-  color: #DDDDDD;
-  vertical-align: -0.1em;
-}
-
 /* Default table row styling */
 tr.odd {
   background: #F8F8F8;
@@ -141,10 +129,6 @@ tr.odd {
 
 #gheader {
   position: relative;
-  top: 0;
-  right: 0;
-  left: 0;
-  text-align: left;
 }
 
 #cchdo_logo {
@@ -273,11 +257,10 @@ input[type="submit"]:active {
   /* make a light area in the picture for the menu */
   background: url("/static/img/banners/transparent_menu_bg.png");
   background: rgba(255, 255, 255, 0.5);
-  height: 1.5em;
   text-align: center;
 }
 #cchdo_menu h1 a {
-  font-size: 1.1em;
+  font-size: 1.3em;
 }
 #cchdo_menu a {
   color: #000000;
@@ -285,8 +268,6 @@ input[type="submit"]:active {
 }
 #cchdo_menu li {
   /* Make all entries a little bigger */
-  height: 1.5em;
-  line-height: 1.5em;
   padding: 0 2em;
   position: relative;
   display: inline;
@@ -318,48 +299,41 @@ input[type="submit"]:active {
   -moz-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
   -o-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
   transition: visibility .3s ease, opacity .3s ease, background .3s ease;
+  -webkit-box-shadow: inset 0 0 1em 0 #bbbbbb;
+  -moz-box-shadow: inset 0 0 1em 0 #bbbbbb;
+  -o-box-shadow: inset 0 0 1em 0 #bbbbbb;
+  box-shadow: inset 0 0 1em 0 #bbbbbb;
 }
 #cchdo_menu ul ul a {
   height: 100%;
   display: block;
+  -webkit-transition: color .3s ease, background .3s ease;
+  -moz-transition: color .3s ease, background .3s ease;
+  -o-transition: color .3s ease, background .3s ease;
+  transition: color .3s ease, background .3s ease;
 }
 #cchdo_menu ul li.focus ul,
 #cchdo_menu ul li:hover ul {
   visibility: visible;
   opacity: 1;
-  -webkit-transition: visibility .3s ease, opacity .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease;
-  transition: visibility .3s ease, opacity .3s ease;
 }
 #cchdo_menu ul li.focus ul ul,
 #cchdo_menu ul li:hover ul ul {
   visibility: hidden;
   opacity: 0;
-  -webkit-transition: visibility .3s ease, opacity .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease;
-  transition: visibility .3s ease, opacity .3s ease;
 }
+
 #cchdo_menu ul ul li.focus,
 #cchdo_menu ul ul li.focus a,
 #cchdo_menu ul ul li:hover,
 #cchdo_menu ul ul li:hover a {
   background: #A0A0A0;
   color: #FFFFFF;
-  -webkit-transition: color .3s ease, background .3s ease;
-  -moz-transition: color .3s ease, background .3s ease;
-  -o-transition: color .3s ease, background .3s ease;
-  transition: color .3s ease, background .3s ease;
 }
 #cchdo_menu ul ul li.focus ul,
 #cchdo_menu ul ul li:hover ul {
   visibility: visible;
   opacity: 1;
-  -webkit-transition: visibility .3s ease, opacity .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease;
-  transition: visibility .3s ease, opacity .3s ease;
 }
 #cchdo_menu ul ul li.focus ul a,
 #cchdo_menu ul ul li:hover ul a {
@@ -369,19 +343,27 @@ input[type="submit"]:active {
   position: static;
   background: #A0A0A0;
   margin: -2em 0 0 100%;
-  -webkit-transition: background .3s ease;
-  -moz-transition: background .3s ease;
-  -o-transition: background .3s ease;
-  transition: background .3s ease;
 }
 #cchdo_menu ul ul ul li.focus a,
 #cchdo_menu ul ul ul li:hover a {
   background: #3C3C3C;
   color: #FFFFFF;
-  -webkit-transition: color .3s ease, background .3s ease;
-  -moz-transition: color .3s ease, background .3s ease;
-  -o-transition: color .3s ease, background .3s ease;
-  transition: color .3s ease, background .3s ease;
+}
+
+/* display whole menu */
+#cchdo_menu ul.open ul.browse-data li,
+#cchdo_menu ul.open ul ul li,
+#cchdo_menu ul:hover ul.browse-data li,
+#cchdo_menu ul:hover ul ul li {
+  display: inline;
+}
+#cchdo_menu ul.open ul,
+#cchdo_menu ul.open ul li ul,
+#cchdo_menu ul:hover ul,
+#cchdo_menu ul:hover ul li ul {
+  opacity: 1;
+  visibility: visible;
+  margin: auto;
 }
 
 #content {
@@ -404,35 +386,33 @@ input[type="submit"]:active {
 }
 #gcredit {
   text-align: center;
-  font-size: 0.5em;
+  font-size: 0.7em;
 }
 #gcredit p {
-  width: 59em;
+  width: 59%;
   margin: 0 auto;
 }
 #gcredit #nsfcredit {
-  font-size: 1.5em;
+  font-size: 1.3em;
 }
 #footer_logos {
   position: absolute;
   top: 0;
   right: 0;
 }
-#footer_logos a {
-  border: none;
-}
 #footer_logos img {
   height: 40px;
 }
 
 .boxed { 
+  background: #FEFEFE;
   border: 1px solid #F0F0F0;
   line-height: 1.5em;
   position: relative;
   margin-bottom: 1em;
   z-index: 0;
 }
-.boxed h1:first-child {
+.boxed > h1 {
   font-size: 1.3em;
   border-bottom: 1px solid #D0D0D0;
   background-color: #F0F0F0;
@@ -455,6 +435,32 @@ input[type="submit"]:active {
   bottom: 0;
   padding: 0.5em;
   clear: both;
+}
+
+/* Pagers */
+.pager {
+  text-align: center;
+  margin: 0.5em 25em;
+  border: 1px solid #EEEEEE;
+  border-left: 0;
+  border-right: 0;
+}
+.pager a.pager_link {
+  display: inline-block;
+  padding: 0.2em;
+  border-bottom: none;
+}
+.pager a:hover {
+  text-shadow: 0 0 1em #CB4310;
+  -webkit-transition: text-shadow .3s ease;
+  -moz-transition: text-shadow .3s ease;
+  -o-transition: text-shadow .3s ease;
+  transition: text-shadow .3s ease;
+}
+.pager_curpage {
+  font-size: 1.25em;
+  color: #DDDDDD;
+  vertical-align: -0.1em;
 }
 
 /* Denotes editable forms on any page */

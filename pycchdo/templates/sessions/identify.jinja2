@@ -8,28 +8,22 @@
     {%- if request.user %}
       <p>Welcome {{ request.user.full_name() }}!</p>
     {%- else %}
-      <table id="options">
-        <tr>
-          <td class="left"><div id="janrainEngageEmbed"></div></td>
-          <td class="right">
-            <div id="no_accounts">
-              <h2>No account with Google, Twitter or Facebook?</h2>
-              <p>Please consider using</p>
-              <p><a href="http://openid.net/"><img alt="OpenID" src="/static/openid-logo-wordmark.png"></a></p>
-              <p><a href="http://openid.net/">Learn about OpenID.</a></p>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="2">
-            <div id="anonymity_optin">
-              {{ whh.tags.form(request.route_path('session_new'), hidden_fields={'anonymous': 'optin'}) }}
-                <input type="submit" value="Remain anonymous">
-              </form>
-            </div>
-          </td>
-        </tr>
-      </table>
+      <div id="options">
+        <div class="left"><div id="janrainEngageEmbed"></div></div>
+        <div class="right">
+          <div id="no_accounts">
+            <h2>No Google, Twitter, LinkedIn or Facebook account?</h2>
+            <p>Please consider using</p>
+            <p><a href="http://openid.net/"><img alt="OpenID" src="/static/openid-logo-wordmark.png"></a></p>
+            <p><a href="http://openid.net/">Learn about OpenID.</a></p>
+          </div>
+        </div>
+        <div id="anonymity_optin">
+          {{ whh.tags.form(request.route_path('session_new'), hidden_fields={'anonymous': 'optin'}) }}
+            <input type="submit" value="Remain anonymous">
+          </form>
+        </div>
+      </div>
     {%- endif %}
   {%- endcall %}
 {% endblock %}

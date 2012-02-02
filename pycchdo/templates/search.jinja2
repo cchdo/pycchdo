@@ -2,8 +2,10 @@
 {% block title %}Search Data{% endblock %}
 {% block content -%}
 {% call h.boxed('Search Data') -%}
-  <p>{{ whh.HTML.li(whh.tags.link_to('Advanced Search', '/search/advanced')) }}</p>
-  <p>{{ whh.HTML.li(whh.tags.link_to('Map Search', '/search/map')) }}</p>
+  <ul>
+    {{ whh.HTML.li(whh.tags.link_to('Advanced Search', '/search/advanced')) }}
+    {{ whh.HTML.li(whh.tags.link_to('Map Search', '/search/map')) }}
+  </ul>
 {%- endcall %}
 {%- endblock %}
 

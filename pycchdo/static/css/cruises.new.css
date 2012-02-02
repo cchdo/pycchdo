@@ -1,0 +1,43 @@
+.container {
+  position: relative;
+}
+.editor, .container #map {
+  height: 100%;
+}
+.editor {
+  width: 30%;
+}
+.container .editor table {
+  margin: 0.5em;
+}
+.container .editor input[type="text"],
+.container .editor input[type="date"],
+.container .editor textarea {
+  width: 100%;
+}
+.container #map {
+  position: absolute;
+  top: 0;
+  left: 30%;
+  margin-left: 1px;
+  width: 70%;
+}
+.help {
+  background: #ffffdf;
+  color: #000000;
+  display: none;
+  padding: 0.5em;
+}
+ 
+.container .editor input[type="submit"] {
+  margin-right: 0.7em;
+  float: right;
+}
+ 
+.ui-widget {
+  font-size: 0.8em !important;
+}
+.ui-datepicker th {
+  padding: 0.3em !important;
+  font-size: 0.8em !important;
+}

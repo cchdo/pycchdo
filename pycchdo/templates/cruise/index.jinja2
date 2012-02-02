@@ -9,7 +9,7 @@
     </ul>
     {{ h.pager_for(cruises) }}
     <p>
-      {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise'}) }}
+      {{ whh.tags.form('/cruises/new.html', 'GET') }}
         <input type="submit" value="New Cruise">
       {{ whh.tags.end_form() }}
     </p>

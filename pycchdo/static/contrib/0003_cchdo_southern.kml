@@ -5,7 +5,7 @@
   <Style id="cchdofirst">
    <IconStyle>
     <Icon>
-     <href>http://cchdo.ucsd.edu/images/ship.png</href>
+            <href>http://cchdo.ucsd.edu/static/cchdomap/images/cruise_start_icon.png</href>
     </Icon>
    </IconStyle>
    <LineStyle>

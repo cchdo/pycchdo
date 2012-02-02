@@ -291,15 +291,15 @@ CCHDO.MAP.load = function () {
 
   // If the page is dropped inside a zone surrounding the top of the map,
   // scroll to the nicest viewing spot.
-  var menu_offset = $('#cchdo_menu').offset().top;
-  $('body').animate({'scrollTop': menu_offset}, 1000, function () {
+  var content_offset = $('#content').offset().top;
+  $('body').animate({'scrollTop': content_offset}, 1000, function () {
     var toler_top = $('#picture').height();
     var toler_bot = $('#gfooter').height() + 8;
     $(document).bind('scrollstop', function () {
       var scrollTop = $(this).scrollTop();
-      if (scrollTop - toler_bot <= menu_offset && 
-          menu_offset <= scrollTop + toler_top) {
-        $('body').animate({'scrollTop': menu_offset}, 'fast');
+      if (scrollTop - toler_bot <= content_offset && 
+          content_offset <= scrollTop + toler_top) {
+        $('body').animate({'scrollTop': content_offset}, 'fast');
       }
     });
   });

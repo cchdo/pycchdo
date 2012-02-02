@@ -371,10 +371,14 @@ def cruise_show(request):
 
 
 def cruise_new(request):
+    if not request.user:
+        request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')
+        request.referrer = request.url
+        return require_signin(request)
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
-        return HTTPBadRequest()
+        cruise_id = ''
     return {'cruise_id': cruise_id}
 
 
@@ -463,8 +467,8 @@ def kml(request):
     cruise_style = KML.Style(
         KML.IconStyle(
             KML.Icon(
-                # TODO make sure this icon is real
-                KML.href(request.static_url('pycchdo:static/img/ship.png')),
+                KML.href(request.static_url(
+                    'pycchdo:static/cchdomap/images/cruise_start_icon.png')),
             )
         ),
         KML.LineStyle(
@@ -486,7 +490,7 @@ def kml(request):
         H.tag('h1', '$[name]'),
         str_if_exists(
             image_url,
-            H.img(src='$[image]',
+            H.p(H.img(src='$[image]'), 
                   style='border: 1px solid black; border-left: 0; '
                         'border-right: 0;')),
         H.p('$[description]', style="max-width: 25em;"),

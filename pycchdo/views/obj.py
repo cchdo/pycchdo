@@ -43,10 +43,12 @@ def obj_new(request):
         obj.save()
     if attrs:
         for k, v in attrs.items():
-            print obj, k, v, request.user
-            obj.set(k, v, request.user)
+            if k == 'track' and isinstance(obj, models.Cruise):
+                obj.set_accept(k, str_to_track(v), request.user)
+            else:
+                obj.set_accept(k, v, request.user)
 
-    if obj._obj_type == models.Cruise.__name__:
+    if isinstance(obj, models.Cruise):
         return HTTPSeeOther(location=request.route_path('cruise_show',
                                                         cruise_id=obj.id))
     return {'obj': obj}

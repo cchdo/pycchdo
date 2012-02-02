@@ -22,7 +22,6 @@
 
 #cruises {
   max-height: 50em;
-  overflow: auto;
 }
 #cruises h2 {
   color: #006F89;

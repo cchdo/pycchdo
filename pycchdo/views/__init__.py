@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import cgi
+import geojson
 
 from pyramid.renderers import render_to_response, get_renderer
 from pyramid.response import Response
@@ -25,7 +26,12 @@ _views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
 
 __all__ = [
     '_collapsed_dict', '_http_method', '_paged', '_unescape', 'text_to_obj',
-    '_file_response', 'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
+    'str_to_track', '_file_response', 'FILE_GROUPS', 'FILE_GROUPS_SELECT',
+    'PLEASE_SIGNIN_MESSAGE', ] + _views
+
+
+PLEASE_SIGNIN_MESSAGE = """\
+    Please help us better process your data by leaving a way to contact you."""
 
 
 FILE_GROUPS = MultiDict([
@@ -118,6 +124,11 @@ def text_to_obj(value, text_type='text'):
         return _ensure_object_id(value)
     if text_type == 'id_list':
         return [_ensure_object_id(x.strip()) for x in value.split(',')]
+
+
+def str_to_track(s):
+    coords = [[float(y) for y in x.split(',')] for x in s.split()]
+    return geojson.LineString(coords)
 
 
 _static_root = os.path.join(os.path.dirname(__file__), '..', 'static')

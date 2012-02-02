@@ -1,0 +1,165 @@
+html {
+  background: none;
+  font-size: 1.3em;
+  font-family: sans-serif;
+}
+#cchdo_logo {
+  padding-left: 0.5em;
+  max-width: 100%;
+}
+#session_status {
+  position: static;
+  right: auto;
+  text-align: left;
+  border-bottom: 1px solid #DDDDDD;
+  padding: 0.2em 0.5em;
+}
+#gsearch {
+  position: static;
+  padding: 0.5em;
+}
+#gsearch p {
+  text-align: left;
+}
+.fullwidth .banner.fullwidth,
+.banner {
+  display: none;
+}
+#picture {
+  height: auto;
+}
+#centering {
+  width: auto;
+  margin-top: 0;
+}
+#cchdo_menu {
+  position: static;
+  text-align: left;
+  border-top: 1px solid #DDDDDD;
+}
+#cchdo_menu li {
+  padding: 0;
+  display: block;
+}
+#cchdo_menu h1 {
+  text-transform: none;
+}
+#cchdo_menu a {
+  padding: 0 0.6em;
+}
+#cchdo_menu h1 a { 
+  display: block;
+  background: #EEEEEE;
+  padding: 0 0.35em;
+  border-bottom: 1px solid #DDDDDD;
+}
+#cchdo_menu h1 a.expander {
+  text-align: center;
+  font-size: 1.5em;
+  color: #405381;
+}
+#cchdo_menu h1 a:active { 
+  background: #FFFFEE;
+}
+#cchdo_menu ul ul {
+  position: static;
+  display: none;
+}
+#cchdo_menu ul.open ul {
+  visibility: visible;
+  display: block;
+  opacity: 1;
+}
+#cchdo_menu ul ul ul {
+  margin: auto;
+}
+#cchdo_menu ul ul li {
+  height: auto;
+  line-height: auto;
+}
+#gfooter{
+  border-top: 1px solid #DDDDDD;
+}
+#gcredit {
+  text-align: left;
+}
+#gcredit p {
+  width: auto;
+  text-align: justify;
+  margin: 0;
+  padding: 0.5em;
+}
+#gcredit #nsfcredit {
+  padding: 0.2em;
+}
+#footer_logos {
+  position: static;
+  padding-left: 0.5em;
+}
+.boxed {
+  border: none;
+}
+.boxed > h1 {
+  background: none;
+}
+.box_bottom {
+  display: none;
+}
+
+.pager {
+  text-align: right;
+  margin: 0.5em auto;
+}
+.pager a {
+  padding: 0.5em;
+}
+
+.left {
+  width: auto;
+  float: none;
+}
+.right {
+  position: relative;
+  width: auto;
+  float: none;
+}
+#geo_search #basin,
+#geo_search #search_map {
+  float: none;
+  margin: auto;
+}
+#geo_search #basin_map table,
+#geo_search #search_map img {
+  max-width: 100%;
+}
+#geo_search h2 {
+  text-align: left;
+}
+
+.cruise-page #info,
+.cruise-page #history,
+.cruise-page div.boxed.upper {
+  float: none;
+  width: auto;
+  margin: 0;
+}
+.cruise-page .boxed.upper .box_content {
+  height: auto;
+}
+
+.scrollable-y {
+  /* apologies for !important. Need to override even #ids though */
+  max-height: none !important;
+}
+
+.by-ocean .mapimg img {
+  max-width: 100%;
+}
+.by-ocean #map_side {
+  float: none;
+}
+
+.contact .people .vcard {
+  float: none;
+  width: auto;
+}

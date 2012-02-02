@@ -9,79 +9,43 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   {{ whh.tags.stylesheet_link('http://fonts.googleapis.com/css?family=Open+Sans&subset=latin') }}
   {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/screen.css', media='all,screen') }}
   {%- include 'templates/_ie_compat.jinja2' ignore missing %}
   {%- block staff_head %}{%- endblock %}
   {%- block head %}{%- endblock %}
   {%- block subhead %}{%- endblock %}
+
+  {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='only screen and (max-device-width:600px)', class="mobile") }}
+  {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='screen and (-webkit-device-pixel-ratio:0.75)', class="mobile") }}
+  {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='handheld', class="mobile") }}
+  <meta class="mobile" name="viewport" content="width=device-width initial-scale=1.0 maximum-scale=2.0 user-scalable=1 target-densitydpi=device-dpi" />
 </head>
 <body>
   <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
-    {% include 'templates/_base_header.jinja2' with context %}
+    {%- include 'templates/_base_header.jinja2' with context %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
       {%- if request.session.peek_flash('action_taken') -%}
-        {% set actions_taken = request.session.pop_flash('action_taken') %}
-        {% for action in actions_taken %}
+        {%- set actions_taken = request.session.pop_flash('action_taken') %}
+        {%- for action in actions_taken %}
           <h1 class="flash action_taken">{{ whh.HTML.literal(action) }}</h1>
-        {% endfor %}
+        {%- endfor %}
       {%- endif -%}
       {%- if request.session.peek_flash('help') %}
-        {% set help = request.session.pop_flash('help') %}
-        {% for helper in help %}
+        {%- set help = request.session.pop_flash('help') %}
+        {%- for helper in help %}
           <h1 class="flash help">{{ whh.HTML.literal(helper) }}</h1>
-        {% endfor %}
+        {%- endfor %}
       {%- endif -%}
       {%- block staff_content %}{%- endblock %}
       {%- block subcontent %}{%- endblock %}
       {% block content -%}{%- endblock %}
     </div>
-    {% include 'templates/_base_footer.html' %}
+    {%- include 'templates/_base_footer.html' %}
   </div>
   <div id="scripts">
-    {% block js %}{% endblock %}
-    <script>
-      (function () {
-        function add_class(e, c) {
-          e.className = e.className + ' ' + c;
-        }
-        function remove_class(e, c) {
-          e.className = e.className.replace(' ' + c, '');
-        }
-        function addfocusblur(e, limit) {
-          var lis = [];
-          var f = e;
-          while (f !== limit) {
-            if (f.tagName == 'LI') {
-              lis.push(f);
-            }
-            f = f.parentNode;
-          }
-          e.onfocus = function () {
-            for (var i = 0; i < lis.length; i++) {
-              add_class(lis[i], 'focus');
-            }
-          };
-          e.onblur = function () {
-            for (var i = 0; i < lis.length; i++) {
-              remove_class(lis[i], 'focus');
-            }
-          };
-        }
-        function walkFor(root, tagname, callback) {
-          for (var i = 0; i < root.children.length; i++) {
-            walkFor(root.children[i], tagname, callback);
-          }
-          if (root.tagName == tagname) {
-            callback(root);
-          }
-        }
-        var menu = document.getElementById('cchdo_menu');
-        walkFor(menu, 'A', function (a) {
-          addfocusblur(a, menu);
-        });
-      })();
-    </script>
-    {{ whh.tags.javascript_link('/static/js/banner_rotate.js') }}
+    {%- block js %}{%- endblock %}
+    {{- whh.tags.javascript_link('/static/js/base.js') }}
+    {{- whh.tags.javascript_link('/static/js/banner_rotate.js') }}
     {%- include 'templates/_track.html' ignore missing %}
   </div>
 </body>

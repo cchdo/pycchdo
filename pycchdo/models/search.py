@@ -334,31 +334,31 @@ def rebuild_index(clear=False):
     logging.info('Finished indexing')
 
 
-def search(query_string, limit=None):
-    """ Performs search based on a query string
-
-        Returns:
-            A dict with each type of index and a bunch of Objs for each type
-    """
-    results = {}
-    for name, schema in _schemas.items():
-        q = _parsers[name].parse(query_string)
-        ix = open_or_create_index(name)
-        with ix.searcher() as searcher:
-            try:
-                objs = searcher.search(q, limit=limit)
-                if name == 'note':
-                    getter = models.Note.get_id
-                else:
-                    getter = models.Obj.get_id_polymorphic
-                objs = [getter(objs.fields(i)['id']) \
-                        for i in range(objs.estimated_length())]
-                results[name] = objs
-            except NotImplementedError:
-                pass
-            except AttributeError:
-                pass
-    return results
+#def search(query_string, limit=None):
+#    """ Performs search based on a query string
+#
+#        Returns:
+#            A dict with each type of index and a bunch of Objs for each type
+#    """
+#    results = {}
+#    for name, schema in _schemas.items():
+#        q = _parsers[name].parse(query_string)
+#        ix = open_or_create_index(name)
+#        with ix.searcher() as searcher:
+#            try:
+#                objs = searcher.search(q, limit=limit)
+#                if name == 'note':
+#                    getter = models.Note.get_id
+#                else:
+#                    getter = models.Obj.get_id_polymorphic
+#                objs = [getter(objs.fields(i)['id']) \
+#                        for i in range(objs.estimated_length())]
+#                results[name] = objs
+#            except NotImplementedError:
+#                pass
+#            except AttributeError:
+#                pass
+#    return results
 
 
 def compile_into_cruises(results):
@@ -378,6 +378,76 @@ def compile_into_cruises(results):
             for obj in objs:
                 cruises.extend(obj.cruises())
     return cruises
+
+
+def search(query_string, limit=None, search_notes=False, ):
+    """ Performs search based on a query string.
+
+        Parameters:
+            query_string    The query string to search for.
+            limit           The maximum number of results to get. Leave as None
+                            to get all results.
+            search_notes    Whether to search Notes. Set to True to search
+                            Notes with query_string.
+
+        Returns:
+            A dict with each type of index and a dict mapping a bunch of Objs
+            for each type to their cruises.
+
+            WARNING: results IS NOT homogeneous! Cruise and Note results are
+            stored in lists, but ALL OTHER results are stored in a dict that
+            maps them to their associated cruises!
+    """
+    results = {}
+
+    # Search each model.
+    for model_name, model_schema in _schemas.items():
+        # Skip Notes if they were not requested.
+        if model_name is 'note' and not search_notes:
+            continue
+
+        # Parse the query string in the context of the given model, and get
+        # the objects that we will need to search the model index.
+        model_parser = _parsers.get(model_name)
+        query = model_parser.parse(query_string)
+        index = open_or_create_index(model_name)
+
+        with index.searcher() as searcher:
+            try:
+                # Search the index.
+                raw = searcher.search(query, limit=limit)
+
+                # Obtain the identifier function for the model. The identifier
+                # function takes object IDs and maps them to their objects.
+                get_ID_for = models.Note.get_id if model_name is 'note' else \
+                        models.Obj.get_id_polymorphic
+
+                # Extract the result objects from the raw search results.
+                field_numbers = range(raw.estimated_length())
+                idwrappers = map(raw.fields, field_numbers)
+                idparams = [wrapper['id'] for wrapper in idwrappers]
+                objects = map(get_ID_for, idparams)
+
+                if model_name is 'cruise' or model_name is 'note':
+                    # Cruises and Notes are quite simple. They are not supposed
+                    # to have cruises associated with them, so we just put them
+                    # directly into the results.
+                    results[model_name] = objects
+                else:
+                    # Everything else can have associated cruises. We will map
+                    # each Obj to its associated cruises in the search results.
+                    container = {}
+                    for obj in objects:
+                        container[obj] = obj.cruises()
+                    results[model_name] = container
+
+            except NotImplementedError:
+                pass
+            except AttributeError:
+                pass
+
+    # WARNING: results IS NOT homogeneous! (see docstring for details.)
+    return results
 
 
 _ensure_index_dir()

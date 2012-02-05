@@ -24,6 +24,7 @@
 }
 #intro p {
   margin-bottom: 0.5em;
+  text-align: justify;
 }
 
 #geo_search h2 {

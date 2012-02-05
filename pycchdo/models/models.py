@@ -464,7 +464,10 @@ class collectablemongodoc(idablemongodoc):
 
     @classmethod
     def get_id(cls, idobj):
-        return cls.map_mongo(cls.find_id(idobj))
+        try:
+            return cls.map_mongo(cls.find_id(idobj))
+        except ValueError:
+            return None
 
     @classmethod
     def get_all_by_ids(cls, obj_ids):
@@ -1698,7 +1701,10 @@ class Cruise(Obj):
     def upcoming(cls, limit):
         upcoming = Cruise.pending_with_date_starts()
         now = datetime.datetime.utcnow()
-        upcoming = sorted(upcoming, key=lambda c: c.date_start)
+        try:
+            upcoming = sorted(upcoming, key=lambda c: c.date_start)
+        except TypeError:
+            upcoming = []
 
         # strip Seahunt cruises that are in the past
         i = 0

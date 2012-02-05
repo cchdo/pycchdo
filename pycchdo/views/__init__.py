@@ -19,9 +19,9 @@ import pycchdo.helpers as h
 from pycchdo.views.session import require_signin
 
 
-_views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-          'contribute_menu', 'information_menu', 'tools_menu', 'parameters',
-          'contributions', 'parameter_show', 'data', 'catchall_static', ]
+_views = ['favicon', 'robots', 'home', 'get_menu', 'search_menu', 'give_menu',
+          'information_menu', 'tools_menu', 'parameters', 'contributions',
+          'parameter_show', 'data', 'catchall_static', ]
 
 
 __all__ = [
@@ -159,9 +159,9 @@ def _empty_view(context, request):
     return {}
 
 
-browse_menu = _empty_view
+get_menu = _empty_view
 search_menu = _empty_view
-contribute_menu = _empty_view
+give_menu = _empty_view
 information_menu = _empty_view
 tools_menu = _empty_view
 
@@ -230,16 +230,19 @@ def parameter_show(request):
             parameter.get('aliases')),
         'format': parameter.get('format', ''),
         'bounds': parameter.get('bounds', []),
-        'units': {
-            'unit': {
-                'def': parameter.units.get('name'),
-                'aliases': [
-                    {'name': {'singular': parameter.units.get('mnemonic')}}
-                ]
-            }
         },
         'description': parameter.get('description', None),
-    }}
+    }
+    units = parameter.units
+    if units:
+        response['parameter']['units'] = {
+            'unit': {
+                'def': units.get('name'),
+                'aliases': [
+                    {'name': {'singular': units.get('mnemonic')}}
+                ]
+            }
+        }
     return response
 
 

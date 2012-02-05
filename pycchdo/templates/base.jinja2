@@ -7,8 +7,8 @@
   <title>{%- call h.title() %}{%- block title %}{%- endblock %}{%- block subtitle %}{%- endblock %}{%- endcall %}CCHDO</title>
   <link rel="shortcut icon" href="/static/favicon.ico">
   <link rel="icon" type="image/png" href="/static/favicon.png">
-  {{ whh.tags.stylesheet_link('http://fonts.googleapis.com/css?family=Open+Sans&subset=latin') }}
-  {{ whh.tags.stylesheet_link('http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css') }}
+  <link rel="apple-touch-icon-precomposed" type="image/png" href="/static/iphone_icon.png">
+  {{ whh.tags.stylesheet_link('/static/css/normalize.css') }}
   {{ whh.tags.stylesheet_link('/static/css/screen.css', media='all,screen') }}
   {%- include 'templates/_ie_compat.jinja2' ignore missing %}
   {%- block staff_head %}{%- endblock %}
@@ -16,9 +16,11 @@
   {%- block subhead %}{%- endblock %}
 
   {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='only screen and (max-device-width:600px)', class="mobile") }}
-  {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='screen and (-webkit-device-pixel-ratio:0.75)', class="mobile") }}
+  {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='screen and (-webkit-device-pixel-ratio:1.5)', class="mobile") }}
   {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='handheld', class="mobile") }}
   <meta class="mobile" name="viewport" content="width=device-width initial-scale=1.0 maximum-scale=2.0 user-scalable=1 target-densitydpi=device-dpi" />
+
+  {{ whh.tags.stylesheet_link('http://fonts.googleapis.com/css?family=Open+Sans') }}
 </head>
 <body>
   <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
@@ -45,8 +47,8 @@
   <div id="scripts">
     {%- block js %}{%- endblock %}
     {{- whh.tags.javascript_link('/static/js/base.js') }}
-    {{- whh.tags.javascript_link('/static/js/banner_rotate.js') }}
     {%- include 'templates/_track.html' ignore missing %}
+    {%- include 'templates/_ie6.html' ignore missing %}
   </div>
 </body>
 </html>

@@ -46,7 +46,10 @@ def obj_new(request):
             if k == 'track' and isinstance(obj, models.Cruise):
                 obj.set_accept(k, str_to_track(v), request.user)
             else:
-                obj.set_accept(k, v, request.user)
+                if k in ['expocode', 'map_thumb', ]:
+                    obj.set_accept(k, v, request.user)
+                else:
+                    obj.set(k, v, request.user)
 
     if isinstance(obj, models.Cruise):
         return HTTPSeeOther(location=request.route_path('cruise_show',

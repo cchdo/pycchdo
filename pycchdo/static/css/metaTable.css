@@ -1,16 +1,16 @@
-.expander a {
+.has-meta-bodies .expander a {
   text-decoration: none;
   border: none;
   color: inherit;
 }
-th.expander,
-tr.expander {
+.has-meta-bodies th.expander,
+.has-meta-bodies tr.expander {
   width: 0.5em;
   padding: 0;
 }
-.open {
+.has-meta-bodies .open {
   background: #FFFFEE;
 }
-.open.odd {
+.has-meta-bodies .open.odd {
   background: #F0EEDD;
 }

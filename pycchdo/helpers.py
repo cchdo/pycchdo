@@ -142,7 +142,7 @@ PAGER_FORMAT = '$link_first $link_previous ~5~ $link_next $link_last'
 
 
 def pager_for(page, format=PAGER_FORMAT):
-    if not page.next_page:
+    if not page.next_page and not page.previous_page:
         return ''
 
     next_url = whh.literal(page._url_generator(page.next_page))

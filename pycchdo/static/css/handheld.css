@@ -1,7 +1,10 @@
 html {
   background: none;
-  font-size: 1.3em;
+  font-size: 1.2em;
   font-family: sans-serif;
+}
+ul, ol, p {
+  margin: 0;
 }
 #cchdo_logo {
   padding-left: 0.5em;
@@ -36,10 +39,17 @@ html {
   position: static;
   text-align: left;
   border-top: 1px solid #DDDDDD;
+  top: 0;
+  margin-bottom: 0;
 }
-#cchdo_menu li {
+#cchdo_menu ul.nav li {
   padding: 0;
   display: block;
+}
+#cchdo_menu #cchdo_menu_give,
+#cchdo_menu #cchdo_menu_get,
+#cchdo_menu #cchdo_menu_information {
+  padding: 0;
 }
 #cchdo_menu h1 {
   text-transform: none;
@@ -55,8 +65,9 @@ html {
 }
 #cchdo_menu h1 a.expander {
   text-align: center;
-  font-size: 1.5em;
-  color: #405381;
+  font-size: 1.7em;
+  width: auto;
+  display: block;
 }
 #cchdo_menu h1 a:active { 
   background: #FFFFEE;
@@ -77,8 +88,20 @@ html {
   height: auto;
   line-height: auto;
 }
-#gfooter{
+#gfooter {
   border-top: 1px solid #DDDDDD;
+}
+#gfooter #screensize #screensize-full,
+#gfooter #screensize #screensize-mobile {
+  float: none;
+  display: block;
+  margin: 0;
+
+  text-align: center;
+  padding: 0.5em 0.2em;
+}
+#gfooter #screensize #screensize-mobile {
+  display: none;
 }
 #gcredit {
   text-align: left;
@@ -91,6 +114,7 @@ html {
 }
 #gcredit #nsfcredit {
   padding: 0.2em;
+  text-align: left;
 }
 #footer_logos {
   position: static;
@@ -98,9 +122,13 @@ html {
 }
 .boxed {
   border: none;
+  margin: 0;
 }
 .boxed > h1 {
   background: none;
+}
+.boxed .box_content {
+  padding: 0.5em;
 }
 .box_bottom {
   display: none;
@@ -128,9 +156,9 @@ html {
   float: none;
   margin: auto;
 }
-#geo_search #basin_map table,
+#geo_search #basin_selector_map img,
 #geo_search #search_map img {
-  max-width: 100%;
+  width: 100%;
 }
 #geo_search h2 {
   text-align: left;

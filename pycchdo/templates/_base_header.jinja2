@@ -1,5 +1,9 @@
 <div id="gheader">
-  <a href="/">{{ whh.tags.image('/static/img/logos/CCHDO_logo.png', 'CLIVAR & Carbon Hydrographic Data Office (CCHDO)', id_='cchdo_logo') }}</a>
+  <a href="/">
+    {{- whh.tags.image('/static/img/logos/CCHDO_logo.png',
+                       'CLIVAR & Carbon Hydrographic Data Office (CCHDO)',
+                       id_='cchdo_logo', style='width: 247px; height: 48px;')
+    }}</a>
   <p id="session_status" class="{% if h.has_mod(request) %}moderator{% endif %}">
     {% if request.user -%}
       {{ request.user.name_first }} <a href="/session/delete">Sign out</a>
@@ -21,75 +25,61 @@
   <div id="bannerC" class="banner fullwidth"></div>
   <div id="bannerB" class="banner"></div>
   <div id="bannerA" class="banner"></div>
-  <div id="cchdo_menu">
-    <ul class="nav"> 
-      <li><h1><a href="/browse.html">Browse</a></h1>
-      <ul class="browse-data">
-      <li><a href="/browse.html#ocean">Ocean &raquo;</a>
-        <ul class="ocean">
-          <li>{{ whh.tags.link_to('Arctic Ocean', request.route_path('basin_show', basin='arctic')) }}</li>
-          <li>{{ whh.tags.link_to('Atlantic Ocean', request.route_path('basin_show', basin='atlantic')) }}</li>
-          <li>{{ whh.tags.link_to('Pacific Ocean', request.route_path('basin_show', basin='pacific')) }}</li>
-          <li>{{ whh.tags.link_to('Indian Ocean', request.route_path('basin_show', basin='indian')) }}</li>
-          <li>{{ whh.tags.link_to('Southern Ocean', request.route_path('basin_show', basin='southern')) }}</li>
+</div>
+<div id="cchdo_menu">
+  <ul class="nav"> 
+  <li id="cchdo_menu_give"><h1><a href="/give.html">Give</a></h1>
+    <ul>
+      <li><a href="/submit.html">Submit data</a></li>
+      <li><a href="/about_project_seahunt.html">Project Seahunt &raquo;</a>
+        <ul>
+          <li><a href="/contributions.html">Contributions</a></li>
+          <li>{{ whh.tags.link_to('Add a cruise', request.route_path('cruises_new')) }}</li>
         </ul>
       </li>
-      <li><a href="/browse.html#time-series">Time Series &raquo;</a>
+    </ul>
+  </li>
+  <li id="cchdo_menu_get"><h1><a href="/get.html">Get</a></h1>
+    <ul>
+      <li><a href="/get.html#search">Search &raquo;</a>
+        <ul class="search">
+          <li><a href="/search/advanced">Advanced</a></li>
+          <li><a href="/search/map">Map</a></li>
+        </ul>
+      </li>
+      <li><a href="/get.html#basin">Basins</a></li>
+      <li><a href="/get.html#time-series">Time Series &raquo;</a>
         <ul class="time_series">
           <li><a href="/search?query=HOT">HOT</a></li>
           <li><a href="/search?query=BATS">BATS</a></li>
         </ul>
       </li>
-      <li><a href="/browse.html#project">Projects &raquo;</a>
+      <li><a href="/get.html#project">Projects &raquo;</a>
         <ul class="contributions_projects">
           <li><a href="/search?query=CARINA">Project Carina</a></li>
-          <li><a href="/about_project_seahunt.html">Project Seahunt</a></li>
         </ul>
       </li>
-      <li><a href="/browse.html#list">Lists &raquo;</a>
-        <ul class="lists">
-          <li><a href="/cruises">Cruises</a></li>
-          <li><a href="/countries">Countries</a></li>
-          <li><a href="/people">People</a></li>
-          <li><a href="/ships">Ships</a></li>
-          <li><a href="/institutions">Institutions</a></li>
-          <li><a href="/collections">Collections</a></li>
-        </ul>
-      </li>
-      </ul>
-    </li>
-    <li><h1><a href="/search.html">Search</a></h1>
-      <ul class="search-data">
-        <li><a href="/search/advanced">Advanced</a></li>
-        <li><a href="/search/map">Map</a></li>
-      </ul>
-    </li>
-    <li><h1><a href="/contribute.html">Contribute</a></h1>
-      <ul class="contribute">
-        <li><a href="/submit.html">Submit data</a></li>
-        <li><a href="/contributions.html">Contributions</a></li>
-        <li>{{ whh.tags.link_to('Add a cruise', request.route_path('cruises_new')) }}</li>
-      </ul>
-    </li>
-    <li><h1><a href="/tools.html">Tools</a></h1>
-      <ul>
-        {%- if h.has_mod(request) %}
-          <li><a href="/staff.html">Staff</a></li>
-        {%- endif %}
-        <li><a href="/tool/data_cmp.html">Data Compare</a></li>
-        <li><a href="/tool/visual.html">Visual</a></li>
-        <li><a href="/tool/convert.html">Convert</a></li>
-      </ul>
-    </li>
-    <li><h1><a href="/information.html">Information</a></h1>
-      <ul>
-        <li><a href="/contact.html">Contact</a></li>
-        <li><a href="/manuals.html">Manuals</a></li>
-        <li><a href="/policies.html">Policies</a></li>
-        <li><a href="/format.html">Format</a></li>
-        <li><a href="/parameters.html">Parameters</a></li>
-      </ul>
-    </li>
+      <li><a href="/get.html#list">Lists</a></li>
     </ul>
-  </div>
+  </li>
+  <li><h1><a href="/tools.html">Tools</a></h1>
+    <ul>
+      {%- if h.has_mod(request) %}
+        <li><a href="/staff.html">Staff</a></li>
+      {%- endif %}
+      <li><a href="/tool/data_cmp.html">Data Compare</a></li>
+      <li><a href="/tool/visual.html">Visual</a></li>
+      <li><a href="/tool/convert.html">Convert</a></li>
+    </ul>
+  </li>
+  <li id="cchdo_menu_information"><h1><a href="/information.html">Information</a></h1>
+    <ul>
+      <li><a href="/contact.html">Contact</a></li>
+      <li><a href="/manuals.html">Manuals</a></li>
+      <li><a href="/policies.html">Policies</a></li>
+      <li><a href="/format.html">Format</a></li>
+      <li><a href="/parameters.html">Parameters</a></li>
+    </ul>
+  </li>
+  </ul>
 </div>

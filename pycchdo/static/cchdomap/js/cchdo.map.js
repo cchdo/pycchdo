@@ -242,6 +242,7 @@ CCHDO.MAP.load = function () {
   ids.push(etopo_map_type);
   mapTypeControlOptions.mapTypeIds = ids;
   CCHDO.MAP.map.set('mapTypeControlOptions', mapTypeControlOptions);;
+  CCHDO.MAP.map.set('mapTypeId', etopo_map_type);
 
   CCHDO.MAP.pane = new PanedMap(domroot[0], CCHDO.MAP.map);
   CCHDO.MAP.pane._on = true;
@@ -270,7 +271,7 @@ CCHDO.MAP.load = function () {
     //});
 
     $(window).resize(function () {
-      domroot.height($(this).height() - 20);
+      domroot.height($(this).height());
       var previousFx = $.fx.off;
       $.fx.off = true;
       CCHDO.MAP.pane.redraw();
@@ -293,8 +294,8 @@ CCHDO.MAP.load = function () {
   // scroll to the nicest viewing spot.
   var content_offset = $('#content').offset().top;
   $('body').animate({'scrollTop': content_offset}, 1000, function () {
-    var toler_top = $('#picture').height();
-    var toler_bot = $('#gfooter').height() + 8;
+    var toler_top = $('#picture').height() / 2;
+    var toler_bot = $('#gfooter').height() / 2;
     $(document).bind('scrollstop', function () {
       var scrollTop = $(this).scrollTop();
       if (scrollTop - toler_bot <= content_offset && 

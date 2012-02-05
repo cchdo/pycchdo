@@ -116,9 +116,9 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_view('pycchdo.views.home', route_name='home', renderer='templates/home.jinja2')
 
-    config.add_route('browse_menu', '/browse.html')
-    config.add_view('pycchdo.views.browse_menu', route_name='browse_menu',
-                    renderer='templates/browse.jinja2')
+    config.add_route('get_menu', '/get.html')
+    config.add_view('pycchdo.views.get_menu', route_name='get_menu',
+                    renderer='templates/get.jinja2')
 
     config.add_route('search_menu', '/search.html')
     config.add_view('pycchdo.views.search_menu', route_name='search_menu',
@@ -128,9 +128,9 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.information_menu', route_name='information_menu',
                     renderer='templates/information.jinja2')
 
-    config.add_route('contribute_menu', '/contribute.html')
-    config.add_view('pycchdo.views.contribute_menu', route_name='contribute_menu',
-                    renderer='templates/contribute.jinja2')
+    config.add_route('give_menu', '/give.html')
+    config.add_view('pycchdo.views.give_menu', route_name='give_menu',
+                    renderer='templates/give.jinja2')
 
     config.add_route('submit', '/submit.html')
     config.add_view('pycchdo.views.submit.submit', route_name='submit',

@@ -339,6 +339,10 @@ class TestModel(unittest.TestCase):
         """ Attempting to find an invalid ObjectId raises ValueError. """
         self.assertRaises(ValueError, lambda: Obj.find_id('invalid_object_id'))
 
+    def test_Obj_get_id(self):
+        """ Getting an Obj by id will return None if not found """
+        self.assertEqual(None, Obj.get_id('invalid_object_id'))
+
     def test_Obj_finders_find_Objs(self):
         """ Obj finders should find Objs based on their class """
         obj = Obj(self.testPerson)

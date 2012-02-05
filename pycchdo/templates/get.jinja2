@@ -1,24 +1,20 @@
 {% extends "templates/base.jinja2" %}
 {% block head -%}
-  {{ whh.tags.stylesheet_link('/static/css/browse.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/basin_selector.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/static.css') }}
 {%- endblock %}
-{% block title %}Browse Data{% endblock %}
+{% block title %}Get{% endblock %}
 {% block content -%}
-{% call h.boxed('Browse Data') -%}
+{% call h.boxed('Get', class='get') -%}
   <div id="basin" class="sub-section first">
     <h2>Basin</h2>
     {%- include "templates/_basin_selector.jinja2" %}
-  </div>
 
-  <div id="ocean" class="sub-section">
-    <h2>Ocean</h2>
     <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Arctic Ocean', '/arctic.html')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Atlantic Ocean', '/atlantic.html')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Pacific Ocean', '/pacific.html')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Indian Ocean', '/indian.html')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Southern Ocean', '/southern.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Arctic', '/arctic.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Atlantic', '/atlantic.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Pacific', '/pacific.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Indian', '/indian.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Southern', '/southern.html')) }}
     </ul>
   </div>
 

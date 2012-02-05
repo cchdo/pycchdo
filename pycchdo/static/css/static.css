@@ -7,6 +7,9 @@
 .boxed p {
   margin-bottom: 0.5em;
 }
+.boxed.contact p {
+  margin-bottom: 0;
+}
 
 .formats-exchange-format-descr li,
 .website-guide li {
@@ -240,4 +243,24 @@
 }
 .formats-exchange-example-bottle .data td {
   text-align: right;
+}
+
+.give h2#seahunt {
+  font-size: 1.2em;
+  margin: 0.2em 0;
+}
+.boxed.get ul li,
+.give ul.project_seahunt li {
+  list-style: disc;
+  margin-left: 2em;
+}
+
+.boxed.get h2 {
+  font-size: 1.2em;
+}
+.boxed.get #basin_selector_map {
+  margin: 0.5em 0 0.5em 0.5em;
+}
+.boxed.get ul {
+  margin-bottom: 0.5em;
 }

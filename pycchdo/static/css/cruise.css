@@ -1,11 +1,9 @@
 .cruise-page #info { float: left; width: 466px; margin-right: 11px; }
 .cruise-page #history { float: left; text-align: left; width: 543px; }
 .cruise-page .upper .box_content { }
-.cruise-page .boxed.upper .box_content { height: 39em; }
+.cruise-page .boxed.upper .box_content { height: 42em; }
 
 .cruise-page .subsection { margin-top: 1em; }
-
-.cruise-page #history .subsection { margin-bottom: -1em; }
 
 /* trim the padding and margins a little so text is nicely square.
  * This needs priority over things that go inside .box_contents

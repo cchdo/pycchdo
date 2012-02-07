@@ -55,10 +55,6 @@
   font-style: italic;
 }
 
-.cruise-page .header th {
-  border-bottom: 1px solid #DDDDDD;
-  font-size: 1.2em;
-}
 .cruise-page th,
 .cruise-page td {
   vertical-align: top;

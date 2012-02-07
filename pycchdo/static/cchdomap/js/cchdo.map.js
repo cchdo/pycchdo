@@ -294,8 +294,8 @@ CCHDO.MAP.load = function () {
   // scroll to the nicest viewing spot.
   var content_offset = $('#content').offset().top;
   $('body').animate({'scrollTop': content_offset}, 1000, function () {
-    var toler_top = $('#picture').height() / 2;
-    var toler_bot = $('#gfooter').height() / 2;
+    var toler_top = $('#picture').height() * .7;
+    var toler_bot = $('#gfooter').outerHeight();
     $(document).bind('scrollstop', function () {
       var scrollTop = $(this).scrollTop();
       if (scrollTop - toler_bot <= content_offset && 
@@ -2442,9 +2442,8 @@ KMLLayerCreator.prototype.setMapLayer = function (layer, mapLayer) {
       }
     }
   });
-  if ($(this._layerSection.getLayers()).find('.layer').length <= CM.MAPS_KML_LIMIT) {
-    layer.setOn(true);
-  } else {
+  layer.setOn(true);
+  if ($(this._layerSection.getLayers()).find('.layer').length > CM.MAPS_KML_LIMIT) {
     CM.tip(CM.TIPS['kml_too_many']);
   }
 };

@@ -9,7 +9,9 @@
 
     <h2>Convert a NetCDF CTD to OceanSites NetCDF.</h2>
 
-    {{ whh.tags.form('/webtool/convert/ctd_netcdf_to_ctd_oceansites_netcdf', multipart=True) }}
+    {{ whh.tags.form('/tool/convert',
+                     hidden_fields={'from': 'ctd_netcdf', 'to': 'ctd_oceansites_netcdf'},
+                     multipart=True) }}
       <input type="file" name="file">
       {{ whh.tags.select('timeseries', None, OCEANSITES_TIMESERIES_SELECT) }}
       <input type="submit" value="Convert">
@@ -17,7 +19,9 @@
 
     <h2>Convert a NetCDF CTD Zip to OceanSites NetCDF Zip.</h2>
 
-    {{ whh.tags.form('/webtool/convert/ctdzip_netcdf_to_ctdzip_oceansites_netcdf', multipart=True) }}
+    {{ whh.tags.form('/tool/convert',
+                     hidden_fields={'from': 'ctdzip_netcdf', 'to': 'ctdzip_oceansites_netcdf'},
+                     multipart=True) }}
       <input type="file" name="file">
       {{ whh.tags.select('timeseries', None, OCEANSITES_TIMESERIES_SELECT) }}
       <input type="submit" value="Convert">
@@ -25,7 +29,9 @@
 
     <h2>Convert a CTD Exchange to OceanSites NetCDF Zip.</h2>
 
-    {{ whh.tags.form('/webtool/convert/ctd_exchange_to_ctdzip_oceansites_netcdf', multipart=True) }}
+    {{ whh.tags.form('/tool/convert',
+                     hidden_fields={'from': 'ctd_exchange', 'to': 'ctdzip_oceansites_netcdf'},
+                     multipart=True) }}
       <input type="file" name="file">
       {{ whh.tags.select('timeseries', None, OCEANSITES_TIMESERIES_SELECT) }}
       <input type="submit" value="Convert">
@@ -33,7 +39,9 @@
 
     <h2>Convert a Bottle Exchange to KML.</h2>
 
-    {{ whh.tags.form('/webtool/convert/bottle_exchange_to_kml', multipart=True) }}
+    {{ whh.tags.form('/tool/convert',
+                     hidden_fields={'from': 'bottle_exchange', 'to': 'kml'},
+                     multipart=True) }}
       <input type="file" name="file">
       <input type="submit" value="Convert">
     {{ whh.tags.end_form() }}

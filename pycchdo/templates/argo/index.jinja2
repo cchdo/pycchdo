@@ -1,18 +1,20 @@
 {%- extends "templates/argo/base.jinja2" %}
+{%- block argo_head %}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
+{%- endblock %}
 {%- block argo_content %}
   {% if argo_files %}
-    <table>
+    <table class="has-meta-bodies pre-expand">
       <tr class="header">
         <th>ExpoCode</th>
         <th>File</th>
         <th>Added by</th>
         <th>Added at</th>
-        <th>Description</th>
         <th>Display</th>
-        <th></th>
       </tr>
       {%- for af in argo_files %}
-        <tr class="{{ loop.cycle('even', 'odd') }}">
+        {%- set hl = loop.cycle('even', 'odd') %}
+        <tr class="mb-link{{loop.index0}} meta {{ hl }}">
           <td>{{ af.text_identifier }}</td>
           <td class="filename">
             {%- if af|attr('file') and af.file %}
@@ -23,8 +25,12 @@
           </td>
           <td>{{ af.creation_stamp.person.full_name() }}</td>
           <td class="time">{{ af.creation_stamp.timestamp.strftime('%F %H:%M %Z') }}</td>
-          <td class="description"><pre>{{ af.description }}</pre></td>
           <td>{{ af.display }}</td>
+        </tr>
+        <tr class="mb-link{{loop.index0}} body {{ hl }}">
+          <td class="description" colspan="4">
+            <pre>{{ af.description }}</pre>
+          </td>
           <td>
             <p><a href="/argo/{{ af.id }}">Edit</a></p>
             <p><a href="/argo/{{ af.id }}?_method=DELETE">Delete</a></p>
@@ -35,4 +41,8 @@
   {%- else %}
     <p>There are no stored files.</p>
   {% endif %}
+{%- endblock %}
+{%- block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
 {%- endblock %}

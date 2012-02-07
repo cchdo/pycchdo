@@ -15,7 +15,7 @@
 #seahunt-about #years h2 {
   float: left;
   padding: 0.2em;
-  margin-right: 0.5em;
+  margin: 0 0.5em 0 0;
 }
 #seahunt-about #years ul {
   float: left;

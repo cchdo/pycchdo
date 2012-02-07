@@ -267,6 +267,9 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.tools.convert',
                     route_name='tool_convert',
                     renderer='templates/tool/convert.jinja2')
+    config.add_route('tool_convert_from_to', '/tool/convert')
+    config.add_view('pycchdo.views.tools.convert_from_to',
+                    route_name='tool_convert_from_to', renderer='json')
     config.add_route('tool_convert_any_to_google_wire', '/tool/convert/any_to_google_wire')
     config.add_view('pycchdo.views.tools.convert_any_to_google_wire',
                     route_name='tool_convert_any_to_google_wire', renderer='json')
@@ -278,6 +281,11 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.staff.submissions', route_name='staff_submissions', renderer='templates/staff/submissions.jinja2')
     config.add_route('staff_moderation', '/staff/moderation.html')
     config.add_view('pycchdo.views.staff.moderation', route_name='staff_moderation', renderer='templates/staff/moderation.jinja2')
+
+    # dynamic static pages
+    config.add_route('project_carina', '/project_carina.html')
+    config.add_view('pycchdo.views.project_carina', route_name='project_carina',
+                    renderer='templates/project_carina.jinja2')
 
     # Serve data blobs
     config.add_route('data', '/data/b/{data_id}*ignore')

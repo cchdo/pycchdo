@@ -8,86 +8,9 @@ h2 {
 h3 {
   margin-top: 0.5em;
 }
-.meta td, .body td {
-  vertical-align: top;
-}
-.cruise-track-img {
-  position: relative;
-  max-width: 128px;
-}
-.has-meta-bodies {
-  margin-bottom: 1em;
-}
 </style>
 {%- endblock %}
 {%- block title %}{{ query }} - Search{%- endblock %}
-
-{%- macro show_cruise(cruise, index, hl) %}
-  <tr class="meta mb-link{{index}} {{hl}}">
-    <td>{{ h.link_cruise(cruise) }}</td>
-    <td>{{ h.link_ship(cruise.ship) }}</td>
-    <td>{{ h.link_country(cruise.country) }}</td>
-    <td>{{ h.cruise_dates(cruise)[2] }}</td>
-    <td>{{ h.link_person_institutions(cruise.chief_scientists) }}</td>
-  </tr>
-  <tr class="body mb-link{{index}} {{hl}}">
-    <td colspan="5">
-    {%- if cruise.aliases|length > 0 %}
-      ({{ ', '.join(cruise.aliases) }})
-    {%- endif %}</td>
-  </tr>
-  <tr class="body mb-link{{index}} {{hl}}">
-    <td colspan="4">{{ h.link_collections(cruise.collections) }}</td>
-    <td>
-      {%- if cruise.get('map_thumb') %}
-        <img class="cruise-track-img" src="{{ request.route_path('cruise_map_thumb', cruise_id=cruise.identifier) }}" alt="{{ cruise.expocode }} thumbnail" />
-      {%- else %}
-        <img src="/static/img/etopo_static/etopo_thumb_no_track.png" />
-      {%- endif %}
-    </td>
-  </tr>
-  <tr class="body mb-link{{index}} {{hl}}">
-    <td colspan="5">
-      <div><!-- TODO number of stations --></div>
-      <div><!-- TODO parameters --></div>
-    </td>
-  </tr>
-{%- endmacro %}
-
-{%- macro link_obj(x) %}
-  {%- if x._obj_type == 'Person' %}
-    {{ h.link_person(x) }}
-  {%- elif x._obj_type == 'Collection' %}
-    {{ h.link_collection(x) }}
-  {%- elif x._obj_type == 'Country' %}
-    {{ h.link_country(x) }}
-  {%- elif x._obj_type == 'Cruise' %}
-    {{ h.link_cruise(x) }}
-  {%- elif x._obj_type == 'Ship' %}
-    {{ h.link_ship(x) }}
-  {%- elif x._obj_type == 'Institution' %}
-    {{ h.link_institution(x) }}
-  {%- else %}
-    {{ x }}
-  {%- endif %}
-{%- endmacro %}
-
-{%- macro cruise_table(cruises, pre_expand=False) %}
-<table class="has-meta-bodies{%-if pre_expand%} pre-expand{%-endif%}">
-  <tr class="header">
-    <th width="20%">Identifier</th>
-    <th width="20%">Ship</th>
-    <th width="20%">Country</th>
-    <th width="20%">Cruise dates</th>
-    <th width="20%">Chief scientist(s)</td>
-  </tr>
-  {%- for cruise in cruises %}
-    {%- set loop_index = loop.index0 %}
-    {%- set hl = loop.cycle('even', 'odd') %}
-    {{ show_cruise(cruise, loop_index, hl) }}
-  {%- endfor %}
-</table>
-{%- endmacro %}
 
 {%- macro pluralize_category(category) %}
   {%- if category == 'person' %}
@@ -108,49 +31,31 @@ h3 {
 {%- endmacro %}
 
 {% block content -%}
-  {% call h.boxed('Search results for "%s"' % query) -%}
-    {%- if 'cruise' in results %}
-      {# Show the cruises first because they are most
-         important. Also, cruises are the only Obj that
-         can't have cruises associated with them. #}
-      <h2>Cruises</h2>
-      {{- cruise_table(results['cruise'], True) }}
+  {% call h.boxed('Search results for "%s"' % query, class='search-results') -%}
+    {%- if results %}
+      {%- if 'cruise' in results and results['cruise'] %}
+        {# Show the cruises first because they are most
+           important. Also, cruises are the only Obj that
+           can't have cruises associated with them. #}
+        <h2>Cruises</h2>
+        {{- h.cruise_listing(results['cruise'], pre_expand=True) }}
+      {%- endif %}
 
-    {%- endif %}
-
-    {%- for category, items in results.items() %}
-      {%- if category != 'cruise' and items|length > 0 %}
-      <h2>{{ pluralize_category(category) }}</h2>
-
-      {# <!-- DO NOT UNCOMMENT -->
-      <table class="has-meta-bodies">
-        <tr class="header">
-          <th width="20%">Result</th>
-          <th width="80%">Cruises</th>
-        </tr>
-        {%- for result in items %}
-          {%- set loop_index = loop.index0 %}
-          {%- set hl = loop.cycle('even', 'odd') %}
-          <tr class="meta mb-link{{loop_index}} {{hl}}">
-            <td>{{ link_obj(result) }}</td>
-            <td></td>
-          </tr>
-          <tr class="body mb-link{{loop_index}} {{hl}}">
-            <td></td>
-            <td>{{ cruise_table(items[result]) }}</td>
-          </tr>
-        {%- endfor %}
-      </table>
-      #}
-
-      {%- for result in items %}
-        <h3>{{ link_obj(result) }}</h3>
-        {%- if items[result]|length > 0 %}
-          {{ cruise_table(items[result]) }}
+      {%- for category, items in results.items() %}
+        {%- if category != 'cruise' and items|length > 0 %}
+          <h2>{{ pluralize_category(category) }}</h2>
+          {%- for result in items %}
+            <h3>{{- h.link_obj_polymorph(result) }}</h3>
+            {%- if items[result]|length > 0 %}
+              {{- h.cruise_listing(items[result]) }}
+            {%- endif %}
+          {%- endfor %}
         {%- endif %}
       {%- endfor %}
-      {%- endif %}
-    {%- endfor %}
+    {%- else %}
+      <p>Sorry, there are no results for your query.</p>
+      <p>Try {{ h.tags.link_to('Advanced search', request.route_path('advanced_search')) }}?</p>
+    {%- endif %}
   {%- endcall %}
 {%- endblock %}
 

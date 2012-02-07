@@ -50,7 +50,7 @@
 #rdev .box_content {
   max-height: 42em;
 }
-#rdev h2 {
+.home h2 {
   margin-top: 0;
   margin-bottom: 0.5em;
 }
@@ -74,12 +74,13 @@
   top: 0;
   left: 8.5em;
 }
-#rdev .info p {
-  margin-left: 1em;
-}
 #rdev .info h3,
 #rdev .info p {
   white-space: nowrap;
+  margin: 0;
+}
+#rdev .info p {
+  margin-left: 1em;
 }
 #rdev .info strong {
   color: #67a9bb;

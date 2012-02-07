@@ -8,7 +8,8 @@ from os.path import sep as pthsep
 from os.path import join as pthjoin
 
 import webhelpers.html as whh
-import webhelpers.html.tags
+H = whh.HTML
+import webhelpers.html.tags as tags
 import webhelpers.text as whtext
 
 from gridfs.grid_file import GridOut
@@ -52,7 +53,7 @@ def GAPI_autoload(request, module_list):
     uri = 'http://www.google.com/jsapi?autoload={jsapiload}&key={key}'.format(
         jsapiload=jsapiload,
         key=GAPI_key(request))
-    return whh.tags.javascript_link(uri)
+    return tags.javascript_link(uri)
 
 
 def has_edit(request):
@@ -83,9 +84,13 @@ def is_staff(user):
 
 
 def has_mod(request):
+    """ Determines if the request's user has moderator powers """
     if not request:
         return False
-    if not request.user:
+    try:
+        if not request.user:
+            return False
+    except AttributeError:
         return False
     if is_staff(request.user):
         return True
@@ -129,7 +134,7 @@ def form_errors_for(request, key, value=None):
         return
 
     if request.session.peek_flash(error_key):
-        errors = [whh.HTML.span(x, class_='form-error') for x in \
+        errors = [H.span(x, class_='form-error') for x in \
                   request.session.pop_flash(error_key)]
         return whh.literal(''.join(errors))
     return ''
@@ -146,9 +151,9 @@ def pager_for(page, format=PAGER_FORMAT):
         return ''
 
     next_url = whh.literal(page._url_generator(page.next_page))
-    return whh.HTML.div(
+    return H.div(
         page.pager(format),
-        whh.HTML.a(rel='next', href=next_url, style='display: none;'),
+        H.a(rel='next', href=next_url, style='display: none;'),
         class_='pager autopagerize_insert_before')
 
 
@@ -159,13 +164,13 @@ def email_link(email, microformat_type=None, microformat_classes=[],
     parts = email.split('@')
     type = ''
     if microformat_type:
-        type = whh.HTML.span(microformat_type, class_='type hidden')
+        type = H.span(microformat_type, class_='type hidden')
     if not content:
         content = type + parts[0] + \
-                  whh.HTML.span(obfuscator, class_='copythis') + '@' + parts[1]
+                  H.span(obfuscator, class_='copythis') + '@' + parts[1]
     href = 'mailto:' + parts[0] + obfuscator + '@' + parts[1]
     classes = [('email', True)] + [(x, True) for x in microformat_classes]
-    return whh.tags.link_to(content, href, class_=whh.tags.css_classes(classes))
+    return tags.link_to(content, href, class_=tags.css_classes(classes))
 
 
 def boxed(title='', bottom='', **attrs):
@@ -195,13 +200,13 @@ def boxed(title='', bottom='', **attrs):
         del attrs['caller']
     except KeyError:
         pass
-    return whh.HTML.div(whh.HTML(
-                whh.HTML.h1(whh.literal(title)),
-                whh.HTML.div(caller(),
-                             class_=whh.tags.css_classes(box_content_classes)),
-                whh.HTML.div(bottom,
-                             class_=whh.tags.css_classes(box_bottom_classes))
-            ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
+    return H.div(H(
+                H.h1(whh.literal(title)),
+                H.div(caller(),
+                             class_=tags.css_classes(box_content_classes)),
+                H.div(bottom,
+                             class_=tags.css_classes(box_bottom_classes))
+            ), class_=tags.css_classes(classes), _nl=True, **attrs)
 
 
 # Pretty printers
@@ -320,29 +325,29 @@ def cruise_summary(cruise):
 
 def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
     thumb_link = ''
-    thumb_img = whh.tags.image(data_uri(thumb), 'Cruise Map thumbnail')
+    thumb_img = tags.image(data_uri(thumb), 'Cruise Map thumbnail')
     if full:
         full_uri = data_uri(full)
         if thumb:
-            thumb_link = whh.HTML.p(
-                whh.tags.link_to(thumb_img, full_uri))
-        thumb_link += whh.HTML.p(whh.tags.link_to('Full Map', full_uri),
+            thumb_link = H.p(
+                tags.link_to(thumb_img, full_uri))
+        thumb_link += H.p(tags.link_to('Full Map', full_uri),
                                  class_='caption')
     else:
         if thumb:
-            thumb_link = whh.HTML.p(thumb_img)
-    return whh.HTML.div(thumb_link, class_='thumb')
+            thumb_link = H.p(thumb_img)
+    return H.div(thumb_link, class_='thumb')
 
 
 def cruise_suggested_attr(attr):
     person = link_person(attr.creation_stamp.person)
     if attr.deleted:
         verb = 'deleting'
-        obj_phrase = [whh.HTML.span(attr.key, class_='key')]
+        obj_phrase = [H.span(attr.key, class_='key')]
     else:
         verb = 'changing'
-        obj_phrase = [whh.HTML.span(attr.key, class_='key'), ' to ',
-                      whh.HTML.span(attr.value, class_='value')]
+        obj_phrase = [H.span(attr.key, class_='key'), ' to ',
+                      H.span(attr.value, class_='value')]
     when = attr.creation_stamp.timestamp
     if attr.pending_stamp:
         followup = \
@@ -350,12 +355,12 @@ def cruise_suggested_attr(attr):
     else:
         followup = ''
 
-    return whh.HTML.div(
+    return H.div(
         person, ' suggested ', 
-        whh.HTML.span(verb, class_='verb'), ' the ', 
-        whh.HTML.span(*obj_phrase, class_='change'), ' at ',
-        whh.HTML.span(when, class_='when'), '. ',
-        whh.HTML.span(followup, class_='pending'), class_='suggestion')
+        H.span(verb, class_='verb'), ' the ', 
+        H.span(*obj_phrase, class_='change'), ' at ',
+        H.span(when, class_='when'), '. ',
+        H.span(followup, class_='pending'), class_='suggestion')
 
 
 def cruise_history_rows(change, i, hl):
@@ -388,15 +393,15 @@ def cruise_history_rows(change, i, hl):
             summary = change['value']
         body = ''
 
-    return whh.HTML.tr(
-            whh.HTML.td(time, class_='date'),
-            whh.HTML.td(data_type, class_='data_type'),
-            whh.HTML.td(action, class_='action'),
-            whh.HTML.td(summary, class_='summary'),
+    return H.tr(
+            H.td(time, class_='date'),
+            H.td(data_type, class_='data_type'),
+            H.td(action, class_='action'),
+            H.td(summary, class_='summary'),
             class_=baseclass + " meta"
-        ) + whh.HTML.tr(
-            whh.HTML.td(person, class_='person'),
-            whh.HTML.td(whh.HTML.pre(body), colspan=3, class_='body'),
+        ) + H.tr(
+            H.td(person, class_='person'),
+            H.td(H.pre(body), colspan=3, class_='body'),
             class_=baseclass + " body"
         )
 
@@ -406,14 +411,76 @@ def cruises_sort_by_date_start(cruises):
     return sorted(cruises, key=lambda c: c.date_start or zero)
 
 
-def cruise_listing(cruises, verbose=False):
-    list = []
-    for cruise in cruises:
+def cruise_listing(cruises, pre_expand=False, verbose=False):
+    list = [
+        H.tr(
+            H.th('Identifier'),
+            H.th('Ship'),
+            H.th('Country'),
+            H.th('Cruise dates'),
+            H.th('Chief scientist(s)'),
+            class_='header'),
+    ]
+    for i, cruise in enumerate(cruises):
+        hl = 'odd'
+        if i % 2 == 0:
+            hl = 'even'
+
+        map = '/static/img/etopo_static/etopo_thumb_no_track.png'
+        if cruise.get('map_thumb'):
+            map = '/cruise/{id}/map_thumb'.format(id=cruise.identifier)
+
+        baseclass = 'mb-link{i} {hl}'.format(i=i, hl=hl)
+        metaclass = 'meta ' + baseclass
+        bodyclass = 'body ' + baseclass
+
+        aliases = '(%s)' % ', '.join(cruise.aliases)
+        if aliases == '()':
+            aliases = ''
+
         list.append(
-            whh.HTML.tr(whh.HTML.td(link_cruise(cruise)), 
-                        whh.HTML.td(link_ship(cruise.ship)),
-                        whh.HTML.td(date(cruise.date_start))))
-    return whh.HTML.table(*list)
+            H.tr(
+                H.td(link_cruise(cruise)), 
+                H.td(link_ship(cruise.ship)),
+                H.td(link_country(cruise.country)),
+                H.td(cruise_dates(cruise)[2]),
+                H.td(link_person_institutions(cruise.chief_scientists)),
+                class_=metaclass
+            ),
+        )
+        list.append(
+            H.tr(
+                H.td(aliases, colspan=5), 
+                class_=bodyclass
+            ),
+        )
+        list.append(
+            H.tr(
+                H.td(link_collections(cruise.collections), colspan=4), 
+                H.td(
+                    tags.image(
+                        map,
+                        cruise_nice_name(cruise) + ' thumbnail',
+                        class_='cruise-track-img',
+                    )
+                ), 
+                class_=bodyclass
+            ),
+        )
+        # TODO
+        # number of stations
+        # parameters (and count)
+        #list.append(
+        #    H.tr(
+        #        H.td('', colspan=5), 
+        #        class_=bodyclass
+        #    ),
+        #)
+
+    table_class = 'has-meta-bodies cruise-listing'
+    if pre_expand:
+        table_class += ' pre-expand'
+    return H.table(*list, class_=table_class)
 
 
 def collection_names(coll_list):
@@ -429,7 +496,24 @@ def path_cruise(c):
 def link_obj(obj):
     if not obj:
         return ''
-    return whh.tags.link_to(obj.id, u'/obj/%s' % obj.id)
+    return tags.link_to(obj.id, u'/obj/%s' % obj.id)
+
+
+def link_obj_polymorph(obj):
+    if obj.obj_type == 'Person':
+        return link_person(obj)
+    elif obj.obj_type == 'Collection':
+        return link_collection(obj)
+    elif obj.obj_type == 'Country':
+        return link_country(obj)
+    elif obj.obj_type == 'Cruise':
+        return link_cruise(obj)
+    elif obj.obj_type == 'Ship':
+        return link_ship(x)
+    elif obj.obj_type == 'Institution':
+        return link_institution(obj)
+    else:
+        return obj
 
 
 def link_file_holder(fh, full=False):
@@ -438,26 +522,26 @@ def link_file_holder(fh, full=False):
     name = fh.file.name
     if not full:
         name = os.path.basename(name)
-    return whh.tags.link_to(name, data_uri(fh))
+    return tags.link_to(name, data_uri(fh))
 
 
 def link_cruise(c):
     if not c:
         return ''
     label = cruise_nice_name(c)
-    return whh.tags.link_to(label, path_cruise(c), title=label)
+    return tags.link_to(label, path_cruise(c), title=label)
 
 
 def link_person(p):
     if not p:
         return ''
-    return whh.tags.link_to(p.full_name() or p.id, u'/person/%s' % p.id)
+    return tags.link_to(p.full_name() or p.id, u'/person/%s' % p.id)
 
 
 def link_institution(i):
     if not i:
         return ''
-    return whh.tags.link_to(i.get('name') or i.id, '/institution/%s' % i.id)
+    return tags.link_to(i.get('name') or i.id, '/institution/%s' % i.id)
 
 
 def link_person_institutions(pis):
@@ -482,7 +566,7 @@ def link_person_institutions(pis):
 def link_collection(c):
     if not c:
         return ''
-    return whh.tags.link_to(c.name, '/collection/%s' % c.id)
+    return tags.link_to(c.name, '/collection/%s' % c.id)
 
 
 def link_collections(cs):
@@ -495,13 +579,13 @@ def link_collections(cs):
 def link_ship(s):
     if not s:
         return ''
-    return whh.literal(whh.tags.link_to(s.name, '/ship/%s' % s.id))
+    return whh.literal(tags.link_to(s.name, '/ship/%s' % s.id))
 
 
 def link_country(c):
     if not c:
         return ''
-    return whh.literal(whh.tags.link_to(c.name,
+    return whh.literal(tags.link_to(c.name,
                                         '/country/%s' % c.name))
 
 
@@ -509,7 +593,7 @@ def link_parameter(p):
     if not p:
         return ''
     return whh.literal(
-        whh.tags.link_to(p.get('name'),
+        tags.link_to(p.get('name'),
                          '/parameter/%s.json' % p.get('name')))
 
 
@@ -543,8 +627,8 @@ def change_pretty(change):
             else:
                 status = 'suggested changing'
     status = ' %s ' % status
-    span = whh.HTML.span
-    return whh.HTML.p(
+    span = H.span
+    return H.p(
         span(person.full_name(), class_='person'), status,
         span(change['key'], class_='key'), ' to ',
         span(change['value'], class_='value'), ' at ',
@@ -639,27 +723,27 @@ def data_file_link(request, type, data):
         logging.error('%r has no obj' % data)
 
     items = [
-        whh.HTML.th(whh.tags.link_to(data_type, link)),
-        whh.HTML.td(description),
+        H.th(tags.link_to(data_type, link)),
+        H.td(description),
     ]
 
     classes = [type.replace('_', ' ')]
     if preliminary:
         classes.append('preliminary')
-        if has_mod(request.user):
+        if has_mod(request):
             items.append(
-                whh.HTML.td(
-                    whh.tags.form(
+                H.td(
+                    tags.form(
                         '', 'PUT', hidden_fields={
                             'cruise_id': data.obj.id,
                             'action': 'edit_attr',
                             'key': type + '_status'}),
-                    whh.HTML.input(type='submit', name='edit_action',
+                    H.input(type='submit', name='edit_action',
                                    value='Mark reviewed'),
-                    whh.tags.end_form()))
+                    tags.end_form()))
     classname = ' '.join(classes)
 
-    return whh.HTML.tr(*items, class_=classname)
+    return H.tr(*items, class_=classname)
 
 
 _here = os.path.dirname(__file__)

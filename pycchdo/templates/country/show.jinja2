@@ -1,4 +1,7 @@
 {% extends "templates/base.jinja2" %}
+{%- block head %}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
+{%- endblock %}
 {% block title %}Country {{ country.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Country ' + (country.name or '')) -%}
@@ -45,4 +48,8 @@
       {{ h.cruise_listing(country.cruises()) }}
     </div>
   {%- endcall %}
+{%- endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
 {%- endblock %}

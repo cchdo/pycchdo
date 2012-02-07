@@ -5,6 +5,7 @@ from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest
 
 from ..models.search import search as searcher
+from pycchdo.views import _collapsed_dict
 from pycchdo.views.cruise import _cruise_to_json
 
 
@@ -19,9 +20,9 @@ def search_results(request):
     request.session['query'] = query
 
     if not query:
-        return HTTPSeeOther(location='/search/advanced')
+        return HTTPSeeOther(location=request.route_path('advanced_search'))
     return {'query': query,
-            'results': searcher(unicode(query))}
+            'results': _collapsed_dict(searcher(unicode(query)))}
 
 
 def search_results_json(request):

@@ -5,10 +5,17 @@
 {% block title %}Get{% endblock %}
 {% block content -%}
 {% call h.boxed('Get', class='get') -%}
-  <div id="basin" class="sub-section first">
-    <h2>Basin</h2>
-    {%- include "templates/_basin_selector.jinja2" %}
+  <div id="search" class="sub-section first">
+    <h2>Search</h2>
+    <ul>
+      {{ whh.HTML.li(whh.tags.link_to('Advanced', '/search/advanced')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Map', '/search/map')) }}
+    </ul>
+  </div>
 
+  <div id="basin" class="sub-section">
+    <h2>Basins</h2>
+    {%- include "templates/_basin_selector.jinja2" %}
     <ul>
       {{ whh.HTML.li(whh.tags.link_to('Arctic', '/arctic.html')) }}
       {{ whh.HTML.li(whh.tags.link_to('Atlantic', '/atlantic.html')) }}
@@ -27,14 +34,14 @@
   </div>
 
   <div id="project" class="sub-section">
-    <h2>Project</h2>
+    <h2>Projects</h2>
     <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Project Carina', '/search/results?query=CARINA')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Project Carina', '/project_carina.html')) }}
     </ul>
   </div>
 
   <div id="list" class="sub-section">
-    <h2>List</h2>
+    <h2>Lists</h2>
     <ul>
       {{ whh.HTML.li(whh.tags.link_to('Cruises', '/cruises')) }}
       {{ whh.HTML.li(whh.tags.link_to('Countries', '/countries')) }}

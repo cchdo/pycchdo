@@ -2,6 +2,7 @@
 {% block title %}Argo{% if subtitle %} | {{ subtitle }}{% endif %}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/argo.css') }}
+  {%- block argo_head %}{%- endblock %}
 {% endblock %}
 {% block content -%}
   {% call h.boxed('<img src="/static/img/logos/argo_logo.png" alt="Argo logo"> Secure File Repository', class='argo') -%}

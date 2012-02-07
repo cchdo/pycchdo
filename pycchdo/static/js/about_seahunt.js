@@ -38,18 +38,23 @@ $(function () {
     var last;
     var last_year;
     return function (year) {
+      if (last_year == year) {
+        return true;
+      }
       var image = ['images/homemaps/seahunt', year, '.jpg'].join('');
       if (last_year && last_year != year) {
         last.removeClass('active');
         var cruises = years_cruises['y' + last_year];
         cruises.main.set('map', null);
       }
-      $(this).addClass('active');
-      last = $(this);
+      var li = $(this).parent();
+      li.addClass('active');
+      last = li;
       last_year = year;
 
       var cruises = years_cruises['y' + year];
       cruises.main.set('map', map);
+      return false;
     };
   })();
 
@@ -85,15 +90,13 @@ $(function () {
         years_cruises['y' + year] = tracks;
         if (i == 0) {
           $('#searching').hide('fast').remove();
-          li.mouseover();
+          a.click();
         }
       }, 'json');
-      
-      var li = $(['<li><a href="', url, '">', year, '</a></li>'].join(''))
-        .appendTo(years_list)
-        .mouseover(function () {
-          select.call(this, year);
-        });
+
+      var a = $(['<a href="', url, '">', year, '</a>'].join('')).click(function () {
+        return select.call(this, year);
+      }).appendTo($('<li></li>').appendTo(years_list));
     });
   }, 'json');
 });

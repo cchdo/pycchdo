@@ -113,7 +113,7 @@
   background: #eeeeee;
 }
 
-.pane-handle {
+div.pane-handle {
   width: 1em;
   height: 1.2em;
   position: absolute;

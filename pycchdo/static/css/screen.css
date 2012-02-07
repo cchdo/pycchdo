@@ -6,7 +6,7 @@ body {
 }
 html, button, input, select, textarea,
 #content {
-  font-family: 'Open Sans', Futura, Verdana, Tahoma, sans-serif;
+  font-family: 'Open Sans', Helvetica, Arial, Tahoma, sans-serif;
 }
 html, button, input, select, textarea {
   font-size: 0.85em;
@@ -14,7 +14,9 @@ html, button, input, select, textarea {
 h1, h2, h3, h4, h5, h6 {
   font-size: 1em;
   font-weight: normal;
-  margin: 0;
+}
+h2 {
+  margin: 0.5em auto 0.2em auto;
 }
 ol, ul {
   padding: 0;
@@ -27,6 +29,8 @@ li {
 ol, ul, p {
   -webkit-margin-before: 0;
   -webkit-margin-after: 0;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 th {
   font-weight: normal;
@@ -102,6 +106,7 @@ th, td {
 
 /* Flash messages */
 .flash {
+  margin: 0;
   font-size: 1.1em;
   padding: 0.5em;
   background: #FFFFEE;
@@ -127,6 +132,15 @@ th, td {
   padding: 0.2em;
 }
 
+/* tables */
+.box_content table {
+  width: 100%;
+}
+table tr.header th {
+  border-bottom: 1px solid #DDDDDD;
+  font-size: 1.2em;
+}
+
 /* Hide Microformat specific tags */
 .hidden { display: none; }
 
@@ -138,7 +152,6 @@ th, td {
   overflow-x: auto;
 }
 .clear { clear: both; }
-
 
 /* Hide email obfuscation. Different from display: none because the text needs
  * to actually be present in DOM */
@@ -279,8 +292,7 @@ input[type="submit"]:active {
   /* pin to bottom of picture */
   z-index: 100;
   position: relative;
-  top: -1.85em;
-  margin-bottom: -1.85em;
+  margin-top: -1.83em;
   width: 100%;
   /* make a light area in the picture for the menu */
   background: url("/static/img/banners/transparent_menu_bg.png");
@@ -329,7 +341,6 @@ input[type="submit"]:active {
 #cchdo_menu ul ul {
   visibility: hidden;
   position: absolute;
-  top: 100%;
   width: 100%;
   left: 0; /* HACK force firefox to left align */
   background: #D8D8D8;
@@ -390,11 +401,12 @@ input[type="submit"]:active {
 }
 
 /* display whole menu */
-#cchdo_menu ul.open li#cchdo_menu_get ul li,
+#cchdo_menu ul.open li ul li,
 #cchdo_menu ul.open ul ul li,
-#cchdo_menu ul:hover li#cchdo_menu_get ul li,
+#cchdo_menu ul:hover li ul li,
 #cchdo_menu ul:hover ul ul li {
-  display: inline;
+  display: block;
+  height: auto;
 }
 #cchdo_menu ul.open ul,
 #cchdo_menu ul.open ul li ul,
@@ -404,7 +416,10 @@ input[type="submit"]:active {
   visibility: visible;
   margin: auto;
 }
-#cchdo_menu h1 a.expander {
+#cchdo_menu .expander {
+  padding: 0;
+}
+#cchdo_menu .expander h1 a {
   display: inline-block;
   font-size: 0.9em;
   color: #405381;
@@ -427,13 +442,20 @@ input[type="submit"]:active {
 #screensize-mobile {
   display: inline;
 }
-#gcredit,
+#gcredit {
+  color: #AAAAAA;
+  opacity: 0.5;
+  -webkit-transition: opacity .2s ease;
+  -moz-transition: opacity .2s ease;
+  -o-transition: opacity .2s ease;
+  transition: opacity .2s ease;
+}
 #footer_logos {
-  opacity: 0.3;
-  -webkit-transition: opacity .8s ease;
-  -moz-transition: opacity .8s ease;
-  -o-transition: opacity .8s ease;
-  transition: opacity .8s ease;
+  opacity: 0.2;
+  -webkit-transition: opacity .6s ease;
+  -moz-transition: opacity .6s ease;
+  -o-transition: opacity .6s ease;
+  transition: opacity .6s ease;
 }
 #gfooter:hover #gcredit,
 #gfooter:hover #footer_logos {
@@ -480,6 +502,7 @@ input[type="submit"]:active {
   right: 0;
   top: 0;
   padding: 0.5em;
+  margin: 0;
 }
 .boxed .box_content {
   padding: 1em;
@@ -631,4 +654,27 @@ table.notes {
 .notes .note textarea {
   width: 100%;
   min-height: 6em;
+}
+
+.search-results h2 {
+  font-size: 1.3em;
+}
+.search-results h3 {
+  margin-top: 0.5em;
+}
+.search-results table.cruise-listing {
+  margin-bottom: 1em;
+}
+.search-results table.cruise-listing th,
+.search-results table.cruise-listing td {
+}
+
+/* cruise listing */
+table.cruise-listing .meta td,
+table.cruise-listing .body td {
+  vertical-align: top;
+}
+table.cruise-listing .cruise-track-img {
+  position: relative;
+  max-width: 128px;
 }

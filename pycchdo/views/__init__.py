@@ -20,8 +20,8 @@ from pycchdo.views.session import require_signin
 
 
 _views = ['favicon', 'robots', 'home', 'get_menu', 'search_menu', 'give_menu',
-          'information_menu', 'tools_menu', 'parameters', 'contributions',
-          'parameter_show', 'data', 'catchall_static', ]
+          'information_menu', 'tools_menu', 'project_carina', 'parameters',
+          'contributions', 'parameter_show', 'data', 'catchall_static', ]
 
 
 __all__ = [
@@ -56,7 +56,13 @@ def _collapsed_dict(d, n=None):
     e = {}
     for k, v in d.items():
         if type(v) is dict:
+            # recurse into sub-dicts
             v = _collapsed_dict(v, n)
+        if type(v) is list:
+            # TODO test for list condition
+            # do not recurse into lists if n is None
+            if n is None and not v:
+                v = n
         if v != n:
             e[k] = v
     if len(e) < 1:
@@ -188,6 +194,14 @@ def home(request):
     }
 
 
+def project_carina(request):
+    collections = models.Collection.get_by_attrs(names='CARINA')
+    if len(collections) > 0:
+        return {'cruises': collections[0].cruises()}
+    else:
+        return {'cruises': []}
+
+
 def parameters(request):
     def get_params_for_order(order):
         try:
@@ -246,12 +260,18 @@ def parameter_show(request):
     return response
 
 
-def _file_response(file):
-    if not file:
+def _file_response(file, disposition='inline'):
+    if disposition not in ['inline', 'attachment']:
+        raise ValueError()
+
+    if file is None:
         return HTTPNoContent()
 
     resp = Response()
-    resp.app_iter = file
+    try:
+        resp.app_iter = file.file
+    except AttributeError:
+        resp.app_iter = file
     try:
         resp.content_length = file.length
     except AttributeError:
@@ -262,9 +282,10 @@ def _file_response(file):
     except AttributeError:
         pass
     try:
-        resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
+        resp.content_disposition = '{disposition}; filename="{name}"'.format(
+            disposition=disposition, name=file.name)
     except AttributeError:
-        resp.content_disposition = 'inline'
+        resp.content_disposition = disposition
     return resp
 
 

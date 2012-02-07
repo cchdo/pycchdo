@@ -295,7 +295,6 @@ def cruise_show(request):
     data_files = {}
     history = []
     if cruise_obj:
-        # TODO collecting these takes a while
         cruise['date_start'], cruise['date_end'], cruise['cruise_dates'] = \
             h.cruise_dates(cruise_obj)
         cruise['link'] = cruise_obj.get('link')
@@ -306,7 +305,6 @@ def cruise_show(request):
             except KeyError:
                 return None
 
-        # TODO collecting the datafiles takes forever
         data_files = {}
         data_files['map'] = {
             'full': getAttr(cruise_obj, 'map_full'),
@@ -394,7 +392,6 @@ def map_full(request):
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     a = cruise_obj.get_attr('map_full')
-    print a
     if not a:
         return HTTPNotFound()
     return _file_response(a.file)
@@ -484,8 +481,11 @@ def kml(request):
         return ''
 
     H = h.whh.HTML
-    # TODO figure out image_url
-    image_url = True
+
+    image_url = None
+    if cruise.get('map_thumb'):
+        image_url = request.route_path('cruise_map_thumb',
+                                       cruise_id=cruise.identifier)
     balloon_text = H(
         H.tag('h1', '$[name]'),
         str_if_exists(

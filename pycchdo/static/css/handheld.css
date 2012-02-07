@@ -24,12 +24,8 @@ ul, ol, p {
 #gsearch p {
   text-align: left;
 }
-.fullwidth .banner.fullwidth,
-.banner {
-  display: none;
-}
 #picture {
-  height: auto;
+  display: none;
 }
 #centering {
   width: auto;
@@ -40,7 +36,7 @@ ul, ol, p {
   text-align: left;
   border-top: 1px solid #DDDDDD;
   top: 0;
-  margin-bottom: 0;
+  margin: 0;
 }
 #cchdo_menu ul.nav li {
   padding: 0;
@@ -56,14 +52,16 @@ ul, ol, p {
 }
 #cchdo_menu a {
   padding: 0 0.6em;
+  line-height: 3em;
 }
 #cchdo_menu h1 a { 
   display: block;
   background: #EEEEEE;
   padding: 0 0.35em;
   border-bottom: 1px solid #DDDDDD;
+  line-height: 1.5em;
 }
-#cchdo_menu h1 a.expander {
+#cchdo_menu .expander h1 a {
   text-align: center;
   font-size: 1.7em;
   width: auto;
@@ -156,7 +154,7 @@ ul, ol, p {
   float: none;
   margin: auto;
 }
-#geo_search #basin_selector_map img,
+#basin_selector_map img,
 #geo_search #search_map img {
   width: 100%;
 }
@@ -190,4 +188,8 @@ ul, ol, p {
 .contact .people .vcard {
   float: none;
   width: auto;
+}
+
+.argo.nav {
+  margin: -0.5em;
 }

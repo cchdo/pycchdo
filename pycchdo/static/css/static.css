@@ -40,6 +40,7 @@
 }
 .contact .vcard h3 {
   font-size: 1.2em;
+  margin-bottom: 0.2em;
 }
 
 .sumfile-example pre {
@@ -255,11 +256,14 @@
   margin-left: 2em;
 }
 
+.boxed.get .first {
+  margin-top: -1em;
+}
 .boxed.get h2 {
   font-size: 1.2em;
 }
 .boxed.get #basin_selector_map {
-  margin: 0.5em 0 0.5em 0.5em;
+  margin: 0.5em;
 }
 .boxed.get ul {
   margin-bottom: 0.5em;

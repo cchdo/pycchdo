@@ -37,7 +37,7 @@ function init() {
     } else if (data.error) {
       $('#status').html(data.error);
     } else {
-      load(data);
+      load(data.data);
     }
   }
   if (urlvars['autoopen']) {
@@ -52,7 +52,7 @@ function init() {
       dataType: 'json',
       beforeSubmit: function () {
         $('#status').html('Autoopening ' + urlvars['autoopen'] +
-                          '<img src="/images/rotate.gif" />');
+                          '<img src="/static/cchdomap/images/rotate.gif" />');
       },
       success: handleData,
       error: function (xhr, textStatus, errorThrown) {
@@ -64,7 +64,7 @@ function init() {
   try {
     $('form').ajaxForm({
       beforeSubmit: function () {
-        $('#status').html('<img src="/images/rotate.gif" />');
+        $('#status').html('<img src="/static/cchdomap/images/rotate.gif" />');
       },
       success: handleData,
       error: function (xhr, textStatus, errorThrown) {
@@ -158,7 +158,7 @@ function load(data) {
       });
   })();
 
-  function colno_to_label(datatable) {
+  function colnoToLabel(datatable) {
     var hash = {};
     for (var i=0; i<datatable.getNumberOfColumns(); i++) {
       hash[i] = datatable.getColumnLabel(i);
@@ -166,7 +166,7 @@ function load(data) {
     return hash;
   }
 
-  var colno_to_label = colno_to_label(data_table);
+  var colno_to_label = colnoToLabel(data_table);
 
   function invert_one_to_one(hash) {
     var newhash = {};
@@ -363,7 +363,7 @@ function load(data) {
       case 38: setRowVisible(findPrevCastStartRow(data_table, currentRow)); return false;
       case 39: setRowVisible(findNextStationStartRow(data_table, currentRow)); return false;
       case 40: setRowVisible(findNextCastStartRow(data_table, currentRow)); return false;
-      default: console.log(getKey(e)); break;
+      default: console.log('unbound keypress', getKey(e)); break;
     }
   });
 

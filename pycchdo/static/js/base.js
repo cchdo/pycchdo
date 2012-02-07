@@ -1,3 +1,18 @@
+// usage: log('inside coolFunc', this, arguments);
+// paulirish.com/2009/log-a-lightweight-wrapper-for-consolelog/
+window.log = function(){
+  log.history = log.history || [];   // store logs to an array for reference
+  log.history.push(arguments);
+  if(this.console) {
+   arguments.callee = arguments.callee.caller;
+   var newarr = [].slice.call(arguments);
+   (typeof console.log === 'object' ? log.apply.call(console.log, console, newarr) : console.log.apply(console, newarr));
+  }
+};
+// make it safe to use console.log always
+(function(b){function c(){}for(var d="assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,timeStamp,profile,profileEnd,time,timeEnd,trace,warn".split(","),a;a=d.pop();){b[a]=b[a]||c}})((function(){try
+{console.log();return window.console;}catch(err){return window.console={};}})());
+
 (function rotateBanner() {
   if (window.localStorage) {
     var picdom = document.getElementById('picture');
@@ -294,9 +309,9 @@
   (function toggleableMenu() {
     var ul = menu.children[0];
     var expander = document.createElement('LI');
+    expander.className = 'expander';
     var h1 = document.createElement('H1');
     var link = document.createElement('A');
-    link.className = 'expander';
     link.href = 'javascript:void(0);';
     h1.appendChild(link);
     expander.appendChild(h1);
@@ -356,10 +371,8 @@
     open(true);
   })();
 })();
-(function imgmap() {
+(function imgmap_mobile_toggle() {
   // Adapted from http://home.comcast.net/~urbanjost/semaphore.html
-  // Matthew Shen 2012
-
   function _map(lambda, list) {
     var newlist = [];
     for (var i = 0; i < list.length; i++) {
@@ -405,17 +418,17 @@
     var cwidth = curr_width(this.img);
     var cheight = curr_height(this.img);
 
-    if (this._width == cwidth && this._height == cheight) {
+    var ratio = cwidth / this._width;
+    if (!isFinite(ratio)) {
       return;
     }
-
-    var ratio = cwidth / this._width;
     _map(function () {
       var area = this[0];
       var coords = this[1];
       var scaled = _map(function () { return Math.round(this * ratio); },
                         coords);
-      area.coords = scaled.join(',');
+      var coordstr = scaled.join(',');
+      area.coords = coordstr;
     }, this._coords);
   };
 
@@ -435,52 +448,75 @@
     var img = img_maps[map.name];
 
     var im = new ResizableImgMap(img, map);
-    im.resize();
     ims.push(im);
   }
-})();
-(function mobileToggle() {
+  function resizeImgMaps() {
+    _map(function () { this.resize(); }, ims);
+  }
+  resizeImgMaps();
+
+// mobileToggle
   var links = document.getElementsByTagName('link');
-  var mobile_css = [];
+  var mobile_links = [];
+  var mobile_meta = null;
   for (var i = 0; i < links.length; i++) {
     var link = links[i];
-    if (links[i].className == 'mobile') {
-      mobile_css.push(link);
+    if (link.className == 'mobile') {
+      mobile_links.push(link);
       link.data_href = link.href;
     }
   }
+  var metas = document.getElementsByTagName('meta');
+  for (var i = 0; i < metas.length; i++) {
+    var meta = metas[i];
+    if (meta.className == 'mobile') {
+      mobile_meta = meta;
+      mobile_meta.data_content = mobile_meta.content;
+      break;
+    }
+  }
+
   var link_mobile = document.getElementById('screensize-mobile');
   var link_full = document.getElementById('screensize-full');
   link_mobile.onclick = function () {
-    for (var i = 0; i < mobile_css.length; i++) {
-      var link = mobile_css[i];
+    for (var i = 0; i < mobile_links.length; i++) {
+      var link = mobile_links[i];
       link.href = link.data_href;
       if (link.media == 'handheld') {
         link.media = 'all,handheld';
       }
     }
+    if (mobile_meta) {
+      mobile_meta.content = mobile_meta.data_content;
+    }
     if (window.sessionStorage) {
       window.sessionStorage.removeItem('pin_large_screen');
     }
+    resizeImgMaps();
     return false;
   };
   link_full.onclick = function () {
-    for (var i = 0; i < mobile_css.length; i++) {
-      var link = mobile_css[i];
+    for (var i = 0; i < mobile_links.length; i++) {
+      var link = mobile_links[i];
       link.href = '';
       if (link.media == 'all,handheld') {
         link.media = 'handheld';
       }
     }
+    if (mobile_meta) {
+      mobile_meta.content = '';
+    }
     if (window.sessionStorage) {
       window.sessionStorage.setItem('pin_large_screen', '1');
     }
+    resizeImgMaps();
     return false;
   };
   if (window.sessionStorage) {
-    if (window.sessionStorage.getItem('pin_large_screen') == '1') {
+    var pin_large_screen = window.sessionStorage.getItem('pin_large_screen');
+    if (pin_large_screen == '1') {
       link_full.onclick();
-    } else {
+    } else if (pin_large_screen == '0') {
       link_mobile.onclick();
     }
   }

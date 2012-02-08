@@ -73,6 +73,9 @@ p a:hover:visited, p .link.visited.hover {
 .box_content a.updates-available {
   border: none;
 }
+.box_bottom {
+  clear: both;
+}
 
 .preformatted,
 pre {
@@ -133,6 +136,9 @@ th, td {
 /* tables */
 .box_content table {
   width: 100%;
+}
+.box_content table.nofill {
+  width: auto;
 }
 table tr.header th {
   border-bottom: 1px solid #DDDDDD;

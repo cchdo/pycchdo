@@ -185,8 +185,8 @@ def boxed(title='', **attrs):
         pass
     return H.div(H(
                 H.h1(whh.literal(title)),
-                H.div(caller(),
-                             class_=tags.css_classes(box_content_classes)),
+                H.div(caller(), class_=tags.css_classes(box_content_classes)),
+                H.div('', class_='box_bottom'),
             ), class_=tags.css_classes(classes), _nl=True, **attrs)
 
 

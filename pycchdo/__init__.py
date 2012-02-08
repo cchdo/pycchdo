@@ -120,7 +120,11 @@ def main(global_config, **settings):
         session_factory=session_factory,
     )
 
-    models.init_conn(settings['db_uri'])
+    try:
+        models.init_conn(settings['db_uri'])
+    except IOError:
+        # TODO XXX massive warning about no connection to database
+        pass
 
     config.include('pyramid_jinja2')
     config.include('pyramid_mailer')

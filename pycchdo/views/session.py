@@ -73,7 +73,11 @@ def _sign_in_user(request, profile):
         p = models.Person(identifier=identifier, name_first=name['givenName'],
                           name_last=name['familyName'], email=email)
         p.save()
-    return remember(request, str(p['_id']))
+    try:
+        return remember(request, str(p.id))
+    except AttributeError:
+        request.session.flash('Currently unable to sign in', 'help')
+        return []
 
 
 def session_new(request):

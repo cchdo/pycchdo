@@ -1908,15 +1908,22 @@ def main(argv):
         'db_uri': 'mongodb://dimes.ucsd.edu:28017',
         #'db_uri': 'mongodb://dimes.ucsd.edu:28019',
         'db_search_index_path': '/var/cache/pycchdo_search_index',
+        'cchdo_import': True,
+        'seahunt_import': True,
     }
 
-    opts, args = getopt.getopt(argv[1:], 'hc', ('help', 'clear'))
+    opts, args = getopt.getopt(
+        argv[1:], 'hcCS', ('help', 'clear', 'cchdo', 'seahunt', ))
     for option, value in opts:
         if option in ('-h', '--help'):
             print _USAGE
             return 0
         if option in ('-c', '--clear'):
             options['clear_db_first'] = True
+        if option in ('-C', '--cchdo'):
+            options['cchdo_import'] = False
+        if option in ('-S', '--seahunt'):
+            options['seahunt_import'] = False
 
     implog.info("Connect to pycchdo (%s)" % options['db_uri'])
     models.init_conn(options['db_uri'])
@@ -1937,12 +1944,7 @@ def main(argv):
     # be done during the import
     libcchdo.check_cache = False
 
-    cchdo_import = True
-    seahunt_import = True
-    cchdo_import = False
-    seahunt_import = False
-
-    if cchdo_import:
+    if options['cchdo_import']:
         implog.info("Connecting to cchdo db")
         with db_session(legacy.session()) as session:
             session.autoflush = False
@@ -1979,7 +1981,7 @@ def main(argv):
                 _import_cchdo_uname_uids(ssh_cchdo, importer)
                 _import_argo_files(session, importer, sftp_cchdo)
 
-    if seahunt_import:
+    if options['seahunt_import']:
         implog.info('Connecting to seahunt db')
         with db_session(seahunt.session()) as session:
             seahunt.import_(session, importer)

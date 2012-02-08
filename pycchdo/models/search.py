@@ -195,6 +195,10 @@ class SearchIndex(object):
 
 
     def save_obj(self, obj, writer=None):
+        try:
+            obj.id
+        except AttributeError:
+            return
         name = obj.obj_type.lower()
         with self.writer(name, writer) as ixw:
             doc = {}
@@ -230,13 +234,17 @@ class SearchIndex(object):
 
 
     def save_note(self, note, writer=None):
+        try:
+            note.id
+        except AttributeError:
+            return
         with self.writer('note', writer) as ixw:
             ixw.update_document(
                 body=note.get('body', None),
                 action=note.get('action', None),
                 data_type=note.get('data_type', None),
                 summary=note.get('subject', None),
-                mtime=note.creation_stamp.timestamp,
+                mtime=note.ctime,
                 id=_model_id_to_index_id(note.id))
 
 

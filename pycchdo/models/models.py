@@ -1,12 +1,14 @@
 import datetime
 import re
 import socket
+import errno
 
 from warnings import warn
 
 from webob.multidict import MultiDict
 
 import pymongo
+from pymongo.errors import AutoReconnect
 from pymongo import DESCENDING
 from pymongo.objectid import ObjectId, InvalidId
 
@@ -38,7 +40,7 @@ def init_conn(db_uri, *args, **kwargs):
     global mongo_conn
     try:
         mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
-    except pymongo.errors.AutoReconnect:
+    except AutoReconnect:
         raise IOError('Unable to connect to database (%s). Check that the '
                       'database server is running.' % db_uri)
 
@@ -268,24 +270,6 @@ class mongodoc(dict):
     def allowed_untracked_keys(self):
         return self.__allowed_keys
 
-    def mapobj(self, doc, key, cls):
-        """Project a key-value pair from a document onto oneself.
-
-        Arguments:
-          doc: The document from which the key-value pair will be obtained.
-          key: The key for the pair to project from the document.
-          cls: The class that will perform the mapping operation if the
-               value is a dictionary.
-        """
-        try:
-            v = doc[key]
-            if type(v) is not dict:
-                self[key] = v
-            else:
-                self[key] = cls.map_mongo(v)
-        except KeyError:
-            pass
-
     def __getattr__(self, name):
         try:
             return self[self._key_alias_resolve(name)]
@@ -333,7 +317,6 @@ class mongodoc(dict):
             Otherwise, returns the mapped class instance
 
         """
-        # TODO this function needs to be pulled lower in the hierarchy
         if cursor_or_dict is None:
             return None
 
@@ -358,7 +341,18 @@ class mongodoc(dict):
 
         if issubclass(type(cursor_or_dict), dict):
             return get_instance(cursor_or_dict)
-        return map(get_instance, cursor_or_dict)
+        try:
+            return map(get_instance, cursor_or_dict)
+        except AutoReconnect:
+            return []
+        except EnvironmentError, e:
+            try:
+                if e[0] in [errno.EINVAL, errno.ECONNREFUSED, ]:
+                    return []
+                else:
+                    raise e
+            except IndexError:
+                raise e
 
 
 class Stamp(mongodoc):
@@ -406,6 +400,8 @@ class idablemongodoc(mongodoc):
         return super(idablemongodoc, self)._key_alias_resolve(attr)
 
     def __eq__(self, o):
+        if not o:
+            return False
         return self.id == o.id
 
     def __hash__(self):
@@ -429,24 +425,36 @@ class collectablemongodoc(idablemongodoc):
         return cchdo().collectables
 
     def save(self):
-        self.id = self._mongo_collection().save(self)
+        try:
+            self.id = self._mongo_collection().save(self)
+        except IOError:
+            pass
         return self
 
     def remove(self):
-        self._mongo_collection().remove(self.id)
+        try:
+            self._mongo_collection().remove(self.id)
+        except IOError:
+            pass
         return self
 
     @classmethod
-    def all(cls):
-        return cls._mongo_collection().find()
+    def find(cls, *args, **kwargs):
+        try:
+            return cls._mongo_collection().find(*args, **kwargs)
+        except IOError:
+            return []
 
     @classmethod
-    def find(cls, *args, **kwargs):
-        return cls._mongo_collection().find(*args, **kwargs)
+    def all(cls):
+        return cls.find()
 
     @classmethod
     def find_one(cls, *args, **kwargs):
-        return cls._mongo_collection().find_one(*args, **kwargs)
+        try:
+            return cls._mongo_collection().find_one(*args, **kwargs)
+        except IOError:
+            return None
 
     @classmethod
     def find_id(cls, idobj):
@@ -456,7 +464,7 @@ class collectablemongodoc(idablemongodoc):
             raise ValueError()
         except ValueError:
             return None
-        return cls._mongo_collection().find_one(idobj)
+        return cls.find_one(idobj)
 
     @classmethod
     def get_all(cls, *args, **kwargs):
@@ -532,8 +540,7 @@ class Note(collectablemongodoc):
         return super(Note, self).allowed_keys + self.__allowed_keys
 
     @property
-    def mtime(self):
-        # TODO correct misnomer, should be ctime
+    def ctime(self):
         return self.creation_stamp.timestamp
 
     def __unicode__(self):
@@ -642,8 +649,7 @@ class _Change(collectablemongodoc):
         self.save()
 
     @property
-    def mtime(self):
-        # TODO correct misnomer, should be ctime
+    def ctime(self):
         return self.creation_stamp.timestamp
 
     def add_note(self, note):
@@ -859,16 +865,6 @@ class _Attr(_Change, _FileHolder):
             self.store_file(value)
         except AttributeError:
             self.value = value
-
-    # TODO just check for presence of file_
-    def is_data(self):
-        warn('deprecated', DeprecationWarning)
-        return self.file_
-
-    # TODO just check for presence of track
-    def is_track(self):
-        warn('deprecated', DeprecationWarning)
-        return self.track
 
     @property
     def file(self):
@@ -1115,7 +1111,7 @@ class Obj(_Change):
 
     @property
     def mtime(self):
-        creation_time = super(Obj, self).mtime
+        creation_time = super(Obj, self).ctime
         accepted = self.accepted_tracked()
         if not accepted:
             return creation_time
@@ -1155,38 +1151,44 @@ class Obj(_Change):
         triggers.removed_obj(self)
 
     @classmethod
-    def all(cls):
-        if cls is Obj:
-            return cls._mongo_collection().find()
-        return cls._mongo_collection().find({'_obj_type': cls.__name__})
-
-    @classmethod
-    def find(cls, *args, **kwargs):
-        try:
-            query = args[0].copy()
-        except IndexError:
+    def find(cls, spec=None, *args, **kwargs):
+        if spec:
+            query = spec
+        else:
             query = {}
         try:
             query['_obj_type']
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
-        args = (query, )
-        return cls._mongo_collection().find(*args, **kwargs)
+        try:
+            return cls._mongo_collection().find(spec=query, *args, **kwargs)
+        except IOError:
+            return []
 
     @classmethod
-    def find_one(cls, *args, **kwargs):
-        try:
-            query = args[0].copy()
-        except IndexError:
+    def find_one(cls, spec_or_id=None, *args, **kwargs):
+        if spec_or_id:
+            if issubclass(type(spec_or_id), dict):
+                query = spec_or_id
+            else:
+                try:
+                    return cls._mongo_collection().find_one(
+                        spec_or_id, *args, **kwargs)
+                except IOError:
+                    return None
+        else:
             query = {}
         try:
             query['_obj_type']
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
-        args = (query, )
-        return cls._mongo_collection().find_one(*args, **kwargs)
+        try:
+            return cls._mongo_collection().find_one(
+                spec_or_id=query, *args, **kwargs)
+        except IOError:
+            return None
 
     @classmethod
     def _attr_value_key(cls, key, value_key=None):
@@ -1198,7 +1200,7 @@ class Obj(_Change):
     def _get_by_attrs_true_match(cls, obj, value_key, **kwargs):
         """ Make sure the most current values match by filtering resulting objs
         """
-        # TODO Test for obj.accepted requirement
+        # TODO TEST for obj.accepted requirement
         if obj is None or not obj.accepted:
             return False
         for k, v in kwargs.items():
@@ -1276,11 +1278,14 @@ class Obj(_Change):
                  for k, v in map.items()]
 
         len_query = len(query)
-        objs_attrs = _Attr._mongo_collection().group(
-            ['obj'],
-            {'$or': query},
-            {'a': 0}, 
-            'function (x, o) { o.a++; }')
+        try:
+            objs_attrs = _Attr._mongo_collection().group(
+                ['obj'],
+                {'$or': query},
+                {'a': 0}, 
+                'function (x, o) { o.a++; }')
+        except IOError:
+            return []
 
         # Filter the matched ids for the correct number of matched attrs
         obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] == len_query]
@@ -1851,7 +1856,10 @@ class Person(CruiseParticipantAssociate):
 
     def save(self):
         super(Person, self).save()
-        self['creation_stamp']['person'] = self.id
+        try:
+            self['creation_stamp']['person'] = self.id
+        except AttributeError:
+            return False
         super(Person, self).save()
 
     def __unicode__(self):

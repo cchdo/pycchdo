@@ -32,12 +32,15 @@ def _arctic():
         'key': 'collections',
         'obj': {'$in': coll_cruise_ids}
     }
-    obj_attrs = models._Attr._mongo_collection().group(
-        ['obj'],
-        query,
-        {'attrs': []},
-        'function (x, o) { o.attrs.push(x); }',
-    )
+    try:
+        obj_attrs = models._Attr._mongo_collection().group(
+            ['obj'],
+            query,
+            {'attrs': []},
+            'function (x, o) { o.attrs.push(x); }',
+        )
+    except IOError:
+        obj_attrs = []
     one_away_collection_ids = set()
     for oa in obj_attrs:
         if oa['attrs']:

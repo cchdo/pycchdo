@@ -7,7 +7,12 @@ from pyramid.decorator import reify
 from pyramid.request import Request
 from pyramid.security import unauthenticated_userid
 
+import webhelpers
+import webhelpers.html
+import webhelpers.html.tags
+
 import models
+import helpers
 from views.basin import basins
 
 
@@ -22,16 +27,8 @@ class RequestWithUserAttribute(Request):
 
 
 def add_renderer_globals(event):
-    import webhelpers
-    import webhelpers.html
-    import webhelpers.html.tags
-
-    from json import dumps
-
-    from urllib import quote
-
-    import helpers
-
+    # from json import dumps
+    # from urllib import quote
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
     event['h'] = helpers
@@ -41,38 +38,55 @@ def obj_routes(config, obj, plural_obj=None,
                new=False, mergeable=False, editable=False):
     if not plural_obj:
         plural_obj = obj + 's'
-    config.add_route(plural_obj, '/' + plural_obj)
+
+    config.add_route(
+        plural_obj,
+        '/{plural_obj}.html'.format(plural_obj=plural_obj))
     config.add_view('pycchdo.views.{obj}.{plural_obj}_index'.format(
         obj=obj, plural_obj=plural_obj), route_name=plural_obj,
         renderer='templates/{obj}/index.jinja2'.format(obj=obj))
+
     config.add_route(
         '{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
     config.add_view(
         'pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
         route_name='{obj}_show'.format(obj=obj),
         renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+
     if new:
-        config.add_route('{obj}_new'.format(obj=obj),
-                         '/{obj}/{{{obj}_id}}/new'.format(obj=obj))
-        config.add_view('pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
-                        route_name='{obj}_new'.format(obj=obj),
-                        renderer='templates/{obj}/new.jinja2'.format(obj=obj))
-        config.add_route('{plural_obj}_new'.format(plural_obj=plural_obj),
-                         '/{plural_obj}/new.html'.format(plural_obj=plural_obj))
+        config.add_route(
+            '{obj}_new'.format(obj=obj),
+            '/{obj}/{{{obj}_id}}/new'.format(obj=obj))
+        config.add_view(
+            'pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
+            route_name='{obj}_new'.format(obj=obj),
+            renderer='templates/{obj}/new.jinja2'.format(obj=obj))
+
+        config.add_route(
+            '{plural_obj}_new'.format(plural_obj=plural_obj),
+            '/{plural_obj}/new.html'.format(plural_obj=plural_obj))
         config.add_view(
             'pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
             route_name='{plural_obj}_new'.format(plural_obj=plural_obj),
             renderer='templates/{obj}/new.jinja2'.format(obj=obj))
+
     if mergeable:
-        config.add_view('pycchdo.views.{obj}.{obj}_merge'.format(obj=obj),
-                        route_name='{obj}_merge'.format(obj=obj))
-        config.add_route('{obj}_merge'.format(obj=obj),
-                         '/{obj}/{{{obj}_id}}/merge'.format(obj=obj))
+        config.add_route(
+            '{obj}_merge'.format(obj=obj),
+            '/{obj}/{{{obj}_id}}/merge'.format(obj=obj))
+        config.add_view(
+            'pycchdo.views.{obj}.{obj}_merge'.format(obj=obj),
+            route_name='{obj}_merge'.format(obj=obj),
+            renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+
     if editable:
-        config.add_view('pycchdo.views.{obj}.{obj}_edit'.format(obj=obj),
-                        route_name='{obj}_edit'.format(obj=obj))
-        config.add_route('{obj}_edit'.format(obj=obj),
-                         '/{obj}/{{{obj}_id}}/edit'.format(obj=obj))
+        config.add_route(
+            '{obj}_edit'.format(obj=obj),
+            '/{obj}/{{{obj}_id}}/edit'.format(obj=obj))
+        config.add_view(
+            'pycchdo.views.{obj}.{obj}_edit'.format(obj=obj),
+            route_name='{obj}_edit'.format(obj=obj),
+            renderer='templates/{obj}/show.jinja2'.format(obj=obj))
 
 
 def route_for_path(config, route_name, path, view_callable):
@@ -83,12 +97,11 @@ def route_for_path(config, route_name, path, view_callable):
 def main(global_config, **settings):
     """ This function returns a Pyramid WSGI application.
     """
-    # TODO change the secret
-    authentication_policy = AuthTktAuthenticationPolicy('seekrit')
+    authentication_policy = AuthTktAuthenticationPolicy(
+        settings['key_auth_policy'])
     authorization_policy = ACLAuthorizationPolicy()
-
-    # TODO change the secret
-    session_factory = UnencryptedCookieSessionFactoryConfig('itsaseekreet')
+    session_factory = UnencryptedCookieSessionFactoryConfig(
+        settings['key_session_factory'])
 
     config = Configurator(
         settings=settings,

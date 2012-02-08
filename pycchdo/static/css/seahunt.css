@@ -4,9 +4,14 @@
   background: #aaddff url('/static/img/logos/project_seahunt_logo.png') no-repeat 100%;
   background-size: auto 100%;
 }
-.pending .boxed h1,
-.pending .boxed .box_bottom {
+.pending .boxed h1 {
   background: #aaddff;
+  border-bottom: 1px solid #88bbdd;
+}
+.pending .boxed {
+  border: 1px solid #aaddff;
+  border-bottom: 1.5em solid #aaddff;
+  border-top: 0;
 }
 
 #seahunt-about p {

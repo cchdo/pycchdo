@@ -80,6 +80,7 @@ pre {
   font-size: 1em;
   letter-spacing: 0.05em;
   font-family: Inconsolata, Consolas, Deja Vu Sans Mono, Andale Mono, Courier New, Courier, Fixed, monospace;
+  margin: 0;
   white-space: pre-wrap;
 }
 th, td {
@@ -110,9 +111,6 @@ th, td {
   font-size: 1.1em;
   padding: 0.5em;
   background: #FFFFEE;
-  border: 1px solid #EEEEEE;
-  border-top: 0;
-  border-bottom: 0;
 }
 .flash.action_taken {
   background: #FFDDAA;
@@ -292,7 +290,7 @@ input[type="submit"]:active {
   /* pin to bottom of picture */
   z-index: 100;
   position: relative;
-  margin-top: -1.83em;
+  margin-top: -2.138em;
   width: 100%;
   /* make a light area in the picture for the menu */
   background: url("/static/img/banners/transparent_menu_bg.png");
@@ -315,6 +313,7 @@ input[type="submit"]:active {
   text-transform: uppercase;
   z-index: 100;
   white-space: nowrap;
+  line-height: 2em;
 }
 #cchdo_menu #cchdo_menu_give {
   padding: 0 3em;
@@ -488,6 +487,8 @@ input[type="submit"]:active {
 .boxed { 
   background: #FEFEFE;
   border: 1px solid #F0F0F0;
+  border-top: 0;
+  border-bottom: 1.5em solid #F0F0F0;
   line-height: 1.5em;
   position: relative;
   margin-bottom: 1em;
@@ -502,21 +503,11 @@ input[type="submit"]:active {
   right: 0;
   top: 0;
   padding: 0.5em;
-  margin: 0;
+  margin: 0 -1px 0 -1px;
 }
 .boxed .box_content {
   padding: 1em;
   position: relative;
-}
-.box_bottom { 
-  font-size: large;
-  border-top: 1px solid #F0F0F0;
-  background-color: #F0F0F0;
-  position: relative;
-  left: 0;
-  bottom: 0;
-  padding: 0.5em;
-  clear: both;
 }
 
 /* Pagers */
@@ -665,9 +656,6 @@ table.notes {
 .search-results table.cruise-listing {
   margin-bottom: 1em;
 }
-.search-results table.cruise-listing th,
-.search-results table.cruise-listing td {
-}
 
 /* cruise listing */
 table.cruise-listing .meta td,
@@ -677,4 +665,15 @@ table.cruise-listing .body td {
 table.cruise-listing .cruise-track-img {
   position: relative;
   max-width: 128px;
+}
+table.cruise-listing th.identifier,
+table.cruise-listing th.country {
+  width: 15%;
+}
+table.cruise-listing th.ship,
+table.cruise-listing th.cruise_dates {
+  width: 20%;
+}
+table.cruise-listing th.chief_scientists {
+  width: 30%;
 }

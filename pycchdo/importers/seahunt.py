@@ -313,8 +313,15 @@ def _import_cruise(session, importer, cruise, sftp_goship):
     c.pending_stamp.timestamp = cruise.updated_at
     c.save()
 
+    aliases = [a.alias for a in cruise.aliases.all()]
     if cruise.identifier:
         update_attr(c, 'expocode', cruise.identifier, importer)
+    else:
+        if aliases:
+            update_attr(c, 'expocode', aliases[0], importer)
+            aliases = aliases[1:]
+    if aliases:
+        update_attr(c, 'aliases', aliases, importer)
     if cruise.expocode:
         update_attr(c, 'expocode', cruise.expocode, importer, accept=False)
     if cruise.status:
@@ -362,10 +369,6 @@ def _import_cruise(session, importer, cruise, sftp_goship):
         else:
             update_attr(c, 'date_start', cruise.cruise_dates, importer,
                         accept=False)
-
-    aliases = [a.alias for a in cruise.aliases.all()]
-    if aliases:
-        update_attr(c, 'aliases', aliases, importer)
 
     if cruise.track:
         update_attr(c, 'track', cruise.get_track(), importer)

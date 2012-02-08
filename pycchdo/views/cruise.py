@@ -38,10 +38,13 @@ CRUISE_ATTRS_SELECT = allowed_attrs_select(models.Cruise)
 
 def cruises_index(request):
     seahunt = request.params.get('seahunt_only', False)
+    allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
         cruises = models.Cruise.get_all({'accepted': False})
-    else:
+    elif allow_seahunt:
         cruises = models.Cruise.get_all()
+    else:
+        cruises = models.Cruise.get_all({'accepted': True})
     cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
     cruises = _paged(request, cruises)
     return {'cruises': cruises}
@@ -105,7 +108,8 @@ def _edit_attr(request, cruise_obj):
             logging.warn('Attempted to edit attribute with illegal key')
             request.response_status = '400 Bad Request'
             request.session.flash(
-                'The attribute key must be one of %r' % sorted(allowed_list),
+                'The attribute key must be one of %s.' % \
+                ', '.join(sorted(allowed_list)),
                 'help')
             return
     except KeyError:
@@ -118,7 +122,7 @@ def _edit_attr(request, cruise_obj):
     except KeyError:
         logging.warn('Attempted to edit attribute without a specified action')
         request.response_status = '400 Bad Request'
-        request.session.flash('You must specify what to do to the key', 'help')
+        request.session.flash('You must specify what to do to %s' % key, 'help')
         return
 
     try:
@@ -166,6 +170,70 @@ def _edit_attr(request, cruise_obj):
                 '%s for %s is already marked reviewed' % (
                     key.replace('_status', ''), cruise_obj.expocode),
                 'help')
+    elif edit_action == 'Set participants':
+        if key == 'participants':
+            rpis = {}
+            keys = ['role', 'person', 'institution']
+            for key, value in request.params.items():
+                for k in keys:
+                    if key.startswith(k):
+                        id = key[len(k):]
+                        try:
+                            rpis[id][k] = value
+                        except KeyError:
+                            rpis[id] = {k: value}
+
+            failed = False
+            new_rpis = []
+            for i, rpi in sorted(rpis.items()):
+                if rpi['role'] or rpi['person'] or rpi['institution']:
+                    if rpi['person']:
+                        person_id = rpi['person']
+                        try:
+                            person = models.Person.get_id(person_id)
+                            if not person:
+                                failed = True
+                                request.session.flash(
+                                    'Person %s does not exist' % person_id,
+                                    'help')
+                                continue
+                            rpi['person'] = person.id
+                        except ValueError:
+                            failed = True
+                            request.session.flash(
+                                'Invalid person id %s' % person_id, 'help')
+                    if rpi['institution']:
+                        institution_id = rpi['institution']
+                        try:
+                            institution = models.Institution.get_id(
+                                institution_id)
+                            if not institution:
+                                failed = True
+                                request.session.flash(
+                                    'Institution %s does not exist' % \
+                                    institution_id, 'help')
+                                continue
+                            rpi['institution'] = institution.id
+                        except ValueError:
+                            failed = True
+                            request.session.flash(
+                                'Invalid institution id %s' % institution_id, 'help')
+                    new_rpis.append(rpi)
+
+            if failed:
+                return
+            cruise_obj.set('participants', new_rpis, request.user, note)
+            request.session.flash('Suggested updated participants for this cruise',
+                                  'action_taken')
+        else:
+            request.session.flash('Invalid action to take on %s' % key, 'help')
+    elif edit_action == 'Delete all participants':
+        if key == 'participants':
+            cruise_obj.delete('participants', request.user, note)
+            request.session.flash('Suggested that participants be cleared',
+                                  'action_taken')
+        else:
+            request.session.flash('Invalid action to take on %s' % key, 'help')
     else:
         request.session.flash('Unknown edit action: %s' % edit_action, 'help')
 

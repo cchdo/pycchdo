@@ -106,6 +106,10 @@ _possible_data_formats = [
 
 
 def _ensure_object_id(x):
+    """ Attempts to convert the argument into an ObjectId
+        If no argument is provided, returns None.
+        If and invalid id is provided, may raise an InvalidId exception
+    """
     try:
         return models.ensure_objectid(x)
     except ValueError:
@@ -127,9 +131,17 @@ def text_to_obj(value, text_type='text'):
     if text_type == 'text_list':
         return [_unescape(x.strip()) for x in value.split(',')]
     if text_type == 'id':
-        return _ensure_object_id(value)
+        if not value:
+            return None
+        try:
+            return _ensure_object_id(value)
+        except models.InvalidId:
+            raise ValueError()
     if text_type == 'id_list':
-        return [_ensure_object_id(x.strip()) for x in value.split(',')]
+        try:
+            return [_ensure_object_id(x.strip()) for x in value.split(',')]
+        except models.InvalidId:
+            raise ValueError()
 
 
 def str_to_track(s):

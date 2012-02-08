@@ -225,6 +225,7 @@ class TestModel(unittest.TestCase):
         for i in range(0, num + 1):
             obj = Obj(self.testPerson)
             obj.save()
+            obj.accept(self.testPerson)
             obj.set_accept('a', i, self.testPerson)
             obj.set_accept('b', num - i, self.testPerson)
             objs.append(obj)

@@ -1196,7 +1196,8 @@ class Obj(_Change):
     def _get_by_attrs_true_match(cls, obj, value_key, **kwargs):
         """ Make sure the most current values match by filtering resulting objs
         """
-        if obj is None:
+        # TODO Test for obj.accepted requirement
+        if obj is None or not obj.accepted:
             return False
         for k, v in kwargs.items():
             key = cls._attr_value_key(k, value_key)
@@ -1419,6 +1420,9 @@ class _Participants(dict):
             self._remove(person, role, institution)
         self.save(signer)
 
+    def __len__(self):
+        return sum(len(x) for x in self.values())
+
     @property
     def roles(self, role=None):
         """ Pairs of Persons and roles present in the map """
@@ -1518,7 +1522,7 @@ class Cruise(Obj):
         ['ID List', ['collections', 'institutions', ]],
     ])
 
-    allowed_attrs_list = flatten(allowed_attrs.values())
+    allowed_attrs_list = flatten(allowed_attrs.values()) + ['participants']
 
     allowed_attrs_human_names = {
         'expocode': 'ExpoCode',
@@ -1532,6 +1536,7 @@ class Cruise(Obj):
         'country': 'Country',
         'collections': 'Collections',
         'institutions': 'Institutions',
+        'participants': 'Participants',
     }
 
     @classmethod
@@ -1550,7 +1555,7 @@ class Cruise(Obj):
     @property
     def identifier(self):
         expo = self.expocode
-        if not expo or ' ' in expo or '/' in expo:
+        if not expo or ' ' in expo or '/' in expo or '-' in expo:
             return self.id
         return expo
 
@@ -1785,7 +1790,7 @@ class Person(CruiseParticipantAssociate):
     """
     cruise_participant_associate_key = 'person'
     __allowed_keys = ['identifier', 'name_first', 'name_last', 'institution',
-                      'country', 'email', ]
+                      'country', 'email', 'permissions', ]
 
     allowed_attrs = MultiDict([
         ['Text', ['title', 'job_title', 'phone', 'fax', 'address', ]], 
@@ -1816,6 +1821,7 @@ class Person(CruiseParticipantAssociate):
         self.institution_ = institution
         self.country_ = country
         self.email = email
+        self.permissions = []
 
         if identifier is None and None in (name_first, name_last):
             raise ValueError(

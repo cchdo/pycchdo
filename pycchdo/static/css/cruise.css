@@ -15,6 +15,7 @@
 .cruise-page h2 {
   color: #006F89;
   font-size: 1.2em;
+  margin-top: 0;
   margin-bottom: 0.2em;
 }
 .cruise-page h3 { margin: 0.5em 0 0.25em 0; }
@@ -122,6 +123,12 @@
 }
 label {
   font-size: 0.8em;
+}
+#edit_participants .header th {
+  text-align: left;
+}
+#edit_participants .header th label {
+  font-size: 1em;
 }
 
 /* suggested attributes */

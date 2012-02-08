@@ -3,6 +3,7 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 import pycchdo.models as models
+from pycchdo.views.staff import staff_signin_required
 
 
 def people_index(request):
@@ -28,6 +29,7 @@ def person_show(request):
     return {'person': person}
 
 
+@staff_signin_required
 def person_edit(request):
     person = _get_person(request)
     if not person:
@@ -36,9 +38,26 @@ def person_edit(request):
     identifier = request.params.get('identifier', '')
     name_first = request.params.get('name_first', '')
     name_last = request.params.get('name_last', '')
-    institution = text_to_obj(request.params.get('institution'), 'id')
-    country = text_to_obj(request.params.get('country'), 'id')
+    try:
+        institution = text_to_obj(request.params.get('institution', ''), 'id')
+    except:
+        request.response.status = 400
+        h.form_errors_for(request, 'institution', 'Bad institution id')
+        return {'person': person}
+    try:
+        country = text_to_obj(request.params.get('country', ''), 'id')
+    except:
+        request.response.status = 400
+        h.form_errors_for(request, 'country', 'Bad country id')
+        return {'person': person}
+
     email = request.params.get('email', '')
+    try:
+        permissions = text_to_obj(request.params.get('permissions', ''), 'text_list')
+    except:
+        request.response.status = 400
+        h.form_errors_for(request, 'permissions', 'Bad permissions format')
+        return {'person': person}
 
     person.identifier = identifier
     person.name_first = name_first
@@ -48,12 +67,15 @@ def person_edit(request):
     if country:
         person.country = country
     person.email = email
+    if permissions:
+        person.permissions = permissions
 
     person.save()
 
     return _redirect_response(request, person.id)
 
 
+@staff_signin_required
 def person_merge(request):
     if _http_method(request) != 'PUT':
         return HTTPBadRequest()
@@ -90,6 +112,8 @@ def person_merge(request):
         person.country_ = mergee.country_
     if not person.email:
         person.email = mergee.email
+    if not person.permissions:
+        person.permissions = mergee.permissions
     person.save()
 
     cruises = set(person.cruises()).union(mergee.cruises())

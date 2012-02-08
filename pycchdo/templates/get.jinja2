@@ -8,8 +8,8 @@
   <div id="search" class="sub-section first">
     <h2>Search</h2>
     <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Advanced', '/search/advanced')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Map', '/search/map')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Advanced', request.route_path('advanced_search'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Map', request.route_path('search_map'))) }}
     </ul>
   </div>
 
@@ -36,19 +36,26 @@
   <div id="project" class="sub-section">
     <h2>Projects</h2>
     <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Project Carina', '/project_carina.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Project Carina', request.route_path('project_carina'))) }}
     </ul>
   </div>
 
   <div id="list" class="sub-section">
     <h2>Lists</h2>
     <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Cruises', '/cruises')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Countries', '/countries')) }}
-      {{ whh.HTML.li(whh.tags.link_to('People', '/people')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Ships', '/ships')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Institutions', '/institutions')) }}
-      {{ whh.HTML.li(whh.tags.link_to('Collections', '/collections')) }}
+      {{ whh.HTML.li('Cruises',
+           h.H.ul(
+             h.H.li(h.tags.link_to('Confirmed cruises', request.route_path('cruises'))),
+             h.H.li(h.tags.link_to('All cruises', request.route_path('cruises'), _query={'allow_seahunt': True})),
+             h.H.li(h.tags.link_to('Only Seahunt cruises', request.route_path('cruises'), _query={'seahunt_only': True})),
+           )
+         )
+      }}
+      {{ whh.HTML.li(whh.tags.link_to('Countries', request.route_path('countries'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('People', request.route_path('people'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Ships', request.route_path('ships'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Institutions', request.route_path('institutions'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Collections', request.route_path('collections'))) }}
     </ul>
   </div>
 {%- endcall %}

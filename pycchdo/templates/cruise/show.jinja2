@@ -108,7 +108,14 @@
     </div>
   </div>
 {%- endmacro %}
-{%- block content_attrs %} {% if cruise.accepted %}class="cruise-page"{% else %}class="cruise-page pending"{% endif %}{%- endblock %}
+{%- macro participant_row(index, role, person, institution) %}
+  <tr class="participant_row {{ index }}">
+    <td class="role"><input type="text" name="role{{ index }}" value="{{ role|default('', true) }}" placeholder="role"></td>
+    <td class="person"><input type="text" name="person{{ index }}" value="{{ person|default('', true) }}" placeholder="person id"></td>
+    <td class="institution"><input type="text" name="institution{{ index }}" value="{{ institution|default('', true) }}" placeholder="institution id"></td>
+  </tr>
+{%- endmacro %}
+{%- block content_attrs %} class="cruise-page{% if not cruise.accepted %} pending{%- endif %}"{%- endblock %}
 {%- block content %}
   {%- if not cruise.accepted %}
     <div id="pending-review" class="pending flash warning">
@@ -126,9 +133,9 @@
       <p>{{ h.cruise_summary(cruise) }}</p>
     {%- endcall %}
   {%- endif %}
-  {%- call h.boxed('General Information and Files', id='info', class='upper', box_content_class='scrollable-y') %}
+  {%- call h.boxed('Information and Data', id='info', class='upper', box_content_class='scrollable-y') %}
     <div class="subsection general-information">
-      <h2>General Information</h2>
+      <h2>Information</h2>
       {%- if 'map' in data_files %}
         {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
       {%- endif %}
@@ -175,22 +182,53 @@
               </td>
             </tr>
           </table>
-          </p>
+        {{ whh.tags.end_form() }}
+        </div>
+        <div id="edit_participants" class="editor">
+        {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr',
+                                                   'key': 'participants'}) }} 
+          <table>
+            <tr class="header">
+              <th><label for="role">Role</label></th>
+              <th><label for="participant">Participant</label></th>
+              <th><label for="institution">Institution</label></th>
+            </tr>
+            {%- set participants = cruise.get('participants') %}
+            {%- if participants %}
+              {%- for rpi in participants %}
+                {{ participant_row(loop.index0, rpi['role'], rpi['person'], rpi['institution']) }}
+              {%- endfor %}
+              {{ participant_row(participants|length, '', '', '') }}
+            {%- else %}
+              {{ participant_row(0, '', '', '') }}
+            {%- endif %}
+            <tr>
+              <th><label for="participants_notes">Notes</label></th>
+              <td colspan="3">
+                <textarea id="participants_notes" name="notes"></textarea>
+              </td>
+            </tr>
+            <tr>
+              <td class="submit" colspan="4">
+                <input type="submit" name="edit_action" value="Delete all participants">
+                <input type="submit" name="edit_action" value="Set participants">
+              </td>
+            </tr>
+          </table>
         {{ whh.tags.end_form() }}
         </div>
       {%- endif %}
     </div>
     <div class="clear"></div>
     <div class="subsection data-files">
-      <h2>Data Files</h2>
+      <h2>Data</h2>
 
       {%- if cruise.preliminary %}
-        <p id="preliminary">These data are preliminary (Please see 
-          <a href="">data history</a>)</p> 
+        <p id="preliminary">These data are preliminary</p> 
       {%- endif %}
       {%- if updates['as_received'] or updates['merged'] %}
         <a class="updates-available" href="#updates">
-          {{ see_or_discuss() }} as received files and see merged files</a>
+          {{ see_or_discuss() }} as received data and see merged data</a>
       {%- endif %}
 
       {%- if 'exchange' in data_files %}
@@ -261,7 +299,7 @@
       {%- endif %}
     </div>
   {%- endcall %}
-  {% call h.boxed('Data History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
+  {% call h.boxed('History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
     <div class="subsection">
       {%- if h.has_edit(request) %}
         {{ whh.tags.form('', 'POST') }}
@@ -370,10 +408,10 @@
       {%- endif %}
       {# TODO need to show files not acknowledged #}
       {%- if updates['as_received'] %}
-        {{ file_subsection('Files as received', 'as_received') }}
+        {{ file_subsection('Data as received', 'as_received') }}
       {%- endif %}
       {%- if updates['merged'] %}
-        {{ file_subsection('Merged Files', 'merged') }}
+        {{ file_subsection('Merged Data', 'merged') }}
       {%- endif %}
     {%- endcall %}
   {%- endif %}
@@ -483,10 +521,5 @@
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
   {{ whh.tags.javascript_link('/static/js/jquery-ui-1.8.14.custom.min.js') }}
   {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
-  <script>
-    $('.boxed').each(function () {
-      $(this).resizable({
-        alsoResize: $(this).find('.box_content')});
-    });
-  </script>
+  {{ whh.tags.javascript_link('/static/js/cruise.js') }}
 {%- endblock %}

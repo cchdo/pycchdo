@@ -59,42 +59,30 @@ def GAPI_autoload(request, module_list):
 def has_edit(request):
     if not request:
         return False
-    return request.user is not None
-
-
-def is_staff(user):
-    if not user:
+    try:
+        return request.user is not None
+    except AttributeError:
         return False
-    # TODO check against actual list
-    if user.name_last == 'Shen' and \
-       user.name_first in ['Matthew', 'Andrew']:
-        return True
-    if user.name_last == 'Barna' and \
-       user.name_first == 'Andrew':
-        return True
-    if user.name_last == 'Berys' and \
-       user.name_first == 'Carolina':
-        return True
-    if user.name_last == 'Fields' and \
-       user.name_first == 'Justin':
-        return True
-    if user.name_last == 'Diggs' and \
-       user.name_first == 'Steve':
-        return True
 
 
 def has_mod(request):
     """ Determines if the request's user has moderator powers """
-    if not request:
-        return False
-    try:
-        if not request.user:
-            return False
-    except AttributeError:
-        return False
-    if is_staff(request.user):
-        return True
-    # TODO other possibilities of being mod?
+    if has_edit(request):
+        if has_staff(request):
+            return True
+        if 'moderator' in request.user.permissions:
+            return True
+    return False
+
+
+def has_staff(request):
+    """ Determines whether the request's user has staff powers.
+        This is even more powerful than moderator.
+
+    """
+    if has_edit(request):
+        if 'staff' in request.user.permissions:
+            return True
     return False
 
 
@@ -173,10 +161,9 @@ def email_link(email, microformat_type=None, microformat_classes=[],
     return tags.link_to(content, href, class_=tags.css_classes(classes))
 
 
-def boxed(title='', bottom='', **attrs):
+def boxed(title='', **attrs):
     classes = [('boxed', True)]
     box_content_classes = [('box_content', True)]
-    box_bottom_classes = [('box_bottom', True)]
     try:
         classes.extend([(x, True) for x in attrs['class'].split()])
         del attrs['class']
@@ -188,10 +175,6 @@ def boxed(title='', bottom='', **attrs):
         del attrs['box_content_class']
     except KeyError:
         pass
-    try:
-        box_bottom_classes.extend(
-            [(x, True) for x in attrs['box_bottom_class'].split()])
-        del attrs['box_bottom_class']
     except KeyError:
         pass
     caller = lambda: ''
@@ -204,8 +187,6 @@ def boxed(title='', bottom='', **attrs):
                 H.h1(whh.literal(title)),
                 H.div(caller(),
                              class_=tags.css_classes(box_content_classes)),
-                H.div(bottom,
-                             class_=tags.css_classes(box_bottom_classes))
             ), class_=tags.css_classes(classes), _nl=True, **attrs)
 
 
@@ -275,7 +256,7 @@ def cruise_nice_name(cruise):
         if aliases:
             label = aliases[0]
         else:
-            label = cruise.id
+            label = str(cruise.id)
     return label
 
 
@@ -284,7 +265,7 @@ def cruise_summary(cruise):
 
     """
     sentences = []
-    sentence = '%s is planned ' % cruise_nice_name(cruise)
+    sentence = '%s is planned ' % link_cruise(cruise)
     if cruise.ship:
         sentence += "on the %s " % link_ship(cruise.ship)
     if cruise.ports:
@@ -292,7 +273,7 @@ def cruise_summary(cruise):
         if len(cruise.ports) > 1:
             sentence += "to %s " % cruise.ports[1]
     sentence += cruise_date_summary(cruise)
-    sentences.append(sentence)
+    sentences.append(sentence.rstrip())
 
     sentence = 'It is being run '
     institutions = []
@@ -411,14 +392,16 @@ def cruises_sort_by_date_start(cruises):
     return sorted(cruises, key=lambda c: c.date_start or zero)
 
 
-def cruise_listing(cruises, pre_expand=False, verbose=False):
+def cruise_listing(cruises, pre_expand=False, allow_empty=False):
+    if not cruises and not allow_empty:
+        return ''
     list = [
         H.tr(
-            H.th('Identifier'),
-            H.th('Ship'),
-            H.th('Country'),
-            H.th('Cruise dates'),
-            H.th('Chief scientist(s)'),
+            H.th('Identifier', class_='identifier'),
+            H.th('Ship', class_='ship'),
+            H.th('Country', class_='country'),
+            H.th('Cruise dates', class_='cruise_dates'),
+            H.th('Chief scientist(s)', class_='chief_scientists'),
             class_='header'),
     ]
     for i, cruise in enumerate(cruises):
@@ -509,7 +492,7 @@ def link_obj_polymorph(obj):
     elif obj.obj_type == 'Cruise':
         return link_cruise(obj)
     elif obj.obj_type == 'Ship':
-        return link_ship(x)
+        return link_ship(obj)
     elif obj.obj_type == 'Institution':
         return link_institution(obj)
     else:
@@ -586,7 +569,7 @@ def link_country(c):
     if not c:
         return ''
     return whh.literal(tags.link_to(c.name,
-                                        '/country/%s' % c.name))
+                                        '/country/%s' % c.id))
 
 
 def link_parameter(p):

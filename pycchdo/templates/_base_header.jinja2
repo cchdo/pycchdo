@@ -43,8 +43,8 @@
     <ul>
       <li><a href="/get.html#search">Search &raquo;</a>
         <ul class="search">
-          <li><a href="/search/advanced">Advanced</a></li>
-          <li><a href="/search/map">Map</a></li>
+          <li>{{ h.tags.link_to('Advanced', request.route_path('advanced_search')) }}</li>
+          <li>{{ h.tags.link_to('Map', request.route_path('search_map')) }}</li>
         </ul>
       </li>
       <li><a href="/get.html#basin">Basins</a></li>
@@ -56,7 +56,7 @@
       </li>
       <li><a href="/get.html#project">Projects &raquo;</a>
         <ul class="contributions_projects">
-          <li><a href="/project_carina.html">Project Carina</a></li>
+          <li>{{ h.tags.link_to('Project Carina', 'project_carina') }}</li>
         </ul>
       </li>
       <li><a href="/get.html#list">Lists</a></li>

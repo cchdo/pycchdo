@@ -1,16 +1,13 @@
-html {
-  background: #DCDCDC;
-}
-
 #menu_ushydro {
   background: #add8e6;
   padding: 0.5em;
   border-top: 0.2em solid #06629B;
 }
 
-.boxed {
-  border: 1px solid #add8e6;
+.cruise-page div.boxed {
+  border: 1px solid #ADD8E6;
   border-top: 0.2em solid #06629B;
+  border-bottom: 1.5em solid #ADD8E6;
 }
 .boxed h1:first-child {
   background: #add8e6;

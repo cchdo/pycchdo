@@ -17,9 +17,9 @@ from shapely.geometry import polygon as poly
 import pymongo.objectid
 
 from pycchdo import models
+from pycchdo.models import search
 from pycchdo import helpers as h
 from pycchdo.views import _file_response
-from pycchdo.models import search as searcher
 
 
 RADIUS_EARTH = 6371.01 # km
@@ -157,8 +157,8 @@ def ids(request):
             return c
         cruises = [get_by_id_or_expo(id) for id in req_ids]
     elif req_q:
-        results = searcher.search(request.params.get('q', ''))
-        cruises = searcher.compile_into_cruises(results)
+        results = request.search_index.search(request.params.get('q', ''))
+        cruises = search.compile_into_cruises(results)
 
     # Build JSON response with id: track
     id_track = {}

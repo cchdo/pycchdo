@@ -1,3 +1,5 @@
+import os
+
 from pyramid.config import Configurator
 from pyramid.events import BeforeRender
 from pyramid.authentication import AuthTktAuthenticationPolicy
@@ -14,9 +16,10 @@ import webhelpers.html.tags
 import models
 import helpers
 from views.basin import basins
+from pycchdo.models.search import SearchIndex
 
 
-class RequestWithUserAttribute(Request):
+class RequestFactory(Request):
     @reify
     def user(self):
         userid = unauthenticated_userid(self)
@@ -24,6 +27,10 @@ class RequestWithUserAttribute(Request):
             # this should return None if the user doesn't exist
             p = models.Person.get_id(userid)
             return p
+
+    @reify
+    def search_index(self):
+        return self.registry.settings['db.search_index']
 
 
 def add_renderer_globals(event):
@@ -96,22 +103,24 @@ def route_for_path(config, route_name, path, view_callable):
 
 def main(global_config, **settings):
     """ This function returns a Pyramid WSGI application.
+
     """
     authentication_policy = AuthTktAuthenticationPolicy(
         settings['key_auth_policy'])
     authorization_policy = ACLAuthorizationPolicy()
     session_factory = UnencryptedCookieSessionFactoryConfig(
         settings['key_session_factory'])
+    settings['db.search_index'] = SearchIndex(settings['db_search_index_path'])
 
     config = Configurator(
         settings=settings,
         authentication_policy=authentication_policy,
         authorization_policy=authorization_policy,
-        request_factory=RequestWithUserAttribute,
+        request_factory=RequestFactory,
         session_factory=session_factory,
     )
 
-    models.init_conn(settings)
+    models.init_conn(settings['db_uri'])
 
     config.include('pyramid_jinja2')
     config.include('pyramid_mailer')

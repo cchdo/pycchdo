@@ -94,14 +94,16 @@ def obj_show(request):
                 return HTTPSeeOther(location=request.referrer)
         except KeyError:
             pass
-    if obj.obj_type == 'Cruise':
-        link = request.url.replace('/obj/', '/cruise/')
+
+    if obj.obj_type in ['Cruise', 'Person', 'Institution', 'Country']:
+        link = request.url.replace('/obj/', '/%s/' % obj.obj_type.lower())
     elif obj.obj_type == 'Obj':
         link = None
 
     return {
         'id': obj_id,
-        'obj': obj,
+        'obj': obj.polymorph(),
+        'asdict': dict(obj),
         'link': link,
     }
 

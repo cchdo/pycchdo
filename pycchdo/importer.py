@@ -33,6 +33,8 @@ import pycchdo.models as models
 from pycchdo.importers import *
 from pycchdo.importers.cchdo import *
 import pycchdo.importers.seahunt as seahunt
+import pycchdo.models.triggers as triggers
+from pycchdo.models.search import SearchIndex
 
 import libcchdo
 import libcchdo.fns
@@ -1903,7 +1905,9 @@ def main(argv):
 
     options = {
         'clear_db_first': False,
-        'db_uri': 'mongodb://dimes.ucsd.edu:28019',
+        'db_uri': 'mongodb://dimes.ucsd.edu:28017',
+        #'db_uri': 'mongodb://dimes.ucsd.edu:28019',
+        'db_search_index_path': '/var/cache/pycchdo_search_index',
     }
 
     opts, args = getopt.getopt(argv[1:], 'hc', ('help', 'clear'))
@@ -1915,7 +1919,7 @@ def main(argv):
             options['clear_db_first'] = True
 
     implog.info("Connect to pycchdo (%s)" % options['db_uri'])
-    models.init_conn({'db_uri': options['db_uri']})
+    models.init_conn(options['db_uri'])
 
     if options['clear_db_first']:
         implog.info('Clearing database')
@@ -1935,6 +1939,8 @@ def main(argv):
 
     cchdo_import = True
     seahunt_import = True
+    cchdo_import = False
+    seahunt_import = False
 
     if cchdo_import:
         implog.info("Connecting to cchdo db")
@@ -1977,6 +1983,8 @@ def main(argv):
         implog.info('Connecting to seahunt db')
         with db_session(seahunt.session()) as session:
             seahunt.import_(session, importer)
+
+    SearchIndex(options['db_search_index_path']).rebuild_index(clear=True)
 
     implog.info("Finished import")
     return 0

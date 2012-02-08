@@ -22,7 +22,6 @@ import pycchdo.models as models
 import pycchdo.helpers as h
 
 from . import *
-from pycchdo.models.search import search
 from session import require_signin
 
 

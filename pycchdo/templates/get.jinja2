@@ -46,8 +46,8 @@
       {{ whh.HTML.li('Cruises',
            h.H.ul(
              h.H.li(h.tags.link_to('Confirmed cruises', request.route_path('cruises'))),
-             h.H.li(h.tags.link_to('All cruises', request.route_path('cruises'), _query={'allow_seahunt': True})),
-             h.H.li(h.tags.link_to('Only Seahunt cruises', request.route_path('cruises'), _query={'seahunt_only': True})),
+             h.H.li(h.tags.link_to('All cruises', request.route_path('cruises', _query={'allow_seahunt': True}))),
+             h.H.li(h.tags.link_to('Only Seahunt cruises', request.route_path('cruises', _query={'seahunt_only': True}))),
            )
          )
       }}

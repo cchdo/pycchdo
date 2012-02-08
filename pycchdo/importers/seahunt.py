@@ -278,19 +278,6 @@ def session():
     return sessionmaker()
 
 
-def update_note(obj, note, person, data_type=None):
-    if not note:
-        return
-    matched_note = False
-    for n in obj.notes:
-        if n.body == note:
-            matched_note = True
-            break
-    if not matched_note:
-        obj.add_note(models.Note(person, _ustr2uni(note),
-                                 data_type=data_type).save())
-
-
 def _ensure_cruise(cruise, importer):
     import_id = 'seahunt%s' % str(cruise.id)
     cs = models.Cruise.get_by_attrs(import_id=import_id)
@@ -452,7 +439,7 @@ def _import_contact(contact, importer):
     if len(people) > 0:
         p = people[0]
     else:
-        p = models.Person(importer)
+        p = models.Person()
         p.creation_stamp.timestamp = contact.created_at
         p.save()
         p.set_accept('import_id', import_id, importer)
@@ -482,7 +469,8 @@ def _import_contact(contact, importer):
     programs = []
     for program in contact.programs:
         programs.append(_import_program(program, importer))
-    update_attr(p, 'programs', [x.id for x in programs], importer)
+    if programs:
+        update_attr(p, 'programs', [x.id for x in programs], importer)
 
     if contact.notes:
         update_note(p, contact.notes, p)
@@ -543,9 +531,9 @@ def _import_resource(resource, importer, sftp_goship):
         return None
     cruise = _ensure_cruise(resource.cruise, importer)
     if resource.type == 'URLResource':
-        update_note(a, ''.join(['<a href="', resource.url, '">', resource.url,
-                                '</a> ', resource.note]),
-                    importer, resource.description)
+        update_attr(
+            cruise, 'link', resource.url,
+            importer, note=resource.description, note_data_type=resource.note)
     elif resource.type == 'NoteResource':
         update_note(cruise, resource.note, importer, resource.description)
     elif (resource.type == 'FileResource' or

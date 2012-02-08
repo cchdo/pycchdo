@@ -24,48 +24,9 @@ mongo_conn = None
 grid_fs = None
 
 
-data_file_human_names = {
-    'bottle_exchange': 'Bottle Exchange',
-    'bottlezip_exchange': 'Bottle ZIP Exchange',
-    'ctdzip_exchange': 'CTD ZIP Exchange',
-    'bottlezip_netcdf': 'Bottle ZIP NetCDF',
-    'ctdzip_netcdf': 'CTD ZIP NetCDF',
-    'bottle_woce': 'Bottle WOCE',
-    'ctdzip_woce': 'CTD ZIP WOCE',
-    'sum_woce': 'Summary WOCE',
-    'map_thumb': 'Map Thumbnail',
-    'map_full': 'Map Fullsize',
-    'doc_txt': 'Documentation Text',
-    'doc_pdf': 'Documentation PDF',
-}
-
-
-data_file_descriptions = {
-    'bottle_woce': 'ASCII bottle data',
-    'ctdzip_woce': 'ZIP archive of ASCII CTD data',
-    'bottle_exchange': 'ASCII .csv bottle data with station information',
-    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station '
-                       'information',
-    'ctdzip_netcdf': 'ZIP archive of binary CTD data with station information',
-    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station '
-                        'information',
-    'sum_woce': 'ASCII station/cast information',
-    'large_volume_samples_woce': 'ASCII large volume samples',
-    'large_volume_samples_exchange': 'ASCII .csv large volume samples',
-    'trace_metals_woce': 'ASCII trace metal samples',
-    'trace_metals_exchange': 'ASCII .csv trace metal samples',
-    'map_thumb': 'Map thumbnail',
-    'map_full': 'Map full size',
-    'doc_txt': 'ASCII cruise and data documentation',
-    'doc_pdf': 'Portable Document Format cruise and data documentation',
-}
-
-
-def flatten(l):
-    return [item for sublist in l for item in sublist]
-
-
-def init_conn(settings, **kwargs):
+# Connection management is left flat in the module b/c for now it's not
+# necessary to have more than one database connection.
+def init_conn(db_uri, *args, **kwargs):
     """Set up a connection to the PyMongo database.
 
     Arguments:
@@ -76,10 +37,10 @@ def init_conn(settings, **kwargs):
     """
     global mongo_conn
     try:
-        mongo_conn = pymongo.Connection(settings['db_uri'], **kwargs)
+        mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
     except pymongo.errors.AutoReconnect:
         raise IOError('Unable to connect to database (%s). Check that the '
-                      'database server is running.' % settings['db_uri'])
+                      'database server is running.' % db_uri)
 
 
 def ensure_indices():
@@ -128,6 +89,47 @@ def fs():
     if not grid_fs:
         grid_fs = gridfs.GridFS(cchdo())
     return grid_fs
+
+
+data_file_human_names = {
+    'bottle_exchange': 'Bottle Exchange',
+    'bottlezip_exchange': 'Bottle ZIP Exchange',
+    'ctdzip_exchange': 'CTD ZIP Exchange',
+    'bottlezip_netcdf': 'Bottle ZIP NetCDF',
+    'ctdzip_netcdf': 'CTD ZIP NetCDF',
+    'bottle_woce': 'Bottle WOCE',
+    'ctdzip_woce': 'CTD ZIP WOCE',
+    'sum_woce': 'Summary WOCE',
+    'map_thumb': 'Map Thumbnail',
+    'map_full': 'Map Fullsize',
+    'doc_txt': 'Documentation Text',
+    'doc_pdf': 'Documentation PDF',
+}
+
+
+data_file_descriptions = {
+    'bottle_woce': 'ASCII bottle data',
+    'ctdzip_woce': 'ZIP archive of ASCII CTD data',
+    'bottle_exchange': 'ASCII .csv bottle data with station information',
+    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station '
+                       'information',
+    'ctdzip_netcdf': 'ZIP archive of binary CTD data with station information',
+    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station '
+                        'information',
+    'sum_woce': 'ASCII station/cast information',
+    'large_volume_samples_woce': 'ASCII large volume samples',
+    'large_volume_samples_exchange': 'ASCII .csv large volume samples',
+    'trace_metals_woce': 'ASCII trace metal samples',
+    'trace_metals_exchange': 'ASCII .csv trace metal samples',
+    'map_thumb': 'Map thumbnail',
+    'map_full': 'Map full size',
+    'doc_txt': 'ASCII cruise and data documentation',
+    'doc_pdf': 'Portable Document Format cruise and data documentation',
+}
+
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
 
 
 def timestamp():
@@ -233,6 +235,10 @@ class mongodoc(dict):
     """
     __allowed_keys = []
 
+    @property
+    def allowed_keys(self):
+        return self.__allowed_keys
+
     def copy_keys_from(self, o, keys):
         """ Used by from_mongo to copy saved keys from mongodb into instances.
 
@@ -255,7 +261,7 @@ class mongodoc(dict):
         instance.
 
         """
-        self.copy_keys_from(doc, self.__allowed_keys)
+        self.copy_keys_from(doc, self.allowed_keys)
         return self
 
     @property
@@ -370,10 +376,9 @@ class Stamp(mongodoc):
             except AttributeError:
                 raise ValueError('Person object must be saved first')
 
-    def from_mongo(self, doc):
-        super(Stamp, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Stamp, self).allowed_keys + self.__allowed_keys
 
     @property
     def person(self):
@@ -391,15 +396,14 @@ class idablemongodoc(mongodoc):
     """
     __allowed_keys = ['_id', ]
 
+    @property
+    def allowed_keys(self):
+        return super(idablemongodoc, self).allowed_keys + self.__allowed_keys
+
     def _key_alias_resolve(self, attr):
         if attr == 'id':
             attr = '_id'
         return super(idablemongodoc, self)._key_alias_resolve(attr)
-
-    def from_mongo(self, doc):
-        super(idablemongodoc, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
 
     def __eq__(self, o):
         return self.id == o.id
@@ -523,10 +527,9 @@ class Note(collectablemongodoc):
             return v
         return Stamp.map_mongo(v)
 
-    def from_mongo(self, doc):
-        super(Note, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Note, self).allowed_keys + self.__allowed_keys
 
     @property
     def mtime(self):
@@ -570,10 +573,9 @@ class _Change(collectablemongodoc):
         except TypeError:
             pass
 
-    def from_mongo(self, doc):
-        super(_Change, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(_Change, self).allowed_keys + self.__allowed_keys
 
     @property
     def creation_stamp(self):
@@ -814,10 +816,9 @@ class _Attr(_Change, _FileHolder):
         self.accepted_value = None
         self.set(key, value)
 
-    def from_mongo(self, doc):
-        super(_Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(_Attr, self).allowed_keys + self.__allowed_keys
 
     def set(self, key, value):
         """ Sets the key and value.
@@ -982,10 +983,9 @@ class Obj(_Change):
         self._obj_type = type(self).__name__
         self.from_mongo(doc)
 
-    def from_mongo(self, doc):
-        super(Obj, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Obj, self).allowed_keys + self.__allowed_keys
 
     def _key_alias_resolve(self, attr):
         if attr == 'obj_type':
@@ -1138,7 +1138,9 @@ class Obj(_Change):
         """
         try:
             klass = Obj.subclass_map().get(self._obj_type, self.__class__)
-            return klass.map_mongo(self)
+            # TODO TEST you cannot simply map_mongo an Obj because some keys
+            # from the document might not have been copied
+            return klass.get_id(self.id)
         except (TypeError, KeyError) as e:
             return self
 
@@ -1555,7 +1557,8 @@ class Cruise(Obj):
     @property
     def identifier(self):
         expo = self.expocode
-        if not expo or ' ' in expo or '/' in expo or '-' in expo:
+        if (not expo or not self.accepted or ' ' in expo or '/' in expo
+                or '-' in expo):
             return self.id
         return expo
 
@@ -1828,10 +1831,9 @@ class Person(CruiseParticipantAssociate):
                 'Person must be initialized either with identifier '
                 'or names.')
 
-    def from_mongo(self, doc):
-        super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Person, self).allowed_keys + self.__allowed_keys
 
     def full_name(self):
         return ' '.join((self.name_first or '', self.name_last or ''))
@@ -2041,10 +2043,9 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         self.description = None
         self.display = None
 
-    def from_mongo(self, doc):
-        super(ArgoFile, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(ArgoFile, self).allowed_keys + self.__allowed_keys
 
     @property
     def file(self):
@@ -2091,10 +2092,9 @@ class OldSubmission(Obj):
     """
     __allowed_keys = ['date', 'stamp', 'submitter', 'line', 'folder', 'files', ]
 
-    def from_mongo(self, doc):
-        super(OldSubmission, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(OldSubmission, self).allowed_keys + self.__allowed_keys
 
     def remove(self):
         for file in self.files_:
@@ -2127,10 +2127,9 @@ class Submission(Obj, _FileHolder):
     __allowed_keys = ['expocode', 'ship_name', 'line', 'action', 'public',
                       'cruise_date', 'attached', 'file', ] 
 
-    def from_mongo(self, doc):
-        super(Submission, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Submission, self).allowed_keys + self.__allowed_keys
 
     @property
     def identifier(self):

@@ -518,7 +518,10 @@ def link_cruise(c):
 def link_person(p):
     if not p:
         return ''
-    return tags.link_to(p.full_name() or p.id, u'/person/%s' % p.id)
+    name = p.full_name().strip()
+    if not name or len(name) < 1:
+        name = p.id
+    return tags.link_to(name, u'/person/%s' % p.id)
 
 
 def link_institution(i):

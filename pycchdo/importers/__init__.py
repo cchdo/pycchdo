@@ -12,7 +12,7 @@ from pycchdo import models
 
 
 __all__ = ['implog', 'su', 'ssh_connect', 'ssh', 'sftp', 'sftp_dl', '_ustr2uni',
-           '_date_to_datetime', 'update_attr', ]
+           '_date_to_datetime', 'update_note', 'update_attr', ]
 
 
 implog = logging.getLogger('pycchdo.import')
@@ -124,7 +124,22 @@ def _date_to_datetime(date):
     return datetime.datetime.combine(date, datetime.time(0))
 
 
-def update_attr(o, key, value, signer, accept=True):
+def update_note(obj, note, person, data_type=None):
+    if not note:
+        return
+    matched_note = False
+    for n in obj.notes:
+        if n.body == note:
+            matched_note = True
+            break
+    if not matched_note:
+        obj.add_note(models.Note(person, _ustr2uni(note),
+                                 data_type=data_type).save())
+
+
+def update_attr(o, key, value, signer, accept=True, note=None,
+                note_data_type=None):
+    attr = None
     try:
         if accept:
             a = o.get_attr(key)
@@ -138,15 +153,18 @@ def update_attr(o, key, value, signer, accept=True):
         if a:
             a.set(key, value)
             a.save()
-            return a
+            attr = a
         else:
             if accept:
-                return o.set_accept(key, value, signer)
+                attr = o.set_accept(key, value, signer)
             else:
-                return o.set(key, value, signer)
+                attr = o.set(key, value, signer)
     except KeyError:
         if accept:
-            return o.set_accept(key, value, signer)
+            attr = o.set_accept(key, value, signer)
         else:
-            return o.set(key, value, signer)
+            attr = o.set(key, value, signer)
+    if attr and note is not None:
+        update_note(attr, note, signer, note_data_type)
+    return attr
 

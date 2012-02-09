@@ -954,6 +954,9 @@ class Obj(_Change):
         return super(Obj, self)._key_alias_resolve(attr)
 
     def find_attrs(self, query={}, **kwargs):
+        """
+        returns all _Attrs associated with this Obj
+        """
         q = {'obj': self.id}
         if query:
             q.update(query)

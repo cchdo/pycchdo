@@ -225,15 +225,27 @@ class TestModel(unittest.TestCase):
         for i in range(0, num + 1):
             obj = Obj(self.testPerson)
             obj.save()
+            #set_accept is the same as accept, but auto approval skips a step
             obj.set_accept('a', i, self.testPerson)
             obj.set_accept('b', num - i, self.testPerson)
             objs.append(obj)
             if i == num / 2:
                 ans = obj
 
-        # TODO(jfields) Attributes can be accepted either as is or with a new
+        # Attributes can be accepted either as is or with a new
         # value. Make sure no Attrs with value matching but accepted_value not
         # matching are returned.
+        conflicted_obj = Obj(self.testPerson)
+        conflicted_attr = conflicted_obj.set('a',10, self.testPerson)
+        conflicted_attr.accept_value("Noooooh!", self.testPerson)
+        conflicted_obj.save()
+        
+        found_objects = Obj.get_by_attrs(a= 10)
+        self.assertEquals(len(found_objects), 0)
+
+        found_objects = Obj.get_by_attrs(a='Noooooh!')
+        self.assertEquals(len(found_objects), 1)
+        self.assertEquals(found_objects[0].get('a'),'Noooooh!')
 
         try:
             objs_gotten = Obj.get_by_attrs(a=num / 2, b=num / 2)

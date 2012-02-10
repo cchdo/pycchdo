@@ -53,8 +53,20 @@ h3 {
         {%- endif %}
       {%- endfor %}
     {%- else %}
-      <p>Sorry, there are no results for your query.</p>
-      <p>Try {{ h.tags.link_to('Advanced search', request.route_path('advanced_search')) }}?</p>
+      <h2>Sorry, there are no results for your query.</h2>
+
+      <p>Try the {{ h.tags.link_to('advanced search', request.route_path('advanced_search')) }}?</p>
+
+      <h3>Wildcard operator<h3>
+      <p>If you were searching for something beginning or ending with {{ query }}, use the wildcard operator "*".</p>
+      <p>e.g. searching for cruises with ExpoCode beginning "33RR", use "33RR*"</p>
+
+      <h3>Boolean operators</h3>
+      <p>You may use the boolean operators "AND", "OR", "NOT" in your query.</p>
+
+      <h3>Grouping operators</h3>
+      <p>You may use parentheses to group parts of your query.</p>
+
     {%- endif %}
   {%- endcall %}
 {%- endblock %}

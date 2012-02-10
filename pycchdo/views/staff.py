@@ -3,9 +3,9 @@ from pyramid.httpexceptions import HTTPUnauthorized
 from pycchdo.helpers import link_cruise, date, link_person
 import pycchdo.models as models
 
-from . import *
+from pycchdo.views import *
 from pycchdo.helpers import has_staff
-from session import require_signin
+from pycchdo.views.session import require_signin
 
 
 def staff_signin_required(view_callable):

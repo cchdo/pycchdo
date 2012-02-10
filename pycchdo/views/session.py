@@ -68,7 +68,7 @@ def _sign_in_user(request, profile):
     name = profile.get('name')
     email = profile.get('email')
 
-    p = models.Person.find_one({'identifier': identifier})
+    p = models.Person.get_one({'identifier': identifier})
     if not p:
         p = models.Person(identifier=identifier, name_first=name['givenName'],
                           name_last=name['familyName'], email=email)

@@ -140,21 +140,23 @@ def timestamp():
     return datetime.datetime.utcnow()
 
 
-def ensure_objectid(idobj):
-    """Ensure that an object ID is an ObjectId.
+def guess_objectid(idobj):
+    """ Guess that an id is an ObjectId and then guess that it is an ObjId
 
-    Argument:
-      idobj: an object ID.
-
-    Returns:
-      idobj if type(idobj) is ObjectId else ObjectId(idobj)
+        Argument:
+          idobj: an id.
 
     """
-    if type(idobj) is not ObjectId:
-        try:
-            return ObjectId(idobj)
-        except TypeError:
-            return None
+    if type(idobj) is ObjectId:
+        return idobj
+    try:
+        return ObjectId(idobj)
+    except (TypeError, InvalidId):
+        pass
+    try:
+        return ObjId.parse(idobj)
+    except ValueError:
+        pass
     return idobj
 
 
@@ -320,24 +322,11 @@ class mongodoc(dict):
         if cursor_or_dict is None:
             return None
 
-        def get_person(obj_doc):
-            try:
-                return obj_doc['creation_stamp']['person']
-            except (TypeError, KeyError):
-                return None
-
         def get_instance(d):
-            if cls is Person:
-                return cls(identifier='placeholder').from_mongo(d)
-            elif cls is Stamp:
-                p = Person(identifier='placeholder')
-                p.id = 'fake'
-                return cls(person=p).from_mongo(d)
-            elif cls is _Attr:
-                obj_id = d.get('obj', None)
-                return cls(get_person(d), obj_id).from_mongo(d)
+            if cls is _Attr:
+                return cls('placeholder', 'placeholder').from_mongo(d)
             else:
-                return cls(get_person(d)).from_mongo(d)
+                return cls('placeholder').from_mongo(d)
 
         if issubclass(type(cursor_or_dict), dict):
             return get_instance(cursor_or_dict)
@@ -360,15 +349,18 @@ class Stamp(mongodoc):
 
     def __init__(self, person):
         self.timestamp = timestamp()
-        if type(person) is ObjectId:
-            self.person = person
-        else:
-            if type(person) is not Person:
-                raise TypeError('%r (%s != Person)' % (person, type(person)))
+        if type(person) is Person:
             try:
                 self.person = person.id
             except AttributeError:
                 raise ValueError('Person object must be saved first')
+        else:
+            if not person:
+                # No check performed on whether the Person actually exists
+                # Leave that to the user.
+                raise TypeError(
+                    "Stamp must be initialized with a Person or Person id")
+            self.person = person
 
     @property
     def allowed_keys(self):
@@ -405,7 +397,7 @@ class idablemongodoc(mongodoc):
         return self.id == o.id
 
     def __hash__(self):
-        return int(str(self.id), 16)
+        return int(str(self.id), 26)
 
 
 class collectablemongodoc(idablemongodoc):
@@ -458,12 +450,7 @@ class collectablemongodoc(idablemongodoc):
 
     @classmethod
     def find_id(cls, idobj):
-        try:
-            idobj = ensure_objectid(idobj)
-        except InvalidId:
-            raise ValueError()
-        except ValueError:
-            return None
+        idobj = guess_objectid(idobj)
         return cls.find_one(idobj)
 
     @classmethod
@@ -957,6 +944,33 @@ class _Attr(_Change, _FileHolder):
         return cls.get_all({'judgment_stamp': None})
 
 
+class ObjId(idablemongodoc):
+    id = {'_id': 'objid'}
+    counter = 'c'
+    inc = {counter: 1}
+
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().objid
+
+    @classmethod
+    def parse(cls, s):
+        try:
+            return int(s)
+        except ValueError:
+            return s
+
+    @classmethod
+    def code(cls, id):
+        return id
+
+    @classmethod
+    def next_id(cls):
+        obj_id = cls._mongo_collection().find_and_modify(
+            cls.id, {'$inc': cls.inc}, new=True, upsert=True)
+        return int(obj_id[cls.counter])
+
+
 class Obj(_Change):
     """ Base object for all tracked objects in the system.
 
@@ -989,6 +1003,10 @@ class Obj(_Change):
         if attr == 'attrs':
             attr = '_attrs'
         return super(Obj, self)._key_alias_resolve(attr)
+
+    @property
+    def uid(self):
+        return ObjId.code(self.id)
 
     def find_attrs(self, query={}, **kwargs):
         q = {'obj': self.id}
@@ -1141,6 +1159,15 @@ class Obj(_Change):
             return self
 
     def save(self):
+        """ Override collectable save in order to call triggers and provide
+            shorter ids. 
+
+        """
+        try:
+            if not self.id:
+                self.id = ObjId.next_id()
+        except AttributeError:
+            self.id = ObjId.next_id()
         super(Obj, self).save()
         triggers.saved_obj(self)
 
@@ -1153,7 +1180,9 @@ class Obj(_Change):
     @classmethod
     def find(cls, spec=None, *args, **kwargs):
         if spec:
-            query = spec
+            # TODO test make sure spec doesn't have additional _obj_type key
+            # left over (require this copy)
+            query = spec.copy()
         else:
             query = {}
         try:
@@ -1170,12 +1199,12 @@ class Obj(_Change):
     def find_one(cls, spec_or_id=None, *args, **kwargs):
         if spec_or_id:
             if issubclass(type(spec_or_id), dict):
-                query = spec_or_id
+                query = spec_or_id.copy()
             else:
                 try:
                     return cls._mongo_collection().find_one(
                         spec_or_id, *args, **kwargs)
-                except IOError:
+                except IOError, e:
                     return None
         else:
             query = {}
@@ -1560,12 +1589,15 @@ class Cruise(Obj):
         return sup_attr(key)
 
     @property
-    def identifier(self):
+    def uid(self):
         expo = self.expocode
         if (not expo or not self.accepted or ' ' in expo or '/' in expo
                 or '-' in expo):
-            return self.id
+            return super(Cruise, self).uid
         return expo
+
+    # TODO perhaps override Obj.find_id to also find by uid to alleviate view
+    # code doing the same thing
 
     @property
     def aliases(self):
@@ -1864,8 +1896,9 @@ class Person(CruiseParticipantAssociate):
 
     def __unicode__(self):
         try:
-            return u'Person ({last}, {first})'.format(last=self.name_last,
-                                                      first=self.name_first)
+            return u'Person ({identifier}, {last}, {first})'.format(
+                identifier=self.identifier, last=self.name_last,
+                first=self.name_first)
         except AttributeError:
             return u'Person ()'
 
@@ -2034,9 +2067,9 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         Attributes:
         text_identifier - some text that makes the file quickly identifiable to
                           a human
-        file - either an ObjectId that is the file in the filesystem or a tuple
-               like (ObjectId, attribute) that describes which attr of which obj
-               holds the file.
+        file - either an id that is the file in the filesystem or a tuple like
+               (id, attribute) that describes which attr of which obj holds the
+               file.
         description
         display - whether or not the file is meant to be visible
 
@@ -2144,7 +2177,10 @@ class Submission(Obj, _FileHolder):
         return self.expocode_
 
     def cruises_from_identifier(self):
-        cruises = Cruise.get_by_attrs(expocode=self.expocode)
+        try:
+            cruises = Cruise.get_by_attrs(expocode=self.expocode)
+        except AttributeError:
+            return []
         if len(cruises) > 0:
             return cruises
         return []

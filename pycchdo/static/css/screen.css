@@ -157,9 +157,8 @@ table tr.header th {
 }
 .clear { clear: both; }
 
-/* Hide email obfuscation. Different from display: none because the text needs
- * to actually be present in DOM */
-.copythis { position: absolute; left: -10000px; }
+/* Hide email obfuscation */
+.copythis { display: none; }
 
 /* Default table row styling */
 tr.odd {
@@ -374,8 +373,10 @@ input[type="submit"]:active {
 }
 #cchdo_menu ul li.focus ul ul,
 #cchdo_menu ul li:hover ul ul {
+  /*
   visibility: hidden;
   opacity: 0;
+  */
 }
 
 #cchdo_menu ul ul li.focus,
@@ -387,8 +388,10 @@ input[type="submit"]:active {
 }
 #cchdo_menu ul ul li.focus ul,
 #cchdo_menu ul ul li:hover ul {
+  /*
   visibility: visible;
   opacity: 1;
+  */
 }
 #cchdo_menu ul ul li.focus ul a,
 #cchdo_menu ul ul li:hover ul a {
@@ -397,7 +400,9 @@ input[type="submit"]:active {
 #cchdo_menu ul ul ul {
   position: static;
   background: #C8C8C8;
+  /*
   margin: -2em 0 0 100%;
+  */
 }
 #cchdo_menu ul ul ul li.focus a,
 #cchdo_menu ul ul ul li:hover a {
@@ -449,6 +454,7 @@ input[type="submit"]:active {
 }
 #gcredit {
   color: #AAAAAA;
+  /*
   opacity: 0.5;
   -webkit-transition: opacity .2s ease;
   -moz-transition: opacity .2s ease;
@@ -461,6 +467,7 @@ input[type="submit"]:active {
   -moz-transition: opacity .6s ease;
   -o-transition: opacity .6s ease;
   transition: opacity .6s ease;
+  */
 }
 #gfooter:hover #gcredit,
 #gfooter:hover #footer_logos {

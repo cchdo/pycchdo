@@ -251,7 +251,7 @@
   margin: 0.2em 0;
 }
 .boxed.get ul li,
-.give ul.project_seahunt li {
+.give ul.seahunt li {
   list-style: disc;
   margin-left: 2em;
 }

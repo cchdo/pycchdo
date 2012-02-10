@@ -32,6 +32,9 @@ class RequestFactory(Request):
     def search_index(self):
         return self.registry.settings['db.search_index']
 
+    @reify
+    def models(self):
+        return models
 
 def add_renderer_globals(event):
     # from json import dumps
@@ -133,29 +136,29 @@ def main(global_config, **settings):
 
     # Serve static files from root
     config.add_route('favicon', '/favicon.ico')
-    config.add_view('pycchdo.views.favicon', route_name='favicon')
+    config.add_view('pycchdo.views.toplevel.favicon', route_name='favicon')
     config.add_route('robots', '/robots.txt')
-    config.add_view('pycchdo.views.robots', route_name='robots')
+    config.add_view('pycchdo.views.toplevel.robots', route_name='robots')
 
     config.add_static_view('static', 'pycchdo:static')
 
     config.add_route('home', '/')
-    config.add_view('pycchdo.views.home', route_name='home', renderer='templates/home.jinja2')
+    config.add_view('pycchdo.views.toplevel.home', route_name='home', renderer='templates/home.jinja2')
 
     config.add_route('get_menu', '/get.html')
-    config.add_view('pycchdo.views.get_menu', route_name='get_menu',
+    config.add_view('pycchdo.views.toplevel.get_menu', route_name='get_menu',
                     renderer='templates/get.jinja2')
 
     config.add_route('search_menu', '/search.html')
-    config.add_view('pycchdo.views.search_menu', route_name='search_menu',
+    config.add_view('pycchdo.views.toplevel.search_menu', route_name='search_menu',
                     renderer='templates/search.jinja2')
 
     config.add_route('information_menu', '/information.html')
-    config.add_view('pycchdo.views.information_menu', route_name='information_menu',
+    config.add_view('pycchdo.views.toplevel.information_menu', route_name='information_menu',
                     renderer='templates/information.jinja2')
 
     config.add_route('give_menu', '/give.html')
-    config.add_view('pycchdo.views.give_menu', route_name='give_menu',
+    config.add_view('pycchdo.views.toplevel.give_menu', route_name='give_menu',
                     renderer='templates/give.jinja2')
 
     config.add_route('submit', '/submit.html')
@@ -163,15 +166,15 @@ def main(global_config, **settings):
                     renderer='templates/submit.jinja2')
 
     config.add_route('parameters', '/parameters.html')
-    config.add_view('pycchdo.views.parameters', route_name='parameters',
+    config.add_view('pycchdo.views.toplevel.parameters', route_name='parameters',
                     renderer='templates/parameters.jinja2')
 
     config.add_route('contributions', '/contributions.html')
-    config.add_view('pycchdo.views.contributions', route_name='contributions',
+    config.add_view('pycchdo.views.toplevel.contributions', route_name='contributions',
                     renderer='templates/search/map.jinja2')
 
     config.add_route('parameter_show', '/parameter/{parameter_id}.json')
-    config.add_view('pycchdo.views.parameter_show', route_name='parameter_show',
+    config.add_view('pycchdo.views.toplevel.parameter_show', route_name='parameter_show',
                     renderer='json')
 
     config.add_route('session', '/session')
@@ -280,7 +283,7 @@ def main(global_config, **settings):
 
     # Tools
     config.add_route('tools_menu', '/tools.html')
-    config.add_view('pycchdo.views.tools_menu', route_name='tools_menu',
+    config.add_view('pycchdo.views.toplevel.tools_menu', route_name='tools_menu',
                     renderer='templates/tools.jinja2')
     config.add_route('tool_data_cmp', '/tool/data_cmp.html')
     config.add_view('pycchdo.views.tools.data_cmp', route_name='tool_data_cmp',
@@ -310,12 +313,12 @@ def main(global_config, **settings):
 
     # dynamic static pages
     config.add_route('project_carina', '/project_carina.html')
-    config.add_view('pycchdo.views.project_carina', route_name='project_carina',
+    config.add_view('pycchdo.views.toplevel.project_carina', route_name='project_carina',
                     renderer='templates/project_carina.jinja2')
 
     # Serve data blobs
     config.add_route('data', '/data/b/{data_id}*ignore')
-    config.add_view('pycchdo.views.data', route_name='data')
+    config.add_view('pycchdo.views.toplevel.data', route_name='data')
 
     # Serve legacy /data prefix data files
     route_for_path(config, 'data_df', '/data/*rest',
@@ -323,6 +326,6 @@ def main(global_config, **settings):
 
 	# catchall_static must be last route
     config.add_route('catchall_static', '/*subpath')
-    config.add_view('pycchdo.views.catchall_static', route_name='catchall_static')
+    config.add_view('pycchdo.views.toplevel.catchall_static', route_name='catchall_static')
 
     return config.make_wsgi_app()

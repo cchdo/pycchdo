@@ -213,8 +213,8 @@ def obj_attr(request):
 
             def accept_suggested():
                 attr.accept(request.user)
-                request.session.flash('Attr change accepted',
-                                      'action_taken')
+                request.session.flash('Attr change accepted', 'action_taken')
+
             try:
                 accept_value = request.params['accept_value']
                 if accept_value:
@@ -229,6 +229,9 @@ def obj_attr(request):
                     accept_suggested()
             except KeyError:
                 accept_suggested()
+            except ValueError:
+                request.session.flash('%s is not valid' % accept_key, 'help')
+                return redirect()
         elif action == 'Acknowledge':
             attr.acknowledge(request.user)
             request.session.flash('Attr change acknowledged', 'action_taken')

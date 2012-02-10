@@ -5,7 +5,7 @@
 {% block title %}Institution {{ institution.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Institution ' + (institution.name or '')) -%}
-    <table class="info">
+    <table class="info nofill">
       <tr><th>Name</th><td>{{ institution.name }}</td></tr>
       <tr><th>ID</th><td>{{ institution.id }}</td></tr>
     </table>

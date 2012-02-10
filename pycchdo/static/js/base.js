@@ -419,7 +419,7 @@ window.log = function(){
     var cheight = curr_height(this.img);
 
     var ratio = cwidth / this._width;
-    if (!isFinite(ratio)) {
+    if (!isFinite(ratio) || ratio == 0) {
       return;
     }
     _map(function () {

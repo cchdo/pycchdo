@@ -35,6 +35,7 @@ from pycchdo.importers.cchdo import *
 import pycchdo.importers.seahunt as seahunt
 import pycchdo.models.triggers as triggers
 from pycchdo.models.search import SearchIndex
+from pycchdo.views import text_to_obj
 
 import libcchdo
 import libcchdo.fns
@@ -49,6 +50,8 @@ nthreads = 20
 _USAGE = """\
 Usage: importer.py
 \t-c|--clear\tClear database before importing
+\t-C|--skip-cchdo\tSkip importing CCHDO data
+\t-S|--skip-seahunt\tSkip importing Seahunt data
 \t-h|--help\tPrint this help message
 """
 
@@ -1512,6 +1515,16 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
 }
 
 
+def parse_dt(s):
+    try:
+        return text_to_obj(s, 'datetime')
+    except TypeError:
+        # Probably got fed a datetime
+        return s
+    except ValueError:
+        return s
+
+
 def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
     expocode = cruise.get('expocode')
     if docs:
@@ -1616,8 +1629,20 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
-        attr.creation_stamp.timestamp = date_creation
-        attr.judgment_stamp.timestamp = date_accepted
+
+        # It's possible for date_creation to be a comma separated list.
+        # I'm assuming it's lists of modification times - myshen
+        if date_creation:
+            creations = date_creation.split(',')
+            if len(creations) > 1:
+                date_creations = sorted(map(parse_dt, creations))
+                date_creation = date_creations[0]
+                update_note(attr, ','.join(date_creations), importer,
+                            'dates_updated')
+            else:
+                attr.creation_stamp.timestamp = date_creation
+        if date_accepted:
+            attr.judgment_stamp.timestamp = parse_dt(date_accepted)
 
         attr.import_filepath = doc.FileName
         attr.import_id = id
@@ -1905,24 +1930,24 @@ def main(argv):
 
     options = {
         'clear_db_first': False,
-        'db_uri': 'mongodb://dimes.ucsd.edu:28017',
-        #'db_uri': 'mongodb://dimes.ucsd.edu:28019',
-        'db_search_index_path': '/var/cache/pycchdo_search_index',
+        #'db_uri': 'mongodb://dimes.ucsd.edu:28017',
+        'db_uri': 'mongodb://dimes.ucsd.edu:28019',
+        'db_search_index_path': '/var/cache/pycchdo_search_index_dev',
         'cchdo_import': True,
         'seahunt_import': True,
     }
 
     opts, args = getopt.getopt(
-        argv[1:], 'hcCS', ('help', 'clear', 'cchdo', 'seahunt', ))
+        argv[1:], 'hcCS', ('help', 'clear', 'skip-cchdo', 'skip-seahunt', ))
     for option, value in opts:
         if option in ('-h', '--help'):
             print _USAGE
             return 0
         if option in ('-c', '--clear'):
             options['clear_db_first'] = True
-        if option in ('-C', '--cchdo'):
+        if option in ('-C', '--skip-cchdo'):
             options['cchdo_import'] = False
-        if option in ('-S', '--seahunt'):
+        if option in ('-S', '--skip-seahunt'):
             options['seahunt_import'] = False
 
     implog.info("Connect to pycchdo (%s)" % options['db_uri'])
@@ -1986,7 +2011,8 @@ def main(argv):
         with db_session(seahunt.session()) as session:
             seahunt.import_(session, importer)
 
-    SearchIndex(options['db_search_index_path']).rebuild_index(clear=True)
+    SearchIndex(options['db_search_index_path']).rebuild_index(
+        clear=options['clear_db_first'])
 
     implog.info("Finished import")
     return 0

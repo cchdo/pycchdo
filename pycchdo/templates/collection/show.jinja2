@@ -5,7 +5,7 @@
 {% block title %}Collection {{ collection.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Collection ' + (collection.name or '')) -%}
-    <table class="info">
+    <table class="info nofill">
       <tr><th>Names</th><td>{{ collection.names|join(', ') }}</td></tr>
       <tr><th>Type</th><td>{{ collection.type }}</td></tr>
       {%- if collection.get('basins') %}

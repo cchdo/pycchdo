@@ -28,6 +28,7 @@ import libcchdo.formats.ctd.zip.netcdf_oceansites as ctdzipnc_os
 import libcchdo.formats.bottle.exchange as botex
 
 from pycchdo.views import _file_response
+from pycchdo.views.staff import staff_signin_required
 
 
 _ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
@@ -36,14 +37,17 @@ _ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
 _ALLOWED_FILE_FORMATS = ['botex', 'ctdzipex']
 
 
+@staff_signin_required
 def data_cmp(request):
     return {}
 
 
+@staff_signin_required
 def visual(request):
     return {}
 
 
+@staff_signin_required
 def convert(request):
     return {'OCEANSITES_TIMESERIES_SELECT': _ALLOWED_OCEANSITES_TIMESERIES}
 
@@ -73,6 +77,7 @@ def _libcchdo_log_capture(level=logging.INFO):
     LOG.setLevel(orig_log_level)
 
 
+@staff_signin_required
 def convert_any_to_google_wire(request):
     try:
         file = request.POST['file']
@@ -225,6 +230,7 @@ available_converters = {
 }
 
 
+@staff_signin_required
 def convert_from_to(request):
     cfrom = request.params.get('from')
     cto = request.params.get('to')

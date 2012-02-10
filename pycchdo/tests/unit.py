@@ -45,6 +45,7 @@ class TestModel(unittest.TestCase):
         self.assertEqual(note.data_type, 'data_type')
         self.assertEqual(note.subject, 'subject')
         self.assertEqual(note.body, 'body')
+        change1.remove()
 
     def test_accept_Change(self):
         """ Acceptance of _Change """
@@ -326,9 +327,9 @@ class TestModel(unittest.TestCase):
         del doc.a
         self.assertRaises(AttributeError, lambda: doc.a)
 
-    def test_collectablemongodoc_find_id_with_invalid_id_raises_ValueError(self):
-        """ Attempting to find an invalid collectablemongodoc raises ValueError. """
-        self.assertRaises(ValueError, lambda: collectablemongodoc.find_id('invalid_object_id'))
+    def test_collectablemongodoc_find_id_with_invalid_id_gives_None(self):
+        """ Attempting to find an invalid collectablemongodoc gives None. """
+        self.assertEquals(None, collectablemongodoc.find_id('invalid_object_id'))
 
     def test_Obj_map_mongo(self):
         """ An Obj mapped from a mongo doc will have the correct _obj_type """
@@ -336,9 +337,9 @@ class TestModel(unittest.TestCase):
         o = Obj.get_id(id)
         self.assertEquals(o['_obj_type'], 'Person')
 
-    def test_Obj_find_id_with_invalid_id_raises_ValueError(self):
-        """ Attempting to find an invalid ObjectId raises ValueError. """
-        self.assertRaises(ValueError, lambda: Obj.find_id('invalid_object_id'))
+    def test_Obj_find_id_with_invalid_id_gives_None(self):
+        """ Attempting to find an invalid ObjectId gives None. """
+        self.assertEquals(None, Obj.find_id('invalid_object_id'))
 
     def test_Obj_get_id(self):
         """ Getting an Obj by id will return None if not found """

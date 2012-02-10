@@ -31,7 +31,7 @@
   <li id="cchdo_menu_give"><h1><a href="/give.html">Give</a></h1>
     <ul>
       <li><a href="/submit.html">Submit data</a></li>
-      <li><a href="/project_seahunt.html">Project Seahunt &raquo;</a>
+      <li><a href="/seahunt.html">Seahunt &raquo;</a>
         <ul>
           <li><a href="/contributions.html">Contributions</a></li>
           <li>{{ whh.tags.link_to('Add a cruise', request.route_path('cruises_new')) }}</li>
@@ -47,7 +47,15 @@
           <li>{{ h.tags.link_to('Map', request.route_path('search_map')) }}</li>
         </ul>
       </li>
-      <li><a href="/get.html#basin">Basins</a></li>
+      <li><a href="/get.html#basin">Basins</a>
+        <ul class="basins">
+          <li><a href="/arctic.html">Arctic</a></li>
+          <li><a href="/atlantic.html">Atlantic</a></li>
+          <li><a href="/pacific.html">Pacific</a></li>
+          <li><a href="/indian.html">Indian</a></li>
+          <li><a href="/southern.html">Southern</a></li>
+        </ul>
+      </li>
       <li><a href="/get.html#time-series">Time Series &raquo;</a>
         <ul class="time_series">
           <li><a href="/search?query=HOT">HOT</a></li>
@@ -62,16 +70,16 @@
       <li><a href="/get.html#list">Lists</a></li>
     </ul>
   </li>
+  {%- if h.has_staff(request) %}
   <li><h1><a href="/tools.html">Tools</a></h1>
     <ul>
-      {%- if h.has_mod(request) %}
         <li><a href="/staff.html">Staff</a></li>
-      {%- endif %}
-      <li><a href="/tool/data_cmp.html">Data Compare</a></li>
-      <li><a href="/tool/visual.html">Visual</a></li>
+        <li><a href="/tool/data_cmp.html">Data Compare</a></li>
+        <li><a href="/tool/visual.html">Visual</a></li>
       <li><a href="/tool/convert.html">Convert</a></li>
     </ul>
   </li>
+  {%- endif %}
   <li id="cchdo_menu_information"><h1><a href="/information.html">Information</a></h1>
     <ul>
       <li><a href="/contact.html">Contact</a></li>

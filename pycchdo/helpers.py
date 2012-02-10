@@ -10,6 +10,7 @@ from os.path import join as pthjoin
 import webhelpers.html as whh
 H = whh.HTML
 import webhelpers.html.tags as tags
+import webhelpers.html.tools as whhtools
 import webhelpers.text as whtext
 
 from gridfs.grid_file import GridOut
@@ -148,17 +149,18 @@ def pager_for(page, format=PAGER_FORMAT):
 def email_link(email, microformat_type=None, microformat_classes=[],
                content=None):
     """ Gives back a mailto link that is slightly obfuscated. """
-    obfuscator = '+anti spam'
+    obfuscator = '@spam.net'
     parts = email.split('@')
     type = ''
     if microformat_type:
         type = H.span(microformat_type, class_='type hidden')
     if not content:
-        content = type + parts[0] + \
-                  H.span(obfuscator, class_='copythis') + '@' + parts[1]
-    href = 'mailto:' + parts[0] + obfuscator + '@' + parts[1]
+        content = ''.join(
+            [type, parts[0], H.span(obfuscator, class_='copythis'),
+             '@', parts[1]])
     classes = [('email', True)] + [(x, True) for x in microformat_classes]
-    return tags.link_to(content, href, class_=tags.css_classes(classes))
+    return whhtools.mail_to(email, whh.literal(content), encode='hex',
+                            class_=tags.css_classes(classes))
 
 
 def boxed(title='', **attrs):
@@ -393,6 +395,7 @@ def cruises_sort_by_date_start(cruises):
 
 
 def cruise_listing(cruises, pre_expand=False, allow_empty=False):
+    cruises = filter(None, cruises)
     if not cruises and not allow_empty:
         return ''
     list = [
@@ -411,7 +414,7 @@ def cruise_listing(cruises, pre_expand=False, allow_empty=False):
 
         map = '/static/img/etopo_static/etopo_thumb_no_track.png'
         if cruise.get('map_thumb'):
-            map = '/cruise/{id}/map_thumb'.format(id=cruise.identifier)
+            map = '/cruise/{id}/map_thumb'.format(id=cruise.uid)
 
         baseclass = 'mb-link{i} {hl}'.format(i=i, hl=hl)
         metaclass = 'meta ' + baseclass
@@ -473,7 +476,7 @@ def collection_names(coll_list):
 def path_cruise(c):
     if not c:
         return ''
-    return u'/cruise/%s' % c.identifier
+    return u'/cruise/%s' % c.uid
 
 
 def link_obj(obj):

@@ -8,7 +8,7 @@
   {%- if cruise.get('map_thumb') %}
     {{ whh.tags.link_to(whh.tags.image(
         request.route_path(
-          'cruise_map_thumb', cruise_id=cruise.identifier),
+          'cruise_map_thumb', cruise_id=cruise.uid),
         '%s thumbnail' % cruise.expocode),
       h.path_cruise(cruise)) }}
   {%- else %}

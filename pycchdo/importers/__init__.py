@@ -48,27 +48,28 @@ def su(uid=0, gid=0):
         os.seteuid(seuid)
 
 
-def ssh_connect(ssh_host):
+def ssh_connect(ssh_host,
+                known_hosts='pycchdo_import/known_hosts',
+                ssh_key_file='pycchdo_import/root_ssh_key'):
     implog.info("Connecting (SSH) to %s" % ssh_host)
     ssh_client = paramiko.SSHClient()
     with su():
         try:
-            ssh_client.load_host_keys('pycchdo_import_known_hosts')
+            ssh_client.load_host_keys(known_hosts)
         except IOError:
-            implog.error('Need file pycchdo_import_known_hosts with %s '
-                          'host key' % ssh_host)
+            implog.error('Need file %s with %s host key' % (known_hosts,
+                                                            ssh_host))
             raise
         try:
             ssh_client.connect(ssh_host, username='root',
-                               key_filename='pycchdo_import_root_ssh_key')
+                               key_filename=ssh_key_file)
         except IOError:
-            implog.error('Need file pycchdo_import_root_ssh_key to SSH '
-                          'as remote root.')
-            implog.info("Please generate an SSH key and put the public "
-                         "key in the remote host's root authorized keys. "
-                         "Remember that this will allow anyone with the "
-                         "generated private key to log in as the remote "
-                         "root so BE CAREFUL.")
+            implog.error('Need file %s to SSH as remote root.' % ssh_key_file)
+            implog.info(
+                "Please generate an SSH key and put the public key in the "
+                "remote host's root authorized keys. Remember that this will "
+                "allow anyone with the generated private key to log in as the "
+                "remote root so BE CAREFUL.")
             raise
     return ssh_client
 

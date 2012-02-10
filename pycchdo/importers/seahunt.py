@@ -439,7 +439,7 @@ def _import_contact(contact, importer):
     if len(people) > 0:
         p = people[0]
     else:
-        p = models.Person()
+        p = models.Person(import_id)
         p.creation_stamp.timestamp = contact.created_at
         p.save()
         p.set_accept('import_id', import_id, importer)

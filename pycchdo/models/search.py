@@ -270,7 +270,11 @@ class SearchIndex(object):
         """
         logging.info('Rebuilding search index')
         logging.info('Clear index first? %r' % clear)
-        for name in _schemas.keys():
+        schemas = _schemas.keys()
+        if 'note' in schemas:
+            schemas.remove('note')
+            schemas.append('note')
+        for name in schemas:
             logging.debug('Indexing %s' % name)
             with self.writer(name, clear=clear, buffered=True) as ixw:
                 model = _name_model[name]
@@ -288,7 +292,7 @@ class SearchIndex(object):
                         indexed_id = fields['id']
                         indexed_ids.add(indexed_id)
 
-                        logging.debug('Check if %s still exists' % indexed_id)
+                        logging.debug('Check %s existance' % indexed_id)
 
                         # for missing docs
                         obj = model.get_id(indexed_id)
@@ -297,18 +301,26 @@ class SearchIndex(object):
                             ixw.delete_by_term('id', indexed_id)
                         # and modified docs
                         else:
-                            logging.debug('Check mtime for %s' % indexed_id)
-                            indexed_time = fields['mtime']
-                            mtime = obj.mtime
-                            if mtime > indexed_time:
-                                logging.debug('%s has been modified' % indexed_id)
+                            logging.debug('Check %s mtime' % indexed_id)
+                            try:
+                                indexed_time = fields['mtime']
+                                try:
+                                    mtime = obj.mtime
+                                except AttributeError:
+                                    # Notes don't have an mtime
+                                    mtime = obj.ctime
+                                if mtime > indexed_time:
+                                    logging.debug(
+                                        '%s has been modified' % indexed_id)
+                                    to_index.add(indexed_id)
+                            except KeyError:
                                 to_index.add(indexed_id)
                     ixw.commit()
 
                 logging.debug(repr(indexed_ids))
                 logging.debug(repr(to_index))
 
-                objs = model.map_mongo(model.all())
+                objs = model.get_all()
 
                 logging.debug(objs)
 
@@ -316,7 +328,8 @@ class SearchIndex(object):
                 l = float(len(objs))
                 for i, obj in enumerate(objs):
                     # Index modified and new docs
-                    if obj.id in to_index or obj.id not in indexed_ids:
+                    oid = unicode(obj.id)
+                    if oid in to_index or oid not in indexed_ids:
                         logging.debug('Indexing %s' % obj.id)
                         if model is models.Note:
                             self.save_note(obj, ixw)
@@ -324,7 +337,6 @@ class SearchIndex(object):
                             self.save_obj(obj, ixw)
                     if i % 100 == 0:
                         logging.info('%d/%d = %3.4f' % (i, l, i / l))
-                        ixw.commit()
 
                 ixw.commit()
         logging.info('Finished indexing')
@@ -370,7 +382,7 @@ class SearchIndex(object):
                     # Obtain the identifier function for the model. The
                     # identifier function takes object IDs and maps them to
                     # their objects.
-                    get_ID_for = models.Obj.get_id_polymorphic
+                    get_ID_for = _name_model[model_name].get_id
                     if model_name == 'note':
                         get_ID_for = models.Note.get_id
 

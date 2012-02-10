@@ -4,7 +4,8 @@ import re
 from pyramid.request import Request
 from pyramid.renderers import render_to_response
 from pyramid.httpexceptions import HTTPNotFound
-from . import catchall_static
+
+from pycchdo.views.toplevel import catchall_static
 import pycchdo.models as models
 
 

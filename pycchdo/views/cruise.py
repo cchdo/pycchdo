@@ -140,7 +140,12 @@ def _edit_attr(request, cruise_obj):
             return
 
         value_type = models.Cruise.attr_type(key)
-        value = text_to_obj(value, value_type)
+        try:
+            value = text_to_obj(value, value_type)
+        except ValueError:
+            request.response_status = '400 Bad Request'
+            request.session.flash('Bad value for attribute %s' % key, 'help')
+            return
 
         cruise_obj.set(key, value, request.user, note)
         request.session.flash(
@@ -552,7 +557,7 @@ def kml(request):
     image_url = None
     if cruise.get('map_thumb'):
         image_url = request.route_path('cruise_map_thumb',
-                                       cruise_id=cruise.identifier)
+                                       cruise_id=cruise.uid)
     balloon_text = H(
         H.tag('h1', '$[name]'),
         str_if_exists(
@@ -682,7 +687,7 @@ def _contributions(request):
         except KeyError:
             return False
     pending_with_tracks = filter(has_track, pending_cruises)
-    return [request.route_url('cruise_kml', cruise_id=c.identifier)
+    return [request.route_url('cruise_kml', cruise_id=c.uid)
             for c in pending_with_tracks]
 
 

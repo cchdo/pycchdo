@@ -2,7 +2,7 @@
   <a href="/">
     {{- whh.tags.image('/static/img/logos/CCHDO_logo.png',
                        'CLIVAR & Carbon Hydrographic Data Office (CCHDO)',
-                       id_='cchdo_logo', style='width: 247px; height: 48px;')
+                       id_='cchdo_logo')
     }}</a>
   <p id="session_status" class="{% if h.has_mod(request) %}moderator{% endif %}">
     {% if request.user -%}
@@ -27,26 +27,22 @@
   <div id="bannerA" class="banner"></div>
 </div>
 <div id="cchdo_menu">
-  <ul class="nav"> 
-  <li id="cchdo_menu_give"><h1><a href="/give.html">Give</a></h1>
-    <ul>
-      <li><a href="/submit.html">Submit data</a></li>
-      <li><a href="/seahunt.html">Seahunt &raquo;</a>
-        <ul>
-          <li><a href="/contributions.html">Contributions</a></li>
-          <li>{{ whh.tags.link_to('Add a cruise', request.route_path('cruises_new')) }}</li>
-        </ul>
-      </li>
-    </ul>
-  </li>
+  <ul class="nav open"> 
   <li id="cchdo_menu_get"><h1><a href="/get.html">Get</a></h1>
     <ul>
-      <li><a href="/get.html#search">Search &raquo;</a>
+      <li><a href="/get.html#search">Search</a>
         <ul class="search">
           <li>{{ h.tags.link_to('Advanced', request.route_path('advanced_search')) }}</li>
           <li>{{ h.tags.link_to('Map', request.route_path('search_map')) }}</li>
         </ul>
       </li>
+      <li><a href="/get.html#time-series">Time Series</a></li>
+      <li><a href="/get.html#project">Projects</a></li>
+      <li><a href="/get.html#list">Lists</a></li>
+    </ul>
+  </li>
+  <li id="cchdo_menu_basins"><h1></h1>
+    <ul>
       <li><a href="/get.html#basin">Basins</a>
         <ul class="basins">
           <li><a href="/arctic.html">Arctic</a></li>
@@ -56,18 +52,17 @@
           <li><a href="/southern.html">Southern</a></li>
         </ul>
       </li>
-      <li><a href="/get.html#time-series">Time Series &raquo;</a>
-        <ul class="time_series">
-          <li><a href="/search?query=HOT">HOT</a></li>
-          <li><a href="/search?query=BATS">BATS</a></li>
+    </ul>
+  </li>
+  <li id="cchdo_menu_give"><h1><a href="/give.html">Give</a></h1>
+    <ul>
+      <li><a href="/submit.html">Submit data</a></li>
+      <li><a href="/seahunt.html">Seahunt</a>
+        <ul>
+          <li><a href="/contributions.html">Contributions</a></li>
+          <li>{{ whh.tags.link_to('Add a cruise', request.route_path('cruises_new')) }}</li>
         </ul>
       </li>
-      <li><a href="/get.html#project">Projects &raquo;</a>
-        <ul class="contributions_projects">
-          <li>{{ h.tags.link_to('Project Carina', 'project_carina') }}</li>
-        </ul>
-      </li>
-      <li><a href="/get.html#list">Lists</a></li>
     </ul>
   </li>
   {%- if h.has_staff(request) %}

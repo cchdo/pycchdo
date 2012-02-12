@@ -295,24 +295,37 @@ input[type="submit"]:active {
   /* pin to bottom of picture */
   z-index: 100;
   position: relative;
-  margin-top: -2.138em;
+  margin-top: -2.5em;
   width: 100%;
   /* make a light area in the picture for the menu */
   background: url("/static/img/banners/transparent_menu_bg.png");
   background: rgba(255, 255, 255, 0.5);
   text-align: center;
 }
+#cchdo_menu .nav {
+  height: 2.5em;
+}
 #cchdo_menu h1 a {
   font-size: 1.3em;
-  text-shadow: 0 0 0.1em #F8F8F8, 0 0 0.2em #F0F0F0, 0 0 0.3em #E8E8E8;
+  line-height: 2em;
+  text-shadow: 0 0 0.3em #FFFFFF, 0 0 0.3em #FFFFFF, 0 0 0.3em #FFFFFF;
+}
+#cchdo_menu h1 a:hover {
+  text-shadow: 0 0 0.2em #90A3D1;
 }
 #cchdo_menu a {
   color: #000000;
   border: none;
+  text-align: left;
+  padding: 0 0.5em;
+  -webkit-transition: background .2s ease;
+  -moz-transition: background .2s ease;
+  -o-transition: background .2s ease;
+  transition: background .2s ease;
 }
 #cchdo_menu li {
   /* Make all entries a little bigger */
-  padding: 0 2em;
+  padding: 0 2.5em 0 0;
   position: relative;
   display: inline;
   text-transform: uppercase;
@@ -320,20 +333,17 @@ input[type="submit"]:active {
   white-space: nowrap;
   line-height: 2em;
 }
-#cchdo_menu #cchdo_menu_give {
-  padding: 0 3em;
-}
-#cchdo_menu #cchdo_menu_get {
-  padding: 0 2.5em;
+#cchdo_menu #cchdo_menu_basins {
+  padding: 2.5em;
 }
 #cchdo_menu #cchdo_menu_information {
-  padding: 0 0.5em;
+  padding: 0;
 }
 
 #cchdo_menu li h1 { 
   display: inline;
 }
-/* back up styling for submenu entries */
+/* reverse styling for submenu entries */
 #cchdo_menu ul ul li {
   padding: 0;
   position: static;
@@ -347,93 +357,72 @@ input[type="submit"]:active {
   position: absolute;
   width: 100%;
   left: 0; /* HACK force firefox to left align */
-  background: #D8D8D8;
-  opacity: 0;
-  -webkit-transition: visibility .3s ease, opacity .3s ease, background .2s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease, background .2s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease, background .2s ease;
-  transition: visibility .3s ease, opacity .3s ease, background .2s ease;
-  -webkit-box-shadow: inset 0 0 1em 0 #A8A8A8;
-  -moz-box-shadow: inset 0 0 1em 0 #A8A8A8;
-  -o-box-shadow: inset 0 0 1em 0 #A8A8A8;
-  box-shadow: inset 0 0 1em 0 #A8A8A8;
+  -webkit-transition: background .2s ease;
+  -moz-transition: background .2s ease;
+  -o-transition: background .2s ease;
+  transition: background .2s ease;
 }
 #cchdo_menu ul ul a {
   height: 100%;
   display: block;
-  -webkit-transition: color .2s ease, background .2s ease;
-  -moz-transition: color .2s ease, background .2s ease;
-  -o-transition: color .2s ease, background .2s ease;
-  transition: color .2s ease, background .2s ease;
-}
-#cchdo_menu ul li.focus ul,
-#cchdo_menu ul li:hover ul {
-  visibility: visible;
-  opacity: 1;
-}
-#cchdo_menu ul li.focus ul ul,
-#cchdo_menu ul li:hover ul ul {
-  /*
-  visibility: hidden;
-  opacity: 0;
-  */
+  font-size: 1.05em;
 }
 
-#cchdo_menu ul ul li.focus,
-#cchdo_menu ul ul li.focus a,
-#cchdo_menu ul ul li:hover,
-#cchdo_menu ul ul li:hover a {
-  background: #C8C8C8;
-  color: #8093C1;
+/* level2 hl */
+#cchdo_menu ul ul li:hover {
+  background: #E8E8E8;
 }
-#cchdo_menu ul ul li.focus ul,
-#cchdo_menu ul ul li:hover ul {
-  /*
-  visibility: visible;
-  opacity: 1;
-  */
+/* level2 link hl */
+#cchdo_menu ul ul li a:hover {
+  background: #D8D8D8;
+  color: #90A3D1;
 }
-#cchdo_menu ul ul li.focus ul a,
+/* level3 link reset */
 #cchdo_menu ul ul li:hover ul a {
   color: #000000;
 }
+#cchdo_menu ul ul ul a {
+  font-size: 0.9em;
+}
 #cchdo_menu ul ul ul {
   position: static;
-  background: #C8C8C8;
-  /*
-  margin: -2em 0 0 100%;
-  */
 }
-#cchdo_menu ul ul ul li.focus a,
 #cchdo_menu ul ul ul li:hover a {
-  background: #3C3C3C;
+  background: #888888;
   color: #EEEEEE;
 }
 
-/* display whole menu */
+/* expands whole menu */
+#cchdo_menu ul.open {
+  height: 14.5em;
+  background: rgba(247, 247, 247, 0.6);
+  -webkit-transition: height .1s ease;
+  -moz-transition: height .1s ease;
+  -o-transition: height .1s ease;
+  transition: height .1s ease;
+}
 #cchdo_menu ul.open li ul li,
-#cchdo_menu ul.open ul ul li,
-#cchdo_menu ul:hover li ul li,
-#cchdo_menu ul:hover ul ul li {
+#cchdo_menu ul.open ul ul li {
   display: block;
   height: auto;
 }
 #cchdo_menu ul.open ul,
-#cchdo_menu ul.open ul li ul,
-#cchdo_menu ul:hover ul,
-#cchdo_menu ul:hover ul li ul {
-  opacity: 1;
+#cchdo_menu ul.open ul li ul {
   visibility: visible;
-  margin: auto;
 }
 #cchdo_menu .expander {
   padding: 0;
 }
 #cchdo_menu .expander h1 a {
-  display: inline-block;
-  font-size: 0.9em;
+  display: inline;
+  font-size: 1em;
   color: #405381;
   width: 7em;
+}
+#cchdo_menu .expander.lightup h1 a {
+  background: #F8F8D8;
+  text-shadow: none;
+  padding: 0.3em 0.5em;
 }
 
 #gfooter {
@@ -454,26 +443,6 @@ input[type="submit"]:active {
 }
 #gcredit {
   color: #AAAAAA;
-  /*
-  opacity: 0.5;
-  -webkit-transition: opacity .2s ease;
-  -moz-transition: opacity .2s ease;
-  -o-transition: opacity .2s ease;
-  transition: opacity .2s ease;
-}
-#footer_logos {
-  opacity: 0.2;
-  -webkit-transition: opacity .6s ease;
-  -moz-transition: opacity .6s ease;
-  -o-transition: opacity .6s ease;
-  transition: opacity .6s ease;
-  */
-}
-#gfooter:hover #gcredit,
-#gfooter:hover #footer_logos {
-  opacity: 1;
-}
-#gcredit {
   text-align: center;
   font-size: 0.7em;
 }

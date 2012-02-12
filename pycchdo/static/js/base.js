@@ -319,56 +319,58 @@ window.log = function(){
 
     function open(p) {
       if (p) {
-        remove_class(ul, 'open');
-        link.innerHTML = 'open menu';
-        link.title = 'Pin open';
-      } else {
         add_class(ul, 'open');
         link.innerHTML = 'close menu';
         link.title = 'Unpin';
+      } else {
+        remove_class(ul, 'open');
+        link.innerHTML = 'open menu';
+        link.title = 'Pin open';
       }
     }
 
-    var toggleClosed = true;
-
-    var hoverThresh = 500,
-        leaveThresh = 350;
-
-    var hoverTime;
-    menu.onmouseover = function () {
-      hoverTime = setTimeout(function () {
-        open(false);
-      }, hoverThresh);
-    };
-    menu.onmouseout = function () {
-      clearTimeout(hoverTime);
-    };
-
-    var leaveTime;
-    ul.onmouseout = function () {
-      leaveTime = setTimeout(function () {
-        if (toggleClosed) {
-          open(true);
-        }
-      }, leaveThresh);
-    };
-    ul.onmouseover = function () {
-      clearTimeout(leaveTime);
-    };
-
     function toggle() {
-      toggleClosed = has_class(ul, 'open');
-      clearTimeout(hoverTime);
-      clearTimeout(leaveTime);
-      open(toggleClosed);
-      if (event.stopPropagation) {
-        event.stopPropagation();
+      open(!has_class(ul, 'open'));
+      if (window.localStorage) {
+        window.localStorage.setItem('menu_pin_acknowledged', '1');
       }
-      return false;
     }
 
     expander.onclick = toggle;
-    open(true);
+    ul.onclick = function (e) {
+      var target;
+      if (!e) {
+        var e = window.event;
+      }
+      if (e.target) {
+        target = e.target;
+      } else if (e.srcElement) {
+        target = e.srcElement;
+      }
+      if (target === ul || target.tagName == 'LI') {
+        toggle();
+      }
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      }
+    };
+    document.body.onclick = function () {
+      open(false);
+    };
+    open(false);
+
+    if (window.localStorage) {
+      if (window.localStorage.getItem('menu_pin_acknowledged') == '1') {
+        return;
+      }
+    }
+    ul.onmouseover = function () {
+      add_class(expander, 'lightup');
+      setTimeout(function () {
+        remove_class(expander, 'lightup');
+      }, 500);
+      ul.onmouseover = function () {};
+    };
   })();
 })();
 (function imgmap_mobile_toggle() {

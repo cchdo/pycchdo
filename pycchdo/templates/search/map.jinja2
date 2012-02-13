@@ -39,7 +39,7 @@
             {
                 'name': 'maps',
                 'version': '3',
-                'other_params': 'sensor=false&libraries=geometry',
+                'other_params': 'sensor=false&libraries=geometry,drawing',
             },
             {
                 'name': 'earth',
@@ -59,7 +59,6 @@
   {{ whh.tags.javascript_link('/static/cchdomap/js/graticule.3.js') }}
   {{ whh.tags.javascript_link('/static/cchdomap/js/earth_map_type.js') }}
   {{ whh.tags.javascript_link('/static/cchdomap/js/etopo_map_type.js') }}
-  {{ whh.tags.javascript_link('/static/cchdomap/js/dshape.js') }}
   {{ whh.tags.javascript_link('/static/cchdomap/js/LatLngTooltip.3.js') }}
   {%- if commands %}
     <script>

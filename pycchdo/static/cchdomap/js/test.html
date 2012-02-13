@@ -22,7 +22,6 @@ body { height: 256px; background: #000; }
 <script src="LatLngTooltip.3.js"></script>
 <script src="graticule.3.js"></script>
 <script src="earth_map_type.js"></script>
-<script src="dshape.js"></script>
 <script>
 var GM = google.maps;
 
@@ -62,35 +61,6 @@ window.onload = function () {
   function init() {
     // BUTTONS
     window.shapes = new GM.MVCArray();
-
-    GM.event.addDomListener(document.getElementById('start'), 'click', function () {
-      var shape = new DShape({map: map, strokeColor: '#aaffaa', fillColor: '#5555ff'});
-      shapes.push(shape);
-
-      //shape.set('line', true);
-
-      var updated = GM.event.addListener(shape, 'draw_updated', function () {
-        console.log('drawing updated');
-      });
-
-      var shapechanged = GM.event.addListener(shape, 'shape_changed', function () {
-        console.log('shapechanged');
-      });
-
-      var editable = GM.event.addListener(shape, 'editable_changed', function () {
-        console.log('Editable', shape.get('editable'));
-      });
-
-      GM.event.addListenerOnce(shape, 'draw_ended', function () {
-        GM.event.removeListener(updated);
-        GM.event.removeListener(editable);
-        document.getElementById('start').disabled = '';
-      });
-
-      shape.start();
-      document.getElementById('start').disabled = 'disabled';
-    });
-    //document.getElementById('start').click();
 
     document.getElementById('reset').addEventListener('click', function () {
       shapes.forEach(function (x) {

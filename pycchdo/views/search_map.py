@@ -117,7 +117,10 @@ def ids(request):
 
         for shape in req_shapes:
             special, vs = shape.split(':')
-            coords = [[float(x) for x in c.split(',')] for c in vs.split('_')]
+            try:
+                coords = [[float(x) for x in c.split(',')] for c in vs.split('_')]
+            except ValueError:
+                raise HTTPBadRequest()
 
             if special == 'polygon':
                 polygon = poly.Polygon(coords)

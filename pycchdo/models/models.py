@@ -46,21 +46,29 @@ def init_conn(db_uri, *args, **kwargs):
 
 
 def ensure_indices():
-    cchdo().attrs.ensure_index([('obj', 1), ('value', 1)])
-    cchdo().attrs.ensure_index([('key', 1), ('value', 1), ('accepted', 1)])
+    # Searching for Objs by _Attr value, not key-value
+    cchdo().attrs.ensure_index([
+        ('obj', 1), ('value', 1), ('accepted', 1)])
+    # Searching for _Attrs by key-value
+    cchdo().attrs.ensure_index([
+        ('key', 1), ('value', 1), ('accepted', 1)])
+    # Searching for Objs by _Attr key-value (get_by_attrs)
+    cchdo().attrs.ensure_index([
+        ('key', 1), ('accepted', 1), ('accepted_value', 1)])
+    # Searching on _Attr belonging to a specific Obj. Usually needs sorting.
     cchdo().attrs.ensure_index([
         ('obj', 1), ('key', 1), ('accepted', 1),
         ('judgment_stamp.timestamp', -1), ])
-    cchdo().attrs.ensure_index([
-        ('key', 1), ('value', 1), ('accepted', 1), ])
-    cchdo().attrs.ensure_index([
-        ('key', 1), ('accepted_value', 1), ('accepted', 1), ])
     # GEO2D index requires MongoDB >=1.3.3
-    cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
     # Indexing by polygon requires MongoDB >=1.9 It is not included.
-    cchdo().objs.ensure_index([('_id', 1), ('_obj_type', 1), ])
-    cchdo().objs.ensure_index([('creation_stamp.timestamp', 1), ])
-    cchdo().objs.ensure_index([('judgment_stamp.timestamp', 1), ])
+    cchdo().attrs.ensure_index([
+        ('track', pymongo.GEO2D)])
+
+    # Objs often need to be sorted by accept time and create time
+    cchdo().objs.ensure_index([
+        ('_obj_type', 1), ('judgment_stamp.timestamp', 1), ])
+    cchdo().objs.ensure_index([
+        ('creation_stamp.timestamp', 1), ])
 
 
 def cchdo():
@@ -438,6 +446,13 @@ class collectablemongodoc(idablemongodoc):
             return []
 
     @classmethod
+    def count(cls, *args, **kwargs):
+        try:
+            return cls.find(*args, **kwargs).count()
+        except AttributeError:
+            return 0
+
+    @classmethod
     def all(cls):
         return cls.find()
 
@@ -764,6 +779,9 @@ class _FileHolder(_RequestTracker):
 class _Attr(_Change, _FileHolder):
     """ An _Attr of an Obj
 
+        _Attrs are not embedded because queries currently return the top-level
+        object instead of sub-objects.
+
         Not for general use. Please defer to Obj's get, set, and delete methods
 
         An _Attr may be suggested, acknowledged, accepted or rejected.
@@ -976,12 +994,12 @@ class Obj(_Change):
 
         Objs may have two types of attributes:
         1. system attributes (Keys) - written directly into the object
-        2. tracked attributes (Attributes) - written as Attrs which are
-            _Changes themselves. These can only be edited using the get, set,
-            delete.
+        2. tracked attributes (_Attrs) - written as _Attrs which are
+            _Changes themselves. These should only be edited using the provided
+            accessors/mutators.
 
     """
-    __allowed_keys = ['_obj_type', '_attrs', ]
+    __allowed_keys = ['_obj_type', ]
     allowed_attrs = MultiDict()
 
     @classmethod
@@ -1000,132 +1018,11 @@ class Obj(_Change):
     def _key_alias_resolve(self, attr):
         if attr == 'obj_type':
             attr = '_obj_type'
-        if attr == 'attrs':
-            attr = '_attrs'
         return super(Obj, self)._key_alias_resolve(attr)
 
     @property
     def uid(self):
         return ObjId.code(self.id)
-
-    def find_attrs(self, query={}, **kwargs):
-        q = {'obj': self.id}
-        if query:
-            q.update(query)
-            return _Attr.find(q, **kwargs)
-        else:
-            q.update(**kwargs)
-            return _Attr.find(q)
-
-    def find_attr(self, query={}, **kwargs):
-        q = {'obj': self.id}
-        if query:
-            q.update(query)
-            return _Attr.find_one(q, **kwargs)
-        else:
-            q.update(**kwargs)
-            return _Attr.find_one(q)
-
-    def history(self, key=None, **kwargs):
-        if key:
-            kwargs['key'] = key
-        return sort_by_stamp(self.find_attrs(**kwargs))
-
-    def tracked(self, *args, **kwargs):
-        return _Attr.map_mongo(
-            sort_by_stamp(self.find_attrs(*args, **kwargs), 'judgment'))
-
-    def tracked_data(self):
-        return self.tracked({'file': {'$ne': None}})
-
-    def unjudged_tracked(self):
-        return self.tracked({'judgment_stamp': None})
-
-    def unjudged_tracked_data(self):
-        return self.tracked({'judgment_stamp': None, 'file': {'$ne': None}})
-
-    def unacknowledged_tracked(self):
-        return self.tracked({'judgment_stamp': None, 'pending_stamp': None})
-
-    def pending_tracked(self):
-        return self.tracked({'judgment_stamp': None,
-                             'pending_stamp': {'$ne': None}})
-
-    def pending_tracked_data(self):
-        return self.tracked({
-            'judgment_stamp': None, 'pending_stamp': {'$ne': None},
-            'file': {'$ne': None}})
-
-    def accepted_tracked(self):
-        return self.tracked({'accepted': True})
-
-    def accepted_tracked_data(self):
-        return self.tracked({'accepted': True, 'file': {'$ne': None}})
-
-    def accepted_tracked_changed_data(self):
-        return self.tracked({'accepted': True, 'file': {'$ne': None},
-                             'accepted_value': {'$ne': None}})
-
-    def get_attr(self, key):
-        """ Returns the most recent _Attr document for the given key """
-        attr = self.find_attr({'key': key, 'accepted': True},
-            sort=[('judgment_stamp.timestamp', DESCENDING)])
-        if attr:
-            return _Attr.map_mongo(attr)
-        raise KeyError(key)
-
-    def current_attrs(self):
-        curr = {}
-        deleted = set()
-        for attr in _Attr.map_mongo(
-                        sort_by_stamp(self.find_attrs({'accepted': True}),
-                                      'judgment')):
-            k = attr.key
-            if k not in curr and k not in deleted:
-                if attr.deleted:
-                    deleted.add(k)
-                else:
-                    curr[k] = attr
-        return curr
-
-    @property
-    def attr_keys(self):
-        """ List of the tracked attributes present for this Obj
-
-            This list does not include attributes that previously existed but
-            are now deleted.
-
-        """
-        return self.current_attrs().keys()
-
-    def get(self, key, default=None):
-        try:
-            return self.__getitem__(key)
-        except KeyError:
-            try:
-                return self.get_attr(key).value
-            except KeyError:
-                return default
-
-    def set(self, key, value, person, note=None):
-        attr = _Attr(person, self.id, key, value, note)
-        attr.save()
-        return attr
-
-    def set_accept(self, key, value, person, note=None):
-        attr = self.set(key, value, person, note)
-        attr.accept(person)
-        return attr
-
-    def delete(self, key, person, note=None):
-        attr = _Attr(person, self.id, key, None, note, deleted=True)
-        attr.save()
-        return attr
-
-    def delete_accept(self, key, person, note=None):
-        attr = self.delete(key, person, note)
-        attr.accept(person)
-        return attr
 
     @property
     def mtime(self):
@@ -1218,6 +1115,178 @@ class Obj(_Change):
                 spec_or_id=query, *args, **kwargs)
         except IOError:
             return None
+
+    @classmethod
+    def descendant_classes(cls):
+        classes = cls.__subclasses__()
+        descendants = []
+        for klass in classes:
+            subclasses = klass.descendant_classes()
+            descendants.append(klass)
+            descendants.extend(subclasses)
+        return descendants
+
+    @classmethod
+    def subclass_map(cls):
+        return dict([(k.__name__, k) for k in cls.descendant_classes()])
+
+    @classmethod
+    def get_all_polymorphic(cls, *args, **kwargs):
+        objs = cls.find(*args, **kwargs)
+        subclass_map = cls.subclass_map()
+        mapped = []
+        for obj in objs:
+            try:
+                klass = subclass_map.get(obj['_obj_type'], cls)
+                mapped.append(klass.map_mongo(obj))
+            except (TypeError, KeyError):
+                mapped.append(cls.map_mongo(obj))
+        return mapped
+
+    @classmethod
+    def get_one_polymorphic(cls, *args, **kwargs):
+        obj = cls.find_one(*args, **kwargs)
+        try:
+            klass = cls.subclass_map().get(obj['_obj_type'], cls)
+            return klass.map_mongo(obj)
+        except (TypeError, KeyError):
+            return cls.map_mongo(obj)
+
+    @classmethod
+    def get_id_polymorphic(cls, idobj):
+        obj = cls.find_id(idobj)
+        try:
+            klass = cls.subclass_map().get(obj['_obj_type'], cls)
+            return klass.map_mongo(obj)
+        except (TypeError, KeyError) as e:
+            return cls.map_mongo(obj)
+
+    def __unicode__(self):
+        copy = {}
+        for key, value in self.items():
+            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp',
+                       '_obj_type', 'notes'):
+                continue
+            copy[key] = value
+        return u'%s(%s)' % (type(self).__name__, copy)
+
+    # _Attr interface
+
+    def _do_attr_query(self, finder, query={}, **kwargs):
+        q = {'obj': self.id}
+        if query:
+            q.update(query)
+            return finder(q, **kwargs)
+        else:
+            q.update(**kwargs)
+            return finder(q)
+
+    def find_attrs(self, query={}, **kwargs):
+        return self._do_attr_query(_Attr.find, query, **kwargs)
+
+    def find_attr(self, query={}, **kwargs):
+        return self._do_attr_query(_Attr.find_one, query, **kwargs)
+
+    def get_attr(self, key):
+        """ Returns the most recent _Attr for the given key """
+        attr = self.find_attr({'key': key, 'accepted': True},
+            sort=[('judgment_stamp.timestamp', DESCENDING)])
+        if attr:
+            return _Attr.map_mongo(attr)
+        raise KeyError(key)
+
+    def history(self, key=None, **kwargs):
+        if key:
+            kwargs['key'] = key
+        return sort_by_stamp(self.find_attrs(**kwargs))
+
+    def tracked(self, *args, **kwargs):
+        return _Attr.map_mongo(
+            sort_by_stamp(self.find_attrs(*args, **kwargs), 'judgment'))
+
+    def tracked_data(self):
+        return self.tracked({'file': {'$ne': None}})
+
+    def unjudged_tracked(self):
+        return self.tracked({'judgment_stamp': None})
+
+    def unjudged_tracked_data(self):
+        return self.tracked({'judgment_stamp': None, 'file': {'$ne': None}})
+
+    def unacknowledged_tracked(self):
+        return self.tracked({'judgment_stamp': None, 'pending_stamp': None})
+
+    def pending_tracked(self):
+        return self.tracked({'judgment_stamp': None,
+                             'pending_stamp': {'$ne': None}})
+
+    def pending_tracked_data(self):
+        return self.tracked({
+            'judgment_stamp': None, 'pending_stamp': {'$ne': None},
+            'file': {'$ne': None}})
+
+    def accepted_tracked(self):
+        return self.tracked({'accepted': True})
+
+    def accepted_tracked_data(self):
+        return self.tracked({'accepted': True, 'file': {'$ne': None}})
+
+    def accepted_tracked_changed_data(self):
+        return self.tracked({'accepted': True, 'file': {'$ne': None},
+                             'accepted_value': {'$ne': None}})
+
+    def current_attrs(self):
+        curr = {}
+        deleted = set()
+        for attr in _Attr.map_mongo(
+                        sort_by_stamp(self.find_attrs({'accepted': True}),
+                                      'judgment')):
+            k = attr.key
+            if k not in curr and k not in deleted:
+                if attr.deleted:
+                    deleted.add(k)
+                else:
+                    curr[k] = attr
+        return curr
+
+    @property
+    def attr_keys(self):
+        """ List of the tracked attributes present for this Obj
+
+            This list does not include attributes that previously existed but
+            are now deleted.
+
+        """
+        return self.current_attrs().keys()
+
+    def get(self, key, default=None):
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            try:
+                return self.get_attr(key).value
+            except KeyError:
+                return default
+
+    def set(self, key, value, person, note=None):
+        attr = _Attr(person, self.id, key, value, note)
+        attr.save()
+        return attr
+
+    def set_accept(self, key, value, person, note=None):
+        attr = self.set(key, value, person, note)
+        attr.accept(person)
+        return attr
+
+    def delete(self, key, person, note=None):
+        attr = _Attr(person, self.id, key, None, note, deleted=True)
+        attr.save()
+        return attr
+
+    def delete_accept(self, key, person, note=None):
+        attr = self.delete(key, person, note)
+        attr.accept(person)
+        return attr
 
     @classmethod
     def _attr_value_key(cls, key, value_key=None):
@@ -1323,60 +1392,6 @@ class Obj(_Change):
         return filter(
             lambda o: cls._get_by_attrs_true_match(o, value_key, **map),
             objs)
-
-    @classmethod
-    def descendant_classes(cls):
-        classes = cls.__subclasses__()
-        descendants = []
-        for klass in classes:
-            subclasses = klass.descendant_classes()
-            descendants.append(klass)
-            descendants.extend(subclasses)
-        return descendants
-
-    @classmethod
-    def subclass_map(cls):
-        return dict([(k.__name__, k) for k in cls.descendant_classes()])
-
-    @classmethod
-    def get_all_polymorphic(cls, *args, **kwargs):
-        objs = cls.find(*args, **kwargs)
-        subclass_map = cls.subclass_map()
-        mapped = []
-        for obj in objs:
-            try:
-                klass = subclass_map.get(obj['_obj_type'], cls)
-                mapped.append(klass.map_mongo(obj))
-            except (TypeError, KeyError):
-                mapped.append(cls.map_mongo(obj))
-        return mapped
-
-    @classmethod
-    def get_one_polymorphic(cls, *args, **kwargs):
-        obj = cls.find_one(*args, **kwargs)
-        try:
-            klass = cls.subclass_map().get(obj['_obj_type'], cls)
-            return klass.map_mongo(obj)
-        except (TypeError, KeyError):
-            return cls.map_mongo(obj)
-
-    @classmethod
-    def get_id_polymorphic(cls, idobj):
-        obj = cls.find_id(idobj)
-        try:
-            klass = cls.subclass_map().get(obj['_obj_type'], cls)
-            return klass.map_mongo(obj)
-        except (TypeError, KeyError) as e:
-            return cls.map_mongo(obj)
-
-    def __unicode__(self):
-        copy = {}
-        for key, value in self.items():
-            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp',
-                       '_obj_type', 'notes'):
-                continue
-            copy[key] = value
-        return u'%s(%s)' % (type(self).__name__, copy)
 
 
 class _Participants(dict):

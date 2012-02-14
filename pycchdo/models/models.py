@@ -1,12 +1,14 @@
 import datetime
 import re
 import socket
+import errno
 
 from warnings import warn
 
 from webob.multidict import MultiDict
 
 import pymongo
+from pymongo.errors import AutoReconnect
 from pymongo import DESCENDING
 from pymongo.objectid import ObjectId, InvalidId
 
@@ -22,6 +24,73 @@ import triggers
 
 mongo_conn = None
 grid_fs = None
+
+
+# Connection management is left flat in the module b/c for now it's not
+# necessary to have more than one database connection.
+def init_conn(db_uri, *args, **kwargs):
+    """Set up a connection to the PyMongo database.
+
+    Arguments:
+      settings: settings dictionary containing, among other
+                configuration options, the database URI
+      **kwargs: required for miscellaneous options to the
+                pymongo.Connection constructor
+    """
+    global mongo_conn
+    try:
+        mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
+    except AutoReconnect:
+        raise IOError('Unable to connect to database (%s). Check that the '
+                      'database server is running.' % db_uri)
+
+
+def ensure_indices():
+    cchdo().attrs.ensure_index([('obj', 1), ('value', 1)])
+    cchdo().attrs.ensure_index([('key', 1), ('value', 1), ('accepted', 1)])
+    cchdo().attrs.ensure_index([
+        ('obj', 1), ('key', 1), ('accepted', 1),
+        ('judgment_stamp.timestamp', -1), ])
+    cchdo().attrs.ensure_index([
+        ('key', 1), ('value', 1), ('accepted', 1), ])
+    cchdo().attrs.ensure_index([
+        ('key', 1), ('accepted_value', 1), ('accepted', 1), ])
+    # GEO2D index requires MongoDB >=1.3.3
+    cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
+    # Indexing by polygon requires MongoDB >=1.9 It is not included.
+    cchdo().objs.ensure_index([('_id', 1), ('_obj_type', 1), ])
+    cchdo().objs.ensure_index([('creation_stamp.timestamp', 1), ])
+    cchdo().objs.ensure_index([('judgment_stamp.timestamp', 1), ])
+
+
+def cchdo():
+    """Yield the root database object.
+    
+    This is a connection to the PyMongo database.
+
+    This operation will fail if init_conn() [see above] has
+    not been invoked, or if init_conn() has failed to
+    establish the database connection.
+
+    Return:
+      The pymongo.Connection object representing the
+      connection to the PyCCHDO PyMongo database, iff
+      it exists.
+    """
+    if not mongo_conn:
+        raise IOError('No database connection. Check that the server .ini file '
+                      'contains the correct db_uri.')
+    return mongo_conn.cchdo
+
+
+def fs():
+    """ Provides the root file system object
+        Ensure and return a GridFS wrapper for the database connection.
+    """
+    global grid_fs
+    if not grid_fs:
+        grid_fs = gridfs.GridFS(cchdo())
+    return grid_fs
 
 
 data_file_human_names = {
@@ -65,85 +134,29 @@ def flatten(l):
     return [item for sublist in l for item in sublist]
 
 
-def init_conn(settings, **kwargs):
-    """Set up a connection to the PyMongo database.
-
-    Arguments:
-      settings: settings dictionary containing, among other
-                configuration options, the database URI
-      **kwargs: required for miscellaneous options to the
-                pymongo.Connection constructor
-    """
-    global mongo_conn
-    try:
-        mongo_conn = pymongo.Connection(settings['db_uri'], **kwargs)
-    except pymongo.errors.AutoReconnect:
-        raise IOError('Unable to connect to database (%s). Check that the '
-                      'database server is running.' % settings['db_uri'])
-
-
-def ensure_indices():
-    cchdo().attrs.ensure_index([('obj', 1), ('value', 1)])
-    cchdo().attrs.ensure_index([('key', 1), ('value', 1), ('accepted', 1)])
-    cchdo().attrs.ensure_index([('key', 1), ('accepted_value', 1), ('accepted', 1)])
-    # This requires MongoDB >=1.3.3
-    cchdo().attrs.ensure_index([('track', pymongo.GEO2D)])
-    # Indexing by polygon requires MongoDB >=1.9
-
-
-def cchdo():
-    """Yield the root database object.
-    
-    This is a connection to the PyMongo database.
-
-    This operation will fail if init_conn() [see above] has
-    not been invoked, or if init_conn() has failed to
-    establish the database connection.
-
-    Return:
-      The pymongo.Connection object representing the
-      connection to the PyCCHDO PyMongo database, iff
-      it exists.
-    """
-    if not mongo_conn:
-        raise IOError('No database connection. Check that the server .ini file '
-                      'contains the correct db_uri.')
-    return mongo_conn.cchdo
-
-
-def fs():
-    """ Provides the root file system object
-        Ensure and return a GridFS wrapper for the database connection.
-    """
-    global grid_fs
-    if not grid_fs:
-        grid_fs = gridfs.GridFS(cchdo())
-    return grid_fs
-
-
 def timestamp():
     """Create a datetime.datetime representing Now."""
     # FIXME This needs to make a datetime that is timezone aware
     return datetime.datetime.utcnow()
 
 
-def ensure_objectid(idobj):
-    """Ensure that an object ID is an ObjectId.
+def guess_objectid(idobj):
+    """ Guess that an id is an ObjectId and then guess that it is an ObjId
 
-    Argument:
-      idobj: an object ID.
-
-    Returns:
-      idobj if type(idobj) is ObjectId else ObjectId(idobj)
+        Argument:
+          idobj: an id.
 
     """
-    if type(idobj) is not ObjectId:
-        try:
-            return ObjectId(idobj)
-        except TypeError:
-            return None
-        except InvalidId:
-            raise ValueError()
+    if type(idobj) is ObjectId:
+        return idobj
+    try:
+        return ObjectId(idobj)
+    except (TypeError, InvalidId):
+        pass
+    try:
+        return ObjId.parse(idobj)
+    except ValueError:
+        pass
     return idobj
 
 
@@ -226,6 +239,10 @@ class mongodoc(dict):
     """
     __allowed_keys = []
 
+    @property
+    def allowed_keys(self):
+        return self.__allowed_keys
+
     def copy_keys_from(self, o, keys):
         """ Used by from_mongo to copy saved keys from mongodb into instances.
 
@@ -248,30 +265,12 @@ class mongodoc(dict):
         instance.
 
         """
-        self.copy_keys_from(doc, self.__allowed_keys)
+        self.copy_keys_from(doc, self.allowed_keys)
         return self
 
     @property
     def allowed_untracked_keys(self):
         return self.__allowed_keys
-
-    def mapobj(self, doc, key, cls):
-        """Project a key-value pair from a document onto oneself.
-
-        Arguments:
-          doc: The document from which the key-value pair will be obtained.
-          key: The key for the pair to project from the document.
-          cls: The class that will perform the mapping operation if the
-               value is a dictionary.
-        """
-        try:
-            v = doc[key]
-            if type(v) is not dict:
-                self[key] = v
-            else:
-                self[key] = cls.map_mongo(v)
-        except KeyError:
-            pass
 
     def __getattr__(self, name):
         try:
@@ -320,32 +319,29 @@ class mongodoc(dict):
             Otherwise, returns the mapped class instance
 
         """
-        # TODO this function needs to be pulled lower in the hierarchy
         if cursor_or_dict is None:
             return None
 
-        def get_person(obj_doc):
-            try:
-                return obj_doc['creation_stamp']['person']
-            except (TypeError, KeyError):
-                return None
-
         def get_instance(d):
-            if cls is Person:
-                return cls(identifier='placeholder').from_mongo(d)
-            elif cls is Stamp:
-                p = Person(identifier='placeholder')
-                p.id = 'fake'
-                return cls(person=p).from_mongo(d)
-            elif cls is _Attr:
-                obj_id = d.get('obj', None)
-                return cls(get_person(d), obj_id).from_mongo(d)
+            if cls is _Attr:
+                return cls('placeholder', 'placeholder').from_mongo(d)
             else:
-                return cls(get_person(d)).from_mongo(d)
+                return cls('placeholder').from_mongo(d)
 
         if issubclass(type(cursor_or_dict), dict):
             return get_instance(cursor_or_dict)
-        return map(get_instance, cursor_or_dict)
+        try:
+            return map(get_instance, cursor_or_dict)
+        except AutoReconnect:
+            return []
+        except EnvironmentError, e:
+            try:
+                if e[0] in [errno.EINVAL, errno.ECONNREFUSED, ]:
+                    return []
+                else:
+                    raise e
+            except IndexError:
+                raise e
 
 
 class Stamp(mongodoc):
@@ -353,20 +349,22 @@ class Stamp(mongodoc):
 
     def __init__(self, person):
         self.timestamp = timestamp()
-        if type(person) is ObjectId:
-            self.person = person
-        else:
-            if type(person) is not Person:
-                raise TypeError('%r (%s != Person)' % (person, type(person)))
+        if type(person) is Person:
             try:
                 self.person = person.id
             except AttributeError:
                 raise ValueError('Person object must be saved first')
+        else:
+            if not person:
+                # No check performed on whether the Person actually exists
+                # Leave that to the user.
+                raise TypeError(
+                    "Stamp must be initialized with a Person or Person id")
+            self.person = person
 
-    def from_mongo(self, doc):
-        super(Stamp, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Stamp, self).allowed_keys + self.__allowed_keys
 
     @property
     def person(self):
@@ -384,21 +382,22 @@ class idablemongodoc(mongodoc):
     """
     __allowed_keys = ['_id', ]
 
+    @property
+    def allowed_keys(self):
+        return super(idablemongodoc, self).allowed_keys + self.__allowed_keys
+
     def _key_alias_resolve(self, attr):
         if attr == 'id':
             attr = '_id'
         return super(idablemongodoc, self)._key_alias_resolve(attr)
 
-    def from_mongo(self, doc):
-        super(idablemongodoc, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
-
     def __eq__(self, o):
+        if not o:
+            return False
         return self.id == o.id
 
     def __hash__(self):
-        return int(str(self.id), 16)
+        return int(str(self.id), 26)
 
 
 class collectablemongodoc(idablemongodoc):
@@ -418,32 +417,41 @@ class collectablemongodoc(idablemongodoc):
         return cchdo().collectables
 
     def save(self):
-        self.id = self._mongo_collection().save(self)
+        try:
+            self.id = self._mongo_collection().save(self)
+        except IOError:
+            pass
         return self
 
     def remove(self):
-        self._mongo_collection().remove(self.id)
+        try:
+            self._mongo_collection().remove(self.id)
+        except IOError:
+            pass
         return self
 
     @classmethod
-    def all(cls):
-        return cls._mongo_collection().find()
+    def find(cls, *args, **kwargs):
+        try:
+            return cls._mongo_collection().find(*args, **kwargs)
+        except IOError:
+            return []
 
     @classmethod
-    def find(cls, *args, **kwargs):
-        return cls._mongo_collection().find(*args, **kwargs)
+    def all(cls):
+        return cls.find()
 
     @classmethod
     def find_one(cls, *args, **kwargs):
-        return cls._mongo_collection().find_one(*args, **kwargs)
+        try:
+            return cls._mongo_collection().find_one(*args, **kwargs)
+        except IOError:
+            return None
 
     @classmethod
     def find_id(cls, idobj):
-        try:
-            idobj = ensure_objectid(idobj)
-        except pymongo.objectid.InvalidId:
-            raise ValueError()
-        return cls.find_one({'_id': idobj})
+        idobj = guess_objectid(idobj)
+        return cls.find_one(idobj)
 
     @classmethod
     def get_all(cls, *args, **kwargs):
@@ -455,7 +463,14 @@ class collectablemongodoc(idablemongodoc):
 
     @classmethod
     def get_id(cls, idobj):
-        return cls.map_mongo(cls.find_id(idobj))
+        try:
+            return cls.map_mongo(cls.find_id(idobj))
+        except ValueError:
+            return None
+
+    @classmethod
+    def get_all_by_ids(cls, obj_ids):
+        return cls.get_all({'_id': {'$in': obj_ids}})
 
     def __str__(self):
         return unicode(self).encode('ascii', 'replace')
@@ -507,14 +522,12 @@ class Note(collectablemongodoc):
             return v
         return Stamp.map_mongo(v)
 
-    def from_mongo(self, doc):
-        super(Note, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Note, self).allowed_keys + self.__allowed_keys
 
     @property
-    def mtime(self):
-        # TODO correct misnomer, should be ctime
+    def ctime(self):
         return self.creation_stamp.timestamp
 
     def __unicode__(self):
@@ -554,10 +567,9 @@ class _Change(collectablemongodoc):
         except TypeError:
             pass
 
-    def from_mongo(self, doc):
-        super(_Change, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(_Change, self).allowed_keys + self.__allowed_keys
 
     @property
     def creation_stamp(self):
@@ -624,8 +636,7 @@ class _Change(collectablemongodoc):
         self.save()
 
     @property
-    def mtime(self):
-        # TODO correct misnomer, should be ctime
+    def ctime(self):
         return self.creation_stamp.timestamp
 
     def add_note(self, note):
@@ -751,9 +762,34 @@ class _FileHolder(_RequestTracker):
 
 
 class _Attr(_Change, _FileHolder):
-    """ An Attr of an Obj
+    """ An _Attr of an Obj
 
         Not for general use. Please defer to Obj's get, set, and delete methods
+
+        An _Attr may be suggested, acknowledged, accepted or rejected.
+
+        An _Attr, in addition to being accepted, may be accepted with a new
+        value. This is useful for handling user suggestions in this way:
+
+            1. suggested: A has been attached to a cruise using a key, e.g.
+                    'bottle_exchange'
+            2. acknowledged: The suggestion has been reviewed by staff and is
+                    being actively worked on.
+
+            The states diverge here for acceptance and acceptance with a new
+            value:
+
+            3. accepted: The suggestion has been accepted as is and becomes part
+                    of the object state.
+            3. accepted (with value): The suggestion has been accepted but a new
+                    value replaces the original. The original value is still
+                    stored but only as a suggested value. E.g. a partial file
+                    has been suggested as "bottle_exchange" on a cruise. A
+                    merger has finished merging the partial file with the
+                    original and accepts the partial file with the merged file
+                    as the new value. Both merged and partial are retained in
+                    history but only the merged becomes part of the object
+                    state.
 
     """
     __allowed_keys = ['key', 'value', '_requests', 'file', 'track', 'obj',
@@ -773,10 +809,9 @@ class _Attr(_Change, _FileHolder):
         self.accepted_value = None
         self.set(key, value)
 
-    def from_mongo(self, doc):
-        super(_Attr, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(_Attr, self).allowed_keys + self.__allowed_keys
 
     def set(self, key, value):
         """ Sets the key and value.
@@ -817,16 +852,6 @@ class _Attr(_Change, _FileHolder):
             self.store_file(value)
         except AttributeError:
             self.value = value
-
-    # TODO just check for presence of file_
-    def is_data(self):
-        warn('deprecated', DeprecationWarning)
-        return self.file_
-
-    # TODO just check for presence of track
-    def is_track(self):
-        warn('deprecated', DeprecationWarning)
-        return self.track
 
     @property
     def file(self):
@@ -919,6 +944,33 @@ class _Attr(_Change, _FileHolder):
         return cls.get_all({'judgment_stamp': None})
 
 
+class ObjId(idablemongodoc):
+    id = {'_id': 'objid'}
+    counter = 'c'
+    inc = {counter: 1}
+
+    @classmethod
+    def _mongo_collection(cls):
+        return cchdo().objid
+
+    @classmethod
+    def parse(cls, s):
+        try:
+            return int(s)
+        except ValueError:
+            return s
+
+    @classmethod
+    def code(cls, id):
+        return id
+
+    @classmethod
+    def next_id(cls):
+        obj_id = cls._mongo_collection().find_and_modify(
+            cls.id, {'$inc': cls.inc}, new=True, upsert=True)
+        return int(obj_id[cls.counter])
+
+
 class Obj(_Change):
     """ Base object for all tracked objects in the system.
 
@@ -941,17 +993,20 @@ class Obj(_Change):
         self._obj_type = type(self).__name__
         self.from_mongo(doc)
 
-    def from_mongo(self, doc):
-        super(Obj, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Obj, self).allowed_keys + self.__allowed_keys
 
     def _key_alias_resolve(self, attr):
-        if attr == 'type':
+        if attr == 'obj_type':
             attr = '_obj_type'
         if attr == 'attrs':
             attr = '_attrs'
         return super(Obj, self)._key_alias_resolve(attr)
+
+    @property
+    def uid(self):
+        return ObjId.code(self.id)
 
     def find_attrs(self, query={}, **kwargs):
         """
@@ -1025,9 +1080,9 @@ class Obj(_Change):
     def current_attrs(self):
         curr = {}
         deleted = set()
-        for attr in _Attr.map_mongo(sort_by_stamp(
-                                        self.find_attrs({'accepted': True}),
-                                        'judgment')):
+        for attr in _Attr.map_mongo(
+                        sort_by_stamp(self.find_attrs({'accepted': True}),
+                                      'judgment')):
             k = attr.key
             if k not in curr and k not in deleted:
                 if attr.deleted:
@@ -1048,7 +1103,7 @@ class Obj(_Change):
 
     def get(self, key, default=None):
         try:
-            return super(Obj, self).__getitem__(key)
+            return self.__getitem__(key)
         except KeyError:
             try:
                 return self.get_attr(key).value
@@ -1077,12 +1132,15 @@ class Obj(_Change):
 
     @property
     def mtime(self):
-        creation_time = super(Obj, self).mtime
+        creation_time = super(Obj, self).ctime
         accepted = self.accepted_tracked()
         if not accepted:
             return creation_time
         last_attr_creation_time = accepted[0].creation_stamp.timestamp
-        return max(creation_time, last_attr_creation_time)
+        try:
+            return max(creation_time, last_attr_creation_time)
+        except TypeError:
+            return creation_time
 
     def polymorph(self):
         """ Gives back a subclass instance based on _obj_type. All the data
@@ -1097,11 +1155,22 @@ class Obj(_Change):
         """
         try:
             klass = Obj.subclass_map().get(self._obj_type, self.__class__)
-            return klass.map_mongo(self)
+            # TODO TEST you cannot simply map_mongo an Obj because some keys
+            # from the document might not have been copied
+            return klass.get_id(self.id)
         except (TypeError, KeyError) as e:
             return self
 
     def save(self):
+        """ Override collectable save in order to call triggers and provide
+            shorter ids. 
+
+        """
+        try:
+            if not self.id:
+                self.id = ObjId.next_id()
+        except AttributeError:
+            self.id = ObjId.next_id()
         super(Obj, self).save()
         triggers.saved_obj(self)
 
@@ -1112,60 +1181,77 @@ class Obj(_Change):
         triggers.removed_obj(self)
 
     @classmethod
-    def all(cls):
-        if cls is Obj:
-            return cls._mongo_collection().find()
-        return cls._mongo_collection().find({'_obj_type': cls.__name__})
-
-    @classmethod
-    def find(cls, *args, **kwargs):
-        try:
-            query = args[0].copy()
-        except IndexError:
+    def find(cls, spec=None, *args, **kwargs):
+        if spec:
+            # TODO test make sure spec doesn't have additional _obj_type key
+            # left over (require this copy)
+            query = spec.copy()
+        else:
             query = {}
         try:
             query['_obj_type']
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
-        args = (query, )
-        return cls._mongo_collection().find(*args, **kwargs)
+        try:
+            return cls._mongo_collection().find(spec=query, *args, **kwargs)
+        except IOError:
+            return []
 
     @classmethod
-    def find_one(cls, *args, **kwargs):
-        try:
-            query = args[0].copy()
-        except IndexError:
+    def find_one(cls, spec_or_id=None, *args, **kwargs):
+        if spec_or_id:
+            if issubclass(type(spec_or_id), dict):
+                query = spec_or_id.copy()
+            else:
+                try:
+                    return cls._mongo_collection().find_one(
+                        spec_or_id, *args, **kwargs)
+                except IOError, e:
+                    return None
+        else:
             query = {}
         try:
             query['_obj_type']
         except KeyError:
             if cls is not Obj:
                 query['_obj_type'] = cls.__name__
-        args = (query, )
-        return cls._mongo_collection().find_one(*args, **kwargs)
+        try:
+            return cls._mongo_collection().find_one(
+                spec_or_id=query, *args, **kwargs)
+        except IOError:
+            return None
 
     @classmethod
-    def find_id(cls, idobj):
-        if type(idobj) is not ObjectId:
-            try:
-                idobj = ObjectId(idobj)
-            except pymongo.objectid.InvalidId:
-                return None
-        if cls is Obj:
-            return cls.find_one({'_id': idobj})
-        return cls.find_one({'_id': idobj, '_obj_type': cls.__name__})
+    def _attr_value_key(cls, key, value_key=None):
+        if value_key:
+            return '%s.%s' % (key, value_key)
+        return key
 
     @classmethod
-    def _get_by_attrs_true_match(cls, obj, **kwargs):
+    def _get_by_attrs_true_match(cls, obj, value_key, **kwargs):
         """ Make sure the most current values match by filtering resulting objs
         """
-        if obj is None:
+        # TODO TEST for obj.accepted requirement
+        if obj is None or not obj.accepted:
             return False
         for k, v in kwargs.items():
+            key = cls._attr_value_key(k, value_key)
             obj_v = obj.get(k)
 
             if type(obj_v) is list and type(v) is not list:
+                if '.' in key:
+                    try:
+                        i = int(key.split('.')[1])
+                        try:
+                            return v.match(obj_v[i])
+                        except AttributeError:
+                            return v == obj_v[i]
+                    except ValueError:
+                        # The user has specified a non integer in the array
+                        # index portion of the query. Things should have failed
+                        # long ago.
+                        pass
                 try:
                     if not any(v.match(x) for x in obj_v):
                         return False
@@ -1180,13 +1266,37 @@ class Obj(_Change):
                     if obj_v != v:
                         return False
         return True
+    
+    @classmethod
+    def _get_by_attrs_query(cls, k, v, value_key):
+        value_query = _str2unicode(v)
+        return {
+            'key': unicode(k),
+            'accepted': True,
+            '$or': [
+                 {'$and': [
+                     {'accepted_value': {'$ne': None}},
+                     {cls._attr_value_key('accepted_value', value_key):
+                      value_query},
+                 ]}, 
+                 {'$and': [
+                     {'accepted_value': None},
+                     {cls._attr_value_key('value', value_key): value_query},
+                 ]}, 
+            ]
+        }
 
     @classmethod
-    def get_by_attrs(cls, d={}, **kwargs):
+    def get_by_attrs(cls, d={}, value_key=None, **kwargs):
         """ Gets all objects that have _Attrs that match all the requested
             key-value pairs.
 
             Values may be regular expression objects as compiled by `re`.
+
+            value_key - (str) an additional key to be appended to the value key.
+                This is useful for querying on sub-objects in the _Attr value
+                e.g.  requiring a specific value for a specific element of the
+                _Attr value array.
 
         """
         map = d
@@ -1196,37 +1306,26 @@ class Obj(_Change):
         if not map:
             raise ValueError("No filters specified. Did you mean get_all()?")
 
-        def querygen(k, v):
-            value_query = _str2unicode(v)
-            return {
-                'key': unicode(k),
-                'accepted': True,
-                '$or': [
-                     {'$and': [
-                         {'accepted_value': {'$ne': None}},
-                         {'accepted_value': value_query},
-                     ]}, 
-                     {'$and': [
-                         {'accepted_value': None},
-                         {'value': value_query},
-                     ]}, 
-                ]
-            }
-
-        query = [querygen(k, v) for k, v in map.items()]
+        query = [cls._get_by_attrs_query(k, v, value_key) 
+                 for k, v in map.items()]
 
         len_query = len(query)
-        objs_attrs = _Attr._mongo_collection().group(
-            ['obj'],
-            {'$or': query},
-            {'a': 0}, 
-            'function (x, o) { o.a++; }')
+        try:
+            objs_attrs = _Attr._mongo_collection().group(
+                ['obj'],
+                {'$or': query},
+                {'a': 0}, 
+                'function (x, o) { o.a++; }')
+        except IOError:
+            return []
 
-        # Filter the matched objs for the correct number of matched attrs
-        objs = [cls.get_id(oa['obj']) for oa in objs_attrs \
-                                       if oa['a'] == len_query]
-        return filter(lambda o: cls._get_by_attrs_true_match(o, **kwargs),
-                      objs)
+        # Filter the matched ids for the correct number of matched attrs
+        obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] == len_query]
+        objs = cls.get_all_by_ids(obj_ids)
+
+        return filter(
+            lambda o: cls._get_by_attrs_true_match(o, value_key, **map),
+            objs)
 
     @classmethod
     def descendant_classes(cls):
@@ -1360,6 +1459,9 @@ class _Participants(dict):
             self._remove(person, role, institution)
         self.save(signer)
 
+    def __len__(self):
+        return sum(len(x) for x in self.values())
+
     @property
     def roles(self, role=None):
         """ Pairs of Persons and roles present in the map """
@@ -1452,24 +1554,28 @@ class Cruise(Obj):
 
     """
     allowed_attrs = MultiDict([
-        ['Text', ['expocode', 'link']], 
-        ['Datetime', ['date_start', 'date_end']], 
-        ['Text List', ['aliases']],
+        ['Text', ['expocode', 'link', 'frequency', ]], 
+        ['Datetime', ['date_start', 'date_end', ]], 
+        ['Text List', ['aliases', 'ports', ]],
         ['ID', ['ship', 'country']],
-        ['ID List', ['collections']],
+        ['ID List', ['collections', 'institutions', ]],
     ])
 
-    allowed_attrs_list = flatten(allowed_attrs.values())
+    allowed_attrs_list = flatten(allowed_attrs.values()) + ['participants']
 
     allowed_attrs_human_names = {
         'expocode': 'ExpoCode',
         'link': 'Expedition Link',
+        'frequency': 'Frequency', 
+        'date_start': 'Start Date',
+        'date_end': 'End Date',
         'aliases': 'Aliases',
+        'ports': 'Ports', 
         'ship': 'Ship',
         'country': 'Country',
         'collections': 'Collections',
-        'date_start': 'Start Date',
-        'date_end': 'End Date',
+        'institutions': 'Institutions',
+        'participants': 'Participants',
     }
 
     @classmethod
@@ -1479,9 +1585,26 @@ class Cruise(Obj):
             return types[0].lower().replace(' ', '_')
         return 'text'
 
+    def __getattr__(self, key):
+        sup_attr = super(Cruise, self).__getattr__
+        if key in self.allowed_attrs_list:
+            return self.get(key)
+        return sup_attr(key)
+
     @property
-    def expocode(self):
-        return self.get('expocode')
+    def uid(self):
+        expo = self.expocode
+        if (not expo or not self.accepted or ' ' in expo or '/' in expo
+                or '-' in expo):
+            return super(Cruise, self).uid
+        return expo
+
+    # TODO perhaps override Obj.find_id to also find by uid to alleviate view
+    # code doing the same thing
+
+    @property
+    def aliases(self):
+        return self.get('aliases', [])
 
     @property
     def statuses(self):
@@ -1502,18 +1625,19 @@ class Cruise(Obj):
         return 'preliminary' in self.get('statuses', []) 
 
     @property
-    def date_start(self):
-        return self.get('date_start')
-
-    @property
-    def date_end(self):
-        return self.get('date_end')
-
-    @property
     def collections(self):
         collection_ids = self.get('collections', [])
-        return filter(
-            None, [Collection.get_id(x) for x in collection_ids])
+        return Collection.get_all_by_ids(collection_ids)
+
+    @property
+    def institutions(self):
+        """ These are institutions that are directly attached to the cruise.
+            Suppose a cruise were to be done by an institution but the PI was
+            from a different one.
+
+        """
+        institution_ids = self.get('institutions', [])
+        return Institution.get_all_by_ids(institution_ids)
 
     @property
     def collections_woce_line(self):
@@ -1573,7 +1697,8 @@ class Cruise(Obj):
 
     @classmethod
     def get_by_expocode(cls, expocode):
-        attrs = sort_by_stamp(_Attr.find({'key': 'expocode'}))
+        attrs = sort_by_stamp(_Attr.find({'key': 'expocode',
+                                          'accepted': True}))
         # Get Attrs that represent most current key value for objs
         obj_expocodes = {}
         for attr in attrs:
@@ -1584,7 +1709,67 @@ class Cruise(Obj):
         obj_ids = [o for o, e in obj_expocodes.items() if e == expocode]
 
         # 1. Multiple cruises might have the same expocode
-        return Cruise.map_mongo(Cruise.find({'_id': {'$in': obj_ids}}))
+        return Cruise.get_all_by_ids(obj_ids)
+
+    @classmethod
+    def updated(cls, limit):
+        file_types = data_file_descriptions.keys()
+        query = {
+            'key': {'$in': file_types},
+            'accepted': True
+        }
+        sort = [('judgment_stamp.timestamp', DESCENDING)]
+
+        skip = 0
+        step = limit * 4
+        updated = []
+        cruises = set()
+
+        while len(updated) < limit:
+            attrs = _Attr.get_all(query, sort=sort, skip=skip, limit=step)
+            if not attrs:
+                break
+            for attr in attrs:
+                cruise = attr.obj
+                if cruise not in cruises:
+                    cruises.add(cruise)
+                    updated.append(attr)
+                if len(updated) >= limit:
+                    break
+            skip += step
+        return updated
+
+    @classmethod
+    def pending_with_date_starts(cls):
+        """ Gives a list of all pending cruises that have start dates """
+        pending = Cruise.get_all({'accepted': False})
+        return filter(lambda c: c.date_start, pending)
+
+    @classmethod
+    def upcoming(cls, limit):
+        upcoming = Cruise.pending_with_date_starts()
+        now = datetime.datetime.utcnow()
+        try:
+            upcoming = sorted(upcoming, key=lambda c: c.date_start)
+        except TypeError:
+            upcoming = []
+
+        # strip Seahunt cruises that are in the past
+        i = 0
+        while (len(upcoming) > 0 and
+               upcoming[i].date_start and 
+               now > upcoming[i].date_start):
+            i += 1
+        return upcoming[i:i + limit]
+
+    @classmethod
+    def pending_years(cls):
+        """ Gives a list of integer years that have pending cruises. """
+        pending_with_date_starts = Cruise.pending_with_date_starts()
+        years = set()
+        for cruise in pending_with_date_starts:
+            years.add(cruise.date_start.year)
+        return list(years)
 
 
 class CruiseAssociate(Obj):
@@ -1593,33 +1778,14 @@ class CruiseAssociate(Obj):
     """
     cruise_associate_key = ''
 
-    def _assoc_key(self, key, value_key=None):
-        if value_key:
-            return '%s.%s' % (key, value_key)
-        return key
-
     def cruises(self, value_key=None, limit=0):
-        query = {
-            'key': self.cruise_associate_key,
-            '$or': [
-                {'$and': [
-                    {'accepted_value': {'$ne': None}},
-                    {self._assoc_key('accepted_value', value_key): self.id},
-                ]},
-                {'$and': [
-                    {'accepted_value': None},
-                    {self._assoc_key('value', value_key): self.id},
-                ]},
-            ],
-        }
+        query = self._get_by_attrs_query(
+            self.cruise_associate_key, self.id, value_key)
         attrs = _Attr.find(query, fields=['obj'], limit=limit)
-        attr_obj_ids = set(x['obj'] for x in attrs)
-        obj_coll = Obj._mongo_collection()
-        objs = [obj_coll.find_one(
-            {'_id': id, '_obj_type': Cruise.__name__}) for id in attr_obj_ids]
-        objs = filter(None, objs)
-        # TODO filter rejected cruises
-        return Cruise.map_mongo(objs)
+        attr_obj_ids = list(set(x['obj'] for x in attrs))
+        if attr_obj_ids:
+            return Cruise.get_all_by_ids(attr_obj_ids)
+        return []
 
 
 class CruiseParticipantAssociate(CruiseAssociate):
@@ -1667,7 +1833,23 @@ class Person(CruiseParticipantAssociate):
     """
     cruise_participant_associate_key = 'person'
     __allowed_keys = ['identifier', 'name_first', 'name_last', 'institution',
-                      'country', 'email', ]
+                      'country', 'email', 'permissions', ]
+
+    allowed_attrs = MultiDict([
+        ['Text', ['title', 'job_title', 'phone', 'fax', 'address', ]], 
+        ['ID List', ['programs', ]], 
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'title': 'Title',
+        'job_title': 'Job Title',
+        'phone': 'Phone',
+        'fax': 'Fax',
+        'address': 'Address', 
+        'programs': 'Programs', 
+    }
 
     def __init__(self, identifier=None, name_first=None, name_last=None,
                  institution=None, country=None, email=None):
@@ -1682,17 +1864,16 @@ class Person(CruiseParticipantAssociate):
         self.institution_ = institution
         self.country_ = country
         self.email = email
+        self.permissions = []
 
-        if identifier is None and None in (
-                name_first, name_last):
+        if identifier is None and None in (name_first, name_last):
             raise ValueError(
                 'Person must be initialized either with identifier '
                 'or names.')
 
-    def from_mongo(self, doc):
-        super(Person, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Person, self).allowed_keys + self.__allowed_keys
 
     def full_name(self):
         return ' '.join((self.name_first or '', self.name_last or ''))
@@ -1710,13 +1891,17 @@ class Person(CruiseParticipantAssociate):
 
     def save(self):
         super(Person, self).save()
-        self['creation_stamp']['person'] = self.id
+        try:
+            self['creation_stamp']['person'] = self.id
+        except AttributeError:
+            return False
         super(Person, self).save()
 
     def __unicode__(self):
         try:
-            return u'Person ({last}, {first})'.format(last=self.name_last,
-                                                      first=self.name_first)
+            return u'Person ({identifier}, {last}, {first})'.format(
+                identifier=self.identifier, last=self.name_last,
+                first=self.name_first)
         except AttributeError:
             return u'Person ()'
 
@@ -1754,12 +1939,34 @@ class MultiNameObj(Obj):
 class Institution(CruiseParticipantAssociate):
     cruise_participant_associate_key = 'institution'
 
+    allowed_attrs = MultiDict([
+        ['Text', ['name', 'phone', 'address', 'url', ]], 
+        ['ID', ['country', ]], 
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'name': 'Name',
+        'phone': 'Phone',
+        'address': 'Address',
+        'url': 'Link',
+        'country': 'Country', 
+    }
+
     @property
     def name(self):
         return self.get('name', None)
 
     def people(self):
         return Person.get_all({'institution': self.id})
+
+    @property
+    def country(self):
+        country = self.get('country', None)
+        if country:
+            return Country.get_id(country)
+        return None
 
     def __unicode__(self):
         try:
@@ -1771,9 +1978,27 @@ class Institution(CruiseParticipantAssociate):
 class Ship(CruiseAssociate):
     cruise_associate_key = 'ship'
 
+    allowed_attrs = MultiDict([
+        ['Text', ['name', 'nodc_platform_code', 'url', ]], 
+        ['ID', ['country', ]], 
+    ])
+
+    allowed_attrs_list = flatten(allowed_attrs.values())
+
+    allowed_attrs_human_names = {
+        'name': 'Name',
+        'nodc_platform_code': 'NODC Platform Code', 
+        'url': 'Link', 
+        'country': 'Country', 
+    }
+
     @property
     def name(self):
         return self.get('name', None)
+
+    @property
+    def nodc_platform_code(self):
+        return self.get('nodc_platform_code', None)
 
     def __unicode__(self):
         return u'Ship(%s)' % self.name
@@ -1798,18 +2023,6 @@ class Collection(CruiseAssociate, MultiNameObj):
     """
     cruise_associate_key = 'collections'
 
-    #@classmethod
-    #def _get_all_by_name_true_match(cls, obj, name):
-    #    """ Make sure the name actually matches
-    #    """
-    #    if obj is None:
-    #        return False
-    #    try:
-    #        return any(name.match(n) for n in obj.names)
-    #    except AttributeError:
-    #        return name in obj.names
-
-
     @classmethod
     def get_all_by_name(cls, name):
         """ Returns all collections that match the given name
@@ -1818,41 +2031,15 @@ class Collection(CruiseAssociate, MultiNameObj):
                 name - either a string or a regular expression object
         
         """
-
         return self.get_by_attrs(names=name)
-
-        #try:
-        #    name.match
-        #    name.search
-        #    value_query = {'$regex': name}
-        #except AttributeError:
-        #    value_query = name
-
-        #query = {'key': 'names',
-        #         'accepted': True,
-        #         '$or': [
-        #             {'$and': [
-        #                 {'accepted_value': {'$ne': None}},
-        #                 {'accepted_value': value_query},
-        #             ]}, 
-        #             {'$and': [
-        #                 {'accepted_value': None},
-        #                 {'value': value_query},
-        #             ]}, 
-        #         ],
-        #        }
-
-        #objs_attrs = _Attr._mongo_collection().group(
-        #    ['obj'], query, {'a': 0}, 
-        #    'function (x, o) { o.a++; }')
-
-        ## Filter the matched objs for the correct number of matched attrs
-        #objs = [cls.get_id(oa['obj']) for oa in objs_attrs if oa['a'] == 1.0]
-        #return filter(lambda o: cls._get_all_by_name_true_match(o, name), objs)
 
     @property
     def type(self):
         return self.get('type', None)
+
+    @classmethod
+    def get_by_name(cls, name):
+        return cls.get_by_attrs({'names': name}, value_key='0')
 
 
 class AutoAcceptingObj(Obj):
@@ -1883,9 +2070,9 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         Attributes:
         text_identifier - some text that makes the file quickly identifiable to
                           a human
-        file - either an ObjectId that is the file in the filesystem or a tuple
-               like (ObjectId, attribute) that describes which attr of which obj
-               holds the file.
+        file - either an id that is the file in the filesystem or a tuple like
+               (id, attribute) that describes which attr of which obj holds the
+               file.
         description
         display - whether or not the file is meant to be visible
 
@@ -1900,10 +2087,9 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         self.description = None
         self.display = None
 
-    def from_mongo(self, doc):
-        super(ArgoFile, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(ArgoFile, self).allowed_keys + self.__allowed_keys
 
     @property
     def file(self):
@@ -1950,10 +2136,9 @@ class OldSubmission(Obj):
     """
     __allowed_keys = ['date', 'stamp', 'submitter', 'line', 'folder', 'files', ]
 
-    def from_mongo(self, doc):
-        super(OldSubmission, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(OldSubmission, self).allowed_keys + self.__allowed_keys
 
     def remove(self):
         for file in self.files_:
@@ -1986,17 +2171,19 @@ class Submission(Obj, _FileHolder):
     __allowed_keys = ['expocode', 'ship_name', 'line', 'action', 'public',
                       'cruise_date', 'attached', 'file', ] 
 
-    def from_mongo(self, doc):
-        super(Submission, self).from_mongo(doc)
-        self.copy_keys_from(doc, self.__allowed_keys)
-        return self
+    @property
+    def allowed_keys(self):
+        return super(Submission, self).allowed_keys + self.__allowed_keys
 
     @property
     def identifier(self):
         return self.expocode_
 
     def cruises_from_identifier(self):
-        cruises = Cruise.get_by_attrs(expocode=self.expocode)
+        try:
+            cruises = Cruise.get_by_attrs(expocode=self.expocode)
+        except AttributeError:
+            return []
         if len(cruises) > 0:
             return cruises
         return []

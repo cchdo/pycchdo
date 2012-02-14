@@ -1,17 +1,143 @@
-{% extends "templates/base.jinja2" %}
-{% block title %}Cruise | Suggest {{ cruise_id }}?{% endblock %}
+{%- if cruise_id %}
+  {%- extends "templates/base.jinja2" %}
+{%- else %}
+  {%- extends "templates/fullwidth.jinja2" %}
+{%- endif %}
+{%- block title %}Suggest {{ cruise_id }}{%- endblock %}
+{%- block subtitle %} | Cruise{%- endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/cruise.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/cruises.new.css') }}
 {%- endblock %}
 {%- block content_attrs %} class="cruise-page"{%- endblock %}
 {%- block content %}
-{%- call h.boxed('Cruise <span class="cruise_id">%s</span> was not found' % cruise_id) %}
-    <div class="editor">
-      {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise',
-                                                         'attr_expocode': cruise_id}) }}
-        <p>Would you like to suggest that <span class="cruise_id">{{ cruise_id }}</span> be added?</p>
-        <p><input type="submit" value="Suggest cruise"></p>
-      {{ whh.tags.end_form() }}
-    </div>
+  {%- if cruise_id %}
+    {%- set box_title = 'Cruise <span class="cruise_id">%s</span> was not found' % cruise_id %}
+  {%- else %}
+    {%- set box_title = 'Suggest cruise' %}
+  {%- endif %}
+  {%- call h.boxed(box_title) %}
+    {%- if cruise_id %}
+      <div class="editor">
+        {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise',
+                                                           'attr_expocode': cruise_id}) }}
+          <p>Would you like to suggest that <span class="cruise_id">{{ cruise_id }}</span> be added?</p>
+          <p>You will be directed to the new cruise's page where you can make additional edits.</p>
+          <p><input type="submit" value="Suggest cruise"></p>
+        {{ whh.tags.end_form() }}
+      </div>
+    {%- else %}
+
+    <p>{{ whh.tags.link_to('View all contributions', request.route_path('contributions')) }}</p>
+
+    {{- whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise'}, multipart=True) }}
+      <div class="container">
+        <div class="editor">
+          <table>
+            <tr><th>{{ whh.tags.title('Cruise name', label_for='attr_name') }}</th><td>{{ whh.tags.text('attr_expocode') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Ports/Location', label_for='attr_ports') }}</th><td>{{ whh.tags.text('attr_ports') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Programs', label_for='attr_programs') }}</th><td>{{ whh.tags.text('attr_programs') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Institutions', label_for='attr_institutions') }}</th><td>{{ whh.tags.text('attr_institutions') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Contacts', label_for='attr_contacts') }}</th><td>{{ whh.tags.text('attr_contacts') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Date range', label_for='attr_date_start') }}</th>
+              <td>
+                {{ whh.tags.text('attr_date_start', type='date') }}
+                <div id="date_range_picker">
+                  <div class="start datepick"></div>
+                  <div class="end datepick"></div>
+                </div>
+              </td>
+            </tr>
+            <tr><th>{{ whh.tags.title('Ship', label_for='attr_ship') }}</th><td>{{ whh.tags.text('attr_ship') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Country', label_for='attr_country') }}</th><td>{{ whh.tags.text('attr_country') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Website', label_for='attr_link') }}</th><td>{{ whh.tags.text('attr_link') }}</td></tr>
+            <tr>
+              <th>{{ whh.tags.title('Image', label_for='attr_map_thumb') }}</th>
+              <td>
+                {{ whh.tags.file('attr_map_thumb') }}
+                <div id="image-help" class="help">
+                  Your image cannot be previewed without a browser that
+                  implements the HTML5 File API. Its place is held with an
+                  image of a ship. You will just have to imagine.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2">
+                {{ whh.tags.title('Notes', label_for='attr_notes') }}
+                <div id="notes-help" class="help">
+                  HTML is allowed but please be succinct.
+                </div>
+                {{ whh.tags.textarea('attr_notes') }}
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2">
+                {{ whh.tags.title('Coordinates (Lng, Lat)', label_for='attr_track') }}
+                <p>
+                  <button id="new_line">Draw new line</button>
+                </p>
+                <div id="track-help-tooltip" class="help" style="display: block;">
+                  <p>Click on the map to draw a line.</p>
+                  <strong>Click the last point twice to stop drawing.</strong>
+                  <p>You may change numbers directly. </p>
+                  <p>
+                    Press <strong>Shift</strong> when over the map to see 
+                    the latitude and longitude of your mouse position.
+                  </p>
+                </div>
+                <div id="track-help" class="help">
+                  <p>Please make sure your coordinates are formatted like this:
+                    </p><pre>longitude,latitude
+longitude,latitude
+...</pre>
+                  <p></p>
+                  <p>Hint: Check line <span></span></p>
+                </div>
+                {{ whh.tags.textarea('attr_track') }}
+              </td>
+            </tr>
+          </table>  
+          {{ whh.tags.submit('Submit', 'Submit') }}
+        </div>
+        <div id="map"></div>
+      </div>
+      {{- whh.tags.end_form() }}
+    {%- endif %}
   {%- endcall %}
 {%- endblock %}
+{%- if cruise_id %}
+  {%- block js %}
+    {{- h.GAPI_autoload(request, [
+          {
+            'name': 'jquery',
+            'version': '1.6.4',
+          },
+          {
+            'name': 'jqueryui',
+            'version': '1.8.16',
+          },
+          {
+            'name': 'maps',
+            'version': '3',
+            'other_params': 'sensor=false&libraries=drawing',
+          },
+          {
+            'name': 'earth',
+            'version': '1',
+          },
+          {
+            'name': 'search',
+            'version': '1',
+          },
+        ]) }}
+    {{ whh.tags.javascript_link('/static/js/jGoogleBarV3.min.js') }}
+    {{ whh.tags.javascript_link('/static/cchdomap/js/jquery.form.js') }}
+    {{ whh.tags.javascript_link('/static/cchdomap/js/graticule.3.js') }}
+    {{ whh.tags.javascript_link('/static/cchdomap/js/earth_map_type.js') }}
+    {{ whh.tags.javascript_link('/static/cchdomap/js/etopo_map_type.js') }}
+    {{ whh.tags.javascript_link('/static/cchdomap/js/LatLngTooltip.3.js') }}
+    {{ whh.tags.javascript_link('/static/js/cruises.new.js') }}
+  {%- endblock %}
+{%- endif %}

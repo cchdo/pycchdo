@@ -1,10 +1,11 @@
 from pyramid.httpexceptions import HTTPUnauthorized
 
-from pycchdo.helpers import is_staff, link_cruise, date, link_person
+from pycchdo.helpers import link_cruise, date, link_person
 import pycchdo.models as models
 
-from . import *
-from session import require_signin
+from pycchdo.views import *
+from pycchdo.helpers import has_staff
+from pycchdo.views.session import require_signin
 
 
 def staff_signin_required(view_callable):
@@ -17,7 +18,7 @@ def staff_signin_required(view_callable):
         if user is None:
             request.session.flash('Please sign in to use staff tools.', 'help')
             return require_signin(request)
-        if not is_staff(user):
+        if not has_staff(request):
             return HTTPUnauthorized()
         return view_callable(request)
     return decorator

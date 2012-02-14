@@ -15,7 +15,7 @@ import re
 import mimetypes
 import tarfile
 import shutil
-import StringIO
+from StringIO import StringIO
 import pwd
 import threading
 import time
@@ -30,6 +30,12 @@ import shapely.geos
 from shapely.geometry import LineString
 
 import pycchdo.models as models
+from pycchdo.importers import *
+from pycchdo.importers.cchdo import *
+import pycchdo.importers.seahunt as seahunt
+import pycchdo.models.triggers as triggers
+from pycchdo.models.search import SearchIndex
+from pycchdo.views import text_to_obj
 
 import libcchdo
 import libcchdo.fns
@@ -39,20 +45,13 @@ legacy = lcconvert.legacy
 
 
 nthreads = 20
-ssh_host = 'cchdo.ucsd.edu'
-
-
-implog = logging.getLogger('pycchdo.import')
-implog.setLevel(logging.DEBUG)
-imploghandler = logging.StreamHandler()
-imploghandler.setFormatter(logging.Formatter(
-    '%(levelname)s %(asctime)-15s %(message)s'))
-implog.addHandler(imploghandler)
 
 
 _USAGE = """\
 Usage: importer.py
 \t-c|--clear\tClear database before importing
+\t-C|--skip-cchdo\tSkip importing CCHDO data
+\t-S|--skip-seahunt\tSkip importing Seahunt data
 \t-h|--help\tPrint this help message
 """
 
@@ -76,26 +75,6 @@ def db_session(session):
 
 
 @contextmanager
-def su(uid=0, gid=0):
-    """ Temporarily switch effective uid and gid to provided values """
-    seuid = os.geteuid()
-    segid = os.getegid()
-    if uid != 0 and seuid != 0:
-        os.seteuid(0)
-    os.setegid(gid)
-    os.seteuid(uid)
-    try:
-        yield
-    except Exception, e:
-        implog.error('Error in su(%s, %s): %s' % (uid, gid, e))
-    finally:
-        if uid != 0:
-            os.seteuid(0)
-        os.setegid(segid)
-        os.seteuid(seuid)
-
-
-@contextmanager
 def pushd(dir):
     cwd = os.getcwd()
     os.chdir(dir)
@@ -106,82 +85,6 @@ def pushd(dir):
         implog.error(e)
     finally:
         os.chdir(cwd)
-
-
-def _ssh_cchdo_connect():
-    implog.info("Connecting (SSH) to %s" % ssh_host)
-    ssh_client = paramiko.SSHClient()
-    with su():
-        try:
-            ssh_client.load_host_keys('pycchdo_import_known_hosts')
-        except IOError:
-            logging.error('Need file pycchdo_import_known_hosts with %s '
-                          'host key' % ssh_host)
-            raise
-        try:
-            ssh_client.connect(ssh_host, username='root',
-                               key_filename='pycchdo_import_root_ssh_key')
-        except IOError:
-            logging.error('Need file pycchdo_import_root_ssh_key to SSH '
-                          'as remote root.')
-            logging.info("Please generate an SSH key and put the public "
-                         "key in the remote host's root authorized keys. "
-                         "Remember that this will allow anyone with the "
-                         "generated private key to log in as the remote "
-                         "root so BE CAREFUL.")
-            raise
-    return ssh_client
-
-
-@contextmanager
-def _ssh_cchdo():
-    ssh_client = None
-    try:
-        ssh_client = _ssh_cchdo_connect()
-        yield ssh_client
-    except paramiko.SSHException:
-        implog.error(repr(e))
-    finally:
-        if ssh_client:
-            ssh_client.close()
-
-
-@contextmanager
-def _sftp_cchdo():
-    with _ssh_cchdo() as ssh_cchdo:
-        sftp_cchdo = None
-        try:
-            sftp_cchdo = ssh_cchdo.open_sftp()
-            yield (ssh_cchdo, sftp_cchdo)
-        except paramiko.SSHException, e:
-            implog.error(repr(e))
-        finally:
-            if sftp_cchdo:
-                sftp_cchdo.close()
-
-
-def _ustr2uni(s):
-    if type(s) is unicode:
-        return s
-    return unicode(s, 'unicode_escape')
-
-
-def _date_to_datetime(date):
-    return datetime.datetime.combine(date, datetime.time(0))
-
-
-@contextmanager
-def sftp_dl(sftp, filepath):
-    temp = tempfile.NamedTemporaryFile(delete=False)
-    try:
-        implog.info('Downloading %s' % filepath)
-        sftp.get(filepath, temp.name)
-        yield temp
-    except IOError, e:
-        implog.warn("Unable to locate file on remote %s: %s" % (filepath, e))
-        yield None
-    finally:
-        os.unlink(temp.name)
 
 
 def sftp_dl_dir(sftp, remotedir, localdir, su_lock=None):
@@ -648,18 +551,6 @@ def _import_person_inst(importer, name_last, name_first,
     return (person, institution)
 
 
-def _update_attr(o, key, value, signer):
-    try:
-        a = o.get_attr(key)
-        if a:
-            a.value = value
-            a.save()
-        else:
-            o.set_accept(key, value, signer)
-    except KeyError:
-        o.set_accept(key, value, signer)
-
-
 def _import_users(session, importer):
     implog.info("Importing users")
     users = session.query(legacy.User).all()
@@ -671,10 +562,10 @@ def _import_users(session, importer):
                 importer, None, user.username, user.username)
         else:
             implog.info('Updating User %s' % user.username)
-        _update_attr(person, 'password_hash', user.password_hash, importer)
-        _update_attr(person, 'password_salt', user.password_salt, importer)
-        _update_attr(person, 'id', user.id, importer)
-        _update_attr(person, 'import_id', user.id, importer)
+        update_attr(person, 'password_hash', user.password_hash, importer)
+        update_attr(person, 'password_salt', user.password_salt, importer)
+        update_attr(person, 'id', user.id, importer)
+        update_attr(person, 'import_id', user.id, importer)
 
 
 def _import_contacts(session, importer):
@@ -694,24 +585,6 @@ def _import_contacts(session, importer):
         if contact.title and person.get('title', None) is None:
             person.set_accept('title', contact.title, importer)
         person.set_accept('import_id', contact.id, importer)
-
-
-def _import_Collection(importer, name, type):
-    """ A Collection also will include a type as part of its identifier to
-    differentiate between the fields it came from in the original database.
-    """
-    collections = models.Collection.get_by_attrs(names=[name], type=type)
-    if len(collections) > 0:
-        implog.info('Updating Collection %s %s' % (name, type))
-        collection = collections[0]
-    else:
-        implog.info('Creating Collection %s %s' % (name, type))
-        collection = models.Collection(importer)
-        collection.accept(importer)
-        collection.save()
-        collection.set_accept('names', [name], importer)
-        collection.set_accept('type', type, importer)
-    return collection
 
 
 def _import_cruise(importer, cruise):
@@ -781,7 +654,9 @@ def _import_cruise(importer, cruise):
         for group in groups:
            collections.append(_import_Collection(importer, group, 'group').id)
     if cruise.Program:
-        collections.append(_import_Collection(importer, cruise.Program, 'program').id)
+        programs = [x.strip() for x in cruise.Program.split(',')]
+        for program in programs:
+            collections.append(_import_Collection(importer, program, 'program').id)
 
     collections = libcchdo.fns.uniquify(collections)
     try:
@@ -912,9 +787,7 @@ def _import_collections(session, importer):
             implog.info("Updating Collection %s" % collection.id)
             continue
 
-        imported_collection = models.Collection.get_by_attrs(names=collection.Name)
-        # Filter again for collection's exact name to be the importee name
-        imported_collection = [c for c in imported_collection if c.name == collection.Name]
+        imported_collection = models.Collection.get_by_name(collection.Name)
         if imported_collection:
             implog.info("Updating Collection %s" % collection.id)
             continue
@@ -1441,7 +1314,7 @@ def _import_submissions(session, importer, sftp_cchdo):
                 actual_file.filename = file_name
 
                 # ZipFile.open will clobber a file object so make a copy.
-                temp = StringIO.StringIO()
+                temp = StringIO()
                 temp.write(file.read())
                 file.seek(0)
 
@@ -1642,6 +1515,16 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
 }
 
 
+def parse_dt(s):
+    try:
+        return text_to_obj(s, 'datetime')
+    except TypeError:
+        # Probably got fed a datetime
+        return s
+    except ValueError:
+        return s
+
+
 def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
     expocode = cruise.get('expocode')
     if docs:
@@ -1746,8 +1629,20 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
-        attr.creation_stamp.timestamp = date_creation
-        attr.judgment_stamp.timestamp = date_accepted
+
+        # It's possible for date_creation to be a comma separated list.
+        # I'm assuming it's lists of modification times - myshen
+        if date_creation:
+            creations = date_creation.split(',')
+            if len(creations) > 1:
+                date_creations = sorted(map(parse_dt, creations))
+                date_creation = date_creations[0]
+                update_note(attr, ','.join(date_creations), importer,
+                            'dates_updated')
+            else:
+                attr.creation_stamp.timestamp = date_creation
+        if date_accepted:
+            attr.judgment_stamp.timestamp = parse_dt(date_accepted)
 
         attr.import_filepath = doc.FileName
         attr.import_id = id
@@ -1824,7 +1719,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock):
                              (local_path, e))
         su_lock.release()
 
-    unaccounted_archive = StringIO.StringIO()
+    unaccounted_archive = StringIO()
     ua_tar = tarfile.open(mode='w:bz2', fileobj=unaccounted_archive)
     su_lock.acquire()
     with su():
@@ -1884,7 +1779,7 @@ def _import_documents(session, importer):
     implog.info("Opening %d SSH connections" % nthreads)
     for i in range(nthreads):
         try:
-            ssh_cchdo = _ssh_cchdo_connect()
+            ssh_cchdo = ssh_connect('cchdo.ucsd.edu')
             sftp_cchdo = ssh_cchdo.open_sftp()
         except paramiko.SSHException, e:
             implog.error(repr(e))
@@ -2028,7 +1923,6 @@ def main(argv):
         implog.error('pycchdo importer must be run as root in order to '
                      'import correct file ownerships')
         return 1
-
     # Drop effective privileges to _www, need to re-escalate later when
     # importing files
     os.setegid(import_gid)
@@ -2036,19 +1930,28 @@ def main(argv):
 
     options = {
         'clear_db_first': False,
+        #'db_uri': 'mongodb://dimes.ucsd.edu:28017',
         'db_uri': 'mongodb://dimes.ucsd.edu:28019',
+        'db_search_index_path': '/var/cache/pycchdo_search_index_dev',
+        'cchdo_import': True,
+        'seahunt_import': True,
     }
 
-    opts, args = getopt.getopt(argv[1:], 'hc', ('help', 'clear'))
+    opts, args = getopt.getopt(
+        argv[1:], 'hcCS', ('help', 'clear', 'skip-cchdo', 'skip-seahunt', ))
     for option, value in opts:
         if option in ('-h', '--help'):
             print _USAGE
             return 0
         if option in ('-c', '--clear'):
             options['clear_db_first'] = True
+        if option in ('-C', '--skip-cchdo'):
+            options['cchdo_import'] = False
+        if option in ('-S', '--skip-seahunt'):
+            options['seahunt_import'] = False
 
     implog.info("Connect to pycchdo (%s)" % options['db_uri'])
-    models.init_conn({'db_uri': options['db_uri']})
+    models.init_conn(options['db_uri'])
 
     if options['clear_db_first']:
         implog.info('Clearing database')
@@ -2066,41 +1969,50 @@ def main(argv):
     # be done during the import
     libcchdo.check_cache = False
 
-    implog.info("Connecting to cchdo db")
-    with db_session(legacy.session()) as session:
-        session.autoflush = False
+    if options['cchdo_import']:
+        implog.info("Connecting to cchdo db")
+        with db_session(legacy.session()) as session:
+            session.autoflush = False
 
-        #_import_users(session, importer)
-        #_import_contacts(session, importer)
-        #_import_collections(session, importer)
-        #_import_cruises(session, importer)
+            _import_users(session, importer)
+            _import_contacts(session, importer)
+            _import_collections(session, importer)
+            _import_cruises(session, importer)
 
-        ## TODO ensure that expocode is unique. or merge cruises that seem to
-        ## only just have different line numbers. Watch out for no_expocode
+            # TODO ensure that expocode is unique. or merge cruises that seem to
+            # only just have different line numbers. Watch out for no_expocode
 
-        #_import_track_lines(session, importer)
-        #_import_collections_cruises(session, importer)
-        #_import_contacts_cruises(session, importer)
+            _import_track_lines(session, importer)
+            _import_collections_cruises(session, importer)
+            _import_contacts_cruises(session, importer)
 
-        #_import_events(session, importer)
+            _import_events(session, importer)
 
-        _import_spatial_groups(session, importer)
-        #_import_internal(session, importer)
-        #_import_unused_tracks(session, importer)
+            _import_spatial_groups(session, importer)
+            _import_internal(session, importer)
+            _import_unused_tracks(session, importer)
 
-        #_import_parameter_descriptions(importer)
-        #_import_parameter_groups(session, importer)
-        #_import_bottle_dbs(session, importer)
-        #_import_parameter_status(session, importer)
-        #_import_parameters(session, importer)
+            _import_parameter_descriptions(importer)
+            _import_parameter_groups(session, importer)
+            _import_bottle_dbs(session, importer)
+            _import_parameter_status(session, importer)
+            _import_parameters(session, importer)
 
-        #with _sftp_cchdo() as (ssh_cchdo, sftp_cchdo):
-            #_import_submissions(session, importer, sftp_cchdo)
-            #_import_old_submissions(session, importer, sftp_cchdo)
-            #_import_queue_files(session, importer, sftp_cchdo)
-            #_import_documents(session, importer)
-            #_import_cchdo_uname_uids(ssh_cchdo, importer)
-            #_import_argo_files(session, importer, sftp_cchdo)
+            with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
+                _import_submissions(session, importer, sftp_cchdo)
+                _import_old_submissions(session, importer, sftp_cchdo)
+                _import_queue_files(session, importer, sftp_cchdo)
+                _import_documents(session, importer)
+                _import_cchdo_uname_uids(ssh_cchdo, importer)
+                _import_argo_files(session, importer, sftp_cchdo)
+
+    if options['seahunt_import']:
+        implog.info('Connecting to seahunt db')
+        with db_session(seahunt.session()) as session:
+            seahunt.import_(session, importer)
+
+    SearchIndex(options['db_search_index_path']).rebuild_index(
+        clear=options['clear_db_first'])
 
     implog.info("Finished import")
     return 0

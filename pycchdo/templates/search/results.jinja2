@@ -1,35 +1,77 @@
 {% extends "templates/base.jinja2" %}
+{%- block head %}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
+<style type="text/css">
+h2 {
+  font-size: 1.3em;
+}
+h3 {
+  margin-top: 0.5em;
+}
+</style>
+{%- endblock %}
+{%- block title %}{{ query }} - Search{%- endblock %}
+
+{%- macro pluralize_category(category) %}
+  {%- if category == 'person' %}
+    People
+  {%- elif category == 'collection' %}
+    Collections
+  {%- elif category == 'country' %}
+    Countries
+  {%- elif category == 'cruise' %}
+    Cruises
+  {%- elif category == 'ship' %}
+    Ships
+  {%- elif category == 'institution' %}
+    Institutions
+  {%- else %}
+    {{ category }}
+  {%- endif %}
+{%- endmacro %}
+
 {% block content -%}
-  {% call h.boxed('Search results for "%s"' % query) -%}
-    <table>
-    {% for k, v in results.items() -%}
-      <tr>
-        <td>{{ k }}</td>
-        <td>
-          <ul>
-          {%- for x in v %}
-            <li>
-              {%- if x._obj_type == 'Person' %}
-                {{ h.link_person(x) }}
-              {%- elif x._obj_type == 'Collection' %}
-                {{ h.link_collection(x) }}
-              {%- elif x._obj_type == 'Country' %}
-                {{ h.link_country(x) }}
-              {%- elif x._obj_type == 'Cruise' %}
-                {{ h.link_cruise(x) }}
-              {%- elif x._obj_type == 'Ship' %}
-                {{ h.link_ship(x) }}
-              {%- elif x._obj_type == 'Institution' %}
-                {{ h.link_institution(x) }}
-              {%- else %}
-                {{ x }}
-              {%- endif %}
-            </li>
+  {% call h.boxed('Search results for "%s"' % query, class='search-results') -%}
+    {%- if results %}
+      {%- if 'cruise' in results and results['cruise'] %}
+        {# Show the cruises first because they are most
+           important. Also, cruises are the only Obj that
+           can't have cruises associated with them. #}
+        <h2>Cruises</h2>
+        {{- h.cruise_listing(results['cruise'], pre_expand=True) }}
+      {%- endif %}
+
+      {%- for category, items in results.items() %}
+        {%- if category != 'cruise' and items|length > 0 %}
+          <h2>{{ pluralize_category(category) }}</h2>
+          {%- for result in items %}
+            <h3>{{- h.link_obj_polymorph(result) }}</h3>
+            {%- if items[result]|length > 0 %}
+              {{- h.cruise_listing(items[result]) }}
+            {%- endif %}
           {%- endfor %}
-          </ul>
-        </td>
-      </tr>
-    {% endfor %}
-    </table>
+        {%- endif %}
+      {%- endfor %}
+    {%- else %}
+      <h2>Sorry, there are no results for your query.</h2>
+
+      <p>Try the {{ h.tags.link_to('advanced search', request.route_path('advanced_search')) }}?</p>
+
+      <h3>Wildcard operator<h3>
+      <p>If you were searching for something beginning or ending with {{ query }}, use the wildcard operator "*".</p>
+      <p>e.g. searching for cruises with ExpoCode beginning "33RR", use "33RR*"</p>
+
+      <h3>Boolean operators</h3>
+      <p>You may use the boolean operators "AND", "OR", "NOT" in your query.</p>
+
+      <h3>Grouping operators</h3>
+      <p>You may use parentheses to group parts of your query.</p>
+
+    {%- endif %}
   {%- endcall %}
+{%- endblock %}
+
+{%- block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
 {%- endblock %}

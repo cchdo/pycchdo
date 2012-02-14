@@ -24,6 +24,7 @@
 }
 #intro p {
   margin-bottom: 0.5em;
+  text-align: justify;
 }
 
 #geo_search h2 {
@@ -42,9 +43,14 @@
   float: right;
   margin-right: 0.5em;
 }
+#geo_search #search_map a {
+  border: none;
+}
 
-#rdev h2 {
-  border-bottom: 1px solid #DDEFFF;
+#rdev .box_content {
+  max-height: 42em;
+}
+.home h2 {
   margin-top: 0;
   margin-bottom: 0.5em;
 }
@@ -66,14 +72,15 @@
 #rdev .info {
   position: absolute;
   top: 0;
-  left: 90px;
-}
-#rdev .info p {
-  margin-left: 1em;
+  left: 8.5em;
 }
 #rdev .info h3,
 #rdev .info p {
   white-space: nowrap;
+  margin: 0;
+}
+#rdev .info p {
+  margin-left: 1em;
 }
 #rdev .info strong {
   color: #67a9bb;

@@ -6,19 +6,19 @@ import pycchdo.models as models
 
 from . import *
 from pycchdo.helpers import has_mod
+from pycchdo.views.staff import staff_signin_required
 from session import require_signin
 
 
+@staff_signin_required
 def objs(request):
     objs = models.Obj.get_all()
     objs = _paged(request, objs)
     return {'objs': objs}
 
 
+@staff_signin_required
 def obj_new(request):
-    if not request.user:
-        return require_signin(request)
-
     if _http_method(request) != 'PUT':
         return HTTPBadRequest()
 
@@ -43,15 +43,21 @@ def obj_new(request):
         obj.save()
     if attrs:
         for k, v in attrs.items():
-            print obj, k, v, request.user
-            obj.set(k, v, request.user)
+            if k == 'track' and isinstance(obj, models.Cruise):
+                obj.set_accept(k, str_to_track(v), request.user)
+            else:
+                if k in ['expocode', 'map_thumb', ]:
+                    obj.set_accept(k, v, request.user)
+                else:
+                    obj.set(k, v, request.user)
 
-    if obj._obj_type == models.Cruise.__name__:
+    if isinstance(obj, models.Cruise):
         return HTTPSeeOther(location=request.route_path('cruise_show',
                                                         cruise_id=obj.id))
     return {'obj': obj}
 
 
+@staff_signin_required
 def obj_show(request):
     obj_id = request.matchdict['obj_id']
     obj = models.Obj.get_id(obj_id)
@@ -88,18 +94,21 @@ def obj_show(request):
                 return HTTPSeeOther(location=request.referrer)
         except KeyError:
             pass
-    if obj.type == 'Cruise':
-        link = request.url.replace('/obj/', '/cruise/')
-    elif obj.type == 'Obj':
+
+    if obj.obj_type in ['Cruise', 'Person', 'Institution', 'Country']:
+        link = request.url.replace('/obj/', '/%s/' % obj.obj_type.lower())
+    elif obj.obj_type == 'Obj':
         link = None
 
     return {
         'id': obj_id,
-        'obj': obj,
+        'obj': obj.polymorph(),
+        'asdict': dict(obj),
         'link': link,
     }
 
 
+@staff_signin_required
 def obj_attrs(request):
     method = _http_method(request)
 
@@ -152,6 +161,7 @@ def obj_attrs(request):
     return {'obj': obj, 'type': __builtins__['type']}
 
 
+@staff_signin_required
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
     key = request.matchdict['key']
@@ -203,8 +213,8 @@ def obj_attr(request):
 
             def accept_suggested():
                 attr.accept(request.user)
-                request.session.flash('Attr change accepted',
-                                      'action_taken')
+                request.session.flash('Attr change accepted', 'action_taken')
+
             try:
                 accept_value = request.params['accept_value']
                 if accept_value:
@@ -219,6 +229,9 @@ def obj_attr(request):
                     accept_suggested()
             except KeyError:
                 accept_suggested()
+            except ValueError:
+                request.session.flash('%s is not valid' % accept_key, 'help')
+                return redirect()
         elif action == 'Acknowledge':
             attr.acknowledge(request.user)
             request.session.flash('Attr change acknowledged', 'action_taken')

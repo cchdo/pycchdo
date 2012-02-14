@@ -1,9 +1,8 @@
 .argo.nav {
-  margin: -1em -1em 1em -1em;
+  margin: -1em;
+  margin-bottom: inherit;
   height: 2em;
-  left: 1em;
   background-color: #F4F4F4;
-  border-bottom: 1px solid #a0a0a0;
 }
 .argo.nav li {
   float: left;
@@ -11,14 +10,14 @@
 }
 .argo.nav a {
   display: block;
+  border: none;
   padding: 0.2em 0.5em;
 }
 .argo.nav .active {
-  background-color: #E0E0E0;
-  border: 1px solid #A0A0A0;
-  border-top: 1px solid #E0E0E0;;
-  border-bottom: 1px solid #707070;;
-  top: -1px;
+  background-color: #D0D0D0;
+  border: 1px solid #D0D0D0;
+  border-top: none;
+  border-bottom: none;
   position: relative;
   height: 100%;
 }
@@ -26,27 +25,26 @@
 .argo table {
   width: 100%;
 }
-.argo table td,
-.argo table th { padding: 0.5em; vertical-align: top; }
-.argo table .time { white-space: nowrap; }
-.argo table .description { width: 27em; overflow-x: auto; }
-.argo table pre { width: inherit; }
-
-.argo tr.header {
-  border-bottom: 1px solid #DDDDDD;
-  font-size: 1.2em;
+.argo td,
+.argo th {
+  padding: 0.5em;
 }
-.argo tr.header th {
+.argo table .time {
   white-space: nowrap;
 }
-.argo tr.even {
-  background: #FFFFFF;
+.argo table .description {
+  width: 80%;
 }
-.argo tr.odd {
-  background: #EEEEEE;
+.argo table pre {
+  margin: 0;
+  width: inherit;
 }
 
 #content h2 {
   font-size: 1.2em;
   margin-top: 0.5em;
+}
+
+.argo p {
+  margin: 0.5em auto;
 }

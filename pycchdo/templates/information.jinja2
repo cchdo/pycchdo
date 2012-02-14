@@ -2,9 +2,10 @@
 {% block title %}Information{% endblock %}
 {% block content -%}
 {% call h.boxed('Information') -%}
+  <p>{{ whh.HTML.li(whh.tags.link_to('Contact', '/contact.html')) }}</p>
   <p>{{ whh.HTML.li(whh.tags.link_to('Manuals', '/manuals.html')) }}</p>
   <p>{{ whh.HTML.li(whh.tags.link_to('Policies', '/policies.html')) }}</p>
   <p>{{ whh.HTML.li(whh.tags.link_to('Format', '/format.html')) }}</p>
+  <p>{{ whh.HTML.li(whh.tags.link_to('Parameters', '/parameters.html')) }}</p>
 {%- endcall %}
 {%- endblock %}
-

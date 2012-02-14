@@ -1,134 +1,140 @@
-{% call h.boxed('Manuals', class='manuals-index') -%}
-<p><a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Data Submission Guide</a> (replaces WHP 90-1)</p>
-<p><a href="/static/information/policies/Data_Evaluation_reference.pdf">Data Evaluation Reference</a></p>
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}Manuals{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('Manuals', class='manuals-index') -%}
+    <p><a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Data Submission Guide</a> (replaces WHP 90-1)</p>
+    <p><a href="/static/information/policies/Data_Evaluation_reference.pdf">Data Evaluation Reference</a></p>
 
-<h2>WOCE-era Manuals</h2>
-<p>(some of these are outdated; please see <a href="http://www.go-ship.org/">go-ship.org</a> for new and updated manuals)</p>
+    <div class="subsection">
+      <h2>WOCE-era Manuals</h2>
+      <p>(some of these are outdated; please see <a href="http://www.go-ship.org/">go-ship.org</a> for new and updated manuals)</p>
 
-<div id="requirements-for-reporting">
-<h3>WHP 90-1: Requirements for WHP Data Reporting</h3>
-Revision 2, May 1994
-<ul>
-<li><a href="/static/information/manuals/pdf/90_1/title.pdf">Title Page</a></li>
-<li><a href="/static/information/manuals/pdf/90_1/toc.pdf">Table of Contents</a></li>
-<li><a href="/static/information/manuals/pdf/90_1/lot.pdf">List of Tables</a></li>
-<li><a href="/static/information/manuals/pdf/90_1/lof.pdf">List of Figures</a></li>
-<li><a href="/static/information/manuals/pdf/90_1/preface.pdf">Preface</a></li>
-<li><a href="/static/information/manuals/pdf/90_1/chap1.pdf">Chapter 1</a> <span class="title">Overview of Reporting</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/chap2.pdf">Chapter 2</a> <span class="title">WHP Cruise Requirements</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/chap3.pdf">Chapter 3</a> <span class="title">Cruise Plan and Cruise Report</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/chap4.pdf">Chapter 4</a> <span class="title">Hydrographic Data Formats</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/chap5.pdf">Chapter 5</a> <span class="title">Underway Data Formats</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxa.pdf">Appendix A</a> <span class="title">WOCE DACs, SACs, and the DIU</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxb.pdf">Appendix B</a> <span class="title">Sample Cruise Plan</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxc.pdf">Appendix C</a> <span class="title">Sample Cruise Report - .DOC Text File</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxd.pdf">Appendix D</a> <span class="title">Reporting Protocol for Nonstandard Measurements</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxe.pdf">Appendix E</a> <span class="title">Software Compatability</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxf.pdf">Appendix F</a> <span class="title">ASCII Character Set</span></li>
-<li><a href="/static/information/manuals/pdf/90_1/appendxg.pdf">Appendix G</a> <span class="title">Water Sample Parameters</span></li>
-</ul>
-</div>
+      <div id="requirements-for-reporting">
+        <h3>WHP 90-1: Requirements for WHP Data Reporting</h3>
+        <p>Revision 2, May 1994</p>
+        <ul>
+          <li><a href="/static/information/manuals/pdf/90_1/title.pdf">Title Page</a></li>
+          <li><a href="/static/information/manuals/pdf/90_1/toc.pdf">Table of Contents</a></li>
+          <li><a href="/static/information/manuals/pdf/90_1/lot.pdf">List of Tables</a></li>
+          <li><a href="/static/information/manuals/pdf/90_1/lof.pdf">List of Figures</a></li>
+          <li><a href="/static/information/manuals/pdf/90_1/preface.pdf">Preface</a></li>
+          <li><a href="/static/information/manuals/pdf/90_1/chap1.pdf">Chapter 1</a> <span class="title">Overview of Reporting</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/chap2.pdf">Chapter 2</a> <span class="title">WHP Cruise Requirements</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/chap3.pdf">Chapter 3</a> <span class="title">Cruise Plan and Cruise Report</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/chap4.pdf">Chapter 4</a> <span class="title">Hydrographic Data Formats</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/chap5.pdf">Chapter 5</a> <span class="title">Underway Data Formats</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxa.pdf">Appendix A</a> <span class="title">WOCE DACs, SACs, and the DIU</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxb.pdf">Appendix B</a> <span class="title">Sample Cruise Plan</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxc.pdf">Appendix C</a> <span class="title">Sample Cruise Report - .DOC Text File</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxd.pdf">Appendix D</a> <span class="title">Reporting Protocol for Nonstandard Measurements</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxe.pdf">Appendix E</a> <span class="title">Software Compatability</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxf.pdf">Appendix F</a> <span class="title">ASCII Character Set</span></li>
+          <li><a href="/static/information/manuals/pdf/90_1/appendxg.pdf">Appendix G</a> <span class="title">Water Sample Parameters</span></li>
+        </ul>
+      </div>
 
-<h3>WHP 91-1 : WOCE Operations Manual</h3>
-<ul>
-  <li><a href="/static/information/manuals/pdf/91_1/91_1cov.pdf">Cover Page</a></li>
-  <li><a href="/static/information/manuals/pdf/91_1/preface.pdf">Preface</a> <span class="credit">(Saunders)</a></i></li>
-  <li><a href="/static/information/manuals/pdf/91_1/91_1toc.pdf">Table of Contents</a></li>
-  <li><a href="/static/information/manuals/pdf/91_1/91_1hist.pdf">History of Revisons</a></li>
-  <li><a href="/static/information/manuals/pdf/91_1/introjoy.pdf">Introduction to the Collection of Expert Reports Compiled for the WHP Programme</a>
-    <p class="credit">(Joyce)</p>
-  </li>
-</ul>
-<h3>Calibrations and Standards</h3>
-<ul>
-	<li> <a href="/static/information/manuals/pdf/91_1/saunders.pdf">Standards and Laboratory Calibration</a>
-		<p class="credit">(Saunders, Mahrt, Williams)</p>
-	</li>
-	<li> <a href="/static/information/manuals/pdf/91_1/bullster.pdf">CFCs, 3He-tritium and Small Volume Radiocarbon</a>
-		<p class="credit">(Bullister)</p>
-	</li>
-</ul>
-<h3>Methods for Water Sampling</h3>
-<ul>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/stal.pdf">Salinity Measurements</a>
-		<p class="credit">(Stalcup)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/jenknew.pdf">Measuring Helium Isotopes and Tritium in Seawater Samples</a>
-		<p class="credit">(Jenkins, Lott, Davis, Birdwhistell, Matthewson)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/vanwoy.pdf">CFC Data Processing Quality Control Steps</a>
-		<p class="credit">(VanWoy, Salameh)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/gordnut.pdf">A suggested Protocol for Continuous Flow Automated Analysis of Seawater Nutrients (Phosphate, Nitrate, Nitrite, and Silicic Acid) in the WOCE Hydrographic Program and the Joint Global Fluxes Study</a>
-		<p class="credit">(Gordon, Jennings, Ross, Krest)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/culber2.pdf">Dissolved Oxygen</a>
-		<p class="credit">(Culberson)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/ams.pdf">Measuring 14C in Seawater {Sigma}C02 by Accelerator Mass Spectrometry</a>
-		<p class="credit">(McNichol, Jones)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/key1.pdf">Large Volume Sampling</a>
-		<p class="credit">(Key)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/key2a.pdf">Radiocarbon</a>
-		<p class="credit">(Key)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/smethie.pdf">Collection of 85Kr and 39Ar Samples</a>
-    <p>The PDF has formatting errors. Download a Postscript version without figures <a href="/static/information/manuals/ps/91_1/smethie.ps">here</a>.</p>
-    <p class="credit">(Smethie)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/dickson2.pdf">Determination of dissolved oxygen in sea water by Wilkler titration</a>
-		<p class="credit">(Dickson)</p>
-	</li>
-</ul>
-<h3>Underway Measurements</h3>
-<ul>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/zenk.pdf">WHP Subgroup on Underway Measurements: Overview</a>
-		<p class="credit">(Zenk)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/firadcp.pdf">Acoustic Doppler Current Profiling Measurements and Navigation</a>
-		<p class="credit">(Firing)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/mueller.pdf">Near-Surface Temperature, Salinity, and Bathymetry Measurements</a>
-		<p class="credit">(M&#252;ller, Schenk)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/taynew.pdf">Meteorological Measurement from WOCE Research Ships</a>
-		<p class="credit">(Taylor, Weller)</p>
-	</li>
-</ul>
-<h3>CTD Methods</h3>
-<ul>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/introctd.pdf">Introduction to Conductivity-Temperature-Depth Methods</a>
-		<p class="credit">(Joyce)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/ctdmil.pdf">CTD Oxygen Calibration Procedure</a>
-		<p class="credit">(Millard)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/algo6.pdf">Calculation of Physical Properties of Seawater</a>
-		<p class="credit">(Fofonoff, Millard)</p>
-	</li>
-	<li>
-		<a href="/static/information/manuals/pdf/91_1/ctdimp.pdf">Improving NBIS MK IIIB Measurements</a>
-		<p class="credit">(M&#252;ller, Holfort, Delahoyde, Williams)</p>
-	</li>
-</ul>
-<p class="pdf">All documents are in Portable Document Format (PDF)</p>
-{%- endcall %}
+      <h3>WHP 91-1 : WOCE Operations Manual</h3>
+      <ul>
+        <li><a href="/static/information/manuals/pdf/91_1/91_1cov.pdf">Cover Page</a></li>
+        <li><a href="/static/information/manuals/pdf/91_1/preface.pdf">Preface</a> <span class="credit">(Saunders)</a></i></li>
+        <li><a href="/static/information/manuals/pdf/91_1/91_1toc.pdf">Table of Contents</a></li>
+        <li><a href="/static/information/manuals/pdf/91_1/91_1hist.pdf">History of Revisons</a></li>
+        <li><a href="/static/information/manuals/pdf/91_1/introjoy.pdf">Introduction to the Collection of Expert Reports Compiled for the WHP Programme</a>
+          <p class="credit">(Joyce)</p>
+        </li>
+      </ul>
+      <h3>Calibrations and Standards</h3>
+      <ul>
+        <li> <a href="/static/information/manuals/pdf/91_1/saunders.pdf">Standards and Laboratory Calibration</a>
+          <p class="credit">(Saunders, Mahrt, Williams)</p>
+        </li>
+        <li> <a href="/static/information/manuals/pdf/91_1/bullster.pdf">CFCs, 3He-tritium and Small Volume Radiocarbon</a>
+          <p class="credit">(Bullister)</p>
+        </li>
+      </ul>
+      <h3>Methods for Water Sampling</h3>
+      <ul>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/stal.pdf">Salinity Measurements</a>
+          <p class="credit">(Stalcup)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/jenknew.pdf">Measuring Helium Isotopes and Tritium in Seawater Samples</a>
+          <p class="credit">(Jenkins, Lott, Davis, Birdwhistell, Matthewson)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/vanwoy.pdf">CFC Data Processing Quality Control Steps</a>
+          <p class="credit">(VanWoy, Salameh)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/gordnut.pdf">A suggested Protocol for Continuous Flow Automated Analysis of Seawater Nutrients (Phosphate, Nitrate, Nitrite, and Silicic Acid) in the WOCE Hydrographic Program and the Joint Global Fluxes Study</a>
+          <p class="credit">(Gordon, Jennings, Ross, Krest)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/culber2.pdf">Dissolved Oxygen</a>
+          <p class="credit">(Culberson)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/ams.pdf">Measuring 14C in Seawater {Sigma}C02 by Accelerator Mass Spectrometry</a>
+          <p class="credit">(McNichol, Jones)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/key1.pdf">Large Volume Sampling</a>
+          <p class="credit">(Key)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/key2a.pdf">Radiocarbon</a>
+          <p class="credit">(Key)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/smethie.pdf">Collection of 85Kr and 39Ar Samples</a>
+          <p>The PDF has formatting errors. Download a Postscript version without figures <a href="/static/information/manuals/ps/91_1/smethie.ps">here</a>.</p>
+          <p class="credit">(Smethie)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/dickson2.pdf">Determination of dissolved oxygen in sea water by Wilkler titration</a>
+          <p class="credit">(Dickson)</p>
+        </li>
+      </ul>
+      <h3>Underway Measurements</h3>
+      <ul>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/zenk.pdf">WHP Subgroup on Underway Measurements: Overview</a>
+          <p class="credit">(Zenk)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/firadcp.pdf">Acoustic Doppler Current Profiling Measurements and Navigation</a>
+          <p class="credit">(Firing)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/mueller.pdf">Near-Surface Temperature, Salinity, and Bathymetry Measurements</a>
+          <p class="credit">(M&#252;ller, Schenk)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/taynew.pdf">Meteorological Measurement from WOCE Research Ships</a>
+          <p class="credit">(Taylor, Weller)</p>
+        </li>
+      </ul>
+      <h3>CTD Methods</h3>
+      <ul>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/introctd.pdf">Introduction to Conductivity-Temperature-Depth Methods</a>
+          <p class="credit">(Joyce)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/ctdmil.pdf">CTD Oxygen Calibration Procedure</a>
+          <p class="credit">(Millard)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/algo6.pdf">Calculation of Physical Properties of Seawater</a>
+          <p class="credit">(Fofonoff, Millard)</p>
+        </li>
+        <li>
+          <a href="/static/information/manuals/pdf/91_1/ctdimp.pdf">Improving NBIS MK IIIB Measurements</a>
+          <p class="credit">(M&#252;ller, Holfort, Delahoyde, Williams)</p>
+        </li>
+      </ul>
+    </div>
+    <p class="pdf">All documents are in Portable Document Format (PDF)</p>
+  {%- endcall %}
+{%- endblock %}

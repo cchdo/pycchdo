@@ -24,12 +24,12 @@
   display: inline-block;
   height: 100%;
   text-decoration: none;
-  -webkit-border-top-left-radius: 2px;
-  -webkit-border-top-right-radius: 2px;
-  -moz-border-radius-topleft: 2px;
-  -moz-border-radius-topright: 2px;
-  -o-border-top-left-radius: 2px;
-  -o-border-top-right-radius: 2px;
+  border: none;
+  -webkit-border-radius: 0.2em;
+  -moz-border-radius: 0.2em;
+  -o-border-radius: 0.2em;
+  border-radius: 0.2em;
+
   -webkit-transition: background-color .3s ease;
   -moz-transition: background-color .3s ease;
   -o-transition: background-color .3s ease;

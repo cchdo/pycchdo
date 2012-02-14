@@ -10,6 +10,7 @@ CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 _importer_requires = [
 #    'libcchdo',
     'paramiko',
+    'geoalchemy',
     ]
 
 requires = [
@@ -19,9 +20,9 @@ requires = [
     'webhelpers',
     'WebError',
     'pymongo',
+    'pyKML',
     'whoosh',
     'geojson',
-    'geoalchemy',
     'shapely',
     ] + _importer_requires
 
@@ -51,6 +52,5 @@ setup(name='pycchdo',
       [paste.app_factory]
       main = pycchdo:main
       """,
-      paster_plugins=['pyramid'],
       )
 

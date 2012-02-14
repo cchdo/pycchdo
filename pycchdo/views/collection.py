@@ -33,12 +33,22 @@ def collection_edit(request):
     if not collection:
         return HTTPNotFound()
 
-    names = text_to_obj(request.params.get('names', ''), 'text_list')
+    try:
+        names = text_to_obj(request.params.get('names', ''), 'text_list')
+    except ValueError:
+        request.session.flash(
+            'Invalid collection names. Please ensure names are a list (x,y,z)',
+            'help')
+        return {'collection': collection}
 
     if collection.names != names:
         collection.set_accept('names', names, request.user)
 
-    type = text_to_obj(request.params.get('type', ''), 'text')
+    try:
+        type = text_to_obj(request.params.get('type', ''), 'text')
+    except ValueError:
+        request.session.flash('Invalid collection type', 'help')
+        return {'collection': collection}
 
     if collection.type != type:
         collection.set_accept('type', type, request.user)

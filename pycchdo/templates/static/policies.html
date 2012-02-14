@@ -1,27 +1,34 @@
-{% call h.boxed('Policies', class='policies-index') -%}
-{#
-  <h2><a href="policies/crypt.html">Information on File Encryption</a></h2>
-  <p>Information on the PGP file encryption and the policies use at the WHPO</p>
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}Policies{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('Policies', class='policies-index') %}
 
-#}
-  <h2><a href="policies/version.html">CCHDO Version Codes</a></h2>
-  <p>A description of how CCHDO/SIO determines the version number of all modified files</p>
+    {#
+    <h2><a href="policies/crypt.html">Information on File Encryption</a></h2>
+    <p>Information on the PGP file encryption and the policies use at the WHPO</p>
+    #}
 
-  <h2><a href="policies/sharing.html">Data Sharing</a></h2>
-  <p>Explanation of how data sets are submitted and shared among principal investigators and oceanographers</p>
+    <h2><a href="policies/version.html">CCHDO Version Codes (Stamps)</a></h2>
+    <p>A description of how CCHDO/SIO determines the version number of all modified files</p>
 
-  <h2><a href="policies/postwoce_name.html">Hydrography file naming conventions</a></h2>
-  <p>Current policy for naming hydrography files.</p>
+    <h2><a href="policies/sharing.html">Data Sharing</a></h2>
+    <p>Explanation of how data sets are submitted and shared among principal investigators and oceanographers</p>
 
-  <!-- <h2><a href="policies/woce_name.html">Woce File Name Conventions</a></h2>
-  <p>A description of how files are formatted as 8.3 file names</p>-->
+    <h2><a href="policies/postwoce_name.html">Hydrography file naming conventions</a></h2>
+    <p>Current policy for naming hydrography files.</p>
 
-  <h2><a href="policies/doc.html">Documentation Policy</a></h2>
-  <p>A description of the CCHDO Documentation Policy</p>
+    {#
+    <h2><a href="policies/woce_name.html">Woce File Name Conventions</a></h2>
+    <p>A description of how files are formatted as 8.3 file names</p>
+    #}
 
-  <h2><a href="parameter_descriptions">Parameters</a></h2>
-  <p>A description of the data types tracked at the CCHDO</p>
+    <h2><a href="policies/doc.html">Documentation Policy</a></h2>
+    <p>A description of the CCHDO Documentation Policy</p>
 
-  <h2><a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Submission Guide</a></h2>
-  <p>A guide for submitting data to the CCHDO</p>
-{%- endcall %}
+    <h2><a href="/parameters.html">Parameters</a></h2>
+    <p>A description of the data types tracked at the CCHDO</p>
+
+    <h2><a href="/static/information/policies/CCHDO_DataSubmitGuide.pdf">Submission Guide</a></h2>
+    <p>A guide for submitting data to the CCHDO</p>
+  {%- endcall %}
+{%- endblock %}

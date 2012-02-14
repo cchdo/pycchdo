@@ -10,7 +10,6 @@
       <tr>
         <th>{{ k }}</th>
         <td>{{ v }}</td>
-        <td>{{ type(v) }}</td>
         <td>
           {{ whh.tags.form(request.url, method="DELETE") }}
             <input type="hidden" name="key" value="{{ k }}">

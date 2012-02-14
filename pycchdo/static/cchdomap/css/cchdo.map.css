@@ -57,6 +57,8 @@
 .layerview .layer .content {
   display: inline-block;
   vertical-align: top;
+  overflow: hidden;
+  max-width: 17em;
 }
 
 .layerview .layer .content .colorbox {
@@ -83,6 +85,7 @@
   background: #ffffaa;
 }
 
+.layerview .layer,
 .layerview .layer-creator {
   margin-top: 0.5em;
 }
@@ -110,7 +113,7 @@
   background: #eeeeee;
 }
 
-.pane-handle {
+div.pane-handle {
   width: 1em;
   height: 1.2em;
   position: absolute;

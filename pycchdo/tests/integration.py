@@ -10,7 +10,7 @@ class ViewTests(unittest.TestCase):
     tearDown = global_tearDown
 
     def test_home_view(self):
-        from pycchdo.views import home
+        from pycchdo.views.toplevel import home
         request = testing.DummyRequest()
         result = home(request)
         self.assertEqual(result, {'updated': [], 'upcoming': []})

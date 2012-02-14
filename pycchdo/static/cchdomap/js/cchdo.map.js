@@ -84,6 +84,9 @@ CCHDO.MAP = {
   MIN_TIME: 1967,
   MAX_TIME: new Date().getFullYear(),
   APPNAME: '/search/map',
+  // TODO This is a guess at the number of KMLs before the API url overflows
+  MAPS_KML_LIMIT: 15,
+  TIP_SPAM_TIME: 1000,
   LOADING_IMG: '<img src="/static/cchdomap/images/rotate.gif" />',
   Z: {
     'region': google.maps.Marker.MAX_ZINDEX + 1,
@@ -96,6 +99,7 @@ CCHDO.MAP = {
 };
 
 CCHDO.MAP.TIPS = {
+  'loading': '<p>Loading...</p>',
   'earthPluginBlocked': 
     '<p>Unable to load the Google Earth plugin.</p>' + 
     '<p>You will not be able to use 3D earth functionality.</p>' +
@@ -114,6 +118,8 @@ CCHDO.MAP.TIPS = {
     'the values you entered were not min/max.'].join(''),
   'region': '<p>Find cruises that pass through a defined region.</p>',
   'kml': '<p>Load KML or KMZ files used by Google Earth into the map.</p>',
+  'kml_failed': '<p>Unable to load KML or KMZ.</p>',
+  'kml_too_many': '<p>Too many KMLs being shown simultaneously. Some may not appear.</p>',
   'nav': 
     '<p>Display NAV files as a line.</p><p>This may be useful for comparing ' +
     'tracks.</p>' +
@@ -125,12 +131,63 @@ CCHDO.MAP.TIPS = {
             "<ul><li>ship:Knorr</li><li>line:p10</li>" + 
             "<li>chief_scientist:Swift</li></ul>" + 
             "<p>These parameters are valid:</p>" +
-            // TODO these need to change
+            // TODO these need to be updated
             "<ul><li>Group</li><li>Chief_Scientist</li><li>ExpoCode</li>" + 
             "<li>Alias</li><li>Ship</li><li>Line</li></ul>."
 };
 
-CCHDO.MAP.tip = $.jGrowl;
+CCHDO.MAP.tip = (function () {
+  var past = {};
+  return function (s) {
+    var lasttime = past[s];
+    var now = new Date();
+    if (lasttime && now - lasttime < CCHDO.MAP.TIP_SPAM_TIME) {
+      return;
+    }
+
+    past[s] = now;
+    $.jGrowl(s);
+
+    // Clean up the cache
+    for (var k in past) {
+      if (now - past[k] >= CCHDO.MAP.TIP_SPAM_TIME) {
+        delete past[k];
+      }
+    }
+  };
+})();
+
+CCHDO.MAP.processCommands = function (commands) {
+  for (var i = 0; i < commands.length; i += 1) {
+    var command = commands[i];
+    if (/^search\:(.+)/.test(command)) {
+      var searchCreator = CCHDO.MAP.layerView.layerSectionSearch.creator._content;
+      $(':text', searchCreator).val(command.substring('search:'.length));
+      $('form', searchCreator).submit();
+    } else if (/^kmllink\:(.+)/.test(command)) {
+      var kmllinkCreator = CCHDO.MAP.layerView.layerSectionKML.creatorLink._content;
+      $(':text', kmllinkCreator).val(command.substring('kmllink:'.length));
+      $('form', kmllinkCreator).submit();
+    } else if (/^graticules\:(.+)/.test(command)) {
+      var on = true;
+      var value = command.substring('graticules:'.length);
+      if (value == 'off') {
+        on = false;
+      }
+      CCHDO.MAP.layerView.layerSectionPermanent.gratlayer.setOn(on);
+    } else if (/^atmosphere\:(.+)/.test(command)) {
+      var on = true;
+      var value = command.substring('atmosphere:'.length);
+      if (value == 'off') {
+        on = false;
+      }
+      CCHDO.MAP.layerView.layerSectionPermanent.atmolayer.setOn(on);
+    } else if (/^map_type\:earth/.test(command)) {
+      CCHDO.MAP.map.setMapTypeId('Earth');
+    } else {
+    }
+  }
+};
 
 CCHDO.MAP.processHashCommands = function () {
   if (!CCHDO.MAP.layerView) {
@@ -139,19 +196,18 @@ CCHDO.MAP.processHashCommands = function () {
   var hash = location.hash;
   if (hash) {
     commands = hash.substring(1).split(',');
-    var searchCreator = CCHDO.MAP.layerView.layerSectionSearch.creator._content;
-    for (var i = 0; i < commands.length; i += 1) {
-      var command = commands[i];
-      if (/^search\:(.+)/.test(command)) {
-        $(':text', searchCreator).val(command.substring('search:'.length));
-        $('form', searchCreator).submit();
-      } else {
-      }
-    }
+    CCHDO.MAP.processCommands(commands);
+  }
+};
+
+CCHDO.MAP.processSessionCommands = function () {
+  if (CCHDO.session_map_commands) {
+    CCHDO.MAP.processCommands(CCHDO.session_map_commands.split(','));
   }
 };
 
 CCHDO.MAP.load = function () {
+  CCHDO.MAP.tip(CCHDO.MAP.TIPS['loading']);
   var domroot = $('#map_space');
   var mapdiv = $('<div id="map" />').appendTo(domroot);
 
@@ -186,6 +242,7 @@ CCHDO.MAP.load = function () {
   ids.push(etopo_map_type);
   mapTypeControlOptions.mapTypeIds = ids;
   CCHDO.MAP.map.set('mapTypeControlOptions', mapTypeControlOptions);;
+  CCHDO.MAP.map.set('mapTypeId', etopo_map_type);
 
   CCHDO.MAP.pane = new PanedMap(domroot[0], CCHDO.MAP.map);
   CCHDO.MAP.pane._on = true;
@@ -196,8 +253,25 @@ CCHDO.MAP.load = function () {
     CCHDO.MAP.layerView = new CCHDO.MAP.Layers.DefaultLayerView(CCHDO.MAP.map);
     CCHDO.MAP.pane.setPaneContent(CCHDO.MAP.layerView._dom);
 
+    // TODO figure out how to do this without opening security hole
+    //CCHDO.MAP.earth._withEarth(function (ge) {
+    //  google.earth.addEventListener(ge, 'balloonopening', function (event) {
+    //    // Rewrite all placemark balloons to be unsafe.
+    //    event.preventDefault();
+    //    var placemark = event.getFeature();
+    //    if (placemark.getType() == 'KmlPlacemark') {
+    //      var content = placemark.getBalloonHtmlUnsafe();
+    //      var balloon = ge.createHtmlStringBalloon('');
+    //      balloon.setFeature(placemark);
+    //      balloon.setContentString(content);
+    //      ge.setBalloon(balloon);
+    //    }
+    //    return false;
+    //  });
+    //});
+
     $(window).resize(function () {
-      domroot.height($(this).height() - 20);
+      domroot.height($(this).height());
       var previousFx = $.fx.off;
       $.fx.off = true;
       CCHDO.MAP.pane.redraw();
@@ -206,6 +280,7 @@ CCHDO.MAP.load = function () {
 
     CCHDO.MAP.map.setCenter(center);
 
+    CCHDO.MAP.processSessionCommands();
     CCHDO.MAP.processHashCommands();
   }
 
@@ -217,15 +292,15 @@ CCHDO.MAP.load = function () {
 
   // If the page is dropped inside a zone surrounding the top of the map,
   // scroll to the nicest viewing spot.
-  var menu_offset = $('#cchdo_menu').offset().top;
-  $('body').animate({'scrollTop': menu_offset}, 1000, function () {
-    var toler_top = $('#picture').height();
-    var toler_bot = $('#gfooter').height() + 8;
+  var content_offset = $('#content').offset().top;
+  $('body').animate({'scrollTop': content_offset}, 1000, function () {
+    var toler_top = $('#picture').height() * .7;
+    var toler_bot = $('#gfooter').outerHeight();
     $(document).bind('scrollstop', function () {
       var scrollTop = $(this).scrollTop();
-      if (scrollTop - toler_bot <= menu_offset && 
-          menu_offset <= scrollTop + toler_top) {
-        $('body').animate({'scrollTop': menu_offset}, 'fast');
+      if (scrollTop - toler_bot <= content_offset && 
+          content_offset <= scrollTop + toler_top) {
+        $('body').animate({'scrollTop': content_offset}, 'fast');
       }
     });
   });
@@ -348,13 +423,24 @@ return PanedMap;
 function ImportKML() {
 }
 
-ImportKML.prototype.importURL = function (url, map_callback, earth_callback) {
+ImportKML.prototype.importURL = function (url, map_callback, earth_callback,
+                                          error_callback) {
   var self = this;
-  var layer = new google.maps.KmlLayer(CM.host + '/' + url);
-  google.maps.event.addListenerOnce(layer, 'earth_kml_ready', function (kmlobj) {
-    self._getTour(kmlobj, function (tour) {
-      earth_callback(kmlobj, tour);
-    });
+  var layer = new google.maps.KmlLayer(url, {preserveViewport: true});
+  google.maps.event.addListenerOnce(layer, 'status_changed', function () {
+    if (layer.getStatus() == google.maps.KmlLayerStatus.OK) {
+      google.maps.event.addListenerOnce(layer, 'earth_kml_ready',
+                                        function (kmlobj) {
+        self._getTour(kmlobj, function (tour) {
+          earth_callback(kmlobj, tour);
+        });
+        self._jcommopsArgoShow(kmlobj);
+      });
+    } else {
+      CM.tip(CM.TIPS['kml_failed'] + ' ' + layer.getStatus());
+      delete layer;
+      error_callback();
+    }
   });
   map_callback(layer);
 };
@@ -379,6 +465,35 @@ ImportKML.prototype._getTour = function (kmlroot, callback) {
       callback(null);
     }
   });
+};
+
+ImportKML.prototype._jcommopsArgoShow = function (kmlobj) {
+  var href = 'http://www.jcommops.org/jcommops-kml/WebObjects/' +
+             'jcommops-kml.woa/wa/createKml?masterProg=Argo';
+  if (kmlobj.getType() == 'KmlNetworkLink' &&
+      kmlobj.getLink().getHref() == href) {
+    function operateOnArgoKml(linkedkml) {
+      linkedkml.setOpen(true);
+      linkedkml.setVisibility(true);
+    }
+
+    var retries = 10;
+    (function () {
+      var container = kmlobj.getFeatures();
+      if (container.hasChildNodes()) {
+        var linkedkml = container.getFirstChild();
+        if (linkedkml) {
+          operateOnArgoKml(linkedkml);
+          return;
+        }
+      }
+      retries -= 1;
+      if (retries <= 0) {
+        return;
+      }
+      setTimeout(arguments.callee, 1000);
+    })();
+  }
 };
 
 
@@ -1594,8 +1709,6 @@ LayerSection.prototype.setName = function (name) {
   while (this._title.hasChildNodes()) {
     this._title.removeChild(this._title.firstChild);
   }
-  // XXX
-  //this._title.appendChild(document.createTextNode(name));
   this._title.innerHTML = name;
 };
 
@@ -1607,6 +1720,10 @@ LayerSection.prototype.addLayer = function (layer) {
     this._list.appendChild(layer._dom);
   }
   layer._layerSection = this;
+};
+
+LayerSection.prototype.getLayers = function () {
+  return this._list;
 };
 
 LayerSection.prototype.removeLayer = function (layer) {
@@ -1669,7 +1786,11 @@ Layer.prototype._turnOn = function (on) {
 
 Layer.prototype.setOn = function (on) {
   this._check.checked = on ? 'checked' : '';
-  $(this._check).change();
+  try {
+    $(this._check).change();
+  } catch (e) {
+    this._check.checked = !on ? 'checked' : '';
+  }
 };
 
 Layer.prototype.enable = function () {
@@ -1796,29 +1917,30 @@ DefaultLayerView.prototype = new LayerView();
 function PermanentLayerSection(table) {
   LayerSection.call(this, '<img src="/static/cchdomap/images/layers_off.png" />');
 
-  var tablelayer = new PermanentLayer('Table', false, function (on) {
+  this.tablelayer = new PermanentLayer('Table', false, function (on) {
     table.show(on);
   });
-  table.setLayer(tablelayer);
-  this.addLayer(tablelayer);
+  table.setLayer(this.tablelayer);
+  this.addLayer(this.tablelayer);
 
-  var gratlayer = new PermanentLayer('Graticules', true, function (on) {
+  this.gratlayer = new PermanentLayer('Graticules', true, function (on) {
     CM.earth.set('graticules', on);
   });
-  gratlayer._dom.firstChild.id = 'gridon';
-  this.addLayer(gratlayer);
+  this.gratlayer._dom.firstChild.id = 'gridon';
+  this.addLayer(this.gratlayer);
 
   if (CM.earth.get('earth_plugin')) {
-    var atmolayer = new PermanentLayer('Atmosphere', true, function (on) {
+    this.atmolayer = new PermanentLayer('Atmosphere', true, function (on) {
       CM.earth.set('atmosphere', on);
     });
-    $(atmolayer._dom).hide();
-    this.addLayer(atmolayer);
+    $(this.atmolayer._dom).hide();
+    this.addLayer(this.atmolayer);
+    var self = this;
     google.maps.event.addListener(CM.earth, 'showing_changed', function () {
       if (CM.earth.get('showing')) {
-        $(atmolayer._dom).show('fast');
+        $(self.atmolayer._dom).show('fast');
       } else {
-        $(atmolayer._dom).hide('fast');
+        $(self.atmolayer._dom).hide('fast');
       }
     });
   }
@@ -2212,8 +2334,10 @@ RegionLayerCreator.prototype = new LayerCreator();
 
 function KMLLayerSection() {
   LayerSection.call(this, '<img src="/static/cchdomap/images/gearth.gif" />');
-  this.creator = new KMLLayerCreator();
-  this.addLayer(this.creator);
+  this.creatorUpload = new KMLLayerCreatorUpload();
+  this.addLayer(this.creatorUpload);
+  this.creatorLink = new KMLLayerCreatorLink();
+  this.addLayer(this.creatorLink);
   this._importer = new ImportKML();
   this._mapobj = null;
 
@@ -2225,7 +2349,8 @@ KMLLayerSection.prototype = new LayerSection();
 
 function KMLLayer(filename) {
   Layer.call(this);
-  this._content.appendChild(document.createTextNode(filename));
+  this._content.title = filename;
+  this._content.appendChild(document.createTextNode(filename.replace(CM.host, '')));
   var self = this;
   $('<span>x</span>').click(function () {
     self.remove();
@@ -2286,12 +2411,12 @@ KMLLayer.prototype.setTour = function (tour) {
 };
 
 KMLLayer.prototype.pauseTour = function () {
-  console.log('pause');
+  CM.earth._withEarth(function (ge) {
+    ge.getTourPlayer().pause();
+  });
 };
 
 KMLLayer.prototype.playTour = function () {
-  var self = this;
-  console.log('play');
   CM.earth._withEarth(function (ge) {
     ge.getTourPlayer().setTour(self._tour);
     ge.getTourPlayer().play();
@@ -2300,6 +2425,31 @@ KMLLayer.prototype.playTour = function () {
 
 
 function KMLLayerCreator() {
+  var layer = null;
+}
+
+KMLLayerCreator.prototype = new LayerCreator();
+
+KMLLayerCreator.prototype.setMapLayer = function (layer, mapLayer) {
+  layer._mapobj = mapLayer;
+  layer.enable();
+  google.maps.event.addListenerOnce(mapLayer, 'metadata_changed', function () {
+    var metadata = mapLayer.getMetadata();
+    if (metadata) {
+      var name = metadata.name;
+      if (name) {
+        layer._content.childNodes[0].nodeValue = name;
+      }
+    }
+  });
+  layer.setOn(true);
+  if ($(this._layerSection.getLayers()).find('.layer').length > CM.MAPS_KML_LIMIT) {
+    CM.tip(CM.TIPS['kml_too_many']);
+  }
+};
+
+
+function KMLLayerCreatorUpload() {
   LayerCreator.call(this);
   var filefield = document.createElement('INPUT');
   filefield.name = 'file';
@@ -2315,7 +2465,7 @@ function KMLLayerCreator() {
   });
 
   var layer;
-  
+
   function error() {
     $(layer._dom).animate({backgroundColor: '#ffaaaa'});
   }
@@ -2357,22 +2507,68 @@ function KMLLayerCreator() {
       var filename = filefield.value;
       filefield.value = '';
 
-      self._layerSection._importer.importURL(response['url'], 
-                                             function (mapLayer) {
-        layer._mapobj = mapLayer;
-        layer.enable();
-        layer.setOn(true);
+      self._layerSection._importer.importURL(
+          response['url'], function (mapLayer) {
+        self.setMapLayer(layer, mapLayer);
       }, function (kmlobj, tour) {
         if (tour) {
           layer.setTour(tour);
         }
-      });
+      }, error
+      );
     },
     error: error
   });
 }
 
-KMLLayerCreator.prototype = new LayerCreator();
+KMLLayerCreatorUpload.prototype = new KMLLayerCreator();
+
+
+function KMLLayerCreatorLink() {
+  LayerCreator.call(this);
+  var linkfield = document.createElement('INPUT');
+  linkfield.name = 'link';
+  linkfield.type = 'text';
+
+  var submit = document.createElement('INPUT');
+  submit.value = 'Load URL';
+  submit.type = 'submit';
+
+  var form = document.createElement('FORM');
+  form.appendChild(linkfield);
+  form.appendChild(submit);
+  this._content.appendChild(form);
+
+  var layer;
+
+  function error() {
+    $(layer._dom).animate({backgroundColor: '#ffaaaa'});
+  }
+
+  var self = this;
+  $(form).submit(function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    CM.tip(CM.TIPS['importing']);
+    var url = linkfield.value;
+    linkfield.value = '';
+
+    layer = new KMLLayer(url);
+    layer.disable();
+    self._layerSection.addLayer(layer);
+    self._layerSection._importer.importURL(url, function (mapLayer) {
+      self.setMapLayer(layer, mapLayer);
+    }, function (kmlobj, tour) {
+      if (tour) {
+        layer.setTour(tour);
+      }
+    }, error
+    );
+    return false;
+  });
+}
+
+KMLLayerCreatorLink.prototype = new KMLLayerCreator();
 
 
 function NAVLayerSection() {

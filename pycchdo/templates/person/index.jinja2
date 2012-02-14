@@ -2,7 +2,7 @@
 {% block title %}People{% endblock %}
 {% block content -%}
   {% call h.boxed('People') -%}
-    <ul>
+    <ul class="autopagerize_page_element">
     {%- for person in people %}
       <li>{{ whh.tags.link_to(person.full_name(), '/person/%s' % person.id) }}</li>
     {%- endfor %}

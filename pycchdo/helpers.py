@@ -1,3 +1,4 @@
+import datetime as dt
 from urllib import quote
 from json import dumps
 import logging
@@ -7,7 +8,10 @@ from os.path import sep as pthsep
 from os.path import join as pthjoin
 
 import webhelpers.html as whh
-import webhelpers.html.tags
+H = whh.HTML
+import webhelpers.html.tags as tags
+import webhelpers.html.tools as whhtools
+import webhelpers.text as whtext
 
 from gridfs.grid_file import GridOut
 
@@ -50,37 +54,36 @@ def GAPI_autoload(request, module_list):
     uri = 'http://www.google.com/jsapi?autoload={jsapiload}&key={key}'.format(
         jsapiload=jsapiload,
         key=GAPI_key(request))
-    return whh.tags.javascript_link(uri)
+    return tags.javascript_link(uri)
 
 
 def has_edit(request):
-    return request.user is not None
-
-
-def is_staff(user):
-    if not user:
+    if not request:
         return False
-    # TODO check against actual list
-    if user.name_last == 'Shen' and \
-       user.name_first in ['Matthew', 'Andrew']:
-        return True
-    if user.name_last == 'Berys' and \
-       user.name_first == 'Carolina':
-        return True
-    if user.name_last == 'Fields' and \
-       user.naem_first == 'Justin':
-        return True
-    if user.name_last == 'Diggs' and \
-       user.naem_first == 'Steve':
-        return True
+    try:
+        return request.user is not None
+    except AttributeError:
+        return False
 
 
 def has_mod(request):
-    if not request.user:
-        return False
-    if is_staff(request.user):
-        return True
-    # TODO other possibilities of being mod?
+    """ Determines if the request's user has moderator powers """
+    if has_edit(request):
+        if has_staff(request):
+            return True
+        if 'moderator' in request.user.permissions:
+            return True
+    return False
+
+
+def has_staff(request):
+    """ Determines whether the request's user has staff powers.
+        This is even more powerful than moderator.
+
+    """
+    if has_edit(request):
+        if 'staff' in request.user.permissions:
+            return True
     return False
 
 
@@ -96,7 +99,7 @@ def title(**kwargs):
     except KeyError:
         content = None
     if content:
-        return ' | ' + content
+        return content + ' | '
     return ''
 
 
@@ -120,7 +123,7 @@ def form_errors_for(request, key, value=None):
         return
 
     if request.session.peek_flash(error_key):
-        errors = [whh.HTML.span(x, class_='form-error') for x in \
+        errors = [H.span(x, class_='form-error') for x in \
                   request.session.pop_flash(error_key)]
         return whh.literal(''.join(errors))
     return ''
@@ -133,33 +136,36 @@ PAGER_FORMAT = '$link_first $link_previous ~5~ $link_next $link_last'
 
 
 def pager_for(page, format=PAGER_FORMAT):
+    if not page.next_page and not page.previous_page:
+        return ''
+
     next_url = whh.literal(page._url_generator(page.next_page))
-    return whh.HTML.div(
+    return H.div(
         page.pager(format),
-        whh.HTML.a(rel='next', href=next_url, style='display: none;'),
+        H.a(rel='next', href=next_url, style='display: none;'),
         class_='pager autopagerize_insert_before')
 
 
 def email_link(email, microformat_type=None, microformat_classes=[],
                content=None):
     """ Gives back a mailto link that is slightly obfuscated. """
-    obfuscator = '+anti spam'
+    obfuscator = '@spam.net'
     parts = email.split('@')
     type = ''
     if microformat_type:
-        type = whh.HTML.span(microformat_type, class_='type hidden')
+        type = H.span(microformat_type, class_='type hidden')
     if not content:
-        content = type + parts[0] + \
-                  whh.HTML.span(obfuscator, class_='copythis') + '@' + parts[1]
-    href = 'mailto:' + parts[0] + obfuscator + '@' + parts[1]
+        content = ''.join(
+            [type, parts[0], H.span(obfuscator, class_='copythis'),
+             '@', parts[1]])
     classes = [('email', True)] + [(x, True) for x in microformat_classes]
-    return whh.tags.link_to(content, href, class_=whh.tags.css_classes(classes))
+    return whhtools.mail_to(email, whh.literal(content), encode='hex',
+                            class_=tags.css_classes(classes))
 
 
-def boxed(title='', bottom='', **attrs):
+def boxed(title='', **attrs):
     classes = [('boxed', True)]
     box_content_classes = [('box_content', True)]
-    box_bottom_classes = [('box_bottom', True)]
     try:
         classes.extend([(x, True) for x in attrs['class'].split()])
         del attrs['class']
@@ -171,10 +177,6 @@ def boxed(title='', bottom='', **attrs):
         del attrs['box_content_class']
     except KeyError:
         pass
-    try:
-        box_bottom_classes.extend(
-            [(x, True) for x in attrs['box_bottom_class'].split()])
-        del attrs['box_bottom_class']
     except KeyError:
         pass
     caller = lambda: ''
@@ -183,13 +185,11 @@ def boxed(title='', bottom='', **attrs):
         del attrs['caller']
     except KeyError:
         pass
-    return whh.HTML.div(whh.HTML(
-                whh.HTML.h1(whh.literal(title)),
-                whh.HTML.div(caller(),
-                             class_=whh.tags.css_classes(box_content_classes)),
-                whh.HTML.div(bottom,
-                             class_=whh.tags.css_classes(box_bottom_classes))
-            ), class_=whh.tags.css_classes(classes), _nl=True, **attrs)
+    return H.div(H(
+                H.h1(whh.literal(title)),
+                H.div(caller(), class_=tags.css_classes(box_content_classes)),
+                H.div('', class_='box_bottom'),
+            ), class_=tags.css_classes(classes), _nl=True, **attrs)
 
 
 # Pretty printers
@@ -233,31 +233,104 @@ def cruise_dates(cruise):
     return (start, end, combined)
 
 
+def cruise_date_summary(cruise):
+    """ Provide an English summary of the cruise's dates
+
+    """
+    text = ''
+    if cruise.date_start:
+        text += 'starting %s ' % date(cruise.date_start)
+        if cruise.date_end:
+            text += 'and ending %s' % date(cruise.date_end)
+    elif cruise.date_end:
+        text += 'ending %s' % date(cruise.date_end)
+    return text
+
+
+def cruise_nice_name(cruise):
+    """ Runs through the cruise's attributes to try to produce a nice name
+        before falling back to the id
+
+    """
+    label = cruise.expocode
+    if not label:
+        aliases = cruise.aliases
+        if aliases:
+            label = aliases[0]
+        else:
+            label = str(cruise.id)
+    return label
+
+
+def cruise_summary(cruise):
+    """ Provide an English summary of the cruise's salient facts.
+
+    """
+    sentences = []
+    sentence = '%s is planned ' % link_cruise(cruise)
+    if cruise.ship:
+        sentence += "on the %s " % link_ship(cruise.ship)
+    if cruise.ports:
+        sentence += "from %s " % cruise.ports[0]
+        if len(cruise.ports) > 1:
+            sentence += "to %s " % cruise.ports[1]
+    sentence += cruise_date_summary(cruise)
+    sentences.append(sentence.rstrip())
+
+    sentence = 'It is being run '
+    institutions = []
+    if cruise.institutions:
+        institutions = [link_institution(i) for i in cruise.institutions]
+    if institutions or cruise.country:
+        sentence += 'by '
+    if institutions:
+        sentence += whh.literal(whtext.series(institutions)) + ' '
+        if cruise.country:
+            sentence += 'and '
+    if cruise.country:
+        sentence += link_country(cruise.country)
+
+    collections = [link_collection(c) for c in cruise.collections]
+    if collections:
+        sentence += ' as part of the '
+        sentence += whh.literal(whtext.series(collections)) + ' '
+        sentence += whtext.plural(
+                        len(collections), 'collection', 'collections', False)
+    if institutions or cruise.country or collections:
+        sentences.append(sentence)
+
+    if cruise.statuses:
+        sentences.append(
+            "The cruise is %s" % whtext.series(cruise.statuses))
+
+    return whh.literal(' '.join(["%s." % x for x in sentences]))
+
+
 def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
     thumb_link = ''
-    thumb_img = whh.tags.image(data_uri(thumb), 'Cruise Map thumbnail')
+    thumb_img = tags.image(data_uri(thumb), 'Cruise Map thumbnail')
     if full:
         full_uri = data_uri(full)
         if thumb:
-            thumb_link = whh.HTML.p(
-                whh.tags.link_to(thumb_img, full_uri))
-        thumb_link += whh.HTML.p(whh.tags.link_to('Full Map', full_uri),
+            thumb_link = H.p(
+                tags.link_to(thumb_img, full_uri))
+        thumb_link += H.p(tags.link_to('Full Map', full_uri),
                                  class_='caption')
     else:
         if thumb:
-            thumb_link = whh.HTML.p(thumb_img)
-    return whh.HTML.div(thumb_link, class_='thumb')
+            thumb_link = H.p(thumb_img)
+    return H.div(thumb_link, class_='thumb')
 
 
 def cruise_suggested_attr(attr):
     person = link_person(attr.creation_stamp.person)
     if attr.deleted:
         verb = 'deleting'
-        obj_phrase = [whh.HTML.span(attr.key, class_='key')]
+        obj_phrase = [H.span(attr.key, class_='key')]
     else:
         verb = 'changing'
-        obj_phrase = [whh.HTML.span(attr.key, class_='key'), ' to ',
-                      whh.HTML.span(attr.value, class_='value')]
+        obj_phrase = [H.span(attr.key, class_='key'), ' to ',
+                      H.span(attr.value, class_='value')]
     when = attr.creation_stamp.timestamp
     if attr.pending_stamp:
         followup = \
@@ -265,12 +338,12 @@ def cruise_suggested_attr(attr):
     else:
         followup = ''
 
-    return whh.HTML.div(
+    return H.div(
         person, ' suggested ', 
-        whh.HTML.span(verb, class_='verb'), ' the ', 
-        whh.HTML.span(*obj_phrase, class_='change'), ' at ',
-        whh.HTML.span(when, class_='when'), '. ',
-        whh.HTML.span(followup, class_='pending'), class_='suggestion')
+        H.span(verb, class_='verb'), ' the ', 
+        H.span(*obj_phrase, class_='change'), ' at ',
+        H.span(when, class_='when'), '. ',
+        H.span(followup, class_='pending'), class_='suggestion')
 
 
 def cruise_history_rows(change, i, hl):
@@ -303,27 +376,97 @@ def cruise_history_rows(change, i, hl):
             summary = change['value']
         body = ''
 
-    return whh.HTML.tr(
-            whh.HTML.td(time, class_='date'),
-            whh.HTML.td(data_type, class_='data_type'),
-            whh.HTML.td(action, class_='action'),
-            whh.HTML.td(summary, class_='summary'),
+    return H.tr(
+            H.td(time, class_='date'),
+            H.td(data_type, class_='data_type'),
+            H.td(action, class_='action'),
+            H.td(summary, class_='summary'),
             class_=baseclass + " meta"
-        ) + whh.HTML.tr(
-            whh.HTML.td(person, class_='person'),
-            whh.HTML.td(whh.HTML.pre(body), colspan=3, class_='body'),
+        ) + H.tr(
+            H.td(person, class_='person'),
+            H.td(H.pre(body), colspan=3, class_='body'),
             class_=baseclass + " body"
         )
 
 
-def cruise_listing(cruises, verbose=False):
-    list = []
-    for cruise in cruises:
+def cruises_sort_by_date_start(cruises):
+    zero = dt.datetime(1, 1, 1)
+    return sorted(cruises, key=lambda c: c.date_start or zero)
+
+
+def cruise_listing(cruises, pre_expand=False, allow_empty=False):
+    cruises = filter(None, cruises)
+    if not cruises and not allow_empty:
+        return ''
+    list = [
+        H.tr(
+            H.th('Identifier', class_='identifier'),
+            H.th('Ship', class_='ship'),
+            H.th('Country', class_='country'),
+            H.th('Cruise dates', class_='cruise_dates'),
+            H.th('Chief scientist(s)', class_='chief_scientists'),
+            class_='header'),
+    ]
+    for i, cruise in enumerate(cruises):
+        hl = 'odd'
+        if i % 2 == 0:
+            hl = 'even'
+
+        map = '/static/img/etopo_static/etopo_thumb_no_track.png'
+        if cruise.get('map_thumb'):
+            map = '/cruise/{id}/map_thumb'.format(id=cruise.uid)
+
+        baseclass = 'mb-link{i} {hl}'.format(i=i, hl=hl)
+        metaclass = 'meta ' + baseclass
+        bodyclass = 'body ' + baseclass
+
+        aliases = '(%s)' % ', '.join(cruise.aliases)
+        if aliases == '()':
+            aliases = ''
+
         list.append(
-            whh.HTML.tr(whh.HTML.td(link_cruise(cruise)), 
-                        whh.HTML.td(link_ship(cruise.ship)),
-                        whh.HTML.td(date(cruise.date_start))))
-    return whh.HTML.table(*list)
+            H.tr(
+                H.td(link_cruise(cruise)), 
+                H.td(link_ship(cruise.ship)),
+                H.td(link_country(cruise.country)),
+                H.td(cruise_dates(cruise)[2]),
+                H.td(link_person_institutions(cruise.chief_scientists)),
+                class_=metaclass
+            ),
+        )
+        list.append(
+            H.tr(
+                H.td(aliases, colspan=5), 
+                class_=bodyclass
+            ),
+        )
+        list.append(
+            H.tr(
+                H.td(link_collections(cruise.collections), colspan=4), 
+                H.td(
+                    tags.image(
+                        map,
+                        cruise_nice_name(cruise) + ' thumbnail',
+                        class_='cruise-track-img',
+                    )
+                ), 
+                class_=bodyclass
+            ),
+        )
+        # TODO
+        # number of stations
+        # parameters (and count)
+        #list.append(
+        #    H.tr(
+        #        H.td('', colspan=5), 
+        #        class_=bodyclass
+        #    ),
+        #)
+
+    table_class = 'has-meta-bodies cruise-listing'
+    if pre_expand:
+        table_class += ' pre-expand'
+    return H.table(*list, class_=table_class)
 
 
 def collection_names(coll_list):
@@ -333,15 +476,30 @@ def collection_names(coll_list):
 def path_cruise(c):
     if not c:
         return ''
-    if not c.expocode:
-        return u'/cruise/%s' % c.id
-    return u'/cruise/%s' % c.expocode
+    return u'/cruise/%s' % c.uid
 
 
 def link_obj(obj):
     if not obj:
         return ''
-    return whh.tags.link_to(obj.id, u'/obj/%s' % obj.id)
+    return tags.link_to(obj.id, u'/obj/%s' % obj.id)
+
+
+def link_obj_polymorph(obj):
+    if obj.obj_type == 'Person':
+        return link_person(obj)
+    elif obj.obj_type == 'Collection':
+        return link_collection(obj)
+    elif obj.obj_type == 'Country':
+        return link_country(obj)
+    elif obj.obj_type == 'Cruise':
+        return link_cruise(obj)
+    elif obj.obj_type == 'Ship':
+        return link_ship(obj)
+    elif obj.obj_type == 'Institution':
+        return link_institution(obj)
+    else:
+        return obj
 
 
 def link_file_holder(fh, full=False):
@@ -350,25 +508,29 @@ def link_file_holder(fh, full=False):
     name = fh.file.name
     if not full:
         name = os.path.basename(name)
-    return whh.tags.link_to(name, data_uri(fh))
+    return tags.link_to(name, data_uri(fh))
 
 
 def link_cruise(c):
     if not c:
         return ''
-    return whh.tags.link_to(c.expocode, path_cruise(c))
+    label = cruise_nice_name(c)
+    return tags.link_to(label, path_cruise(c), title=label)
 
 
 def link_person(p):
     if not p:
         return ''
-    return whh.tags.link_to(p.full_name(), u'/person/%s' % p.id)
+    name = p.full_name().strip()
+    if not name or len(name) < 1:
+        name = p.id
+    return tags.link_to(name, u'/person/%s' % p.id)
 
 
 def link_institution(i):
     if not i:
         return ''
-    return whh.tags.link_to(i.get('name'), '/institution/%s' % i.id)
+    return tags.link_to(i.get('name') or i.id, '/institution/%s' % i.id)
 
 
 def link_person_institutions(pis):
@@ -393,7 +555,7 @@ def link_person_institutions(pis):
 def link_collection(c):
     if not c:
         return ''
-    return whh.tags.link_to(c.name, '/collection/%s' % c.id)
+    return tags.link_to(c.name, '/collection/%s' % c.id)
 
 
 def link_collections(cs):
@@ -406,22 +568,29 @@ def link_collections(cs):
 def link_ship(s):
     if not s:
         return ''
-    return whh.literal(whh.tags.link_to(s.name, '/ship/%s' % s.id))
+    return whh.literal(tags.link_to(s.name, '/ship/%s' % s.id))
 
 
 def link_country(c):
     if not c:
         return ''
-    return whh.literal(whh.tags.link_to(c.name,
-                                        '/country/%s' % c.name))
+    return whh.literal(tags.link_to(c.name,
+                                        '/country/%s' % c.id))
 
 
 def link_parameter(p):
     if not p:
         return ''
     return whh.literal(
-        whh.tags.link_to(p.get('name'),
+        tags.link_to(p.get('name'),
                          '/parameter/%s.json' % p.get('name')))
+
+
+def link_pdf_preview(link):
+    """ Gives a URL that uses Google Docs to preview a PDF """
+    # TODO add preview link for pdf docs?
+    # Another option that gview takes is "embedded=true"
+    return "http://docs.google.com/gview?url={link}".format(link=link)
 
 
 def change_pretty(change):
@@ -447,8 +616,8 @@ def change_pretty(change):
             else:
                 status = 'suggested changing'
     status = ' %s ' % status
-    span = whh.HTML.span
-    return whh.HTML.p(
+    span = H.span
+    return H.p(
         span(person.full_name(), class_='person'), status,
         span(change['key'], class_='key'), ' to ',
         span(change['value'], class_='value'), ' at ',
@@ -517,7 +686,7 @@ def sort_data_files(d):
     return filter(None, preferred)
 
 
-def data_file_link(type, data):
+def data_file_link(request, type, data):
     """ Given an _Attr with a file, provides a link to a file next to its
         description as a table row
 
@@ -543,25 +712,27 @@ def data_file_link(type, data):
         logging.error('%r has no obj' % data)
 
     items = [
-        whh.HTML.th(whh.tags.link_to(data_type, link)),
-        whh.HTML.td(description),
+        H.th(tags.link_to(data_type, link)),
+        H.td(description),
     ]
 
     classes = [type.replace('_', ' ')]
     if preliminary:
         classes.append('preliminary')
-        items.append(
-            whh.HTML.td(
-                whh.tags.form('', 'PUT',
-                              hidden_fields={'cruise_id': data.obj.id,
-                                             'action': 'edit_attr',
-                                             'key': type + '_status'}),
-                whh.HTML.input(type='submit', name='edit_action',
-                               value='Mark reviewed'),
-                whh.tags.end_form()))
+        if has_mod(request):
+            items.append(
+                H.td(
+                    tags.form(
+                        '', 'PUT', hidden_fields={
+                            'cruise_id': data.obj.id,
+                            'action': 'edit_attr',
+                            'key': type + '_status'}),
+                    H.input(type='submit', name='edit_action',
+                                   value='Mark reviewed'),
+                    tags.end_form()))
     classname = ' '.join(classes)
 
-    return whh.HTML.tr(*items, class_=classname)
+    return H.tr(*items, class_=classname)
 
 
 _here = os.path.dirname(__file__)
@@ -572,14 +743,10 @@ def _basin_map_exists(path):
     return os.path.isfile(file_path)
 
 
-def get_basin_map(basin, collection):
-    def cruise():
-        cruise = None
-        if collection:
-            cruises = collection.cruises(limit=1)
-            if len(cruises) > 0:
-                cruise = cruises[0]
-        return cruise
+def get_basin_map(basin, collection, cruises=[]):
+    cruise = None
+    if len(cruises) > 0:
+        cruise = cruises[0]
 
     basin = basin.lower()
     base_path = os.path.join(os.path.sep, 'static', 'img', 'maps', 'basin',
@@ -594,7 +761,6 @@ def get_basin_map(basin, collection):
                 return path
         except AttributeError:
             pass
-        cruise = cruise()
         try:
             path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
             if _basin_map_exists(path):
@@ -609,7 +775,6 @@ def get_basin_map(basin, collection):
                 return path
         except AttributeError:
             pass
-        cruise = cruise()
         try:
             path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
             if _basin_map_exists(path):
@@ -625,6 +790,15 @@ def get_basin_map(basin, collection):
         except AttributeError:
             pass
     return os.path.join(base_path, '%s_base.gif' % basin)
+
+
+def image_map_id(basin):
+    if basin == 'Arctic':
+        return '#m_arctic'
+    elif basin == 'Indian':
+        return '#m_indian'
+    elif basin == 'Southern':
+        return '#m_southern'
 
 
 def area_attrs_no():

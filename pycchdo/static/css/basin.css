@@ -21,11 +21,9 @@
 }
 
 #cruises {
-  max-height: 40em;
-  overflow: auto;
+  max-height: 50em;
 }
 #cruises h2 {
-  border-bottom: 1px solid #DDEFFF;
   color: #006F89;
   font-size: 1.2em;
 }

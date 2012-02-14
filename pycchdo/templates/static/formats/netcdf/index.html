@@ -1,24 +1,29 @@
-{% call h.boxed('NetCDF', class='netcdf-index') -%}
-<p>The CCHDO has joined other data assembly centers' effort to provide more
-choices in data format by offering our CTD and bottle files in Unidata's 
-<a href="http://unidata.ucar.edu/packages/netcdf/index.html">NetCDF</a>.</p>
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}NetCDF | Formats {%- endblock %}
+{%- block content %}
+  {% call h.boxed('NetCDF', class='netcdf-index') -%}
+    <p>
+      The CCHDO has joined other data assembly centers' effort to provide more
+      choices in data format by offering our CTD and bottle files in Unidata's 
+      <a href="http://unidata.ucar.edu/packages/netcdf/index.html">NetCDF</a>.
+    </p>
 
-<p><a href="/static/information/formats/netcdf/netcdf_primer/index.html">A NetCDF Primer</a> (by Nathan Bindoff, University of Tasmania)</p>
+    <p><a href="/static/information/formats/netcdf/netcdf_primer/index.html">A NetCDF Primer</a> (by Nathan Bindoff, University of Tasmania)</p>
 
-<ul>
-  <li>
-    <a href="example_ct1.html">An example ncdump from a WHP-NetCDF CTD file</a>
-  </li>
-  <li>
-    <a href="/static/information/formats/netcdf/example_ct1.nc">An example WHP CTD file in NetCDF</a>
-  </li>
-  <li>
-    <a href="example_hy1.html">An example ncdump from a WHP-NetCDF Bottle file</a>
-  </li>
-  <li>
-    <a href="/static/information/formats/netcdf/example_hy1.nc">An example WHP Bottle file in NetCDF</a>
-  </li>
-</ul>
-<p>If you have any questions or comments, please contact us at
-{{ h.email_link('cchdo@ucsd.edu') }}.</p>
-{%- endcall %}
+    <ul>
+      <li>
+        <a href="example_ct1.html">An example ncdump from a WHP-NetCDF CTD file</a>
+      </li>
+      <li>
+        <a href="/static/information/formats/netcdf/example_ct1.nc">An example WHP CTD file in NetCDF</a>
+      </li>
+      <li>
+        <a href="example_hy1.html">An example ncdump from a WHP-NetCDF Bottle file</a>
+      </li>
+      <li>
+        <a href="/static/information/formats/netcdf/example_hy1.nc">An example WHP Bottle file in NetCDF</a>
+      </li>
+    </ul>
+    <p>If you have any questions or comments, please contact us at {{ h.email_link('cchdo@ucsd.edu') }}.</p>
+  {%- endcall %}
+{%- endblock %}

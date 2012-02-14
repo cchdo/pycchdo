@@ -1,3 +1,22 @@
+.pgp h2,
+.formats-exchange-format-descr h2,
+.crypt h2 {
+  font-size: 1.2em;
+}
+
+.boxed p {
+  margin-bottom: 0.5em;
+}
+.boxed.contact p {
+  margin-bottom: 0;
+}
+
+.formats-exchange-format-descr li,
+.website-guide li {
+  margin-left: 2em;
+  list-style-type: disc;
+}
+
 .contact .vcard {
   margin-bottom: 1em;
 }
@@ -21,13 +40,10 @@
 }
 .contact .vcard h3 {
   font-size: 1.2em;
+  margin-bottom: 0.2em;
 }
 
 .sumfile-example pre {
-  border: 1px solid #888888;
-  border-left: 0;
-  border-right: 0;
-  padding: 1em 0;
   margin: 1em 0;
 }
 .sumfile-example td,
@@ -174,3 +190,81 @@
   margin-right: 1em;
 }
 
+.abbreviations tr.header {
+  border-bottom: 1px solid #EEEEEE;
+}
+.abbreviations th {
+  font-size: 1.2em;
+  padding-top: 1em;
+}
+.abbreviations .first th {
+  padding-top: 0;
+}
+.abbreviations td {
+  vertical-align: top;
+}
+.abbreviations dd {
+  margin-left: 0.5em;
+  font-size: 0.95em;
+}
+
+.website-guide h2 {
+  color: #006F89;
+  font-size: 1.2em;
+  margin-bottom: 0.2em;
+}
+.website-guide .figure {
+  border: 1px solid #EEEEEE;
+  padding: 1em;
+  margin: 0.5em;
+  clear: right;
+  float: right;
+  width: 15em;
+}
+
+.meter-map table {
+  width: 100%;
+}
+.meter-map .header th {
+  font-size: 1.2em;
+}
+.meter-map th.current_meter {
+  background: #EEEEEE;
+}
+.meter-map th,
+.meter-map td {
+  padding: 0.5em;
+}
+
+.formats-exchange-example-bottle div.preformatted {
+  width: 100%;
+}
+.formats-exchange-example-bottle td {
+  white-space: nowrap;
+}
+.formats-exchange-example-bottle .data td {
+  text-align: right;
+}
+
+.give h2#seahunt {
+  font-size: 1.2em;
+  margin: 0.2em 0;
+}
+.boxed.get ul li,
+.give ul.seahunt li {
+  list-style: disc;
+  margin-left: 2em;
+}
+
+.boxed.get .first {
+  margin-top: -1em;
+}
+.boxed.get h2 {
+  font-size: 1.2em;
+}
+.boxed.get #basin_selector_map {
+  margin: 0.5em;
+}
+.boxed.get ul {
+  margin-bottom: 0.5em;
+}

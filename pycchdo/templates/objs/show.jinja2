@@ -2,25 +2,21 @@
 {% block title %}Obj {{id}}{% endblock %}
 {% block content %}
   {% call h.boxed('Obj {id}'.format(id=id)) -%}
+    {{ h.link_obj_polymorph(obj) }}
+
     <p>{{obj}}</p>
 
-    {% if link -%}
-      <p><a href="{{link}}">{{link}}</a></p>
-    {%- endif %}
-
-    <p>
-      <form action="/obj/{{ obj['_id'] }}" method="DELETE">
-        <input type="hidden" name="_method" value="DELETE">
-        <input type="submit" value="Delete">
-      </form>
-    </p>
+    <table>
+      {%- for key in obj.allowed_keys|sort %}
+        <tr><th>{{ key }}</th><td>{{ obj[key] }}</td></tr>
+      {%- endfor %}
+    </table>
 
     <h2>Attrs</h2>
-    {% if attrs -%}
+    {% if obj.attr_keys -%}
       <table>
-      {% for attr in attrs -%}
-        <tr>
-        </tr>
+      {% for key in obj.attr_keys -%}
+        <tr><th>{{ key }}</th><td>{{ obj.get(key) }}</td></tr>
       {%- endfor %}
       </table>
     {%- endif %}
@@ -29,6 +25,12 @@
     </p>
 
     <h2>Actions</h2>
+    <p>
+      <form action="/obj/{{ obj['_id'] }}" method="DELETE">
+        <input type="hidden" name="_method" value="DELETE">
+        <input type="submit" value="Delete">
+      </form>
+    </p>
     <p>
       <a href="/objs">Back to objs</a>
     </p>

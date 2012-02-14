@@ -15,16 +15,12 @@
   padding: 0.5em;
 }
 .subsection tr.header {
-  border: 1px solid #DDDDDD;
-  border-left: 0;
-  border-right: 0;
+  border-bottom: 1px solid #DDDDDD;
+  font-size: 1.2em;
 }
 .subsection th,
 .subsection td {
   padding: 0.3em;
-}
-.subsection .header th {
-  font-size: 1.2em;
 }
 .subsection tr .description {
   width: 13em;
@@ -33,4 +29,4 @@
   white-space: nowrap;
 }
 
-tr.odd { background-color: #EEEEEE; }
+tr.odd { background-color: #F8F8F8; }

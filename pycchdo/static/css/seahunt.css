@@ -1,0 +1,43 @@
+#pending-review {
+  padding: 0.5em;
+  font-size: 1.2em;
+  background: #aaddff url('/static/img/logos/project_seahunt_logo.png') no-repeat 100%;
+  background-size: auto 100%;
+}
+.pending .boxed h1 {
+  background: #aaddff;
+  border-bottom: 1px solid #88bbdd;
+}
+.pending .boxed {
+  border: 1px solid #aaddff;
+  border-bottom: 1.5em solid #aaddff;
+  border-top: 0;
+}
+
+#seahunt-about p {
+  margin-bottom: 0.5em;
+}
+#seahunt-about #years h2 {
+  float: left;
+  padding: 0.2em;
+  margin: 0 0.5em 0 0;
+}
+#seahunt-about #years ul {
+  float: left;
+}
+#seahunt-about #years li {
+  float: left;
+}
+#seahunt-about #years a {
+  display: block;
+  padding: 0.2em 1em;
+  border: none;
+}
+#seahunt-about #years .active a,
+#seahunt-about #years a:hover {
+  background: #CCDDEE;
+}
+#seahunt-about #map {
+  clear: left;
+  height: 40em;
+}

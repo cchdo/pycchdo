@@ -17,9 +17,9 @@ from shapely.geometry import polygon as poly
 import pymongo.objectid
 
 from pycchdo import models
+from pycchdo.models import search
 from pycchdo import helpers as h
 from pycchdo.views import _file_response
-from pycchdo.models import search as searcher
 
 
 RADIUS_EARTH = 6371.01 # km
@@ -73,8 +73,11 @@ class MapsJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def index(request):
-    return {'default': DEFAULTS}
+def index(request, commands=''):
+    context = {'default': DEFAULTS}
+    if commands:
+        context['commands'] = commands
+    return context
 
 
 def ids(request):
@@ -154,8 +157,8 @@ def ids(request):
             return c
         cruises = [get_by_id_or_expo(id) for id in req_ids]
     elif req_q:
-        results = searcher.search(request.params.get('q', ''))
-        cruises = searcher.compile_into_cruises(results)
+        results = request.search_index.search(request.params.get('q', ''))
+        cruises = search.compile_into_cruises(results)
 
     # Build JSON response with id: track
     id_track = {}
@@ -236,7 +239,8 @@ def layer(request):
         temp_file.close()
 
         response = {
-            'url': 'search/map/layer?path=%s' % os.path.basename(temp_path)}
+            'url': request.current_route_url(
+                _query={'path': os.path.basename(temp_path)})}
         return Response(unicode(whh.HTML.textarea(
                                     whh.literal(json.dumps(response)))))
     return HTTPNotFound()
@@ -310,9 +314,11 @@ def getTracksInSelection(selection, time_min, time_max):
     if len(attrs) == limit:
         limited = models._Attr.count(query) > limit
 
-    cruises = set()
-    for attr in attrs:
-        cruises.add(attr.obj)
+    objs = set(attr.obj for attr in attrs)
+    cruises = []
+    for obj in objs:
+        if obj.obj_type == models.Cruise.__name__:
+            cruises.append(obj)
 
     def date_filter(cruise):
         return time_min <= cruise.date_start.date().year and \

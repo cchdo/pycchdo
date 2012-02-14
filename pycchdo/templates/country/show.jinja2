@@ -1,8 +1,11 @@
 {% extends "templates/base.jinja2" %}
+{%- block head %}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
+{%- endblock %}
 {% block title %}Country {{ country.name }}{% endblock %}
 {% block content -%}
   {% call h.boxed('Country ' + (country.name or '')) -%}
-    <table class="info">
+    <table class="info nofill">
       <tr><th>ISO 3166-1</th><td>{{ country.name }}</td></tr>
       <tr><th>ISO 3166-1_alpha2</th><td>{{ country.iso_code() }}</td></tr>
       <tr><th>ISO 3166-1_alpha3</th><td>{{ country.iso_code(3) }}</td></tr>
@@ -45,4 +48,8 @@
       {{ h.cruise_listing(country.cruises()) }}
     </div>
   {%- endcall %}
+{%- endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
 {%- endblock %}

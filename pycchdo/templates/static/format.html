@@ -1,14 +1,17 @@
-<div class='boxed'>
-<h1>Format</h1>
-<div class='box_content'>
-<h2><a href="formats/exchange/index.html">Data in 'Exchange' Format</a></h2>
-<p>A spreadsheet-like, single file format for CCHDO data.</p>
-<h2><a href="formats/netcdf/index.html">Data in NetCDF</a></h2>
-<p>CCHDO data is now being written in Unidata's NetCDF.</p>
-<h2><a href="/static/information/manuals/pdf/90_1/chap4.pdf">Original WOCE Format Description (pdf)</a></h2>
-<p>Chapter 4 of "WHP 90-1 : Requirements for WHP Data Reporting Hydrographic Data Formats"</p>
-<h2><a href="formats/misc/sampsum.html">A sample SUM file</a></h2>
-<p>An example of a SUM file with explanations and descriptions of parameters</p>
-</div>
-<div class='box_bottom'></div>
-</div>
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}Format{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('Format') %}
+    <h2><a href="formats/exchange/index.html">Data in Exchange format</a></h2>
+    <p>A spreadsheet-like, ASCII file format for CCHDO data.</p>
+
+    <h2><a href="formats/netcdf/index.html">Data in NetCDF format</a></h2>
+    <p>CCHDO data is now being written in Unidata's NetCDF.</p>
+
+    <h2><a href="/static/information/manuals/pdf/90_1/chap4.pdf">Original WOCE Format Description (pdf)</a></h2>
+    <p>Chapter 4 of "WHP 90-1 : Requirements for WHP Data Reporting Hydrographic Data Formats"</p>
+
+    <h2><a href="formats/misc/sampsum.html">A sample SUM file</a></h2>
+    <p>An example of a SUM file with explanations and descriptions of parameters</p>
+  {%- endcall %}
+{%- endblock %}

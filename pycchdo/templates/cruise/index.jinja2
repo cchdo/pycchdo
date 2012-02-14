@@ -1,18 +1,33 @@
-{% extends "templates/base.jinja2" %}
-{% block title %}Cruises{% endblock %}
-{% block content %}
+{%- extends "templates/base.jinja2" %}
+{%- block head %}
+  {{ h.tags.stylesheet_link('/static/css/metaTable.css') }}
+{%- endblock %}
+{%- block title %}Cruises{%- endblock %}
+{%- block content %}
   {% call h.boxed('Cruises') -%}
-    <ul class="autopagerize_page_element">
-    {% for cruise in cruises %}
-      <li>{{ h.link_cruise(cruise) }}</li>
-    {% endfor %}
-    </ul>
+    <div class="autopagerize_page_element">
+      {{ h.cruise_listing(cruises) }}
+    </div>
     {{ h.pager_for(cruises) }}
     <p>
-      {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise'}) }}
-        <input type="submit" value="New Cruise">
-      {{ whh.tags.end_form() }}
+      {{ h.tags.form('/cruises/new.html', 'GET') }}
+        <input type="submit" value="Suggest new cruise">
+      {{ h.tags.end_form() }}
     </p>
+    <ul>
+      {%- if not request.params.get('allow_seahunt') %}
+      <li>{{ h.tags.link_to('Show all cruises', request.route_path('cruises', _query={'allow_seahunt': True})) }}</li>
+      {%- endif %}
+      {%- if not request.params.get('seahunt_only') %}
+      <li>{{ h.tags.link_to('Show only Seahunt cruises', request.route_path('cruises', _query={'seahunt_only': True})) }}</li>
+      {%- endif %}
+      {%- if request.params.get('allow_seahunt') or request.params.get('seahunt_only') %}
+      <li>{{ h.tags.link_to('Show only confirmed cruises', request.route_path('cruises')) }}</li>
+      {%- endif %}
+    </ul>
   {%- endcall %}
-{% endblock %}
-
+{%- endblock %}
+{%- block js %}
+  {{ h.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ h.tags.javascript_link('/static/js/metaTable.js') }}
+{%- endblock %}

@@ -1,10 +1,9 @@
-import os
-from datetime import datetime, date
+from datetime import datetime
 import cgi
+import geojson
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
-    HTTPNoContent
+from pyramid.httpexceptions import HTTPNoContent
 from pyramid.url import current_route_url
 
 from webhelpers import paginate
@@ -13,18 +12,16 @@ from webob.multidict import MultiDict
 
 import pycchdo.models as models
 from pycchdo.models.models import data_file_human_names
-import pycchdo.helpers as h
-from pycchdo.views.session import require_signin
-
-
-_views = ['favicon', 'robots', 'home', 'browse_menu', 'search_menu',
-          'information_menu', 'tools_menu', 'parameters', 'parameter_show',
-          'data', 'catchall_static', ]
 
 
 __all__ = [
     '_collapsed_dict', '_http_method', '_paged', '_unescape', 'text_to_obj',
-    '_file_response', 'FILE_GROUPS', 'FILE_GROUPS_SELECT', ] + _views
+    'str_to_track', '_file_response', 'FILE_GROUPS', 'FILE_GROUPS_SELECT',
+    'PLEASE_SIGNIN_MESSAGE', ]
+
+
+PLEASE_SIGNIN_MESSAGE = """\
+    Please help us better process your data by leaving a way to contact you."""
 
 
 FILE_GROUPS = MultiDict([
@@ -49,7 +46,13 @@ def _collapsed_dict(d, n=None):
     e = {}
     for k, v in d.items():
         if type(v) is dict:
+            # recurse into sub-dicts
             v = _collapsed_dict(v, n)
+        if type(v) is list:
+            # TODO test for list condition
+            # do not recurse into lists if n is None
+            if n is None and not v:
+                v = n
         if v != n:
             e[k] = v
     if len(e) < 1:
@@ -66,10 +69,12 @@ def _http_method(request):
 
 def _paged(request, l):
     current_page = int(request.params.get('page', 1))
-    items_per_page = int(request.params.get('items_per_page', 20))
+    items_per_page = int(request.params.get('items_per_page', 50))
     def page_url(page):
-        return current_route_url(request, _query={
-            'page': page, 'items_per_page': items_per_page})
+        query = request.params.copy()
+        query['page'] = page
+        query['items_per_page'] = items_per_page
+        return current_route_url(request, _query=query)
     return paginate.Page(
         l, current_page, items_per_page=items_per_page, url=page_url)
 
@@ -82,19 +87,33 @@ def _unescape(s, escape='\\'):
     return s
 
 
-_possible_data_formats = [
+_possible_date_formats = [
     '%Y-%m-%dT%H:%M:%S.%f%z', 
     '%Y-%m-%dT%H:%M:%S', 
     '%Y-%m-%dT%H:%M', 
+    '%Y-%m-%d %H:%M:%S', 
+    '%Y-%m-%d %H:%M', 
     '%Y-%m-%d', 
 ]
 
 
-def _ensure_object_id(x):
+def _ensure_id(x):
+    """ Attempts to convert the argument into an ObjectId
+        If that fails consider the argument as an id
+
+        Checks if the id exists as an Obj.
+
+        If the check fails, raise ValueError
+
+    """
     try:
-        return models.ensure_objectid(x)
-    except ValueError:
-        return None
+        id = models.guess_objectid(x)
+    except models.InvalidId:
+        id = x
+    if models.Obj.find_one(id, limit=1):
+        return id
+    else:
+        raise ValueError('%s is not a valid object' % id)
 
 
 def text_to_obj(value, text_type='text'):
@@ -103,7 +122,7 @@ def text_to_obj(value, text_type='text'):
     if text_type == 'text':
         return value.strip()
     if text_type == 'datetime':
-        for df in _possible_data_formats:
+        for df in _possible_date_formats:
             try:
                 return datetime.strptime(value, df)
             except ValueError:
@@ -112,43 +131,16 @@ def text_to_obj(value, text_type='text'):
     if text_type == 'text_list':
         return [_unescape(x.strip()) for x in value.split(',')]
     if text_type == 'id':
-        return _ensure_object_id(value)
+        if not value:
+            return None
+        return _ensure_id(value)
     if text_type == 'id_list':
-        return [_ensure_object_id(x.strip()) for x in value.split(',')]
+        return [_ensure_id(x.strip()) for x in value.split(',')]
 
 
-_static_root = os.path.join(os.path.dirname(__file__), '..', 'static')
-
-
-try:
-    _favicon = open(os.path.join(_static_root, 'favicon.ico')).read()
-    _favicon_response = Response(content_type='image/x-icon', body=_favicon)
-except IOError:
-    _favicon_response = HTTPNotFound()
-
-try:
-    _robots = open(os.path.join(_static_root, 'robots.txt')).read()
-    _robots_response = Response(content_type='text/plain', body=_robots)
-except IOError:
-    _robots_response = HTTPNotFound()
-
-
-def favicon(context, request):
-    return _favicon_response
-
-
-def robots(context, request):
-    return _robots_response
-
-
-def _empty_view(context, request):
-    return {}
-
-
-browse_menu = _empty_view
-search_menu = _empty_view
-information_menu = _empty_view
-tools_menu = _empty_view
+def str_to_track(s):
+    coords = [[float(y) for y in x.split(',')] for x in s.split()]
+    return geojson.LineString(coords)
 
 
 def _humanize(obj):
@@ -162,140 +154,30 @@ def _humanize(obj):
     return str(obj)
 
 
-def home(request):
-    num_updates = 3
-    file_types = models.data_file_descriptions.keys()
-    updated = models._Attr.get_all({
-        'key': {'$in': file_types},
-        'accepted': True},
-        limit=num_updates,
-        sort=[('judgment_stamp.timestamp', models.DESCENDING)])
+def _file_response(file, disposition='inline'):
+    if disposition not in ['inline', 'attachment']:
+        raise ValueError()
 
-    upcoming = models.Cruise.get_all({'accepted': False})
-    upcoming = filter(lambda c: c.date_start, upcoming)
-    today = date.today()
-    upcoming = sorted(upcoming, key=lambda c: c.date_start)
-
-    # strip Seahunt cruises that are in the past
-    i = 0
-    while (len(upcoming) > 0 and
-           upcoming[i].date_start and 
-           today > upcoming[i].date_start):
-        i += 1
-    upcoming = upcoming[i:i + num_updates]
-
-    for u in upcoming:
-        print u
-
-    return {
-        'updated': updated,
-        'upcoming': upcoming,
-    }
-
-
-def parameters(request):
-    def get_params_for_order(order):
-        try:
-            return models.ParameterOrder.get_by_attrs({'name': order})[0].order
-        except IndexError:
-            return []
-    primary = get_params_for_order('CCHDO Primary Parameters')
-    secondary = get_params_for_order('CCHDO Secondary Parameters')
-    tertiary = get_params_for_order('CCHDO Tertiary Parameters')
-    return {'parameters': {1: primary, 2: secondary, 3: tertiary}}
-
-
-def parameter_show(request):
-    try:
-        parameter_id = request.matchdict['parameter_id']
-    except KeyError:
-        return HTTPBadRequest()
-
-    parameter = models.Parameter.get_id(parameter_id)
-    if not parameter:
-        parameters = models.Parameter.get_by_attrs(name=parameter_id)
-        if len(parameters) > 0:
-            parameter = parameters[0]
-        else:
-            return HTTPNotFound()
-
-    response = {'parameter': {
-        'name': parameter.get('name', ''),
-        'aliases': filter(None,
-            [parameter.get('name_netcdf'), parameter.get('full_name')] + \
-            parameter.get('aliases')),
-        'format': parameter.get('format', ''),
-        'bounds': parameter.get('bounds', []),
-        'units': {
-            'unit': {
-                'def': parameter.units.get('name'),
-                'aliases': [
-                    {'name': {'singular': parameter.units.get('mnemonic')}}
-                ]
-            }
-        },
-        'description': parameter.get('description', None),
-    }}
-    return response
-
-
-def _file_response(file):
-    if not file:
+    if file is None:
         return HTTPNoContent()
 
     resp = Response()
-    resp.app_iter = file
+    try:
+        resp.app_iter = file.file
+    except AttributeError:
+        resp.app_iter = file
     try:
         resp.content_length = file.length
     except AttributeError:
         pass
     try:
-        resp.content_type = file.content_type
+        # TODO test that this must be string.
+        resp.content_type = str(file.content_type)
     except AttributeError:
         pass
     try:
-        resp.content_disposition = 'inline; filename="{name}"'.format(name=file.name)
+        resp.content_disposition = '{disposition}; filename="{name}"'.format(
+            disposition=disposition, name=file.name)
     except AttributeError:
-        resp.content_disposition = 'inline'
+        resp.content_disposition = disposition
     return resp
-
-
-def data(request):
-    """ Returns data """
-    id = request.matchdict['data_id']
-    try:
-        data = models._Attr.get_id(id)
-    except ValueError:
-        return HTTPNotFound()
-
-    if not data:
-        try:
-            data = models.Submission.get_id(id)
-        except ValueError:
-            return HTTPNotFound()
-
-    if not data:
-        try:
-            data = models.ArgoFile.get_id(id)
-        except ValueError:
-            return HTTPNotFound()
-
-    if not data:
-        return HTTPNotFound()
-
-    return _file_response(data.file)
-
-
-def catchall_static(request):
-    """ Wraps any static templates with the layout """
-    subpath = os.path.join(*request.matchdict['subpath'])
-
-    project_path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-    static_path = os.path.join('templates', 'static')
-
-    path = os.path.join(project_path, static_path, subpath)
-    relpath = os.path.join(static_path, subpath)
-
-    if os.path.isfile(path):
-        return {'_static': relpath}
-    return HTTPNotFound()

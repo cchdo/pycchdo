@@ -1,76 +1,109 @@
-{% call h.boxed('Contact', class='contact') -%}
-  <div class="organization">
-    <div class="vcard cchdo">
-      <h2 class="fn org">CLIVAR and Carbon Hydrographic Data Office</h2>
-      <p class="organization-unit">UCSD/SIO</p>
-      <div class="adr">
-        <div class="street-address">9500 Gilman Drive 0214</div>
-        <p><span class="locality">La Jolla</span>, <span class="region">CA</span> <span class="postal-code">92093-0214</span></p>
-        <span class="country-name hidden">USA</span>
+{%- extends 'templates/static/static.jinja2' %}
+{%- block title %}Contact{%- endblock %}
+{%- macro tel(num) %}
+  <a href="tel:{{num}}">{{num}}</a>
+{%- endmacro %}
+{%- block content %}
+  {% call h.boxed('Contact', class='contact') -%}
+    <div class="organization">
+      <div class="vcard cchdo">
+        <h2 class="fn org">CLIVAR and Carbon Hydrographic Data Office</h2>
+        <p class="organization-unit">UCSD/SIO</p>
+        <div class="adr">
+          <div class="street-address">9500 Gilman Drive 0214</div>
+          <p><span class="locality">La Jolla</span>, <span class="region">CA</span> <span class="postal-code">92093-0214</span></p>
+          <span class="country-name hidden">USA</span>
+        </div>
+        <table>
+          <tr class="tel"><td><span class="type hidden">pref</span>Telephone</td><td class="value">{{tel('858-822-1770')}}</td></tr>
+          <tr class="tel"><td><span class="type">Fax</span></td><td class="value">858-534-7383</td></tr>
+          <tr><td>Email</td><td>{{ h.email_link('cchdo@ucsd.edu') }} <p>(This email address will reach all senior CCHDO staff)</p></td></tr>
+        </table>
       </div>
-      <table>
-        <tr class="tel"><td><span class="type hidden">pref</span>Telephone:</td><td class="value">858-822-1770</td></tr>
-        <tr class="tel"><td><span class="type">Fax</span>:</td><td class="value">858-534-7383</td></tr>
-        <tr><td>Email:</td><td>{{ h.email_link('cchdo@ucsd.edu') }} (This email address will reach all senior CCHDO staff)</td></tr>
-      </table>
-    </div>
-  </div>
-
-  <div class="people">
-    <div class="vcard">
-      <h3 class="role">Director</h3>
-      <p class="fn n"><span class="honorific-prefix">Dr.</span> <span class="given-name">James</span> <span class="additional-name">H.</span> <span class="family-name">Swift</span></p>
-      <div class="adr">
-        <p class="extended-address">Isaacs Hall (NORPAX), Room 305</p>
-        <span class="street-address hidden">8855 Biological Grade</span>
-        <span class="locality hidden">La Jolla</span>
-        <span class="region hidden">CA</span>
-        <span class="postal-code hidden">92093</span>
-      </div>
-      <p class="tel"><span class="type hidden">work</span>858-534-3387</p>
-      {{ h.email_link('jswift@ucsd.edu', 'work') }}
     </div>
 
-    <div class="vcard">
-      <h3 class="role">Data Manager</h3>
-      <p class="fn n"><span class="honorific-prefix">Mr.</span> <span class="given-name">Stephen</span> <span class="additional-name">C.</span> <span class="family-name">Diggs</span></p>
-      <div class="adr">
-        <p class="extended-address">Isaacs Hall (NORPAX), Room 306</p>
-        <span class="street-address hidden">8855 Biological Grade</span>
-        <span class="locality hidden">La Jolla</span>
-        <span class="region hidden">CA</span>
-        <span class="postal-code hidden">92093</span>
+    <div class="people">
+      <div id="jswift" class="vcard">
+        <h3 class="role">Director</h3>
+        <p class="fn n"><span class="honorific-prefix">Dr.</span> <span class="given-name">James</span> <span class="additional-name">H.</span> <span class="family-name">Swift</span></p>
+        <div class="adr">
+          <p class="extended-address">Isaacs Hall (NORPAX), Room 305</p>
+          <span class="street-address hidden">8855 Biological Grade</span>
+          <span class="locality hidden">La Jolla</span>
+          <span class="region hidden">CA</span>
+          <span class="postal-code hidden">92093</span>
+        </div>
+        <p class="tel"><span class="type hidden">work</span>{{tel('858-534-3387')}}</p>
+        {{ h.email_link('jswift@ucsd.edu', 'work') }}
       </div>
-      <p class="tel"><span class="type hidden">work</span>858-534-1108</p>
-      {{ h.email_link('sdiggs@ucsd.edu', 'work') }}
-    </div>
 
-    <div class="vcard">
-      <h3 class="role">Publications and Administration</h3>
-      <p class="fn n"><span class="honorific-prefix">Mr.</span> <span class="given-name">Jerry</span> <span class="additional-name">L.</span> <span class="family-name">Kappa</span></p>
-      <div class="adr">
-        <p class="extended-address">Isaacs Hall (NORPAX), Room 316</p>
-        <span class="street-address hidden">8855 Biological Grade</span>
-        <span class="locality hidden">La Jolla</span>
-        <span class="region hidden">CA</span>
-        <span class="postal-code hidden">92093</span>
+      <div id="sdiggs" class="vcard">
+        <h3 class="role">Data Manager</h3>
+        <p class="fn n"><span class="given-name">Stephen</span> <span class="additional-name">C.</span> <span class="family-name">Diggs</span></p>
+        <div class="adr">
+          <p class="extended-address">Isaacs Hall (NORPAX), Room 306</p>
+          <span class="street-address hidden">8855 Biological Grade</span>
+          <span class="locality hidden">La Jolla</span>
+          <span class="region hidden">CA</span>
+          <span class="postal-code hidden">92093</span>
+        </div>
+        <p class="tel"><span class="type hidden">work</span>{{tel('858-534-1108')}}</p>
+        {{ h.email_link('sdiggs@ucsd.edu', 'work') }}
       </div>
-      <p class="tel"><span class="type hidden">work</span>858-822-1770</p>
-      {{ h.email_link('jkappa@ucsd.edu', 'work') }}
-    </div>
 
-    <div class="vcard">
-      <h3 class="role">Database and Systems Administration</h3>
-      <p class="fn n"><span class="honorific-prefix">Mr.</span> <span class="given-name">Justin</span> <span class="additional-name">C.</span> <span class="family-name">Fields</span></p>
-      <div class="adr">
-        <p class="extended-address">Isaacs Hall (NORPAX), Room 318</p>
-        <span class="street-address hidden">8855 Biological Grade</span>
-        <span class="locality hidden">La Jolla</span>
-        <span class="region hidden">CA</span>
-        <span class="postal-code hidden">92093</span>
+      <div id="jkappa" class="vcard">
+        <h3 class="role">Publications and Administration</h3>
+        <p class="fn n"><span class="given-name">Jerry</span> <span class="additional-name">L.</span> <span class="family-name">Kappa</span></p>
+        <div class="adr">
+          <p class="extended-address">Isaacs Hall (NORPAX), Room 316</p>
+          <span class="street-address hidden">8855 Biological Grade</span>
+          <span class="locality hidden">La Jolla</span>
+          <span class="region hidden">CA</span>
+          <span class="postal-code hidden">92093</span>
+        </div>
+        <p class="tel"><span class="type hidden">work</span>{{tel('858-822-1770')}}</p>
+        {{ h.email_link('jkappa@ucsd.edu', 'work') }}
       </div>
-      <p class="tel"><span class="type hidden">work</span>858-534-1900</p>
-      {{ h.email_link('jfields@ucsd.edu', 'work') }}
+
+      <div id="jfields" class="vcard">
+        <h3 class="role">Database and Systems Administration</h3>
+        <p class="fn n"><span class="given-name">Justin</span> <span class="additional-name">C.</span> <span class="family-name">Fields</span></p>
+        <div class="adr">
+          <p class="extended-address">Isaacs Hall (NORPAX), Room 318</p>
+          <span class="street-address hidden">8855 Biological Grade</span>
+          <span class="locality hidden">La Jolla</span>
+          <span class="region hidden">CA</span>
+          <span class="postal-code hidden">92093</span>
+        </div>
+        <p class="tel"><span class="type hidden">work</span>{{tel('858-534-1900')}}</p>
+        {{ h.email_link('jfields@ucsd.edu', 'work') }}
+      </div>
+
+      <div id="cberys" class="vcard">
+        <h3 class="role">Staff</h3>
+        <p class="fn n"><span class="given-name">Carolina</span> <span class="family-name">Berys</span></p>
+        <div class="adr">
+          <p class="extended-address">Isaacs Hall (NORPAX), Room 318</p>
+          <span class="street-address hidden">8855 Biological Grade</span>
+          <span class="locality hidden">La Jolla</span>
+          <span class="region hidden">CA</span>
+          <span class="postal-code hidden">92093</span>
+        </div>
+        {{ h.email_link('carolina@ucsd.edu', 'work') }}
+      </div>
+
+      <div id="myshen" class="vcard">
+        <h3 class="role">Staff</h3>
+        <p class="fn n"><span class="given-name">Matthew</span> <span class="additional-name">Y.</span> <span class="family-name">Shen</span></p>
+        <div class="adr">
+          <p class="extended-address">Isaacs Hall (NORPAX), Room 318</p>
+          <span class="street-address hidden">8855 Biological Grade</span>
+          <span class="locality hidden">La Jolla</span>
+          <span class="region hidden">CA</span>
+          <span class="postal-code hidden">92093</span>
+        </div>
+        {{ h.email_link('myshen@ucsd.edu', 'work') }}
+      </div>
     </div>
-  </div>
-{%- endcall %}
+  {%- endcall %}
+{%- endblock %}

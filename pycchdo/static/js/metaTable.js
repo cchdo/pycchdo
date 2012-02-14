@@ -29,7 +29,7 @@ function metaTable(table) {
 
     if (body.length > 0) {
         $(this).prepend($('<td class="expander"></td>').append(
-          $('<a href="">&#x25B8;</a>')
+          $('<a href=""><div></div></a>')
             .click(function () { react(); return false; }))
           .css({cursor: 'pointer'}));
       row.click(react);
@@ -38,11 +38,11 @@ function metaTable(table) {
     }
 
     function open() {
-      row.addClass('open').find('.expander a').html('&#x25BE;');
+      row.addClass('open');
       body.addClass('open').show('fast');
     }
     function close() {
-      row.removeClass('open').find('.expander a').html('&#x25B8;');
+      row.removeClass('open');
       body.removeClass('open').hide('fast');
     }
 
@@ -92,6 +92,9 @@ function metaTable(table) {
     } else {
       exa.focus(open);
       exa.blur(close);
+    }
+    if (table.hasClass('pre-expand')) {
+      exa.click();
     }
   });
 }

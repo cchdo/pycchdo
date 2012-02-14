@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+        <name>(BRA) CARBOM</name>
+	<Placemark>
+		<name>
+			(BRA) CARBOM
+		</name>
+		<description>
+			&lt;hr&gt;&lt;img src=&quot;http://newio.io.usp.br/show_image.php?id=110&quot; align=center&gt;
+&lt;hr&gt;
+&lt;b&gt;&lt;a href=&quot;http://newio.io.usp.br&quot; &gt;IOUSP&lt;/a&gt;&lt;/b&gt;&lt;br&gt;
+Olga Sato and Paulo Polito&lt;br&gt;
+		</description>
+		<LookAt>
+			<latitude>
+				-32.91948915766732
+			</latitude>
+			<longitude>
+				-39.90234375
+			</longitude>
+			<altitude>
+				0
+			</altitude>
+			<heading>
+				0
+			</heading>
+			<tilt>
+				0
+			</tilt>
+			<range>
+				3495253.3333333335
+			</range>
+			<altitudeMode>
+				relativeToGround
+			</altitudeMode>
+		</LookAt>
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>
+                                                http://cchdo.ucsd.edu/static/cchdomap/images/cruise_start_icon.png
+					</href>
+				</Icon>
+			</IconStyle>
+			<BalloonStyle>
+				<text>
+<![CDATA[<h1>$[name]</h1><p>$[description]</p><p><a href="$[website]">$[website]</a></p>]]>				</text>
+				<textColor>
+					ff000000
+				</textColor>
+				<displayMode>
+					default
+				</displayMode>
+			</BalloonStyle>
+			<LineStyle>
+				<color>
+					ff66ff66
+				</color>
+				<width>
+					5
+				</width>
+			</LineStyle>
+		</Style>
+		<ExtendedData>
+			<Data name="website">
+				<value>
+					http://newio.io.usp.br/show_image.php?id=110
+				</value>
+			</Data>
+		</ExtendedData>
+		<MultiGeometry>
+			<Point>
+				<coordinates>
+					-49.74609375,-29.878755346037963,0
+				</coordinates>
+			</Point>
+			<LineString>
+				<tessellate>
+					1
+				</tessellate>
+				<coordinates>
+					-49.74609375,-29.878755346037963,0 -39.814453125,-32.916485347314385,0 -30.05859375,-35.96022296929668,0
+				</coordinates>
+			</LineString>
+		</MultiGeometry>
+	</Placemark>
+</Document>
+</kml>

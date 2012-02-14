@@ -1,0 +1,66 @@
+{% extends "templates/base.jinja2" %}
+{% block head -%}
+  {{ whh.tags.stylesheet_link('/static/css/static.css') }}
+{%- endblock %}
+{% block title %}Get{% endblock %}
+{% block content -%}
+{% call h.boxed('Get', class='get') -%}
+  <div id="search" class="sub-section first">
+    <h2>Search</h2>
+    <ul>
+      {{ whh.HTML.li(whh.tags.link_to('Advanced', request.route_path('advanced_search'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Map', request.route_path('search_map'))) }}
+    </ul>
+  </div>
+
+  <div id="basin" class="sub-section">
+    <h2>Basins</h2>
+    {%- include "templates/_basin_selector.jinja2" %}
+    <ul>
+      {{ whh.HTML.li(whh.tags.link_to('Arctic', '/arctic.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Atlantic', '/atlantic.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Pacific', '/pacific.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Indian', '/indian.html')) }}
+      {{ whh.HTML.li(whh.tags.link_to('Southern', '/southern.html')) }}
+    </ul>
+  </div>
+
+  <div id="time-series" class="sub-section">
+    <h2>Time Series</h2>
+    <ul>
+      {{ whh.HTML.li(whh.tags.link_to('HOT', '/search/results?query=HOT')) }}
+      {{ whh.HTML.li(whh.tags.link_to('BATS', '/search/results?query=BATS')) }}
+    </ul>
+  </div>
+
+  <div id="project" class="sub-section">
+    <h2>Projects</h2>
+    <ul>
+      {{ whh.HTML.li(whh.tags.link_to('Project Carina', request.route_path('project_carina'))) }}
+    </ul>
+  </div>
+
+  <div id="list" class="sub-section">
+    <h2>Lists</h2>
+    <ul>
+      {{ whh.HTML.li('Cruises',
+           h.H.ul(
+             h.H.li(h.tags.link_to('Confirmed cruises', request.route_path('cruises'))),
+             h.H.li(h.tags.link_to('All cruises', request.route_path('cruises', _query={'allow_seahunt': True}))),
+             h.H.li(h.tags.link_to('Only Seahunt cruises', request.route_path('cruises', _query={'seahunt_only': True}))),
+           )
+         )
+      }}
+      {{ whh.HTML.li(whh.tags.link_to('Countries', request.route_path('countries'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('People', request.route_path('people'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Ships', request.route_path('ships'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Institutions', request.route_path('institutions'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Collections', request.route_path('collections'))) }}
+    </ul>
+  </div>
+{%- endcall %}
+{%- endblock %}
+{% block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/basin_selector.js') }}
+{% endblock %}

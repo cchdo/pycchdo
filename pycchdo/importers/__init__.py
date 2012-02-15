@@ -11,16 +11,36 @@ from pymongo import DESCENDING
 from pycchdo import models
 
 
-__all__ = ['implog', 'su', 'ssh_connect', 'ssh', 'sftp', 'sftp_dl', '_ustr2uni',
-           '_date_to_datetime', 'update_note', 'update_attr', ]
+__all__ = ['implog', 'db_session', 'su', 'ssh_connect', 'ssh', 'sftp',
+           'sftp_dl', '_ustr2uni', '_date_to_datetime', 'update_note',
+           'update_attr', ]
 
 
 implog = logging.getLogger('pycchdo.import')
 implog.setLevel(logging.DEBUG)
-imploghandler = logging.StreamHandler()
-imploghandler.setFormatter(logging.Formatter(
-    '%(levelname)s %(asctime)-15s %(message)s'))
-implog.addHandler(imploghandler)
+logging.basicConfig(format='%(levelname)s %(asctime)-15s %(message)s')
+
+
+@contextmanager
+def db_session(session):
+    try:
+        yield session
+    finally:
+        session.rollback()
+        session.close()
+
+
+@contextmanager
+def pushd(dir):
+    cwd = os.getcwd()
+    os.chdir(dir)
+    try:
+        yield
+    except Exception, e:
+        implog.error('Error in pushd')
+        implog.error(e)
+    finally:
+        os.chdir(cwd)
 
 
 @contextmanager
@@ -102,12 +122,19 @@ def sftp(ssh_host):
 
 
 @contextmanager
-def sftp_dl(sftp, filepath):
+def sftp_dl(sftp, filepath, real=True):
+    """ Download a filepath from the remote server
+        real - denotes whether the file is actually downloaded
+    """
     temp = tempfile.NamedTemporaryFile(delete=False)
     try:
         implog.info('Downloading %s' % filepath)
-        sftp.get(filepath, temp.name)
-        yield temp
+        if real:
+            sftp.get(filepath, temp.name)
+            yield temp
+        else:
+            implog.info('Skipping download of %s' % filepath)
+            yield None
     except IOError, e:
         implog.warn("Unable to locate file on remote %s: %s" % (filepath, e))
         yield None
@@ -168,4 +195,3 @@ def update_attr(o, key, value, signer, accept=True, note=None,
     if attr and note is not None:
         update_note(attr, note, signer, note_data_type)
     return attr
-

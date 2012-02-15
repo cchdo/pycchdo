@@ -5,7 +5,8 @@ import sqlalchemy as S
 import sqlalchemy.orm
 import sqlalchemy.ext.declarative
 
-from geoalchemy import *
+from geoalchemy import GeometryColumn
+from geoalchemy import LineString as LS
 
 from shapely import wkb
 
@@ -32,6 +33,10 @@ engine = S.create_engine(url, use_native_unicode=False)
 
 
 sessionmaker = S.orm.sessionmaker(bind=engine)
+
+
+def session():
+    return sessionmaker()
 
 
 contacts_cruises = S.Table('contacts_cruises', _metadata,
@@ -177,7 +182,7 @@ class Cruise(Base, TrackHolder):
     date_end = S.Column(S.DateTime)
     frequency = S.Column(S.Unicode)
     identifier = S.Column(S.Unicode)
-    track = GeometryColumn(LineString(2))
+    track = GeometryColumn(LS(2))
     expocode = S.Column(S.Unicode)
     country = S.Column(S.Unicode)
     ship_code = S.Column(S.Unicode)
@@ -258,7 +263,7 @@ class Suggestion(Base, TrackHolder):
     entry_email = S.Column(S.Unicode)
     moderated = S.Column(S.Boolean, nullable=False, default=False)
 
-    track = GeometryColumn(LineString(2))
+    track = GeometryColumn(LS(2))
 
     file_file_name = S.Column(S.Unicode)
     file_content_type = S.Column(S.Unicode)
@@ -272,10 +277,6 @@ class Suggestion(Base, TrackHolder):
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
-
-
-def session():
-    return sessionmaker()
 
 
 def _ensure_cruise(cruise, importer):
@@ -292,7 +293,7 @@ def _ensure_cruise(cruise, importer):
     return c
 
 
-def _import_cruise(session, importer, cruise, sftp_goship):
+def _import_cruise(importer, cruise, sftp_goship, dl_files=True):
     c = _ensure_cruise(cruise, importer)
 
     c.acknowledge(importer)
@@ -340,7 +341,7 @@ def _import_cruise(session, importer, cruise, sftp_goship):
         update_attr(c, 'collections', [c.id for c in collections], importer)
 
     for resource in cruise.resources:
-        _import_resource(resource, importer, sftp_goship)
+        _import_resource(resource, importer, sftp_goship, dl_files)
 
     ds = None
     de = None
@@ -362,10 +363,10 @@ def _import_cruise(session, importer, cruise, sftp_goship):
     return c
 
 
-def _import_cruises(sftp_goship, session, importer):
-    cruises = session.query(Cruise).all()
+def _import_cruises(sftp_goship, sesh, importer, dl_files=True):
+    cruises = sesh.query(Cruise).all()
     for c in cruises:
-        _import_cruise(session, importer, c, sftp_goship)
+        _import_cruise(importer, c, sftp_goship, dl_files)
 
 
 def _import_inst(inst, importer):
@@ -410,8 +411,8 @@ def _import_inst(inst, importer):
     return institution
 
 
-def _import_institutions(session, importer):
-    institutions = session.query(Institution).all()
+def _import_institutions(sesh, importer):
+    institutions = sesh.query(Institution).all()
     for inst in institutions:
         _import_inst(inst, importer)
 
@@ -477,8 +478,8 @@ def _import_contact(contact, importer):
     return p
 
 
-def _import_contacts(session, importer):
-    contacts = session.query(Contact).all()
+def _import_contacts(sesh, importer):
+    contacts = sesh.query(Contact).all()
     for contact in contacts:
         _import_contact(contact, importer)
 
@@ -526,7 +527,7 @@ def _import_program(program, importer):
     return p
 
 
-def _import_resource(resource, importer, sftp_goship):
+def _import_resource(resource, importer, sftp_goship, dl_files=True):
     if not resource.cruise:
         return None
     cruise = _ensure_cruise(resource.cruise, importer)
@@ -545,18 +546,20 @@ def _import_resource(resource, importer, sftp_goship):
         cruise_id = cruise.get('import_id').replace('seahunt', '')
         path = os.path.join(rails_root, 'public', 'docs', 'ids', cruise_id,
                             file.filename)
-        with sftp_dl(sftp_goship, path) as downloaded:
-            file.file = downloaded
-            if resource.type == 'FileResource':
-                a = update_attr(cruise, 'data_suggestion', file, importer)
-            elif resource.type == 'ThumbMapResource':
-                a = update_attr(cruise, 'map_thumb', file, importer)
-            elif resource.type == 'MapResource':
-                a = update_attr(cruise, 'map_full', file, importer)
-        a.creation_stamp.timestamp = resource.file_updated_at
-        a.save()
-        if resource.description or resource.note:
-            update_note(a, resource.note, importer, resource.description)
+        with sftp_dl(sftp_goship, path, real=dl_files) as downloaded:
+            if downloaded:
+                file.file = downloaded
+                if resource.type == 'FileResource':
+                    a = update_attr(cruise, 'data_suggestion', file, importer)
+                elif resource.type == 'ThumbMapResource':
+                    a = update_attr(cruise, 'map_thumb', file, importer)
+                elif resource.type == 'MapResource':
+                    a = update_attr(cruise, 'map_full', file, importer)
+                a.creation_stamp.timestamp = resource.file_updated_at
+                a.save()
+                if resource.description or resource.note:
+                    update_note(a, resource.note, importer,
+                                resource.description)
     else:
         implog.error('Unknown resource type %s' % resource.type)
 
@@ -610,15 +613,22 @@ def _import_suggestion(suggestion, importer):
     return cruise
 
 
-def _import_suggestions(session, importer):
-    suggestions = session.query(Suggestion).all()
+def _import_suggestions(sesh, importer):
+    suggestions = sesh.query(Suggestion).all()
     for suggestion in suggestions:
         _import_suggestion(suggestion, importer)
 
 
-def import_(*args):
-    with sftp('goship.ucsd.edu') as (ssh_goship, sftp_goship):
-        _import_cruises(sftp_goship, *args)
-    _import_institutions(*args)
-    _import_contacts(*args)
-    _import_suggestions(*args)
+def import_(dl_files=True):
+    implog.info("Get/Create Seahunt Importer to take blame")
+    importer = _import_person(None, 'importer', 'Seahunt', 'Seahunt_importer')
+
+    implog.info('Connecting to seahunt db')
+    with db_session(session()) as sesh:
+        si = (sesh, importer)
+
+        with sftp('goship.ucsd.edu') as (ssh_goship, sftp_goship):
+            _import_cruises(sftp_goship, sesh, importer, dl_files)
+        _import_institutions(*si)
+        _import_contacts(*si)
+        _import_suggestions(*si)

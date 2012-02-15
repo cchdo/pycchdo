@@ -13,9 +13,292 @@ window.log = function(){
 (function(b){function c(){}for(var d="assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,timeStamp,profile,profileEnd,time,timeEnd,trace,warn".split(","),a;a=d.pop();){b[a]=b[a]||c}})((function(){try
 {console.log();return window.console;}catch(err){return window.console={};}})());
 
+(function menuMods() {
+  function has_class(e, c) {
+    return e.className.indexOf(c) >= 0;
+  }
+  function add_class(e, c) {
+    if (!has_class(e, c)) {
+      e.className = e.className + ' ' + c;
+    }
+  }
+  function remove_class(e, c) {
+    e.className = e.className.replace(new RegExp(' ' + c, 'g'), '');
+  }
+  var menu = document.getElementById('cchdo_menu');
+  var ul = menu.children[0];
+  var menuOpen = (function toggleableMenu() {
+    var expander = document.createElement('LI');
+    expander.className = 'expander';
+    var h1 = document.createElement('H1');
+    var link = document.createElement('A');
+    link.href = 'javascript:void(0);';
+    h1.appendChild(link);
+    expander.appendChild(h1);
+    ul.appendChild(expander);
+
+    function open(p) {
+      if (p) {
+        add_class(ul, 'open');
+        link.innerHTML = 'close menu';
+        link.title = 'Unpin';
+      } else {
+        remove_class(ul, 'open');
+        link.innerHTML = 'open menu';
+        link.title = 'Pin open';
+      }
+    }
+
+    function toggle() {
+      open(!has_class(ul, 'open'));
+      if (window.localStorage) {
+        window.localStorage.setItem('menu_pin_acknowledged', '1');
+      }
+    }
+
+    expander.onclick = toggle;
+    document.getElementById('picture').addEventListener('click', function (event) {
+      toggle();
+      if (event.preventDefault) {
+        event.preventDefault();
+      }
+      if (event.stopPropagation) {
+        event.stopPropagation();
+      }
+    }, false);
+    ul.onclick = function (e) {
+      var target;
+      if (!e) {
+        var e = window.event;
+      }
+      if (e.target) {
+        target = e.target;
+      } else if (e.srcElement) {
+        target = e.srcElement;
+      }
+      if (target === ul || target.tagName == 'LI') {
+        toggle();
+      }
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      }
+    };
+    document.body.onclick = function () {
+      open(false);
+    };
+    open(false);
+
+    function addFlasher() {
+      ul.onmouseover = function () {
+        add_class(expander, 'lightup');
+        setTimeout(function () {
+          remove_class(expander, 'lightup');
+        }, 500);
+        ul.onmouseover = function () {};
+      };
+    }
+
+    if (window.localStorage) {
+      if (window.localStorage.getItem('menu_pin_acknowledged') != '1') {
+        addFlasher();
+      }
+    } else {
+      addFlasher();
+    }
+    return open;
+  })();
+  (function tabableMenu() {
+    function addfocusblur(e, limit) {
+      var lis = [];
+      var f = e;
+      while (f !== limit) {
+        if (f.tagName == 'LI') {
+          lis.push(f);
+        }
+        f = f.parentNode;
+      }
+      e.onfocus = function () {
+        menuOpen(true);
+        for (var i = 0; i < lis.length; i++) {
+          add_class(lis[i], 'focus');
+        }
+        add_class(e, 'focus');
+      };
+      e.onblur = function () {
+        menuOpen(false);
+        for (var i = 0; i < lis.length; i++) {
+          remove_class(lis[i], 'focus');
+        }
+        remove_class(e, 'focus');
+      };
+    }
+    function walkFor(root, tagname, callback) {
+      for (var i = 0; i < root.children.length; i++) {
+        walkFor(root.children[i], tagname, callback);
+      }
+      if (root.tagName == tagname) {
+        callback(root);
+      }
+    }
+    walkFor(ul, 'A', function (a) {
+      addfocusblur(a, ul);
+    });
+  })();
+})();
+(function imgmap_mobile_toggle() {
+  // Adapted from http://home.comcast.net/~urbanjost/semaphore.html
+  function _map(lambda, list) {
+    var newlist = [];
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i];
+      newlist.push(lambda.call(x));
+    }
+    return newlist;
+  }
+
+  function natural_width(img) {
+    return img.naturalWidth ? img.naturalWidth : img.width;
+  };
+  function natural_height(img) {
+    return img.naturalHeight ? img.naturalHeight : img.height;
+  };
+  function curr_width(img) {
+    return img.width;
+  };
+  function curr_height(img) {
+    return img.height;
+  };
+
+  function ResizableImgMap(img, map) {
+    this.map = map;
+    this.img = img;
+
+    this._width = natural_width(this.img);
+    this._height = natural_height(this.img);
+
+    this._coords = [];
+
+    var areas = this.map.children;
+    for (var i = 0; i < areas.length; i++) {
+      var area = areas[i];
+      var coords = _map(function () { return Number(this); },
+                        area.coords.split(','));
+      this._coords.push([area, coords]);
+    }
+  }
+
+  // Check image dimensions and resize the map appropriately
+  ResizableImgMap.prototype.resize = function () {
+    var cwidth = curr_width(this.img);
+    var cheight = curr_height(this.img);
+
+    var ratio = cwidth / this._width;
+    if (!isFinite(ratio) || ratio == 0) {
+      return;
+    }
+    _map(function () {
+      var area = this[0];
+      var coords = this[1];
+      var scaled = _map(function () { return Math.round(this * ratio); },
+                        coords);
+      var coordstr = scaled.join(',');
+      area.coords = coordstr;
+    }, this._coords);
+  };
+
+  // Detect all images with maps; wrap and resize them.
+  var ims = [];
+  var imgs = document.getElementsByTagName('img');
+  var img_maps = {};
+  for (var i = 0; i < imgs.length; i++) {
+    var img = imgs[i];
+    if (img.useMap) {
+      img_maps[img.useMap.slice(1)] = img;
+    }
+  }
+  var maps = document.getElementsByTagName('map');
+  for (var i = 0; i < maps.length; i++) {
+    var map = maps[i];
+    var img = img_maps[map.name];
+
+    var im = new ResizableImgMap(img, map);
+    ims.push(im);
+  }
+  function resizeImgMaps() {
+    _map(function () { this.resize(); }, ims);
+  }
+  resizeImgMaps();
+
+// mobileToggle
+  var links = document.getElementsByTagName('link');
+  var mobile_links = [];
+  var mobile_meta = null;
+  for (var i = 0; i < links.length; i++) {
+    var link = links[i];
+    if (link.className == 'mobile') {
+      mobile_links.push(link);
+      link.data_href = link.href;
+    }
+  }
+  var metas = document.getElementsByTagName('meta');
+  for (var i = 0; i < metas.length; i++) {
+    var meta = metas[i];
+    if (meta.className == 'mobile') {
+      mobile_meta = meta;
+      mobile_meta.data_content = mobile_meta.content;
+      break;
+    }
+  }
+
+  var link_mobile = document.getElementById('screensize-mobile');
+  var link_full = document.getElementById('screensize-full');
+  link_mobile.onclick = function () {
+    for (var i = 0; i < mobile_links.length; i++) {
+      var link = mobile_links[i];
+      link.href = link.data_href;
+      if (link.media == 'handheld') {
+        link.media = 'all,handheld';
+      }
+    }
+    if (mobile_meta) {
+      mobile_meta.content = mobile_meta.data_content;
+    }
+    if (window.sessionStorage) {
+      window.sessionStorage.removeItem('pin_large_screen');
+    }
+    resizeImgMaps();
+    return false;
+  };
+  link_full.onclick = function () {
+    for (var i = 0; i < mobile_links.length; i++) {
+      var link = mobile_links[i];
+      link.href = '';
+      if (link.media == 'all,handheld') {
+        link.media = 'handheld';
+      }
+    }
+    if (mobile_meta) {
+      mobile_meta.content = '';
+    }
+    if (window.sessionStorage) {
+      window.sessionStorage.setItem('pin_large_screen', '1');
+    }
+    resizeImgMaps();
+    return false;
+  };
+  if (window.sessionStorage) {
+    var pin_large_screen = window.sessionStorage.getItem('pin_large_screen');
+    if (pin_large_screen == '1') {
+      link_full.onclick();
+    } else if (pin_large_screen == '0') {
+      link_mobile.onclick();
+    }
+  }
+})();
 (function rotateBanner() {
   if (window.localStorage) {
     var picdom = document.getElementById('picture');
+    picdom.className += ' unselectable';
     var ok = document.createElement('DIV');
     ok.innerHTML = '';
     ok.style.color = 'red';
@@ -41,15 +324,35 @@ window.log = function(){
       clickcount = 0;
     }
 
-    var clickthresh = 2000;
-    var then;
-    picdom.addEventListener('mousedown', function () {
-      then = new Date();
+    var dragthresh = 500;
+    var start;
+    picdom.addEventListener('mousedown', function (event) {
+      start = event.clientX;
     }, false);
-    picdom.addEventListener('mouseup', function () {
-      var now = new Date();
-      if (now - then >= clickthresh) {
+    picdom.addEventListener('mouseup', function (event) {
+      if (Math.abs(event.clientX - start) >= dragthresh) {
         toggleBanner();
+      }
+    }, false);
+    picdom.addEventListener('touchstart', function (event) {
+      if (event && event.changedTouches && event.changedTouches.length > 0) {
+        start = event.changedTouches[0].clientX;
+      }
+    }, false);
+    picdom.addEventListener('touchmove', function (event) {
+      if (event && event.changedTouches && event.changedTouches.length > 0) {
+        end = event.changedTouches[0].clientX;
+        if (Math.abs(end - start) < dragthresh) {
+          event.preventDefault();
+        }
+      }
+    }, false);
+    picdom.addEventListener('touchend', function (event) {
+      if (event && event.changedTouches && event.changedTouches.length > 0) {
+        end = event.changedTouches[0].clientX;
+        if (Math.abs(end - start) >= dragthresh) {
+          toggleBanner();
+        }
       }
     }, false);
   }
@@ -259,267 +562,4 @@ window.log = function(){
     }
   }
   startRotators();
-})();
-(function menuMods() {
-  var menu = document.getElementById('cchdo_menu');
-  function has_class(e, c) {
-    return e.className.indexOf(c) >= 0;
-  }
-  function add_class(e, c) {
-    if (!has_class(e, c)) {
-      e.className = e.className + ' ' + c;
-    }
-  }
-  function remove_class(e, c) {
-    e.className = e.className.replace(new RegExp(' ' + c, 'g'), '');
-  }
-  (function tabableMenu() {
-    function addfocusblur(e, limit) {
-      var lis = [];
-      var f = e;
-      while (f !== limit) {
-        if (f.tagName == 'LI') {
-          lis.push(f);
-        }
-        f = f.parentNode;
-      }
-      e.onfocus = function () {
-        for (var i = 0; i < lis.length; i++) {
-          add_class(lis[i], 'focus');
-        }
-      };
-      e.onblur = function () {
-        for (var i = 0; i < lis.length; i++) {
-          remove_class(lis[i], 'focus');
-        }
-      };
-    }
-    function walkFor(root, tagname, callback) {
-      for (var i = 0; i < root.children.length; i++) {
-        walkFor(root.children[i], tagname, callback);
-      }
-      if (root.tagName == tagname) {
-        callback(root);
-      }
-    }
-    walkFor(menu, 'A', function (a) {
-      addfocusblur(a, menu);
-    });
-  })();
-  (function toggleableMenu() {
-    var ul = menu.children[0];
-    var expander = document.createElement('LI');
-    expander.className = 'expander';
-    var h1 = document.createElement('H1');
-    var link = document.createElement('A');
-    link.href = 'javascript:void(0);';
-    h1.appendChild(link);
-    expander.appendChild(h1);
-    ul.appendChild(expander);
-
-    function open(p) {
-      if (p) {
-        add_class(ul, 'open');
-        link.innerHTML = 'close menu';
-        link.title = 'Unpin';
-      } else {
-        remove_class(ul, 'open');
-        link.innerHTML = 'open menu';
-        link.title = 'Pin open';
-      }
-    }
-
-    function toggle() {
-      open(!has_class(ul, 'open'));
-      if (window.localStorage) {
-        window.localStorage.setItem('menu_pin_acknowledged', '1');
-      }
-    }
-
-    expander.onclick = toggle;
-    ul.onclick = function (e) {
-      var target;
-      if (!e) {
-        var e = window.event;
-      }
-      if (e.target) {
-        target = e.target;
-      } else if (e.srcElement) {
-        target = e.srcElement;
-      }
-      if (target === ul || target.tagName == 'LI') {
-        toggle();
-      }
-      if (e.stopPropagation) {
-        e.stopPropagation();
-      }
-    };
-    document.body.onclick = function () {
-      open(false);
-    };
-    open(false);
-
-    if (window.localStorage) {
-      if (window.localStorage.getItem('menu_pin_acknowledged') == '1') {
-        return;
-      }
-    }
-    ul.onmouseover = function () {
-      add_class(expander, 'lightup');
-      setTimeout(function () {
-        remove_class(expander, 'lightup');
-      }, 500);
-      ul.onmouseover = function () {};
-    };
-  })();
-})();
-(function imgmap_mobile_toggle() {
-  // Adapted from http://home.comcast.net/~urbanjost/semaphore.html
-  function _map(lambda, list) {
-    var newlist = [];
-    for (var i = 0; i < list.length; i++) {
-      var x = list[i];
-      newlist.push(lambda.call(x));
-    }
-    return newlist;
-  }
-
-  function natural_width(img) {
-    return img.naturalWidth ? img.naturalWidth : img.width;
-  };
-  function natural_height(img) {
-    return img.naturalHeight ? img.naturalHeight : img.height;
-  };
-  function curr_width(img) {
-    return img.width;
-  };
-  function curr_height(img) {
-    return img.height;
-  };
-
-  function ResizableImgMap(img, map) {
-    this.map = map;
-    this.img = img;
-
-    this._width = natural_width(this.img);
-    this._height = natural_height(this.img);
-
-    this._coords = [];
-
-    var areas = this.map.children;
-    for (var i = 0; i < areas.length; i++) {
-      var area = areas[i];
-      var coords = _map(function () { return Number(this); },
-                        area.coords.split(','));
-      this._coords.push([area, coords]);
-    }
-  }
-
-  // Check image dimensions and resize the map appropriately
-  ResizableImgMap.prototype.resize = function () {
-    var cwidth = curr_width(this.img);
-    var cheight = curr_height(this.img);
-
-    var ratio = cwidth / this._width;
-    if (!isFinite(ratio) || ratio == 0) {
-      return;
-    }
-    _map(function () {
-      var area = this[0];
-      var coords = this[1];
-      var scaled = _map(function () { return Math.round(this * ratio); },
-                        coords);
-      var coordstr = scaled.join(',');
-      area.coords = coordstr;
-    }, this._coords);
-  };
-
-  // Detect all images with maps; wrap and resize them.
-  var ims = [];
-  var imgs = document.getElementsByTagName('img');
-  var img_maps = {};
-  for (var i = 0; i < imgs.length; i++) {
-    var img = imgs[i];
-    if (img.useMap) {
-      img_maps[img.useMap.slice(1)] = img;
-    }
-  }
-  var maps = document.getElementsByTagName('map');
-  for (var i = 0; i < maps.length; i++) {
-    var map = maps[i];
-    var img = img_maps[map.name];
-
-    var im = new ResizableImgMap(img, map);
-    ims.push(im);
-  }
-  function resizeImgMaps() {
-    _map(function () { this.resize(); }, ims);
-  }
-  resizeImgMaps();
-
-// mobileToggle
-  var links = document.getElementsByTagName('link');
-  var mobile_links = [];
-  var mobile_meta = null;
-  for (var i = 0; i < links.length; i++) {
-    var link = links[i];
-    if (link.className == 'mobile') {
-      mobile_links.push(link);
-      link.data_href = link.href;
-    }
-  }
-  var metas = document.getElementsByTagName('meta');
-  for (var i = 0; i < metas.length; i++) {
-    var meta = metas[i];
-    if (meta.className == 'mobile') {
-      mobile_meta = meta;
-      mobile_meta.data_content = mobile_meta.content;
-      break;
-    }
-  }
-
-  var link_mobile = document.getElementById('screensize-mobile');
-  var link_full = document.getElementById('screensize-full');
-  link_mobile.onclick = function () {
-    for (var i = 0; i < mobile_links.length; i++) {
-      var link = mobile_links[i];
-      link.href = link.data_href;
-      if (link.media == 'handheld') {
-        link.media = 'all,handheld';
-      }
-    }
-    if (mobile_meta) {
-      mobile_meta.content = mobile_meta.data_content;
-    }
-    if (window.sessionStorage) {
-      window.sessionStorage.removeItem('pin_large_screen');
-    }
-    resizeImgMaps();
-    return false;
-  };
-  link_full.onclick = function () {
-    for (var i = 0; i < mobile_links.length; i++) {
-      var link = mobile_links[i];
-      link.href = '';
-      if (link.media == 'all,handheld') {
-        link.media = 'handheld';
-      }
-    }
-    if (mobile_meta) {
-      mobile_meta.content = '';
-    }
-    if (window.sessionStorage) {
-      window.sessionStorage.setItem('pin_large_screen', '1');
-    }
-    resizeImgMaps();
-    return false;
-  };
-  if (window.sessionStorage) {
-    var pin_large_screen = window.sessionStorage.getItem('pin_large_screen');
-    if (pin_large_screen == '1') {
-      link_full.onclick();
-    } else if (pin_large_screen == '0') {
-      link_mobile.onclick();
-    }
-  }
 })();

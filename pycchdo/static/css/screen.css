@@ -156,6 +156,14 @@ table tr.header th {
   overflow-x: auto;
 }
 .clear { clear: both; }
+.unselectable {
+  cursor: default;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
 
 /* Hide email obfuscation */
 .copythis { display: none; }
@@ -291,6 +299,7 @@ input[type="submit"]:active {
   background-size: 100%;
 }
 
+/* .focus is for tabbable menus */
 #cchdo_menu {
   /* pin to bottom of picture */
   z-index: 100;
@@ -310,6 +319,7 @@ input[type="submit"]:active {
   line-height: 2em;
   text-shadow: 0 0 0.3em #FFFFFF, 0 0 0.3em #FFFFFF, 0 0 0.3em #FFFFFF;
 }
+#cchdo_menu h1 a.focus,
 #cchdo_menu h1 a:hover {
   text-shadow: 0 0 0.2em #90A3D1;
 }
@@ -369,15 +379,18 @@ input[type="submit"]:active {
 }
 
 /* level2 hl */
+#cchdo_menu ul ul li.focus,
 #cchdo_menu ul ul li:hover {
   background: #E8E8E8;
 }
 /* level2 link hl */
+#cchdo_menu ul ul li a.focus,
 #cchdo_menu ul ul li a:hover {
   background: #D8D8D8;
   color: #90A3D1;
 }
 /* level3 link reset */
+#cchdo_menu ul ul li.focus ul a,
 #cchdo_menu ul ul li:hover ul a {
   color: #000000;
 }
@@ -387,6 +400,7 @@ input[type="submit"]:active {
 #cchdo_menu ul ul ul {
   position: static;
 }
+#cchdo_menu ul ul ul li.focus a,
 #cchdo_menu ul ul ul li:hover a {
   background: #888888;
   color: #EEEEEE;

@@ -36,6 +36,27 @@ function loadScript(url, callback) {
   }
 }
 
+/**
+ * (google.maps.Polygon) makeCirclePolygon(center:google.maps.LatLng,
+ *                                         radius:Number)
+ * http://code.google.com/apis/earth/documentation/geometries.html#circles
+ */
+function makeCirclePolygon(center, radius, steps) {
+  if (!steps) {
+    steps = 25;
+  }
+  var poly = new google.maps.Polygon();
+  var ring = poly.getPath();
+  var pi2 = Math.PI * 2;
+  for (var i = 0; i < steps; i++) {
+    var lat = center.lat() + radius * Math.cos(i / steps * pi2);
+    var lng = center.lng() + radius * Math.sin(i / steps * pi2);
+    ring.push(new google.maps.LatLng(lat, lng));
+  }
+  ring.push(ring.getAt(0));
+  return poly;
+}
+
 /* http://james.padolsey.com/javascript/special-scroll-events-for-jquery/ */
 (function(){
   var special = jQuery.event.special,
@@ -106,14 +127,9 @@ CCHDO.MAP.TIPS = {
     '<p>This may have been caused by plugin blocking.</p>',
   'searcherror': 'Encountered error while searching',
   'importing': 'Importing ' + CCHDO.MAP.LOADING_IMG,
-  'startDraw': '<dl><dt>Preset shapes</dt><dd>Click and drag.</dd>' + 
-               '<dt>Polygon</dt><dd>Single click.</dd>' + 
-               '<dt>Cancel</dt><dd>Press <code>ESC</code>. The drawing will ' + 
-               'be editable later.</dd></dl>',
-  'presetChoose': '<p>Click the shape you want.</p>',
-  'polyclose': ['Double click or click on starting vertex to close ',
-                'the polygon.'].join(''),
-  'polyedit': 'Drag the vertices to edit the polygon',
+  'startDraw': '<p>Change the drawing tool with the top-center controls.</p>' + 
+               '<p>To cancel, press <code>ESC</code>.</p>' +
+               '<p>The shape will be editable later.</p>',
   'timeswap': ['Swapped min time with max time; ',
     'the values you entered were not min/max.'].join(''),
   'region': '<p>Find cruises that pass through a defined region.</p>',
@@ -1081,14 +1097,15 @@ Model.prototype.query = function (layer, query, callback, tracks_callback,
   if (typeof(x) == 'string') {
     queryData = {q: x};
   } else {
-    var overlay = x.get('overlay');
+    var overlay = x;
     var shape = {shape: "polygon", v: []};
     if (overlay instanceof google.maps.Circle) {
       shape.shape = "circle";
-      shape.v = x.getCirclePolygon().getPath();
+      shape.v = makeCirclePolygon(
+        overlay.getCenter(),
+        overlay.getRadius() / Math.pow(10, 5), 8).getPath();
     } else if (overlay instanceof google.maps.Rectangle) {
       shape.shape = "rectangle";
-
       var b = overlay.getBounds();
       var sw = b.getSouthWest();
       var ne = b.getNorthEast();
@@ -2163,6 +2180,9 @@ RegionLayerSection.prototype = new LayerSection();
 function RegionLayer(shape, color) {
   QueryLayer.call(this);
   this._shape = shape;
+  this._query = {
+    query: this._shape, min_time: CCHDO.MAP.MIN_TIME,
+    max_time: CCHDO.MAP.MAX_TIME};
 
   addColorBox(this, color);
 }
@@ -2257,7 +2277,8 @@ RegionLayer.prototype.query = function () {
   var self = this;
   this.disable();
   var query = this._query;
-  this._layerSection._layerView._model.query(this, query, function (ids) {
+  this._layerSection._layerView._model.query(
+      this, query, function (ids) {
     self.associate(ids);
     self.enable();
     self.setOn(true);
@@ -2271,60 +2292,86 @@ RegionLayer.prototype.query = function () {
 };
 
 
-function RegionLayerCreator(name) {
+function RegionLayerCreator() {
   LayerCreator.call(this);
   var button = document.createElement('BUTTON');
   button.appendChild(document.createTextNode('Draw region of interest'));
   this._content.appendChild(button);
 
+  var OverlayType = google.maps.drawing.OverlayType;
+  this.drawingManager = new google.maps.drawing.DrawingManager({
+    drawingMode: OverlayType.RECTANGLE,
+    drawingControl: true,
+    drawingControlOptions: {
+      position: google.maps.ControlPosition.TOP_CENTER,
+      drawingModes: [
+        OverlayType.RECTANGLE, OverlayType.CIRCLE, OverlayType.POLYGON]
+    },
+  });
+
   var self = this;
   button.onclick = function () {
-    var shape = new DShape();
-    var layer = new RegionLayer(shape, nextColor());
+    self.drawingManager.setMap(self._layerSection._layerView._model._map);
+
+    var next_color = nextColor();
+
     button.disabled = 'disabled';
 
+    self.drawingManager.setOptions({
+      rectangleOptions: {
+        fillColor: next_color,
+        strokeColor: next_color,
+        strokeWeight: 2
+      },
+      circleOptions: {
+        fillColor: next_color,
+        strokeColor: next_color,
+        strokeWeight: 2
+      },
+      polygonOptions: {
+        fillColor: next_color,
+        strokeColor: next_color,
+        strokeWeight: 2
+      }
+    });
+
     function finished() {
+      self.drawingManager.setMap(null)
       button.disabled = '';
     }
 
-    shape.setMap(self._layerSection._layerView._model._map);
-    shape.start();
-    CM.tip(CM.TIPS['startDraw']);
-
-    var completed = false;
-    function requery() {
-      if (completed) {
-        layer.setQuery(shape);
-        layer.query();
-      }
-    }
-    google.maps.event.addListener(shape, 'shape_changed', requery);
-    google.maps.event.addListener(shape, 'draw_updated', requery);
-    google.maps.event.addListener(shape, 'draw_canceled', function () {
-      shape.setMap(null);
-      finished();
-    });
-    google.maps.event.addListener(shape, 'draw_ended', function () {
+    google.maps.event.addListenerOnce(
+        self.drawingManager, 'overlaycomplete', function (event) {
+      var overlay = event.overlay;
+      overlay.setEditable(true);
+      var layer = new RegionLayer(overlay, next_color);
       self._layerSection.addLayer(layer);
-      completed = true;
-      layer.setQuery(shape);
       layer.query();
+
+      var change_events = []
+      if (event.type == OverlayType.RECTANGLE) {
+        change_events.push('bounds_changed');
+      } else if (event.type == OverlayType.CIRCLE) {
+        change_events.push('center_changed');
+        change_events.push('radius_changed');
+      } else if (event.type == OverlayType.POLYGON) {
+        change_events.push('paths_changed');
+      }
+      for (var i = 0; i < change_events.length; i++) {
+        var change_event = change_events[i];
+        google.maps.event.addListener(overlay, change_event, function () {
+          layer.query();
+        });
+      }
       finished();
     });
-    var polyEar = google.maps.event.addListenerOnce(shape, 'drawing_polygon', function () {
-      CM.tip(CM.TIPS['polyclose']);
-      google.maps.event.removeListener(presetEar);
-    });
-    var presetEar = google.maps.event.addListenerOnce(shape, 'drawing_presets', function () {
-      CM.tip(CM.TIPS['presetChoose']);
-      google.maps.event.removeListener(polyEar);
-    });
-    var editingEar = google.maps.event.addListener(shape, 'editable_changed', function () {
-      if (shape.get('editable')) {
-        CM.tip(CM.TIPS['polyedit']);
-        google.maps.event.removeListener(editingEar);
+    google.maps.event.addDomListenerOnce(window, 'keydown', function (event) {
+      if (event.keyCode == 27) {
+        finished();
       }
     });
+
+    CM.tip(CM.TIPS['startDraw']);
     return false;
   };
 }

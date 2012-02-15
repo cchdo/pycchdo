@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon-precomposed" type="image/png" href="/static/img/iphone_icon.png">
   {{ whh.tags.stylesheet_link('/static/css/normalize.css') }}
   {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
-  {%- include 'templates/_ie_compat.jinja2' ignore missing %}
+  {%- include 'templates/_ua.jinja2' ignore missing %}
   {%- block staff_head %}{%- endblock %}
   {%- block head %}{%- endblock %}
   {%- block subhead %}{%- endblock %}

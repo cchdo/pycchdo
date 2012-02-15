@@ -1,2 +1,2 @@
 include *.txt *.ini *.cfg
-recursive-include pycchdo *.ico *.png *.css *.gif *.jpg *.txt *.js *.html
+recursive-include pycchdo *.ico *.png *.css *.gif *.jpg *.txt *.js *.html *.jinja2

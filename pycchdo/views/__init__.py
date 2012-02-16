@@ -49,7 +49,7 @@ def _collapsed_dict(d, n=None):
             # recurse into sub-dicts
             v = _collapsed_dict(v, n)
         if type(v) is list:
-            # TODO test for list condition
+            # TODO TEST for list condition
             # do not recurse into lists if n is None
             if n is None and not v:
                 v = n
@@ -171,7 +171,7 @@ def _file_response(file, disposition='inline'):
     except AttributeError:
         pass
     try:
-        # TODO test that this must be string.
+        # TODO TEST that this must be string.
         resp.content_type = str(file.content_type)
     except AttributeError:
         pass

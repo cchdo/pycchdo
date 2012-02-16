@@ -13,7 +13,7 @@ from pycchdo import models
 
 __all__ = ['implog', 'db_session', 'su', 'ssh_connect', 'ssh', 'sftp',
            'sftp_dl', '_ustr2uni', '_date_to_datetime', 'update_note',
-           'update_attr', ]
+           'update_attr', 'pushd', ]
 
 
 implog = logging.getLogger('pycchdo.import')
@@ -44,8 +44,10 @@ def pushd(dir):
 
 
 @contextmanager
-def su(uid=0, gid=0):
+def su(uid=0, gid=0, su_lock=None):
     """ Temporarily switch effective uid and gid to provided values """
+    if su_lock:
+        su_lock.acquire()
     try:
         seuid = os.geteuid()
         segid = os.getegid()
@@ -66,6 +68,8 @@ def su(uid=0, gid=0):
             os.seteuid(0)
         os.setegid(segid)
         os.seteuid(seuid)
+    if su_lock:
+        su_lock.release()
 
 
 def ssh_connect(ssh_host,
@@ -122,14 +126,14 @@ def sftp(ssh_host):
 
 
 @contextmanager
-def sftp_dl(sftp, filepath, real=True):
+def sftp_dl(sftp, filepath, dl_files=True):
     """ Download a filepath from the remote server
-        real - denotes whether the file is actually downloaded
+        dl_files - denotes whether the file is actually downloaded
     """
     temp = tempfile.NamedTemporaryFile(delete=False)
     try:
         implog.info('Downloading %s' % filepath)
-        if real:
+        if dl_files:
             sftp.get(filepath, temp.name)
             yield temp
         else:
@@ -139,7 +143,10 @@ def sftp_dl(sftp, filepath, real=True):
         implog.warn("Unable to locate file on remote %s: %s" % (filepath, e))
         yield None
     finally:
-        os.unlink(temp.name)
+        try:
+            os.unlink(temp.name)
+        except OSError, e:
+            implog.error('Unable to unlink tempfile: %s' % e)
 
 
 def _ustr2uni(s):
@@ -166,7 +173,7 @@ def update_note(obj, note, person, data_type=None):
 
 
 def update_attr(o, key, value, signer, accept=True, note=None,
-                note_data_type=None):
+                note_data_type=None, creation_time=None):
     attr = None
     try:
         if accept:
@@ -180,6 +187,7 @@ def update_attr(o, key, value, signer, accept=True, note=None,
                 a = None
         if a:
             a.set(key, value)
+            a.accepted = accept
             a.save()
             attr = a
         else:
@@ -192,6 +200,9 @@ def update_attr(o, key, value, signer, accept=True, note=None,
             attr = o.set_accept(key, value, signer)
         else:
             attr = o.set(key, value, signer)
+    if creation_time is not None:
+        attr.creation_stamp.timestamp = creation_time
+        attr.save()
     if attr and note is not None:
         update_note(attr, note, signer, note_data_type)
     return attr

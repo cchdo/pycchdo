@@ -983,6 +983,16 @@ class ObjId(idablemongodoc):
         return id
 
     @classmethod
+    def set_id(cls, id):
+        obj = cls.id.copy()
+        obj[cls.counter] = id
+        return cls._mongo_collection().save(obj)
+
+    @classmethod
+    def peek_id(cls):
+        return int(cls._mongo_collection().find_one(cls.id)[cls.counter])
+
+    @classmethod
     def next_id(cls):
         obj_id = cls._mongo_collection().find_and_modify(
             cls.id, {'$inc': cls.inc}, new=True, upsert=True)
@@ -1077,7 +1087,7 @@ class Obj(_Change):
     @classmethod
     def find(cls, spec=None, *args, **kwargs):
         if spec:
-            # TODO test make sure spec doesn't have additional _obj_type key
+            # TODO TEST make sure spec doesn't have additional _obj_type key
             # left over (require this copy)
             query = spec.copy()
         else:
@@ -1295,11 +1305,10 @@ class Obj(_Change):
         return key
 
     @classmethod
-    def _get_by_attrs_true_match(cls, obj, value_key, **kwargs):
+    def _get_by_attrs_true_match(cls, obj, value_key, accepted_only=True, **kwargs):
         """ Make sure the most current values match by filtering resulting objs
         """
-        # TODO TEST for obj.accepted requirement
-        if obj is None or not obj.accepted:
+        if obj is None or (accepted_only and not obj.accepted):
             return False
         for k, v in kwargs.items():
             key = cls._attr_value_key(k, value_key)
@@ -1353,7 +1362,7 @@ class Obj(_Change):
         }
 
     @classmethod
-    def get_by_attrs(cls, d={}, value_key=None, **kwargs):
+    def get_by_attrs(cls, d={}, value_key=None, accepted_only=True, **kwargs):
         """ Gets all objects that have _Attrs that match all the requested
             key-value pairs.
 
@@ -1363,6 +1372,8 @@ class Obj(_Change):
                 This is useful for querying on sub-objects in the _Attr value
                 e.g.  requiring a specific value for a specific element of the
                 _Attr value array.
+
+            accepted_only - (bool) requires that Objs retrieved must be accepted
 
         """
         map = d
@@ -1390,8 +1401,8 @@ class Obj(_Change):
         objs = cls.get_all_by_ids(obj_ids)
 
         return filter(
-            lambda o: cls._get_by_attrs_true_match(o, value_key, **map),
-            objs)
+            lambda o: cls._get_by_attrs_true_match(o, value_key,
+                                                   accepted_only, **map), objs)
 
 
 class _Participants(dict):

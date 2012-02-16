@@ -25,7 +25,7 @@
   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
     <td class="change" colspan="2">
       {%- if file.pending_stamp %}
-        <span class="pending">(Under review as of {{ file.pending_stamp.timestamp.strftime('%Y-%m-%d %H:%M') }})</span>
+        <span class="pending">(Under review as of {{ h.datetime(file.pending_stamp.timestamp) }})</span>
       {%- endif %}
     </td>
     <td colspan="2">
@@ -357,7 +357,7 @@
                 <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
                   <td>{{ attr.key }}</td>
                   <td>{{ h.link_person(attr.creation_stamp.person) }}</td>
-                  <td class="date">{{ attr.creation_stamp.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                  <td class="date">{{ h.datetime(attr.creation_stamp.timestamp) }}</td>
                 </tr>
                 <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
                   <td class="change">
@@ -367,7 +367,7 @@
                       <span class="value">{{ attr.value }}</span>
                     {%- endif %}
                     {%- if attr.pending_stamp %}
-                      <span class="pending">(Under review as of {{ attr.pending_stamp.timestamp.strftime('%Y-%m-%d %H:%M') }})</span>
+                      <span class="pending">(Under review as of {{ h.datetime(attr.pending_stamp.timestamp) }})</span>
                     {%- endif %}
                   </td>
                   <td colspan="2">

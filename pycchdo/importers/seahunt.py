@@ -1,5 +1,6 @@
 from cgi import FieldStorage
 import os
+import re
 
 import sqlalchemy as S
 import sqlalchemy.orm
@@ -199,6 +200,8 @@ class Cruise(Base, TrackHolder):
     ship = S.orm.relation(
         Ship, backref=S.orm.backref('cruises', order_by=id, lazy='dynamic'))
 
+    contacts = S.orm.relationship(
+        'Contact', secondary=contacts_cruises, backref='cruises')
     institutions = S.orm.relationship(
         'Institution', secondary=cruises_institutions, backref='cruises')
     programs = S.orm.relationship(
@@ -281,7 +284,8 @@ class Suggestion(Base, TrackHolder):
 
 def _ensure_cruise(cruise, importer):
     import_id = 'seahunt%s' % str(cruise.id)
-    cs = models.Cruise.get_by_attrs(import_id=import_id)
+    cs = models.Cruise.get_by_attrs({'import_id': import_id},
+                                    accepted_only=False)
     if len(cs) > 0:
         c = cs[0]
         implog.info('Updating Seahunt Cruise %s: %s' % (import_id, c.id))
@@ -330,6 +334,24 @@ def _import_cruise(importer, cruise, sftp_goship, dl_files=True):
         ship = _import_ship(cruise.ship, importer)
         update_attr(c, 'ship', ship.id, importer)
 
+    if cruise.contacts:
+        participants = []
+        for contact in cruise.contacts:
+            participants.append({
+                'role': 'contact',
+                'person': _import_contact(contact, importer).id,
+                'institution': None,
+            })
+        if participants:
+            update_attr(c, 'participants', participants, importer)
+
+    if cruise.institutions:
+        institutions = []
+        for inst in cruise.institutions:
+            institutions.append(_import_inst(inst, importer).id)
+        if institutions:
+            update_attr(c, 'institutions', institutions, importer)
+
     collections = []
     if cruise.basin:
         basin = _import_Collection(importer, cruise.basin, 'basin')
@@ -357,6 +379,7 @@ def _import_cruise(importer, cruise, sftp_goship, dl_files=True):
         else:
             update_attr(c, 'date_start', cruise.cruise_dates, importer,
                         accept=False)
+    print cruise.date_start, cruise.date_end, cruise.cruise_dates
 
     if cruise.track:
         update_attr(c, 'track', cruise.get_track(), importer)
@@ -371,7 +394,8 @@ def _import_cruises(sftp_goship, sesh, importer, dl_files=True):
 
 def _import_inst(inst, importer):
     import_id = 'seahunt%d' % inst.id
-    institutions = models.Institution.get_by_attrs(import_id=import_id)
+    institutions = models.Institution.get_by_attrs({'import_id': import_id},
+                                                   accepted_only=False)
     if len(institutions) > 0:
         institution = institutions[0]
         implog.info("Updating Seahunt Institution %s: %s" % (import_id,
@@ -402,12 +426,6 @@ def _import_inst(inst, importer):
     if inst.country:
         country = _import_country(inst.country, importer)
         update_attr(institution, 'country', country.id, importer)
-
-    for cruise in inst.cruises:
-        c = _ensure_cruise(cruise, importer)
-        insts = c.get('institutions', [])
-        insts.append(institution.id)
-        update_attr(c, 'institutions', insts, importer)
     return institution
 
 
@@ -419,7 +437,8 @@ def _import_institutions(sesh, importer):
 
 def _import_country(country, importer):
     import_id = 'seahunt%d' % country.id
-    countries = models.Country.get_by_attrs(import_id=import_id)
+    countries = models.Country.get_by_attrs({'import_id': import_id},
+                                            accepted_only=False)
     if len(countries) > 0:
         c = countries[0]
         implog.info("Updating Country %s: %s" % (import_id, c.id))
@@ -436,10 +455,13 @@ def _import_country(country, importer):
 
 def _import_contact(contact, importer):
     import_id = 'seahunt%d' % contact.id
-    people = models.Person.get_by_attrs(import_id=import_id)
+    people = models.Person.get_by_attrs({'import_id': import_id},
+                                        accepted_only=False)
     if len(people) > 0:
         p = people[0]
+        implog.info('Updating Seahunt Contact %s: %s' % (import_id, p.id))
     else:
+        implog.info('Creating Seahunt Contact %s' % import_id)
         p = models.Person(import_id)
         p.creation_stamp.timestamp = contact.created_at
         p.save()
@@ -486,7 +508,8 @@ def _import_contacts(sesh, importer):
 
 def _import_ship(ship, importer):
     import_id = 'seahunt%d' % ship.id
-    ships = models.Ship.get_by_attrs(import_id=import_id)
+    ships = models.Ship.get_by_attrs({'import_id': import_id},
+                                     accepted_only=False)
     if len(ships) > 0:
         s = ships[0]
     else:
@@ -508,7 +531,8 @@ def _import_ship(ship, importer):
 
 def _import_program(program, importer):
     import_id = 'seahunt%d' % program.id
-    programs = models.Collection.get_by_attrs(import_id=import_id)
+    programs = models.Collection.get_by_attrs({'import_id': import_id},
+                                              accepted_only=False)
     if len(programs) > 0:
         p = programs[0]
     else:
@@ -529,12 +553,14 @@ def _import_program(program, importer):
 
 def _import_resource(resource, importer, sftp_goship, dl_files=True):
     if not resource.cruise:
+        implog.error('Resource %s is missing cruise' % resource.id)
         return None
     cruise = _ensure_cruise(resource.cruise, importer)
     if resource.type == 'URLResource':
-        update_attr(
-            cruise, 'link', resource.url,
-            importer, note=resource.description, note_data_type=resource.note)
+        a = cruise.set('link', resource.url, importer)
+        update_note(a, resource.description, importer, resource.note)
+        a.creation_stamp.timestamp = resource.created_at
+        a.save()
     elif resource.type == 'NoteResource':
         update_note(cruise, resource.note, importer, resource.description)
     elif (resource.type == 'FileResource' or
@@ -546,7 +572,7 @@ def _import_resource(resource, importer, sftp_goship, dl_files=True):
         cruise_id = cruise.get('import_id').replace('seahunt', '')
         path = os.path.join(rails_root, 'public', 'docs', 'ids', cruise_id,
                             file.filename)
-        with sftp_dl(sftp_goship, path, real=dl_files) as downloaded:
+        with sftp_dl(sftp_goship, path, dl_files=dl_files) as downloaded:
             if downloaded:
                 file.file = downloaded
                 if resource.type == 'FileResource':
@@ -570,7 +596,8 @@ def _import_suggestion_contact(name, email, importer):
     if name is None:
         name = email
     import_id = 'seahunt%s' % name
-    people = models.Person.get_by_attrs(import_id=import_id)
+    people = models.Person.get_by_attrs({'import_id': import_id},
+                                        accepted_only=False)
     if len(people) > 0:
         person = people[0]
     else:
@@ -605,6 +632,7 @@ def _import_suggestion(suggestion, importer):
     update_note(cruise, suggestion.notes, person)
     update_note(cruise, suggestion.programs, person, 'programs')
     update_note(cruise, suggestion.contacts, person, 'contacts')
+
     update_attr(cruise, 'institutions', suggestion.institutions.split(','),
                 person, accept=False)
     if suggestion.track:
@@ -619,7 +647,36 @@ def _import_suggestions(sesh, importer):
         _import_suggestion(suggestion, importer)
 
 
-def import_(dl_files=True):
+def clear():
+    implog.info('Clearing all Seahunt imports')
+
+    person = models.Person.get_one(
+        {'name_last': 'importer', 'name_first': 'Seahunt'})
+
+    attrs = models._Attr.get_all({'key': 'import_id',
+                                  'value': re.compile('seahunt.*')})
+    objs = [x.obj for x in attrs]
+
+    if person:
+        objs = objs + models.Obj.get_all({'creation_stamp.person': person.id})
+
+    lobjs = float(len(objs))
+    for i, obj in enumerate(objs):
+        obj.polymorph().remove()
+        if i % 10 == 0:
+            implog.info('%d/%d = %f' % (i, lobjs, i / lobjs))
+
+    max_id = models.Obj.find_one(
+        fields=[], sort=[('creation_stamp.timestamp', models.DESCENDING)])['_id']
+    if models.ObjId.peek_id() != max_id:
+        models.ObjId.set_id(max_id)
+        implog.info('Reset max ObjId to %d' % max_id)
+
+    implog.info('Cleared Seahunt imports')
+    return 
+
+
+def import_(dl_files=True, files_only=False):
     implog.info("Get/Create Seahunt Importer to take blame")
     importer = _import_person(None, 'importer', 'Seahunt', 'Seahunt_importer')
 
@@ -629,6 +686,7 @@ def import_(dl_files=True):
 
         with sftp('goship.ucsd.edu') as (ssh_goship, sftp_goship):
             _import_cruises(sftp_goship, sesh, importer, dl_files)
-        _import_institutions(*si)
-        _import_contacts(*si)
-        _import_suggestions(*si)
+        if not files_only:
+            _import_institutions(*si)
+            _import_contacts(*si)
+            _import_suggestions(*si)

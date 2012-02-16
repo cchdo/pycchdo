@@ -54,9 +54,10 @@ def _import_Collection(importer, name, type):
     return collection
 
 
-def sftp_dl_dir(sftp, remotedir, localdir, su_lock=None, dl_files=True):
+def sftp_dl_dir(sftp, remotedir, localdir, import_gid, su_lock=None, dl_files=True):
     try:
-        os.mkdir(localdir)
+        with su(su_lock=su_lock):
+            os.mkdir(localdir)
     except OSError, e:
         implog.debug('Unable to create directory %s %s' %
                      (os.path.basename(remotedir), e))
@@ -69,22 +70,19 @@ def sftp_dl_dir(sftp, remotedir, localdir, su_lock=None, dl_files=True):
         remote_stat = sftp.lstat(remote_path)
 
         if stat.S_ISDIR(sftp.lstat(remote_path).st_mode):
-            sftp_dl_dir(sftp, remote_path, local_path, dl_files)
+            sftp_dl_dir(sftp, remote_path, local_path, import_gid, su_lock, dl_files)
         else:
             try:
                 if dl_files:
-                    sftp.get(remote_path, local_path)
+                    with su(su_lock=su_lock):
+                        sftp.get(remote_path, local_path)
             except IOError, e:
                 implog.warning('Unable to download %s (%s)' % (remote_path, e))
 
-        if su_lock:
-            su_lock.acquire()
-        with su():
+        with su(su_lock=su_lock):
             os.chmod(local_path, remote_stat.st_mode)
             os.chown(local_path, remote_stat.st_uid, import_gid)
             os.utime(local_path, (remote_stat.st_atime, remote_stat.st_mtime))
-        if su_lock:
-            su_lock.release()
 
 
 def _namesonly(names):
@@ -642,16 +640,46 @@ def _import_cruise(importer, cruise):
         c.participants.save(importer)
 
 
+class CruisesImporter(threading.Thread):
+    def __init__(self, cruise, importer):
+        threading.Thread.__init__(self)
+        self.cruise = cruise
+        self.importer = importer
+
+    def run(self):
+        _import_cruise(self.importer, self.cruise)
+        implog.debug('imported cruise %s' % self.cruise.id)
+
+
 def _import_cruises(session, importer):
     implog.info("Importing Cruises")
 
     cruises = session.query(legacy.Cruise).all()
     len_cruises = float(len(cruises))
 
-    for i, c in enumerate(cruises):
-        if i % 10 == 0:
-            implog.info('%d / %d = %f' % (i, len_cruises, i / len_cruises))
-        _import_cruise(importer, c)
+    importers = []
+    for cruise in cruises:
+        importers.append(CruisesImporter(cruise, importer))
+
+    implog.info("Starting cruise import with %d threads" % nthreads)
+    active_importers = []
+    i = 0
+    while importers:
+        for imp in active_importers:
+            if not imp.is_alive():
+                active_importers.remove(imp)
+                i += 1
+                if i % 10 == 0:
+                    implog.info('%d / %d = %f' % (i, len_cruises, i /
+                                                  len_cruises))
+        while len(active_importers) < nthreads and importers:
+            t = importers.pop()
+            active_importers.append(t)
+            t.start()
+        time.sleep(0.5)
+    for imp in active_importers:
+        if imp.is_alive():
+            imp.join()
 
 
 def _import_track_lines(session, importer):
@@ -1455,8 +1483,8 @@ def parse_dt(s):
         return s
 
 
-def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock,
-                                 dl_files=True):
+def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
+                                 su_lock, dl_files=True):
     expocode = cruise.get('expocode')
     if docs:
         implog.info("Importing documents for %s" % expocode)
@@ -1566,7 +1594,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock,
         if date_creation:
             creations = date_creation.split(',')
             if len(creations) > 1:
-                date_creations = sorted(map(parse_dt, creations))
+                date_creations = map(str, sorted(map(parse_dt, creations)))
                 date_creation = date_creations[0]
                 update_note(attr, ','.join(date_creations), importer,
                             'dates_updated')
@@ -1625,8 +1653,8 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock,
 
         if stat.S_ISDIR(remote_stat.st_mode):
             try:
-                sftp_dl_dir(sftp_cchdo, remote_path, local_path, su_lock,
-                            dl_files)
+                sftp_dl_dir(sftp_cchdo, remote_path, local_path, import_gid,
+                            su_lock, dl_files)
             except IOError, e:
                 implog.error('Unable to download unaccounted dir %s' %
                                remote_path)
@@ -1639,8 +1667,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock,
                                remote_path)
                 implog.error(repr(e))
 
-        su_lock.acquire()
-        with su():
+        with su(su_lock=su_lock):
             try:
                 os.chmod(local_path, remote_stat.st_mode)
                 os.chown(local_path, remote_stat.st_uid, import_gid)
@@ -1649,17 +1676,14 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock,
             except Exception, e:
                 implog.error("Unable to chmod downloaded file: %s %s" %
                              (local_path, e))
-        su_lock.release()
 
     unaccounted_archive = StringIO()
     ua_tar = tarfile.open(mode='w:bz2', fileobj=unaccounted_archive)
-    su_lock.acquire()
-    with su():
+    with su(su_lock=su_lock):
         with pushd(local_dir):
             ua_tar.add('.')
         ua_tar.close()
         shutil.rmtree(local_dir)
-    su_lock.release()
     unaccounted_archive.seek(0)
 
     if any_unaccounted:
@@ -1675,23 +1699,24 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, su_lock,
 
 
 class DocumentsImporter(threading.Thread):
-    def __init__(self, docs, importer, cruise, su_lock, dl_files):
+    def __init__(self, docs, importer, cruise, import_gid, su_lock, dl_files):
         threading.Thread.__init__(self)
         self.importer = importer
         self.cruise = cruise
         self.docs = docs
         self.ssh_sftp = (None, None)
+        self.import_gid = import_gid
         self.su_lock = su_lock
         self.dl_files = dl_files
 
     def run(self):
         _import_documents_for_cruise(
             self.importer, self.ssh_sftp[1], self.docs, self.cruise,
-            self.su_lock, self.dl_files)
+            self.import_gid, self.su_lock, self.dl_files)
         implog.debug('imported docs for %s' % self.cruise.get('expocode', ''))
 
 
-def _import_documents(session, importer, dl_files=True):
+def _import_documents(session, importer, import_gid, dl_files=True):
     implog.info("Importing documents")
 
     # Instead of importing the documents table, go the other way around and
@@ -1707,7 +1732,7 @@ def _import_documents(session, importer, dl_files=True):
             legacy.Document.ExpoCode==cruise.get('expocode')).order_by(
             legacy.Document.LastModified.desc()).all()
         importers.append(DocumentsImporter(
-            docs, importer, cruise, su_lock, dl_files))
+            docs, importer, cruise, import_gid, su_lock, dl_files))
 
     sftp_pool = []
     implog.info("Opening %d SSH connections" % nthreads)
@@ -1853,7 +1878,7 @@ def _import_cchdo_uname_uids(ssh_cchdo, importer):
         importer.set_accept('cchdo_uname_uids', username_uid_map, importer)
 
 
-def import_(dl_files=True):
+def import_(import_gid, dl_files=True, files_only=False):
     implog.info("Get/Create CCHDO Importer to take blame")
     importer = _import_person(None, 'importer', 'CCHDO', 'CCHDO_importer')
 
@@ -1865,34 +1890,32 @@ def import_(dl_files=True):
     with db_session(legacy.session()) as session:
         session.autoflush = False
 
-        _import_users(session, importer)
-        _import_contacts(session, importer)
-        _import_collections(session, importer)
-        _import_cruises(session, importer)
+        if not files_only:
+            _import_users(session, importer)
+            _import_contacts(session, importer)
+            _import_collections(session, importer)
+            _import_cruises(session, importer)
 
-        # TODO ensure that expocode is unique. or merge cruises that seem to
-        # only just have different line numbers. Watch out for no_expocode
+            _import_track_lines(session, importer)
+            _import_collections_cruises(session, importer)
+            _import_contacts_cruises(session, importer)
 
-        _import_track_lines(session, importer)
-        _import_collections_cruises(session, importer)
-        _import_contacts_cruises(session, importer)
+            _import_events(session, importer)
 
-        _import_events(session, importer)
+            _import_spatial_groups(session, importer)
+            _import_internal(session, importer)
+            _import_unused_tracks(session, importer)
 
-        _import_spatial_groups(session, importer)
-        _import_internal(session, importer)
-        _import_unused_tracks(session, importer)
-
-        _import_parameter_descriptions(importer)
-        _import_parameter_groups(session, importer)
-        _import_bottle_dbs(session, importer)
-        _import_parameter_status(session, importer)
-        _import_parameters(session, importer)
+            _import_parameter_descriptions(importer)
+            _import_parameter_groups(session, importer)
+            _import_bottle_dbs(session, importer)
+            _import_parameter_status(session, importer)
+            _import_parameters(session, importer)
 
         with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
             _import_submissions(session, importer, sftp_cchdo, dl_files)
             _import_old_submissions(session, importer, sftp_cchdo, dl_files)
             _import_queue_files(session, importer, sftp_cchdo, dl_files)
-            _import_documents(session, importer, dl_files)
+            _import_documents(session, importer, import_gid, dl_files)
             _import_cchdo_uname_uids(ssh_cchdo, importer)
             _import_argo_files(session, importer, sftp_cchdo, dl_files)

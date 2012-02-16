@@ -233,10 +233,6 @@ class TestModel(unittest.TestCase):
             if i == num / 2:
                 ans = obj
 
-        # TODO(jfields) Attributes can be accepted either as is or with a new
-        # value. Make sure no Attrs with value matching but accepted_value not
-        # matching are returned.
-
         try:
             objs_gotten = Obj.get_by_attrs(a=num / 2, b=num / 2)
             obj = objs_gotten[0]
@@ -245,6 +241,27 @@ class TestModel(unittest.TestCase):
         finally:
             for obj in objs:
                 obj.remove()
+
+        # Attributes can be accepted either as is or with a new
+        # value. Make sure no Attrs with value matching but accepted_value not
+        # matching are returned.
+        conflicted_obj = Obj(self.testPerson)
+        conflicted_obj.save()
+        # Objects need to be accepted before it can be found by get attibutes
+        conflicted_obj.accept(self.testPerson)
+        conflicted_attr = conflicted_obj.set('a','first_value', self.testPerson)
+        conflicted_attr.accept_value("second_value", self.testPerson)
+        conflicted_obj.save()
+        # Don't find objects whose value match, but accepted value does not match.        
+        found_objects = Obj.get_by_attrs(a= 'first_value')
+        self.assertEquals(len(found_objects), 0)
+        # Find objects whose accepted value matches.
+        found_objects = Obj.get_by_attrs(a="second_value")
+        self.assertEquals(len(found_objects), 1)
+        self.assertEquals(found_objects[0].get('a'),'second_value')
+        
+        conflicted_obj.remove()
+
 
     def test_new_Attr(self):
         """ New Attrs are instances of _Change """
@@ -349,23 +366,54 @@ class TestModel(unittest.TestCase):
         """ Obj finders should find Objs based on their class """
         obj = Obj(self.testPerson)
         obj.save()
-        self.assertTrue(Obj.find_one({'_id': obj['_id']}) != None)
-        self.assertTrue(Person.find_one({'_id': self.testPerson['_id']}) != None)
-        # _id is not the best option here. try finding based on creation_stamp or
-        # something. That will show the error.
-        # TODO(jfields) also make sure that the class retrieved is correct
-        # basically make sure that Obj.find_one is called instead of
-        # collectablemongodoc.find_one.
+
+        c = Cruise(self.testPerson)
+        c.save()
+
+        o = Obj(self.testPerson)
+        o.save()
+        attr  = _Attr(self.testPerson, o)
+        attr.save()
+
+        p = Person(name_first="Ryan", name_last="Tester",
+                   institution="Test University", country="Testland",
+                   email="test@test.com")
+        p.save()
+
+        attr['creation_stamp']['timestamp'] = obj['creation_stamp']['timestamp']
+        attr.save()
+        p['creation_stamp']['timestamp'] = obj['creation_stamp']['timestamp']
+        p.save()
+        c['creation_stamp']['timestamp'] = obj['creation_stamp']['timestamp']
+        c.save()
+
+        found_person = Person.find_one({'creation_stamp.timestamp': obj['creation_stamp']['timestamp']})
+        self.assertEqual(found_person['_obj_type'], 'Person')
+
+
+        found_cruise = Cruise.find_one({'creation_stamp.timestamp': obj['creation_stamp']['timestamp']})
+        self.assertEqual(found_cruise['_obj_type'], 'Cruise')
+
+        found_obj = Obj.find_one({'creation_stamp.timestamp': obj['creation_stamp']['timestamp']})
+        self.assertEqual(found_obj['_obj_type'], 'Obj')
+
         obj.remove()
+        o.remove()
+        p.remove()
+        c.remove()
 
     def test_Obj_polymorph(self):
         """ An Obj that has been polymorphed regains the type of the Obj's
             _obj_type """
-
-        # TODO(jfields) test that getting an Obj by id gives the type of Obj.
-        # After calling obj.polymorph() the returned new obj is of a subclass of
-        # Obj.
-        pass
+        obj = Obj(self.testPerson)
+        obj.save()
+        found_obj = Obj.find_one({'_id': obj['_id']})
+        self.assertTrue(found_obj['_id'] == obj.id)
+        self.assertTrue(found_obj['_obj_type'] == 'Obj')
+        obj['_obj_type'] = 'Cruise'
+        new_obj = obj.polymorph()
+        self.assertTrue(issubclass(type(new_obj), Obj))
+        obj.remove()
 
     def test_Change_stamp_properties(self):
         """ The properties for _Changes corresponding to stamps should return a mapped object """
@@ -553,6 +601,7 @@ class TestHelper(unittest.TestCase):
         """ Given an _Attr with a file, provide a link to a file next to its description """
         from pycchdo.helpers import data_file_link
         request = testing.DummyRequest()
+        #match 'entry/new' => 'entries#new'
         file_data = StringIO('')
         file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
         data = _Attr(self.testPerson, 'testid', 'a', file)

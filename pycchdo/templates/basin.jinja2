@@ -338,9 +338,9 @@
   <script>
     $(function () {
       var large = $('#map img');
+      $('.meta .map').css('display', 'none');
       $('.meta').each(function () {
         var map = $(this).find('.map');
-        map.css('display', 'none');
         $(this).mouseover(function () {
           large.attr('src', map.attr('src'));
         });

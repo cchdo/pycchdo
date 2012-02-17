@@ -7,10 +7,15 @@
 {% call h.boxed('Get', class='get') -%}
   <div id="search" class="sub-section first">
     <h2>Search</h2>
-    <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Advanced', request.route_path('advanced_search'))) }}
-      {{ whh.HTML.li(whh.tags.link_to('Map', request.route_path('search_map'))) }}
-    </ul>
+
+    <p>{{ whh.tags.link_to('Advanced search', request.route_path('advanced_search')) }}</p>
+    <p>
+      {{ whh.tags.link_to('Map search', request.route_path('search_map')) }}
+    </p>
+    <p>
+      {{ whh.tags.link_to(whh.tags.image('/static/img/cchdo_search_map.png', 'Map Search'),
+                          request.route_path('search_map')) }}
+    </p>
   </div>
 
   <div id="basin" class="sub-section">

@@ -335,7 +335,7 @@ input[type="submit"]:active {
 }
 #cchdo_menu li {
   /* Make all entries a little bigger */
-  padding: 0 2.5em 0 0;
+  padding: 0 3.5em 0 0;
   position: relative;
   display: inline;
   text-transform: uppercase;

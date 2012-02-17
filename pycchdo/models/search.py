@@ -9,7 +9,7 @@ import logging
 from contextlib import contextmanager
 
 from whoosh import index
-from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME
+from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
 from whoosh.writing import BufferedWriter
 from whoosh.qparser import QueryParser, MultifieldParser, OrGroup, FieldAliasPlugin
 from whoosh.qparser.dateparse import DateParserPlugin
@@ -37,6 +37,11 @@ _schemas = {
         names=KEYWORD(lowercase=True, commas=True),
         date_start=DATETIME,
         date_end=DATETIME,
+        ship=TEXT,
+        country=TEXT,
+        pis=KEYWORD(lowercase=True, commas=True),
+        collections=KEYWORD(lowercase=True, commas=True),
+        seahunt=BOOLEAN,
         status=KEYWORD(lowercase=True, commas=True),
         mtime=STORED,
         id=ID(stored=True, unique=True),
@@ -80,12 +85,16 @@ _schemas = {
 
 
 _field_aliases = {
-    'cruise': {'names': ['expocode', 'alias', 'aliases'], 'date_start': ['from'], 'date_end': ['to']},
-    'person': {'name': ['people', 'person']},
-    'ship': {'name': ['ship']},
-    'country': {'names': ['country']},
-    'institution': {'name': ['institution']},
-    'collection': {'names': ['group', 'line', 'collection']},
+    'cruise': {
+        'names': ['expocode', 'alias', 'aliases', ],
+        'date_start': ['from', ],
+        'date_end': ['to', ],
+    },
+    'person': {'name': ['people', 'person', ], },
+    'ship': {'name': ['ship', ], },
+    'country': {'names': ['country', ], },
+    'institution': {'name': ['institution', ], },
+    'collection': {'names': ['group', 'line', 'collection', ], },
     'note': {},
 }
 
@@ -117,8 +126,7 @@ class SearchIndex(object):
     """ Encapsulates a directory that is used as a Whoosh search index.
 
     """
-    # FIXME Not Windows compatible
-    index_dir = os.path.join(os.sep, 'var', 'cache', 'pycchdo_search_index')
+    index_dir = '.'
     index_dir_checked_exists = False
 
     def __init__(self, index_dir=None):
@@ -177,7 +185,7 @@ class SearchIndex(object):
             except ValueError:
                 return
             if buffered:
-                ixw = BufferedWriter(ix)
+                ixw = BufferedWriter(ix, period=60, limit=2**14)
             else:
                 ixw = ix.writer()
         else:
@@ -206,9 +214,23 @@ class SearchIndex(object):
             if name == 'cruise':
                 names = filter(None, [obj.expocode] + obj.get('aliases', []))
                 doc['names'] = u','.join(names)
-                doc['date_start'] = obj.date_start
-                doc['date_end'] = obj.date_end
+                if obj.date_start:
+                    doc['date_start'] = obj.date_start
+                if obj.date_end:
+                    doc['date_end'] = obj.date_end
+                if obj.ship:
+                    doc['ship'] = unicode(obj.ship.name)
+                if obj.country:
+                    doc['country'] = unicode(obj.country.name)
+                chiscis = obj.chief_scientists
+                if chiscis:
+                    doc['pis'] = u','.join(
+                        [unicode(pi['person'].full_name()) for pi in chiscis])
+                if obj.collections:
+                    doc['collections'] = u','.join(
+                        [unicode(c.name) for c in obj.collections])
                 doc['status'] = u','.join(obj.get('statuses', []))
+                doc['seahunt'] = not obj.accepted
             elif name == 'person':
                 doc['name'] = unicode(obj.full_name())
                 doc['email'] = unicode(obj.get('email', None))
@@ -335,7 +357,7 @@ class SearchIndex(object):
                             self.save_note(obj, ixw)
                         else:
                             self.save_obj(obj, ixw)
-                    if i % 100 == 0:
+                    if i % 50 == 0:
                         logging.info('%d/%d = %3.4f' % (i, l, i / l))
 
                 ixw.commit()
@@ -371,7 +393,11 @@ class SearchIndex(object):
             # Parse the query string in the context of the given model, and get
             # the objects that we will need to search the model index.
             model_parser = _parsers.get(model_name)
-            query = model_parser.parse(query_string)
+            try:
+                query = model_parser.parse(query_string)
+            except Exception, e:
+                logging.error(
+                    'Query parse failed for "%s": %s' % (query_string, e))
             index = self.open_or_create_index(model_name)
 
             with index.searcher() as searcher:
@@ -409,6 +435,9 @@ class SearchIndex(object):
                     pass
                 except AttributeError:
                     pass
+                except Exception, e:
+                    logging.error(
+                        'Search failed for "%s": %s' % (query_string, e))
 
         # WARNING: results IS NOT homogeneous! (see docstring for details.)
         return results

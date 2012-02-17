@@ -145,6 +145,9 @@ window.log = function(){
     });
   })();
 })();
+(function useability() {
+  document.getElementById('query').focus();
+})();
 (function imgmap_mobile_toggle() {
   // Adapted from http://home.comcast.net/~urbanjost/semaphore.html
   function _map(lambda, list) {

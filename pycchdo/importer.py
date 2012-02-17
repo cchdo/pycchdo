@@ -27,8 +27,10 @@ Usage: importer.py <ini-file>
 \t-C|--skip-cchdo\tSkip importing CCHDO data
 \t-S|--skip-seahunt\tSkip importing Seahunt data
 \t-I|--skip-index\tSkip building the search index
+\t-i|--index-only\tOnly build search index
 \t-D|--skip-downloads\tSkip downloading files
 \t-X|--clear-seahunt\tClears seahunt imports and exits
+\t-F|--files-only\tOnly import items that have files
 \t-h|--help\tPrint this help message
 """
 
@@ -52,6 +54,7 @@ def main(argv):
         'cchdo_import': True,
         'seahunt_import': True,
         'build_index': True,
+        'index_only': False,
         'dl_files': True,
         'clear_seahunt': False,
         'files_only': False,
@@ -63,9 +66,9 @@ def main(argv):
         return 1
 
     opts, args = getopt.getopt(
-        argv[1:], 'hcCSIDXF',
+        argv[1:], 'hcCSIiDXF',
         ('help', 'clear', 'skip-cchdo', 'skip-seahunt', 'skip-index',
-         'skip-downloads', 'clear-seahunt', 'files-only'))
+         'index-only', 'skip-downloads', 'clear-seahunt', 'files-only'))
     for option, value in opts:
         if option in ('-h', '--help'):
             print _USAGE
@@ -78,6 +81,8 @@ def main(argv):
             options['seahunt_import'] = False
         if option in ('-I', '--skip-index'):
             options['build_index'] = False
+        if option in ('-i', '--index-only'):
+            options['index_only'] = True
         if option in ('-D', '--skip-downloads'):
             options['dl_files'] = False
         if option in ('-X', '--clear-seahunt'):
@@ -101,26 +106,27 @@ def main(argv):
     implog.info("Connect to pycchdo (%s)" % options['db_uri'])
     models.init_conn(options['db_uri'])
 
-    if options['clear_db_first']:
-        implog.info('Clearing database')
-        cchdo_conn = models.cchdo()
-        for coll in cchdo_conn.collection_names():
-            if not coll.startswith('system'):
-                cchdo_conn.drop_collection(coll)
+    if not options['index_only']:
+        if options['clear_db_first']:
+            implog.info('Clearing database')
+            cchdo_conn = models.cchdo()
+            for coll in cchdo_conn.collection_names():
+                if not coll.startswith('system'):
+                    cchdo_conn.drop_collection(coll)
 
-    models.ensure_indices()
+        models.ensure_indices()
 
-    if options['clear_seahunt']:
-        seahunt.clear()
-        return 0
+        if options['clear_seahunt']:
+            seahunt.clear()
+            return 0
 
-    if options['cchdo_import']:
-        cchdo.import_(import_gid, dl_files=options['dl_files'],
-                      files_only=options['files_only'])
+        if options['cchdo_import']:
+            cchdo.import_(import_gid, dl_files=options['dl_files'],
+                          files_only=options['files_only'])
 
-    if options['seahunt_import']:
-        seahunt.import_(dl_files=options['dl_files'],
-                        files_only=options['files_only'])
+        if options['seahunt_import']:
+            seahunt.import_(dl_files=options['dl_files'],
+                            files_only=options['files_only'])
 
     if options['build_index']:
         SearchIndex(options['db_search_index_path']).rebuild_index(

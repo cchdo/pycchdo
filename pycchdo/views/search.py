@@ -1,3 +1,4 @@
+import logging
 import urllib
 import re
 
@@ -20,17 +21,27 @@ def search_results(request):
 
     if not query:
         return HTTPSeeOther(location=request.route_path('advanced_search'))
+    try:
+        results = _collapsed_dict(request.search_index.search(unicode(query)))
+    except Exception, e:
+        logging.error('Search failed: %s' % e)
+        results = {'cruise': []}
     return {
         'query': query,
-        'results': _collapsed_dict(
-            request.search_index.search(unicode(query)))}
+        'results': results
+    }
 
 
 def search_results_json(request):
     query = request.params.get('query', None)
     if not query:
         return HTTPBadRequest()
-    results = request.search_index.search(unicode(query))
+    try:
+        results = request.search_index.search(unicode(query))
+    except Exception, e:
+        logging.error('Search failed: %s' % e)
+        results = {'cruise': []}
+
     cruises = map(_cruise_to_json, results['cruise'])
     return {
         'query': query,

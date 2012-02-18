@@ -555,7 +555,7 @@ def link_person_institutions(pis):
 def link_collection(c):
     if not c:
         return ''
-    return tags.link_to(c.name, '/collection/%s' % c.id)
+    return tags.link_to(c.name or '', '/collection/%s' % c.id)
 
 
 def link_collections(cs):

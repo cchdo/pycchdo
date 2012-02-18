@@ -17,7 +17,7 @@ from geojson import LineString
 
 import gridfs
 
-import libcchdo.fns
+from libcchdo.fns import uniquify
 
 import triggers
 
@@ -1397,7 +1397,7 @@ class Obj(_Change):
             return []
 
         # Filter the matched ids for the correct number of matched attrs
-        obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] == len_query]
+        obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] >= len_query]
         objs = cls.get_all_by_ids(obj_ids)
 
         return filter(
@@ -2038,10 +2038,10 @@ class Collection(CruiseAssociate, MultiNameObj):
         Attributes:
         names - names associated with the collection. The first name in the
             list is the canonical name.
-        type - identifier of WOCE line, group, program, spatial_group, basin
+        type - identifier of WOCE line, group, program, basin
         basins - a list of any combination of atlantic, arctic, pacific,
-            indian, southern. This is only attached to spatial_group typed
-            collections.
+            indian, southern. Having this attribute designates the collection as
+            a spatial_group.
     
     """
     cruise_associate_key = 'collections'
@@ -2060,9 +2060,117 @@ class Collection(CruiseAssociate, MultiNameObj):
     def type(self):
         return self.get('type', None)
 
+    @property
+    def basins(self):
+        return self.get('basins', [])
+
     @classmethod
     def get_by_name(cls, name):
         return cls.get_by_attrs({'names': name}, value_key='0')
+
+    def merge_(self, signer, mergee):
+        """
+        Merges two Collections together.
+
+        """
+        names = uniquify(self.names + mergee.names)
+        self.set_accept('names', names, signer)
+        if self.type is None and mergee.type is not None:
+            self.set_accept('type', mergee.type, signer)
+        cruises = set(self.cruises()).union(mergee.cruises())
+        for cruise in cruises:
+            colls = cruise.collections
+            try:
+                colls.remove(mergee)
+            except ValueError:
+                pass
+            try:
+                colls.index(self)
+            except ValueError:
+                colls.append(self)
+            cruise.set_accept(self.cruise_associate_key,
+                              [c.id for c in colls], signer)
+        basins = uniquify(self.get('basins', []) + mergee.get('basins', []))
+        if basins:
+            self.set_accept('basins', basins, signer)
+        mergee.remove()
+
+    # TODO this should be pulled up to at least CruiseAssociate level. This
+    # requires merge_ to be implemented
+    def merge(self, signer, *mergees):
+        """
+        Merge this Collection with other collections
+
+        """
+        if not issubclass(type(signer), Person):
+            raise TypeError('Signer is not a Person')
+        if not all(issubclass(type(mergee), self.__class__)
+                   for mergee in mergees):
+            raise TypeError('Not all mergees are %s' % self.__class__)
+        for mergee in mergees:
+            self.merge_(signer, mergee)
+
+    @classmethod
+    def merge_same(cls, signer):
+        # Pass 1: same name and same type
+        sames = {}
+        colls = cls.get_all()
+        for coll in colls:
+            key = '|'.join([''.join(filter(None, coll.names)), coll.type or ''])
+            try:
+                sames[key].append(coll)
+            except KeyError:
+                sames[key] = [coll]
+        for same in sames.values():
+            if len(same) < 2:
+                continue
+            same[0].merge(signer, *same[1:])
+
+        # Pass 2: same name and similar types
+        sames = {}
+        colls = cls.get_all()
+        for coll in colls:
+            key = ''.join(filter(None, coll.names))
+            try:
+                sames[key].append(coll)
+            except KeyError:
+                sames[key] = [coll]
+        for same in sames.values():
+            if len(same) < 2:
+                continue
+
+            types = {}
+            for s in same:
+                key = s.type or ''
+                try:
+                    types[key].append(s)
+                except KeyError:
+                    types[key] = [s]
+
+            if '' in types:
+                s = types['']
+                if 'group' in types:
+                    g = types['group'][0]
+                    g.merge(signer, *s)
+                elif 'program' in types:
+                    p = types['program'][0]
+                    p.merge(signer, *s)
+                elif 'WOCE line' in types:
+                    w = types['WOCE line'][0]
+                    w.merge(signer, *s)
+            if 'group' in types:
+                g = types['group']
+                if 'WOCE line' in types:
+                    w = types['WOCE line'][0]
+                    w.merge(signer, *g)
+                elif 'program' in types:
+                    p = types['program'][0]
+                    p.merge(signer, *g)
+            if 'spatial_group' in types:
+                s = types['spatial_group']
+                if 'WOCE line' in types:
+                    w = types['WOCE line'][0]
+                    w.merge(signer, *s)
 
 
 class AutoAcceptingObj(Obj):

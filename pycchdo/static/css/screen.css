@@ -203,6 +203,12 @@ tr.odd {
   right: 0;
   top: 0;
 }
+#query:focus {
+  border: 1px solid #67A9BB;
+  border-left: none;
+  border-right: none;
+  outline: none;
+}
 input {
   vertical-align: top;
 }

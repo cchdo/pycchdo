@@ -960,7 +960,7 @@ def _import_spatial_groups(session, importer):
     implog.info("Importing Spatial groups")
     sgs = session.query(legacy.SpatialGroup).all()
     for sg in sgs:
-        collection = _import_Collection(importer, sg.area, 'spatial_group')
+        collection = _import_Collection(importer, sg.area, 'group')
         basins = []
         if sg.atlantic == '1':
             basins.append('atlantic')

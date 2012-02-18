@@ -53,6 +53,17 @@ def collection_edit(request):
     if collection.type != type:
         collection.set_accept('type', type, request.user)
 
+    try:
+        basins = text_to_obj(request.params.get('basins', ''), 'text_list')
+    except ValueError:
+        request.session.flash(
+            'Invalid collection basins. Please ensure basins are a list (x,y,z)',
+            'help')
+        return {'collection': collection}
+
+    if collection.get('basins') != basins:
+        collection.set_accept('basins', basins, request.user)
+
     return _redirect_response(request, collection.id)
 
 
@@ -80,24 +91,11 @@ def collection_merge(request):
                               'help')
         return redirect_response
 
-    names = set(collection.names).union(mergee.names)
-    collection.set_accept('names', list(names), request.user)
-    if collection.type is None and mergee.type is not None:
-        collection.set_accept('type', mergee.type, request.user)
-    cruises = set(collection.cruises()).union(mergee.cruises())
-    for cruise in cruises:
-        colls = cruise.collections
-        try:
-            colls.remove(mergee)
-        except ValueError:
-            pass
-        try:
-            colls.index(collection)
-        except ValueError:
-            colls.append(collection)
-        cruise.set_accept(models.Collection.cruise_associate_key,
-                          [c.id for c in colls], request.user)
-    request.session.flash('Merged collection with %s' % mergee, 'action_taken')
-    mergee.remove()
+    try:
+        collection.merge(request.user, mergee)
+    except TypeError:
+        request.session.flash('Invalid mergee collection found', 'help')
+        return redirect_response
 
+    request.session.flash('Merged collection with %s' % mergee, 'action_taken')
     return redirect_response

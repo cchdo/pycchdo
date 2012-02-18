@@ -8,8 +8,9 @@ from pyramid.config import Configurator
 import shapely.geometry.linestring
 import shapely.geometry.polygon
 
-from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, _Change, \
-                                  _Attr, Note, Country, Cruise, Person
+from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, \
+                                  _Change, _Attr, Note, Country, Cruise, \
+                                  Person, Collection
 
 from . import *
 
@@ -591,6 +592,66 @@ class TestModel(unittest.TestCase):
         self.assertEquals(c.tracked_data(), [a0])
 
         c.remove()
+
+    def test_Collection_merge(self):
+        """
+        Collections that are merged together should have:
+
+        * names from both Collections, retained in the same order with
+          preference given to the original.
+        * the type from the original Collection unless it doesn't have one and
+          the mergee does.
+        * the cruises from both collections. The cruises will also have their
+          collections updated to reflect the deletion of the old collection.
+
+        The mergee is deleted.
+
+        """
+        c0 = Collection(self.testPerson)
+        c0.save()
+        c1 = Collection(self.testPerson)
+        c1.save()
+
+        c0.set_accept('names', ['collnameA', 'collnameB'], self.testPerson)
+        c1.set_accept('names', ['collnameC', 'collnameB'], self.testPerson)
+        c0.set_accept('type', 'group', self.testPerson)
+        c1.set_accept('type', 'WOCE line', self.testPerson)
+        c0.set_accept('basins', ['basinA', 'basinB'], self.testPerson)
+        c1.set_accept('basins', ['basinC', 'basinB'], self.testPerson)
+
+        cr0 = Cruise(self.testPerson)
+        cr0.save()
+        cr0.set_accept('collections', [c1.id], self.testPerson)
+        cr1 = Cruise(self.testPerson)
+        cr1.save()
+        cr1.set_accept('collections', [c0.id, c1.id], self.testPerson)
+
+        c0.merge(self.testPerson, c1)
+
+        self.assertEquals(c0.get('names'),
+                          ['collnameA', 'collnameB', 'collnameC'])
+        self.assertEquals(c0.get('type'), 'group')
+        self.assertEquals(cr0.get('collections'), [c0.id])
+        self.assertEquals(cr1.get('collections'), [c0.id])
+        self.assertEquals(Collection.get_id(c1.id), None)
+        self.assertEquals(c0.get('basins'),
+                          ['basinA', 'basinB', 'basinC'])
+
+        c2 = Collection(self.testPerson)
+        c2.save()
+
+        c2.set_accept('names', ['collnameC'], self.testPerson)
+
+        c2.merge(self.testPerson, c0)
+
+        self.assertEquals(c2.get('names'),
+                          ['collnameC', 'collnameA', 'collnameB'])
+        self.assertEquals(c2.get('type'), 'group')
+        self.assertEquals(cr0.get('collections'), [c2.id])
+        self.assertEquals(cr1.get('collections'), [c2.id])
+        self.assertEquals(Collection.get_id(c0.id), None)
+
+        c2.remove()
 
 
 class TestHelper(unittest.TestCase):

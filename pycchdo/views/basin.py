@@ -64,7 +64,11 @@ def _indian():
     ind = []
     sou = []
     atl = []
-    for sgs in models.Collection.get_by_attrs(type='spatial_group'):
+    # Currently, only indian basin page is generated from spatial groups
+    colls = models.Collection.get_by_attrs(basins='indian') + \
+            models.Collection.get_by_attrs(basins='southern') + \
+            models.Collection.get_by_attrs(basins='atlantic')
+    for sgs in colls:
         basins = sgs.get('basins')
         if 'indian' not in basins:
             continue

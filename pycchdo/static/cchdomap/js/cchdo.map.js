@@ -2171,7 +2171,7 @@ function RegionLayerSection() {
   this.creator = new RegionLayerCreator();
   this.addLayer(this.creator);
 
-  $(this._dom).tipTipTip({defaultPosition: 'right', content: CM.TIPS['region']});
+  $(this._title).tipTipTip({defaultPosition: 'right', content: CM.TIPS['region']});
 }
 
 RegionLayerSection.prototype = new LayerSection();
@@ -2388,7 +2388,7 @@ function KMLLayerSection() {
   this._importer = new ImportKML();
   this._mapobj = null;
 
-  $(this._dom).tipTipTip({defaultPosition: 'right', content: CM.TIPS['kml']});
+  $(this._title).tipTipTip({defaultPosition: 'right', content: CM.TIPS['kml']});
 }
 
 KMLLayerSection.prototype = new LayerSection();
@@ -2624,7 +2624,7 @@ function NAVLayerSection() {
   this.addLayer(this.creator);
   this._importer = new ImportNAV();
 
-  $(this._dom).tipTipTip({defaultPosition: 'right', content: CM.TIPS['nav']});
+  $(this._title).tipTipTip({defaultPosition: 'right', content: CM.TIPS['nav']});
 }
 
 NAVLayerSection.prototype = new LayerSection();

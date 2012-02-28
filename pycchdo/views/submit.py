@@ -111,6 +111,7 @@ def submit(request):
             subject="[CCHDO] Submission by %(name)s: %(id)s".format(
                 name=user.full_name(), id=[line, expocode].join(' ')),
             sender="cchdo@ucsd.edu",
+            # TODO XXX this needs to be cchdo.
             recipients=["synmantics+test@gmail.com"],
             body="""\
 Dear %(name)s:

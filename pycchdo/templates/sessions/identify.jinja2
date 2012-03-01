@@ -18,10 +18,16 @@
             <p><a href="http://openid.net/">Learn about OpenID.</a></p>
           </div>
         </div>
-        <div id="anonymity_optin">
-          {{ whh.tags.form(request.route_path('session_new'), hidden_fields={'anonymous': 'optin'}) }}
-            <input type="submit" value="Remain anonymous">
-          </form>
+        <div id="direct_signin">
+          <h2>Alternatively, leave your contact information</h2>
+          {{ whh.tags.form(request.route_path('session_new')) }}
+          <table>
+            <tr><th>{{ whh.tags.title('First name', label_for='direct_name_first', required=True) }}</th><td>{{ whh.tags.text('direct_name_first') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Last name', label_for='direct_name_last', required=True) }}</th><td>{{ whh.tags.text('direct_name_last') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Email', label_for='direct_email', required=True) }}</th><td>{{ whh.tags.text('direct_email', type='email') }}</td></tr>
+            <tr><td>{{ whh.tags.required_legend()}}</td><td><input type="submit" value="Sign in"></td></tr>
+          </table>
+          {{ whh.tags.end_form() }}
         </div>
       </div>
     {%- endif %}

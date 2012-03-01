@@ -12,13 +12,13 @@ from . import *
 def submit(request):
     method = _http_method(request)
     if method == 'GET':
-        if request.user or request.session.get('anonymous', False):
+        if h.has_edit(request):
             return {}
         request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')
         request.referrer = request.url
         return require_signin(request)
     elif method == 'POST':
-        if not request.user and not request.session.get('anonymous', False):
+        if not h.has_edit(request):
             return HTTPUnauthorized()
         name = request.params.get('name', None)
         institution = request.params.get('institution', None)
@@ -81,11 +81,6 @@ def submit(request):
             action_list.append('argo')
 
         user = request.user
-        if not user:
-            user = models.Person.get_one({'identifier': '_anonymous'})
-            if not user:
-                user = models.Person('_anonymous', 'Anonymous')
-                user.save()
         for file in files:
             s = models.Submission(user)
             s.save()

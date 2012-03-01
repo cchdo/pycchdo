@@ -30,9 +30,27 @@ def _redirect_uri(request):
     return redirect_uri
 
 
-def _restore_request(request, profile):
-    return HTTPSeeOther(location=_redirect_uri(request),
-                        headers=_sign_in_user(request, profile))
+def _profile_to_person(profile):
+    identifier = profile['identifier']
+     
+    # these fields MAY be in the profile, but are not guaranteed. it
+    # depends on the provider and their implementation.
+    name = profile.get('name')
+    email = profile.get('email')
+
+    person = models.Person.get_one({'identifier': identifier})
+    if not person:
+        person = models.Person(
+            identifier=identifier, name_first=name['givenName'],
+            name_last=name['familyName'], email=email)
+        person.save()
+    return person
+
+
+def _do_signin(request, person):
+    return HTTPSeeOther(
+        location=_redirect_uri(request),
+        headers=_sign_in_user(request, person))
 
 
 def require_signin(request):
@@ -53,38 +71,33 @@ def session_identify(request):
             del request.session['skip_save_signin_return_uri']
         except KeyError:
             pass
-    try:
-        del request.session['anonymous']
-    except KeyError:
-        pass
     return {}
 
 
-def _sign_in_user(request, profile):
-    identifier = profile['identifier']
-     
-    # these fields MAY be in the profile, but are not guaranteed. it
-    # depends on the provider and their implementation.
-    name = profile.get('name')
-    email = profile.get('email')
-
-    p = models.Person.get_one({'identifier': identifier})
-    if not p:
-        p = models.Person(identifier=identifier, name_first=name['givenName'],
-                          name_last=name['familyName'], email=email)
-        p.save()
+def _sign_in_user(request, person):
     try:
-        return remember(request, str(p.id))
+        return remember(request, str(person.id))
     except AttributeError:
         request.session.flash('Currently unable to sign in', 'help')
         return []
 
 
 def session_new(request):
-    if request.params.get('anonymous') == 'optin':
-        request.session['anonymous'] = True
-        return HTTPSeeOther(location=_redirect_uri(request))
+    if (    'direct_name_first' in request.params or
+            'direct_name_last' in request.params or
+            'direct_email' in request.params):
+        direct_name_first = request.params.get('direct_name_first')
+        direct_name_last = request.params.get('direct_name_last')
+        direct_email = request.params.get('direct_email')
+        if not direct_email:
+            return HTTPSeeOther(location=_redirect_uri(request))
+        person = models.Person(name_first=direct_name_first,
+                               name_last=direct_name_last,
+                               email=direct_email)
+        person.save()
+        return _do_signin(request, person)
 
+    # Sign in a user for real from Janrain
     token = request.params.get('token', None)
 
     if not token:
@@ -110,7 +123,7 @@ def session_new(request):
     # use the response to sign the user in
     if auth_info['stat'] == 'ok':
         profile = auth_info['profile']
-        return _restore_request(request, profile)
+        return _do_signin(request, _profile_to_person(profile))
     else:
         print 'ERROR: During signin: ' + auth_info['err']['msg']
         return HTTPSeeOther(location='/session/identify')

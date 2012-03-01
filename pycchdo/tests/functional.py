@@ -23,3 +23,7 @@ class ViewIntegrationTests(unittest.TestCase):
     def test_show_cruise(self):
         pass
 
+    def test_empty_login_redirects(self):
+        from pycchdo.views import session
+        pass
+

@@ -33,7 +33,14 @@
   font-size: 0.8em;
 }
 
-#anonymity_optin {
+#direct_signin {
   clear: left;
   padding: 1em;
+}
+#direct_signin table {
+  margin: 0 auto;
+  width: auto;
+}
+#direct_signin td {
+  text-align: right;
 }

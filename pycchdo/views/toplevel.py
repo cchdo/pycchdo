@@ -113,9 +113,9 @@ def parameter_show(request):
         'name': parameter.get('name', ''),
         'aliases': filter(None,
             [parameter.get('name_netcdf'), parameter.get('full_name')] + \
-            parameter.get('aliases')),
+             parameter.aliases),
         'format': parameter.get('format', ''),
-        'bounds': parameter.get('bounds', []),
+        'bounds': parameter.bounds,
         },
         'description': parameter.get('description', None),
     }

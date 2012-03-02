@@ -216,7 +216,7 @@ def layer(request):
         if os.path.isfile(full_path):
             size = os.stat(full_path).st_size
             f = open(full_path, 'r')
-            return _file_response(f)
+            return _file_response(request, f)
     else:
         # Do some cleanup
         for entry in os.listdir(temp_dir):

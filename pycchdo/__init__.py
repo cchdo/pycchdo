@@ -140,7 +140,7 @@ def main(global_config, **settings):
     config.add_route('robots', '/robots.txt')
     config.add_view('pycchdo.views.toplevel.robots', route_name='robots')
 
-    config.add_static_view('static', 'pycchdo:static')
+    config.add_static_view('static', 'pycchdo:static', cache_max_age=60 * 60 * 24 * 30)
 
     config.add_route('home', '/')
     config.add_view('pycchdo.views.toplevel.home', route_name='home', renderer='templates/home.jinja2')

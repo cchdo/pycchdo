@@ -2,8 +2,6 @@ from pyramid.httpexceptions import HTTPMovedPermanently, HTTPNotFound
 
 import pycchdo.models as models
 
-from . import _file_response
-
 
 def basin(request):
     return HTTPMovedPermanently(

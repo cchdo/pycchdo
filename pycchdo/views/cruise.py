@@ -466,7 +466,7 @@ def map_full(request):
     a = cruise_obj.get_attr('map_full')
     if not a:
         return HTTPNotFound()
-    return _file_response(a.file)
+    return _file_response(request, a.file)
 
 
 def map_thumb(request):
@@ -482,7 +482,7 @@ def map_thumb(request):
     a = cruise_obj.get_attr('map_thumb')
     if not a:
         return HTTPNotFound()
-    return _file_response(a.file)
+    return _file_response(request, a.file)
 
 
 def _cruise_to_json(cruise):

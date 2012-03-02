@@ -133,7 +133,7 @@ def _convert(request, fn, filename_callback, *args):
         output_file.length = output.tell()
         output.seek(0)
         output_file.name = filename_callback(file, df, output)
-        return _file_response(output_file, 'attachment')
+        return _file_response(request, output_file, 'attachment')
     except Exception, e:
         logging.debug(e)
         request.response.status = 500

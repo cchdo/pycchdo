@@ -10,7 +10,7 @@ __all__ = ['global_setUp', 'global_tearDown', '_mock_FieldStorage']
 def global_setUp(self):
     """ Setup function to be called by all test classes """
     self.config = testing.setUp()
-    M.init_conn('mongodb://dimes.ucsd.edu:28018/?w=1&fsync=true')
+    M.init_conn('mongodb://dimes.ucsd.edu:27018/?w=1&fsync=true')
     M.cchdo().objs.drop()
     M.cchdo().attrs.drop()
     self.testPerson = Person(identifier='testid', name_first='Testing', name_last='Tester')

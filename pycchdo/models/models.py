@@ -16,6 +16,7 @@ from shapely.geometry import linestring
 from geojson import LineString
 
 import gridfs
+from gridfs.errors import CorruptGridFile
 
 from libcchdo.fns import uniquify
 

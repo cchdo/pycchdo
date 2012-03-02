@@ -1,9 +1,12 @@
 from datetime import datetime
 import cgi
+import logging
+log = logging.getLogger(__name__)
+
 import geojson
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNoContent
+from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent
 from pyramid.url import current_route_url
 
 from webhelpers import paginate
@@ -154,14 +157,28 @@ def _humanize(obj):
     return str(obj)
 
 
-def _file_response(file, disposition='inline'):
+def _file_response(request, file, disposition='inline'):
     if disposition not in ['inline', 'attachment']:
-        raise ValueError()
+        raise ValueError('Disposition must be in %r' % disposition)
 
     if file is None:
         return HTTPNoContent()
 
-    resp = Response()
+    resp = Response(conditional_response=True)
+
+    # Caching
+    try:
+        resp.etag = file.md5
+    except AttributeError:
+        pass
+    try:
+        resp.last_modified = file.upload_date
+    except AttributeError:
+        pass
+    # For GridFiles (data files), there isn't really an expiry date.
+    # Let's set one for almost a month so we have the opportunity to change it.
+    resp.cache_control.max_age = 60 * 60 * 24 * 30
+
     try:
         resp.app_iter = file.file
     except AttributeError:
@@ -180,4 +197,13 @@ def _file_response(file, disposition='inline'):
             disposition=disposition, name=file.name)
     except AttributeError:
         resp.content_disposition = disposition
+
+    # Hack for detecting corrupted GridFiles
+    try:
+        file.read(1)
+        file.seek(0)
+    except models.CorruptGridFile:
+        log.error('Missing GridFile %s' % file._id)
+        return HTTPNotFound()
+
     return resp

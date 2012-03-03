@@ -49,6 +49,41 @@ def cruises_index(request):
     return {'cruises': cruises}
 
 
+def cruises_index_json(request):
+    if request.params.get('pending_years'):
+        return models.Cruise.pending_years()
+    elif request.params.get('id'):
+        id = request.params.get('id')
+        try:
+            cruise = _get_cruise(id)
+        except ValueError:
+            return HTTPBadRequest()
+        return _cruise_to_json(cruise)
+    elif request.params.get('ids'):
+        ids = [x.strip() for x in request.params.get('ids').split(',')]
+        try:
+            cruises = [_get_cruise(cruise_id) for cruise_id in ids]
+        except ValueError:
+            return HTTPBadRequest()
+        return [_cruise_to_json(cruise) for cruise in cruises]
+    elif request.params.get('contributions'):
+        return _contributions(request)
+    elif request.params.get('contribution_kmzs'):
+        return _contribution_kmzs(request)
+
+    seahunt = request.params.get('seahunt_only', False)
+    allow_seahunt = request.params.get('allow_seahunt', False)
+    if seahunt:
+        cruises = models.Cruise.get_all({'accepted': False})
+    elif allow_seahunt:
+        cruises = models.Cruise.get_all()
+    else:
+        cruises = models.Cruise.get_all({'accepted': True})
+    cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
+    cruises = [c.to_nice_dict() for c in cruises]
+    return cruises
+
+
 def _suggest_file(request, cruise_obj):
     try:
         type = request.params['type']
@@ -698,27 +733,3 @@ def _contribution_kmzs(request):
     return [request.route_url('catchall_static',
                               subpath=os.path.join(static_path, x)
                              ) for x in os.listdir(kmz_dir)]
-
-
-def json(request):
-    if request.params.get('pending_years'):
-        return models.Cruise.pending_years()
-    elif request.params.get('id'):
-        id = request.params.get('id')
-        try:
-            cruise = _get_cruise(id)
-        except ValueError:
-            return HTTPBadRequest()
-        return _cruise_to_json(cruise)
-    elif request.params.get('ids'):
-        ids = [x.strip() for x in request.params.get('ids').split(',')]
-        try:
-            cruises = [_get_cruise(cruise_id) for cruise_id in ids]
-        except ValueError:
-            return HTTPBadRequest()
-        return [_cruise_to_json(cruise) for cruise in cruises]
-    elif request.params.get('contributions'):
-        return _contributions(request)
-    elif request.params.get('contribution_kmzs'):
-        return _contribution_kmzs(request)
-    return HTTPBadRequest()

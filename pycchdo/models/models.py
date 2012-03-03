@@ -1172,6 +1172,16 @@ class Obj(_Change):
         except (TypeError, KeyError) as e:
             return cls.map_mongo(obj)
 
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Obj.
+
+            This ends up being used to present JSON.
+        """
+        return {
+            'id': self.id,
+            'obj_type': self.obj_type,
+        }
+
     def __unicode__(self):
         copy = {}
         for key, value in self.items():
@@ -1795,6 +1805,30 @@ class Cruise(Obj):
             years.add(cruise.date_start.year)
         return list(years)
 
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Cruise.
+
+        """
+        rep = super(Cruise, self).to_nice_dict()
+        d = {
+            'expocode': self.expocode,
+            'accepted': self.accepted,
+            'link': self.get('link', None),
+            'frequency': self.get('frequency', None),
+            'date_start': self.date_start,
+            'date_end': self.date_end,
+            'aliases': self.aliases,
+            'ports': self.get('ports', []),
+            'collections': [c.to_nice_dict() for c in self.collections],
+            'institutions': [i.to_nice_dict() for i in self.institutions],
+            'participants': self.get('participants', []),
+        }
+        if self.ship:
+            d['ship'] = self.ship.to_nice_dict()
+        if self.country:
+            d['country'] = self.country.to_nice_dict()
+        rep.update(d)
+        return rep
 
 class CruiseAssociate(Obj):
     """ Provide a way to get the cruises that an Obj is associated to
@@ -1839,6 +1873,7 @@ class Country(CruiseAssociate):
             length = 3
         return self.get('iso_3166-1_alpha-' + str(length), None)
 
+    @property
     def people(self):
         return Person.get_all({'country': self.id})
 
@@ -1848,6 +1883,19 @@ class Country(CruiseAssociate):
                 name=self.name, id=self.id)
         except AttributeError:
             return u'Country ()'
+
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Country.
+
+        """
+        rep = super(Country, self).to_nice_dict()
+        rep.update({
+            'name': self.name,
+            'iso_3166-1_alpha-2': self.iso_code(),
+            'iso_3166-1_alpha-3': self.iso_code(3),
+            'people': [p.to_nice_dict() for p in self.people],
+        })
+        return rep
 
 
 class Person(CruiseParticipantAssociate):
@@ -1929,6 +1977,19 @@ class Person(CruiseParticipantAssociate):
         except AttributeError:
             return u'Person ()'
 
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Person.
+
+        """
+        rep = super(Person, self).to_nice_dict()
+        rep.update({
+            'identifier': self.get('identifier', None),
+            'name_first': self.name_first,
+            'name_last': self.name_last,
+            'email': self.email,
+        })
+        return rep
+
 
 class MultiNameObj(Obj):
     """ MultiNameObjs have multiple possible names
@@ -1998,6 +2059,18 @@ class Institution(CruiseParticipantAssociate):
         except AttributeError:
             return u'Institution ()'
 
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Institution.
+
+        """
+        rep = super(Institution, self).to_nice_dict()
+        rep.update({
+            'name': self.name,
+            'people': [p.to_nice_dict() for p in self.people],
+            'country': self.country.to_nice_dict(),
+        })
+        return rep
+
 
 class Ship(CruiseAssociate):
     cruise_associate_key = 'ship'
@@ -2026,6 +2099,18 @@ class Ship(CruiseAssociate):
 
     def __unicode__(self):
         return u'Ship(%s)' % self.name
+
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Ship.
+
+        """
+        rep = super(Ship, self).to_nice_dict()
+        rep.update({
+            'name': self.name,
+            'nodc_platform_code': self.nodc_platform_code,
+            'url': self.get('url', ''),
+        })
+        return rep
 
 
 class Collection(CruiseAssociate, MultiNameObj):
@@ -2172,6 +2257,18 @@ class Collection(CruiseAssociate, MultiNameObj):
                 if 'WOCE line' in types:
                     w = types['WOCE line'][0]
                     w.merge(signer, *s)
+
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Collection.
+
+        """
+        rep = super(Collection, self).to_nice_dict()
+        rep.update({
+            'names': self.names,
+            'type': self.type,
+            'basins': self.basins,
+        })
+        return rep
 
 
 class AutoAcceptingObj(Obj):

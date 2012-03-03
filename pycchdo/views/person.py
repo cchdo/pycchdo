@@ -12,6 +12,12 @@ def people_index(request):
     return {'people': people}
 
 
+def people_index_json(request):
+    people = sorted(models.Person.get_all(), key=lambda x: x.name_last)
+    people = [p.to_nice_dict() for p in people]
+    return people
+
+
 def _get_person(request):
     person_id = request.matchdict.get('person_id')
     return models.Person.get_id(person_id)

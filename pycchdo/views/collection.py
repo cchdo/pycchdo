@@ -11,6 +11,12 @@ def collections_index(request):
     return {'collections': collections}
 
 
+def collections_index_json(request):
+    collections = sorted(models.Collection.get_all(), key=lambda c: c.name)
+    collections = [c.to_nice_dict() for c in collections]
+    return collections
+
+
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
     return models.Collection.get_id(coll_id)

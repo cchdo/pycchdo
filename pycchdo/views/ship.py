@@ -9,6 +9,11 @@ def ships_index(request):
     return {'ships': sorted(models.Ship.get_all(), key=lambda s: s.name)}
 
 
+def ships_index_json(request):
+    ships = sorted(models.Ship.get_all(), key=lambda s: s.name)
+    return [s.to_nice_dict() for s in ships]
+
+
 def _get_ship(request):
     ship_id = request.matchdict.get('ship_id')
     return models.Ship.get_id(ship_id)

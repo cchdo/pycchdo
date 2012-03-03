@@ -11,6 +11,11 @@ def institutions_index(request):
     return {'institutions': institutions}
 
 
+def institutions_index_json(request):
+    institutions = sorted(models.Institution.get_all(), key=lambda x: x.name)
+    return institutions
+
+
 def _get_institution(request):
     institution_id = request.matchdict.get('institution_id')
     return models.Institution.get_id(institution_id)

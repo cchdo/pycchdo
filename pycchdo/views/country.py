@@ -10,6 +10,12 @@ def countries_index(request):
     return {'countries': countries}
 
 
+def countries_index_json(request):
+    countries = sorted(models.Country.get_all(), key=lambda x: x.name)
+    countries = [c.to_nice_dict() for c in countries]
+    return countries
+
+
 def _get_country(request):
     c_id = request.matchdict.get('country_id')
     country = models.Country.get_id(c_id)

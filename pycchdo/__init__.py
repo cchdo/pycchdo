@@ -36,6 +36,7 @@ class RequestFactory(Request):
     def models(self):
         return models
 
+
 def add_renderer_globals(event):
     # from json import dumps
     # from urllib import quote
@@ -45,16 +46,22 @@ def add_renderer_globals(event):
 
 
 def obj_routes(config, obj, plural_obj=None,
-               new=False, mergeable=False, editable=False):
+               new=False, mergeable=False, editable=False, json_index=False):
     if not plural_obj:
         plural_obj = obj + 's'
 
-    config.add_route(
-        plural_obj,
-        '/{plural_obj}.html'.format(plural_obj=plural_obj))
+    config.add_route(plural_obj,
+                     '/{plural_obj}.html'.format(plural_obj=plural_obj))
     config.add_view('pycchdo.views.{obj}.{plural_obj}_index'.format(
         obj=obj, plural_obj=plural_obj), route_name=plural_obj,
         renderer='templates/{obj}/index.jinja2'.format(obj=obj))
+
+    if json_index:
+        config.add_route(plural_obj + '_json',
+                         '/{plural_obj}.json'.format(plural_obj=plural_obj))
+        config.add_view('pycchdo.views.{obj}.{plural_obj}_index_json'.format(
+            obj=obj, plural_obj=plural_obj), route_name=plural_obj + '_json',
+            renderer='json')
 
     config.add_route(
         '{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
@@ -133,6 +140,7 @@ def main(global_config, **settings):
     config.include('pyramid_mailer')
     config.add_subscriber(add_renderer_globals, BeforeRender)
     config.add_renderer('.html', 'pyramid_jinja2.renderer_factory')
+    config.add_renderer('json', 'pycchdo.renderer_factory.json')
 
     # Serve static files from root
     config.add_route('favicon', '/favicon.ico')
@@ -201,22 +209,23 @@ def main(global_config, **settings):
     # Need precedence for extension to catch before ending up a cruise identifier
     config.add_route('cruise_kml', '/cruise/{cruise_id}.kml')
     config.add_view('pycchdo.views.cruise.kml', route_name='cruise_kml')
-    obj_routes(config, 'cruise', new=True)
+    obj_routes(config, 'cruise', new=True, json_index=True)
     config.add_route('cruise_map_full', '/cruise/{cruise_id}/map_full')
     config.add_view('pycchdo.views.cruise.map_full',
                     route_name='cruise_map_full')
     config.add_route('cruise_map_thumb', '/cruise/{cruise_id}/map_thumb')
     config.add_view('pycchdo.views.cruise.map_thumb',
                     route_name='cruise_map_thumb')
-    config.add_route('cruises_json', '/cruises.json')
-    config.add_view('pycchdo.views.cruise.json', route_name='cruises_json',
-                    renderer='json')
 
-    obj_routes(config, 'collection', mergeable=True, editable=True)
-    obj_routes(config, 'country', 'countries', mergeable=True, editable=True)
-    obj_routes(config, 'person', 'people', mergeable=True, editable=True)
-    obj_routes(config, 'institution', mergeable=True, editable=True)
-    obj_routes(config, 'ship', mergeable=True, editable=True)
+    obj_routes(config, 'collection', mergeable=True, editable=True,
+               json_index=True)
+    obj_routes(config, 'country', 'countries', mergeable=True, editable=True,
+               json_index=True)
+    obj_routes(config, 'person', 'people', mergeable=True, editable=True,
+               json_index=True)
+    obj_routes(config, 'institution', mergeable=True, editable=True,
+               json_index=True)
+    obj_routes(config, 'ship', mergeable=True, editable=True, json_index=True)
 
     # Argo Secure File Repository
     config.add_route('argo_index', '/argo')

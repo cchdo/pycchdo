@@ -13,6 +13,28 @@ window.log = function(){
 (function(b){function c(){}for(var d="assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,timeStamp,profile,profileEnd,time,timeEnd,trace,warn".split(","),a;a=d.pop();){b[a]=b[a]||c}})((function(){try
 {console.log();return window.console;}catch(err){return window.console={};}})());
 
+function addEvent(obj, evt, fn) {
+  if (obj.addEventListener) {
+    obj.addEventListener(evt, fn, false);
+  } else if (obj.attachEvent) {
+    obj.attachEvent('on' + evt, fn);
+  }
+}
+function removeEvent(obj, evt, fn) {
+  if (obj.removeEventListener) {
+    obj.removeEventListener(evt, fn, false);
+  } else if (obj.attachEvent) {
+    obj.detachEvent('on' + evt, fn);
+  }
+}
+function addEventOnce(obj, evt, fn) {
+  function wrapper() {
+    fn.call(this, this.arguments);
+    removeEvent(obj, evt, wrapper);
+  }
+  addEvent(obj, evt, wrapper);
+}
+
 (function menuMods() {
   function has_class(e, c) {
     return e.className.indexOf(c) >= 0;
@@ -56,17 +78,14 @@ window.log = function(){
       }
     }
 
-    expander.onclick = toggle;
-    document.getElementById('picture').addEventListener('click', function (event) {
+    addEvent(expander, 'click', toggle);
+    addEvent(document.getElementById('picture'), 'click', function (event) {
       toggle();
-      if (event.preventDefault) {
-        event.preventDefault();
-      }
       if (event.stopPropagation) {
         event.stopPropagation();
       }
-    }, false);
-    ul.onclick = function (e) {
+    });
+    addEvent(ul, 'click', function (e) {
       var target;
       if (!e) {
         var e = window.event;
@@ -82,20 +101,19 @@ window.log = function(){
       if (e.stopPropagation) {
         e.stopPropagation();
       }
-    };
-    document.body.onclick = function () {
+    });
+    addEvent(document.body, 'click', function () {
       open(false);
-    };
+    });
     open(false);
 
     function addFlasher() {
-      ul.onmouseover = function () {
+      addEventOnce(ul, 'mouseover', function () {
         add_class(expander, 'lightup');
         setTimeout(function () {
           remove_class(expander, 'lightup');
         }, 500);
-        ul.onmouseover = function () {};
-      };
+      });
     }
 
     if (window.localStorage) {
@@ -117,20 +135,20 @@ window.log = function(){
         }
         f = f.parentNode;
       }
-      e.onfocus = function () {
+      addEvent(e, 'focus', function () {
         menuOpen(true);
         for (var i = 0; i < lis.length; i++) {
           add_class(lis[i], 'focus');
         }
         add_class(e, 'focus');
-      };
-      e.onblur = function () {
+      });
+      addEvent(e, 'blur', function () {
         menuOpen(false);
         for (var i = 0; i < lis.length; i++) {
           remove_class(lis[i], 'focus');
         }
         remove_class(e, 'focus');
-      };
+      });
     }
     function walkFor(root, tagname, callback) {
       for (var i = 0; i < root.children.length; i++) {
@@ -145,7 +163,7 @@ window.log = function(){
     });
   })();
 })();
-(function useability() {
+(function defaultFocus() {
   document.getElementById('query').focus();
 })();
 (function imgmap_mobile_toggle() {
@@ -228,9 +246,12 @@ window.log = function(){
     ims.push(im);
   }
   function resizeImgMaps() {
-    _map(function () { this.resize(); }, ims);
+    // Breathe for half a second so the style settles
+    // FIXME Find a better way. Resize when detected image size change?
+    setTimeout(function () {
+      _map(function () { this.resize(); }, ims);
+    }, 500);
   }
-  resizeImgMaps();
 
 // mobileToggle
   var links = document.getElementsByTagName('link');
@@ -255,7 +276,7 @@ window.log = function(){
 
   var link_mobile = document.getElementById('screensize-mobile');
   var link_full = document.getElementById('screensize-full');
-  link_mobile.onclick = function () {
+  function clickLinkMobile() {
     for (var i = 0; i < mobile_links.length; i++) {
       var link = mobile_links[i];
       link.href = link.data_href;
@@ -271,8 +292,9 @@ window.log = function(){
     }
     resizeImgMaps();
     return false;
-  };
-  link_full.onclick = function () {
+  }
+  addEvent(link_mobile, 'click', clickLinkMobile);
+  function clickLinkFull() {
     for (var i = 0; i < mobile_links.length; i++) {
       var link = mobile_links[i];
       link.href = '';
@@ -288,15 +310,20 @@ window.log = function(){
     }
     resizeImgMaps();
     return false;
-  };
-  if (window.sessionStorage) {
-    var pin_large_screen = window.sessionStorage.getItem('pin_large_screen');
-    if (pin_large_screen == '1') {
-      link_full.onclick();
-    } else if (pin_large_screen == '0') {
-      link_mobile.onclick();
-    }
   }
+  addEvent(link_full, 'click', clickLinkFull);
+  addEvent(window, 'load', function () {
+    if (window.sessionStorage) {
+      var pin_large_screen = window.sessionStorage.getItem('pin_large_screen');
+      if (pin_large_screen == '1') {
+        clickLinkFull();
+      } else if (pin_large_screen == '0') {
+        clickLinkMobile();
+      }
+    } else {
+      resizeImgMaps();
+    }
+  });
 })();
 (function rotateBanner() {
   if (window.localStorage) {
@@ -329,35 +356,35 @@ window.log = function(){
 
     var dragthresh = 500;
     var start;
-    picdom.addEventListener('mousedown', function (event) {
+    addEvent(picdom, 'mousedown', function (event) {
       start = event.clientX;
-    }, false);
-    picdom.addEventListener('mouseup', function (event) {
+    });
+    addEvent(picdom, 'mouseup', function (event) {
       if (Math.abs(event.clientX - start) >= dragthresh) {
         toggleBanner();
       }
-    }, false);
-    picdom.addEventListener('touchstart', function (event) {
+    });
+    addEvent(picdom, 'touchstart', function (event) {
       if (event && event.changedTouches && event.changedTouches.length > 0) {
         start = event.changedTouches[0].clientX;
       }
-    }, false);
-    picdom.addEventListener('touchmove', function (event) {
+    });
+    addEvent(picdom, 'touchmove', function (event) {
       if (event && event.changedTouches && event.changedTouches.length > 0) {
         end = event.changedTouches[0].clientX;
         if (Math.abs(end - start) < dragthresh) {
           event.preventDefault();
         }
       }
-    }, false);
-    picdom.addEventListener('touchend', function (event) {
+    });
+    addEvent(picdom, 'touchend', function (event) {
       if (event && event.changedTouches && event.changedTouches.length > 0) {
         end = event.changedTouches[0].clientX;
         if (Math.abs(end - start) >= dragthresh) {
           toggleBanner();
         }
       }
-    }, false);
+    });
   }
 
   var supportTransition = (function () {
@@ -397,7 +424,8 @@ window.log = function(){
     s.zIndex = v;
   }
 
-  function rotator(domobjA, domobjB, num_banners, zs, delay, animateTime, offset, height) {
+  function rotator(domobjA, domobjB, num_banners, zs, delay, animateTime,
+                   offset, height) {
     this.zs = defaultTo(zs, [100, 99]);
     this.delay = defaultTo(delay, 1000 * 10);
     this.animateTime = defaultTo(animateTime, 1000 * 3);
@@ -430,8 +458,10 @@ window.log = function(){
     this.styleB.backgroundSize = bgSize;
 
     if (supportTransition) {
-      this.styleA[supportTransition] = 'opacity ' + this.animateTime / 1000 + 's linear';
-      this.styleB[supportTransition] = 'opacity ' + this.animateTime / 1000 + 's linear';
+      this.styleA[supportTransition] = 
+        'opacity ' + this.animateTime / 1000 + 's linear';
+      this.styleB[supportTransition] =
+        'opacity ' + this.animateTime / 1000 + 's linear';
     }
   }
 
@@ -512,6 +542,10 @@ window.log = function(){
     return this.offset - this.height;
   };
 
+  rotator.prototype.next = function () {
+    this.animate(this.nextOffset());
+  }
+
   rotator.prototype.start = function () {
     var self = this;
     var timer = null;
@@ -520,7 +554,7 @@ window.log = function(){
       if (timer) {
         clearTimeout(timer);
         if (!self.shouldStop) {
-          self.animate(self.nextOffset());
+          self.next();
         }
       }
       if (!self.shouldStop) {

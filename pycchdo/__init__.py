@@ -270,6 +270,9 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search_map.layer',
                     route_name='search_map_layer')
 
+    config.add_route('legacy_map_search', '/map_search')
+    config.add_view('pycchdo.views.legacy.map_search', route_name='legacy_map_search')
+
     # maintain legacy data_access
     route_for_path(config, 'parameter_descriptions',
                    '/parameter_descriptions.html',

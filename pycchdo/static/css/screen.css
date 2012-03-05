@@ -70,6 +70,7 @@ p a:hover:visited, p .link.visited.hover {
 }
 .box_content #no_accounts a,
 .box_content .thumb a,
+#search_map_ad a,
 .box_content a.updates-available {
   border: none;
 }

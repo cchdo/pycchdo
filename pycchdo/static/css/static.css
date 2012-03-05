@@ -262,6 +262,7 @@
 .boxed.get h2 {
   font-size: 1.2em;
 }
+.boxed.get #search_map_ad,
 .boxed.get #basin_selector_map {
   margin: 0.5em;
 }

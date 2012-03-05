@@ -3,6 +3,11 @@ from pyramid.httpexceptions import HTTPMovedPermanently, HTTPNotFound
 import pycchdo.models as models
 
 
+def map_search(request):
+    return HTTPMovedPermanently(
+        location=request.route_path('search_map'))
+
+
 def basin(request):
     return HTTPMovedPermanently(
         location=request.route_path('basin_show',

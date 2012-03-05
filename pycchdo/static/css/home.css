@@ -39,12 +39,9 @@
   float: left;
   margin-left: 0.5em;
 }
-#geo_search #search_map {
+#geo_search #search_map_ad {
   float: right;
   margin-right: 0.5em;
-}
-#geo_search #search_map a {
-  border: none;
 }
 
 #rdev .box_content {

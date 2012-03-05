@@ -99,14 +99,14 @@ ul, ol, p {
 #gfooter {
   border-top: 1px solid #DDDDDD;
 }
-#gfooter #screensize #screensize-full,
-#gfooter #screensize #screensize-mobile {
+#gfooter #screensize #screensize-full {
   float: none;
   display: block;
-  margin: 0;
-
+  margin: 0 0 1.5em 0;
   text-align: center;
+  border: 0;
   padding: 0.5em 0.2em;
+  background: #EEE;
 }
 #gfooter #screensize #screensize-mobile {
   display: none;
@@ -133,6 +133,7 @@ ul, ol, p {
   margin: 0;
 }
 .boxed > h1 {
+  margin: 0;
   background: none;
 }
 .boxed .box_content {
@@ -160,12 +161,12 @@ ul, ol, p {
   float: none;
 }
 #geo_search #basin,
-#geo_search #search_map {
+#geo_search #search_map_ad {
   float: none;
   margin: auto;
 }
 #basin_selector_map img,
-#geo_search #search_map img {
+#search_map_ad img {
   width: 100%;
 }
 #geo_search h2 {

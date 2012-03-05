@@ -27,9 +27,11 @@
   line-height: 1.1em;
   padding: 0.4em 0;
 }
-.contact .vcard .tel .value,
-.contact .vcard.cchdo .email {
-  padding-left: 0.5em;
+.contact .vcard table {
+  width: auto;
+}
+.contact .vcard th {
+  padding-right: 1em;
 }
 .contact .people {
   width: 50em;

@@ -1,19 +1,25 @@
 function metaTable(table) {
-  table.find('.header').dblclick(function () {
+  var batchOpen = false;
+  function openAll() {
     var open = !$(this).data('open');
     $(this).data('open', open);
+    batchOpen = true;
     table.find('> tbody > tr.meta, > tr.meta').each(function () {
       var row = $(this);
       if (row.data('open') != open) {
         row.click();
       }
     });
-  });
+    batchOpen = false;
+  }
+
+  table.find('.header').dblclick(openAll);
   table.find('> tbody > tr.body, > tr.body').hide();
   table.find('> tbody > tr, > tr').each(function () {
     var prepend = '';
     if ($(this).hasClass('header')) {
       prepend = $('<th class="expander"></th>');
+      prepend.click(openAll);
     } else {
       if (!$(this).hasClass('meta')) {
         prepend = $('<td class="expander"></td>');
@@ -28,22 +34,35 @@ function metaTable(table) {
     var body = table.find('.body.' + rowClass);
 
     if (body.length > 0) {
-        $(this).prepend($('<td class="expander"></td>').append(
-          $('<a href=""><div></div></a>')
-            .click(function () { react(); return false; }))
-          .css({cursor: 'pointer'}));
-      row.click(react);
+      $(this).prepend($('<td class="expander"></td>').append(
+        $('<a href=""><div></div></a>')
+          .click(function () { react(); return false; }))
+        .css({cursor: 'pointer'}));
+      row.click(function (event) {
+        var tagname = event.target.tagName;
+        if (tagname == 'TR' || tagname == 'TH' || tagname == 'TD') {
+          react();
+        }
+      });
     } else {
       $(this).prepend($('<td class="expander"></td>'));
     }
 
     function open() {
       row.addClass('open');
-      body.addClass('open').show('fast');
+      var speed = 'fast';
+      if (batchOpen) {
+        speed = null;
+      }
+      body.addClass('open').show(speed);
     }
     function close() {
       row.removeClass('open');
-      body.removeClass('open').hide('fast');
+      var speed = 'fast';
+      if (batchOpen) {
+        speed = null;
+      }
+      body.removeClass('open').hide(speed);
     }
 
     function check_focus_close() {

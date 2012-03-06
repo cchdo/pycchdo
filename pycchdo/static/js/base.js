@@ -34,6 +34,18 @@ function addEventOnce(obj, evt, fn) {
   }
   addEvent(obj, evt, wrapper);
 }
+function eventTarget(e) {
+  var target;
+  if (!e) {
+    var e = window.event;
+  }
+  if (e.target) {
+    target = e.target;
+  } else if (e.srcElement) {
+    target = e.srcElement;
+  }
+  return target;
+}
 
 (function menuMods() {
   function has_class(e, c) {
@@ -49,7 +61,7 @@ function addEventOnce(obj, evt, fn) {
   }
   var menu = document.getElementById('cchdo_menu');
   var ul = menu.children[0];
-  var menuOpen = (function toggleableMenu() {
+  var openfns = (function toggleableMenu() {
     var expander = document.createElement('LI');
     expander.className = 'expander';
     var h1 = document.createElement('H1');
@@ -58,6 +70,10 @@ function addEventOnce(obj, evt, fn) {
     h1.appendChild(link);
     expander.appendChild(h1);
     ul.appendChild(expander);
+
+    function isOpen() {
+      return has_class(ul, 'open');
+    }
 
     function open(p) {
       if (p) {
@@ -71,35 +87,26 @@ function addEventOnce(obj, evt, fn) {
       }
     }
 
-    function toggle() {
-      open(!has_class(ul, 'open'));
+    function toggle(event) {
+      open(!isOpen());
       if (window.localStorage) {
         window.localStorage.setItem('menu_pin_acknowledged', '1');
       }
-    }
-
-    addEvent(expander, 'click', toggle);
-    addEvent(document.getElementById('picture'), 'click', function (event) {
-      toggle();
       if (event.stopPropagation) {
         event.stopPropagation();
       }
+      return false;
+    }
+
+    var picdom = document.getElementById('picture');
+    addEvent(expander, 'click', toggle);
+    addEvent(picdom, 'click', function (event) {
+      toggle(event);
     });
-    addEvent(ul, 'click', function (e) {
-      var target;
-      if (!e) {
-        var e = window.event;
-      }
-      if (e.target) {
-        target = e.target;
-      } else if (e.srcElement) {
-        target = e.srcElement;
-      }
+    addEvent(ul, 'click', function (event) {
+      var target = eventTarget(event);
       if (target === ul || target.tagName == 'LI') {
-        toggle();
-      }
-      if (e.stopPropagation) {
-        e.stopPropagation();
+        toggle(event);
       }
     });
     addEvent(document.body, 'click', function () {
@@ -123,8 +130,10 @@ function addEventOnce(obj, evt, fn) {
     } else {
       addFlasher();
     }
-    return open;
+    return [open, isOpen];
   })();
+  var open = openfns[0];
+  var isOpen = openfns[1];
   (function tabableMenu() {
     function addfocusblur(e, limit) {
       var lis = [];
@@ -135,15 +144,17 @@ function addEventOnce(obj, evt, fn) {
         }
         f = f.parentNode;
       }
+      var previousOpenness = false;
       addEvent(e, 'focus', function () {
-        menuOpen(true);
+        previousOpenness = isOpen();
+        open(true);
         for (var i = 0; i < lis.length; i++) {
           add_class(lis[i], 'focus');
         }
         add_class(e, 'focus');
       });
       addEvent(e, 'blur', function () {
-        menuOpen(false);
+        open(previousOpenness);
         for (var i = 0; i < lis.length; i++) {
           remove_class(lis[i], 'focus');
         }

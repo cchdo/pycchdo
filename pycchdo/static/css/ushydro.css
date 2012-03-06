@@ -3,6 +3,9 @@
   padding: 0.5em;
   border-top: 0.2em solid #06629B;
 }
+#menu_ushydro a {
+  border: none;
+}
 
 .cruise-page div.boxed {
   border: 1px solid #ADD8E6;

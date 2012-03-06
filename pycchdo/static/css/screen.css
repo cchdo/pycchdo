@@ -521,9 +521,10 @@ input[type="submit"]:active {
   border-left: 0;
   border-right: 0;
 }
+.pager .pager_curpage,
 .pager a.pager_link {
   display: inline-block;
-  padding: 0.2em;
+  padding: 0.2em 0.5em;
   border-bottom: none;
 }
 .pager a:hover {

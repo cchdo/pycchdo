@@ -155,7 +155,7 @@ def data(request):
     if not data:
         return HTTPNotFound()
 
-    return _file_response(data.file)
+    return _file_response(request, data.file)
 
 
 def catchall_static(request):

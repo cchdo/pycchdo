@@ -133,213 +133,215 @@
       <p>{{ h.cruise_summary(cruise) }}</p>
     {%- endcall %}
   {%- endif %}
-  {%- call h.boxed('Information and Data', id='info', class='upper', box_content_class='scrollable-y') %}
-    <div class="subsection general-information">
-      <h2>Information</h2>
-      {%- if 'map' in data_files %}
-        {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
-      {%- endif %}
-      {{- cruise_attr('ExpoCode', cruise.expocode) }}
-      {{- cruise_attr('Aliases', cruise.get('aliases', [])|join(', ')) }}
-      {{- cruise_attr('Collections', h.link_collections(cruise.collections)) }}
-      {%- if cruise.ship %}
-        {{ cruise_attr('Ship', h.link_ship(cruise.ship)) }}
-      {%- endif %}
-      {%- if cruise.country %}
-        {{ cruise_attr('Country', h.link_country(cruise.country)) }}
-      {%- endif %}
-      {{- cruise_attr('Chief Scientists',
-                      h.link_person_institutions(cruise.chief_scientists)) }}
-      {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
-      {{- cruise_attr('Frequency', cruise.get('frequency', '')) }}
-      {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
-      {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
-      {{- cruise_attr('Statuses', cruise.statuses|join(', ')) }}
-      {%- if h.has_edit(request) %}
-        {{- cruise_attr('ID', cruise.id) }}
-      {%- endif %}
-
-      {%- if updates['attrs'] %}
-        <a class="updates-available" href="#updates">{{ see_or_discuss() }} suggested attribute changes</a>
-      {%- endif %}
-
-      {%- if h.has_edit(request) %}
-        <div id="edit_attr" class="editor">
-        {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr'}) }} 
-          <table>
-            <tr>
-              <th>{{ whh.tags.select('key', None, CRUISE_ATTRS_SELECT) }}</th>
-              <td><input type="text" name="value" placeholder="value"></td>
-            </tr>
-            <tr>
-              <th><label for="edit_attr_notes">Notes</label></th>
-              <td><textarea id="edit_attr_notes" name="notes"></textarea></td>
-            </tr>
-            <tr>
-              <td class="submit" colspan="2">
-                <input type="submit" name="edit_action" value="Delete">
-                <input type="submit" name="edit_action" value="Set">
-              </td>
-            </tr>
-          </table>
-        {{ whh.tags.end_form() }}
-        </div>
-        <div id="edit_participants" class="editor">
-        {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr',
-                                                   'key': 'participants'}) }} 
-          <table>
-            <tr class="header">
-              <th><label for="role">Role</label></th>
-              <th><label for="participant">Participant</label></th>
-              <th><label for="institution">Institution</label></th>
-            </tr>
-            {%- set participants = cruise.get('participants') %}
-            {%- if participants %}
-              {%- for rpi in participants %}
-                {{ participant_row(loop.index0, rpi['role'], rpi['person'], rpi['institution']) }}
-              {%- endfor %}
-              {{ participant_row(participants|length, '', '', '') }}
-            {%- else %}
-              {{ participant_row(0, '', '', '') }}
-            {%- endif %}
-            <tr>
-              <th><label for="participants_notes">Notes</label></th>
-              <td colspan="3">
-                <textarea id="participants_notes" name="notes"></textarea>
-              </td>
-            </tr>
-            <tr>
-              <td class="submit" colspan="4">
-                <input type="submit" name="edit_action" value="Delete all participants">
-                <input type="submit" name="edit_action" value="Set participants">
-              </td>
-            </tr>
-          </table>
-        {{ whh.tags.end_form() }}
-        </div>
-      {%- endif %}
-    </div>
-    <div class="clear"></div>
-    <div class="subsection data-files">
-      <h2>Data</h2>
-
-      {%- if cruise.preliminary %}
-        <p id="preliminary">These data are preliminary</p> 
-      {%- endif %}
-      {%- if updates['as_received'] or updates['merged'] %}
-        <a class="updates-available" href="#updates">
-          {{ see_or_discuss() }} as received data and see merged data</a>
-      {%- endif %}
-
-      {%- if 'exchange' in data_files %}
-        <h3>Exchange</h3>
-        <table>
-        {% for type, df in h.sort_data_files(data_files.get('exchange')) -%}
-          {{ h.data_file_link(request, type, df) }}
-        {%- endfor %}
-        </table>
-      {%- endif %}
-
-      {%- if 'netcdf' in data_files %}
-        <h3>NetCDF</h3>
-        <table>
-        {% for type, df in h.sort_data_files(data_files.get('netcdf')) -%}
-          {{ h.data_file_link(request, type, df) }}
-        {%- endfor %}
-        </table>
-      {%- endif %}
-
-      {%- if 'woce' in data_files %}
-        <h3>WOCE</h3>
-        <table>
-        {% for type, df in h.sort_data_files(data_files.get('woce')) -%}
-          {{ h.data_file_link(request, type, df) }}
-        {%- endfor %}
-        </table>
-      {%- endif %}
-
-      {%- if 'doc' in data_files %}
-        <h3>Documentation</h3>
-        <table>
-        {% for type, df in h.sort_data_files(data_files.get('doc')) -%}
-          {{ h.data_file_link(request, type, df) }}
-        {%- endfor %}
-        </table>
-      {%- endif %}
-      {%- if not data_files %}
-        <div id="data-pending">
-          <h4>Data Pending</h4>
-          <p>Contact the CCHDO for more information.</p>
-          <p>If you are the PI, please visit the <a href="/give.html">Give</a>
-            page or contact the CCHDO for submission information.</p>
-        </div>
-      {%- endif %}
-      {%- if h.has_edit(request) %}
-        <div id="add_file" class="editor">
-        {{ whh.tags.form('', 'PUT', multipart=True,
-                         hidden_fields={'action': 'suggest_file'}) }} 
-          <table>
-            <tr>
-              <th>{{ whh.tags.select('type', None, FILE_GROUPS_SELECT) }}</th>
-              <td><input type="file" name="file"></td>
-            </tr>
-            <tr>
-              <th><label for="suggest_file_notes">Notes</label></th>
-              <td><textarea id="suggest_file_notes" name="notes"></textarea></td>
-            </tr>
-            <tr>
-              <td class="submit" colspan="2">
-                <input type="submit" name="add_file_action" value="Delete file">
-                <input type="submit" name="add_file_action" value="Set file">
-              </td>
-            </tr>
-          </table>
-        {{ whh.tags.end_form() }}
-        </div>
-      {%- endif %}
-    </div>
-  {%- endcall %}
-  {% call h.boxed('History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
-    <div class="subsection">
-      {%- if h.has_edit(request) %}
-        {{ whh.tags.form('', 'POST') }}
-          <input type="hidden" name="action" value="add_note">
-      {%- endif %}
-      {% if history or h.has_edit(request) %}
-        <table class="has-meta-bodies{%- if history|length < 10 %} pre-expand{%- endif %}">
-          <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
-          {%- if h.has_edit(request) %}
-            {%- set i = "new" %}
-            {%- set hl="new" %}
-            <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
-              <td>Add note</td>
-              <td><input type="text" name="note_data_type"></td>
-              <td><input type="text" name="note_action"></td>
-              <td><input type="text" name="note_summary"></td>
-            </tr>
-            <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
-              <td colspan="4">
-                <p>
-                  <label for="note_discussion_{{ i }}">Public</label>
-                  <input id="note_discussion_{{ i }}" type="checkbox"
-                         name="note_discussion" value="public" checked="checked">
-                 </p>
-                 <textarea name="note_note"></textarea>
-                 <input type="submit" value="Add note">
-              </td>
-            </tr>
+  <div id="upper">
+    <div id="info">
+      {%- call h.boxed('Information', id='metadata', class='upper', box_content_class='scrollable-y') %}
+        <div class="subsection general-information">
+          {%- if 'map' in data_files %}
+            {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
           {%- endif %}
-          {%- for change in history|reverse %}
-            {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
-          {%- endfor %}
-        </table>
-        {%- if h.has_edit(request) %}
-          </form>
-        {%- endif %}
-      {%- endif %}
+          {{- cruise_attr('ExpoCode', cruise.expocode) }}
+          {{- cruise_attr('Aliases', cruise.get('aliases', [])|join(', ')) }}
+          {{- cruise_attr('Collections', h.link_collections(cruise.collections)) }}
+          {%- if cruise.ship %}
+            {{ cruise_attr('Ship', h.link_ship(cruise.ship)) }}
+          {%- endif %}
+          {%- if cruise.country %}
+            {{ cruise_attr('Country', h.link_country(cruise.country)) }}
+          {%- endif %}
+          {{- cruise_attr('Chief Scientists',
+                          h.link_person_institutions(cruise.chief_scientists)) }}
+          {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
+          {{- cruise_attr('Frequency', cruise.get('frequency', '')) }}
+          {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
+          {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
+          {{- cruise_attr('Statuses', cruise.statuses|join(', ')) }}
+          {%- if h.has_edit(request) %}
+            {{- cruise_attr('ID', cruise.id) }}
+          {%- endif %}
+
+          {%- if updates['attrs'] %}
+            <a class="updates-available" href="#updates">{{ see_or_discuss() }} suggested attribute changes</a>
+          {%- endif %}
+
+          {%- if h.has_edit(request) %}
+            <div id="edit_attr" class="editor">
+            {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr'}) }} 
+              <table>
+                <tr>
+                  <th>{{ whh.tags.select('key', None, CRUISE_ATTRS_SELECT) }}</th>
+                  <td><input type="text" name="value" placeholder="value"></td>
+                </tr>
+                <tr>
+                  <th><label for="edit_attr_notes">Notes</label></th>
+                  <td><textarea id="edit_attr_notes" name="notes"></textarea></td>
+                </tr>
+                <tr>
+                  <td class="submit" colspan="2">
+                    <input type="submit" name="edit_action" value="Delete">
+                    <input type="submit" name="edit_action" value="Set">
+                  </td>
+                </tr>
+              </table>
+            {{ whh.tags.end_form() }}
+            </div>
+            <div id="edit_participants" class="editor">
+            {{ whh.tags.form('', 'PUT', hidden_fields={'action': 'edit_attr',
+                                                       'key': 'participants'}) }} 
+              <table>
+                <tr class="header">
+                  <th><label for="role">Role</label></th>
+                  <th><label for="participant">Participant</label></th>
+                  <th><label for="institution">Institution</label></th>
+                </tr>
+                {%- set participants = cruise.get('participants') %}
+                {%- if participants %}
+                  {%- for rpi in participants %}
+                    {{ participant_row(loop.index0, rpi['role'], rpi['person'], rpi['institution']) }}
+                  {%- endfor %}
+                  {{ participant_row(participants|length, '', '', '') }}
+                {%- else %}
+                  {{ participant_row(0, '', '', '') }}
+                {%- endif %}
+                <tr>
+                  <th><label for="participants_notes">Notes</label></th>
+                  <td colspan="3">
+                    <textarea id="participants_notes" name="notes"></textarea>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="submit" colspan="4">
+                    <input type="submit" name="edit_action" value="Delete all participants">
+                    <input type="submit" name="edit_action" value="Set participants">
+                  </td>
+                </tr>
+              </table>
+            {{ whh.tags.end_form() }}
+            </div>
+          {%- endif %}
+        </div>
+        <div class="clear"></div>
+      {%- endcall %}
+      {%- call h.boxed('Data', id='data', class='upper', box_content_class='scrollable-y') %}
+        <div class="subsection data-files">
+          {%- if cruise.preliminary %}
+            <p id="preliminary">These data are preliminary</p> 
+          {%- endif %}
+          {%- if updates['as_received'] or updates['merged'] %}
+            <a class="updates-available" href="#updates">
+              {{ see_or_discuss() }} as received data and see merged data</a>
+          {%- endif %}
+
+          {%- if 'exchange' in data_files %}
+            <h3>Exchange</h3>
+            <table>
+            {% for type, df in h.sort_data_files(data_files.get('exchange')) -%}
+              {{ h.data_file_link(request, type, df) }}
+            {%- endfor %}
+            </table>
+          {%- endif %}
+
+          {%- if 'netcdf' in data_files %}
+            <h3>NetCDF</h3>
+            <table>
+            {% for type, df in h.sort_data_files(data_files.get('netcdf')) -%}
+              {{ h.data_file_link(request, type, df) }}
+            {%- endfor %}
+            </table>
+          {%- endif %}
+
+          {%- if 'woce' in data_files %}
+            <h3>WOCE</h3>
+            <table>
+            {% for type, df in h.sort_data_files(data_files.get('woce')) -%}
+              {{ h.data_file_link(request, type, df) }}
+            {%- endfor %}
+            </table>
+          {%- endif %}
+
+          {%- if 'doc' in data_files %}
+            <h3>Documentation</h3>
+            <table>
+            {% for type, df in h.sort_data_files(data_files.get('doc')) -%}
+              {{ h.data_file_link(request, type, df) }}
+            {%- endfor %}
+            </table>
+          {%- endif %}
+          {%- if not data_files %}
+            <div id="data-pending">
+              <h4>Data Pending</h4>
+              <p>Contact the CCHDO for more information.</p>
+              <p>If you are the PI, please visit the <a href="/give.html">Give</a>
+                page or contact the CCHDO for submission information.</p>
+            </div>
+          {%- endif %}
+          {%- if h.has_edit(request) %}
+            <div id="add_file" class="editor">
+            {{ whh.tags.form('', 'PUT', multipart=True,
+                             hidden_fields={'action': 'suggest_file'}) }} 
+              <table>
+                <tr>
+                  <th>{{ whh.tags.select('type', None, FILE_GROUPS_SELECT) }}</th>
+                  <td><input type="file" name="file"></td>
+                </tr>
+                <tr>
+                  <th><label for="suggest_file_notes">Notes</label></th>
+                  <td><textarea id="suggest_file_notes" name="notes"></textarea></td>
+                </tr>
+                <tr>
+                  <td class="submit" colspan="2">
+                    <input type="submit" name="add_file_action" value="Delete file">
+                    <input type="submit" name="add_file_action" value="Set file">
+                  </td>
+                </tr>
+              </table>
+            {{ whh.tags.end_form() }}
+            </div>
+          {%- endif %}
+        </div>
+      {%- endcall %}
     </div>
-  {%- endcall %}
-  <div class="clear"></div>
+    {% call h.boxed('History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
+      <div class="subsection">
+        {%- if h.has_edit(request) %}
+          {{ whh.tags.form('', 'POST') }}
+            <input type="hidden" name="action" value="add_note">
+        {%- endif %}
+        {% if history or h.has_edit(request) %}
+          <table class="has-meta-bodies{%- if history|length < 10 %} pre-expand{%- endif %}">
+            <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
+            {%- if h.has_edit(request) %}
+              {%- set i = "new" %}
+              {%- set hl="new" %}
+              <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
+                <td>Add note</td>
+                <td><input type="text" name="note_data_type"></td>
+                <td><input type="text" name="note_action"></td>
+                <td><input type="text" name="note_summary"></td>
+              </tr>
+              <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
+                <td colspan="4">
+                  <p>
+                    <label for="note_discussion_{{ i }}">Public</label>
+                    <input id="note_discussion_{{ i }}" type="checkbox"
+                           name="note_discussion" value="public" checked="checked">
+                   </p>
+                   <textarea name="note_note"></textarea>
+                   <input type="submit" value="Add note">
+                </td>
+              </tr>
+            {%- endif %}
+            {%- for change in history|reverse %}
+              {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
+            {%- endfor %}
+          </table>
+          {%- if h.has_edit(request) %}
+            </form>
+          {%- endif %}
+        {%- endif %}
+      </div>
+    {%- endcall %}
+  </div>
   {%- if updates %}
     {%- call h.boxed('Updates', id="updates") %}
       {%- if updates['attrs'] %}

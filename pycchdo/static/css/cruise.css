@@ -1,14 +1,33 @@
-.cruise-page #info { float: left; width: 466px; margin-right: 11px; }
-.cruise-page #history { float: left; text-align: left; width: 543px; }
-.cruise-page .upper .box_content { }
-.cruise-page .boxed.upper .box_content { height: 42em; }
+.cruise-page #upper {
+  overflow: hidden;
+}
+.cruise-page #info {
+  float: left;
+  margin-right: 11px;
+}
+.cruise-page #info .boxed {
+  width: 466px;
+}
+.cruise-page #info .box_content {
+  height: 12.8em;
+}
+.cruise-page #data .box_content {
+  height: 26.8em;
+}
+.cruise-page #history {
+  float: left;
+  width: 543px;
+}
+.cruise-page #history .box_content {
+  height: 46.8em;
+}
 
 .cruise-page .subsection { margin-top: 1em; }
 
 /* trim the padding and margins a little so text is nicely square.
  * This needs priority over things that go inside .box_contents
  */
-.box_content > *:first-child {
+.box_content > .subsection:first-child {
   margin-top: -0.5em;
 }
 
@@ -20,14 +39,14 @@
 }
 .cruise-page h3 { margin: 0.5em 0 0.25em 0; }
 
-.cruise-page .thumb { margin-top: -1.2em; margin-left: 1em; float: right; text-align: right; }
+.cruise-page .thumb { margin: 0.5em 0 0 1em; float: right; text-align: right; }
 .cruise-page .thumb .caption { font-size: 0.9em; margin-top: -0.5em; }
 .cruise-page .thumb img { width: 80px; height: 80px; }
 
 .cruise-page #preliminary {
   color: #ff0900;
   font-size: 1.2em;
-  margin: 0.5em 0;
+  margin: 0 0 0.5em 0;
 }
 .cruise-page .updates-available {
   display: block;

@@ -22,13 +22,15 @@ _static_root = os.path.join(os.path.dirname(__file__), '..', 'static')
 
 
 try:
-    _favicon = open(os.path.join(_static_root, 'favicon.ico')).read()
+    with open(os.path.join(_static_root, 'favicon.ico')) as _f:
+        _favicon = _f.read()
     _favicon_response = Response(content_type='image/x-icon', body=_favicon)
 except IOError:
     _favicon_response = HTTPNotFound()
 
 try:
-    _robots = open(os.path.join(_static_root, 'robots.txt')).read()
+    with open(os.path.join(_static_root, 'robots.txt')) as _f:
+        _robots = _f.read()
     _robots_response = Response(content_type='text/plain', body=_robots)
 except IOError:
     _robots_response = HTTPNotFound()
@@ -42,19 +44,15 @@ def robots(context, request):
     return _robots_response
 
 
-def _empty_view(context, request):
+def empty_view(context, request):
     return {}
 
 
-get_menu = _empty_view
-search_menu = _empty_view
-give_menu = _empty_view
-information_menu = _empty_view
-
-
-@staff_signin_required
-def tools_menu(*args):
-    return {}
+get_menu = empty_view
+search_menu = empty_view
+give_menu = empty_view
+information_menu = empty_view
+tools_menu = staff_signin_required(empty_view)
 
 
 def home(request):

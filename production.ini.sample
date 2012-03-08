@@ -7,8 +7,9 @@ debug_routematch = false
 debug_templates = false
 default_locale_name = en
 # DB
-db_uri = mongodb://dimes.ucsd.edu:28017/?journal=true&w=1
+db_uri = mongodb://goship.ucsd.edu:27017/?journal=true&w=1&slaveOk=true
 db_name = cchdo
+db_replSet = pycchdo
 # Search index
 db_search_index_path = /var/cache/pycchdo_search_index
 # Security keys

@@ -1,0 +1,13 @@
+{%- extends "templates/base.jinja2" %}
+{%- block title %}Archives | Webtool{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('Archives', class='archives') %}
+    <ul>
+      <li><a href="/cruises/archive.zip">All cruises</a></li>
+      <li><a href="/collection/1500/archive.zip">Pacific collection</a></li>
+      <li><a href="/collection/891/archive.zip">Atlantic collection</a></li>
+      <li><a href="/collection/1883/archive.zip">Arctic collection</a></li>
+      <li><a href="/collection/3768/archive.zip">Southern collection</a></li>
+    </ul>
+  {%- endcall %}
+{%- endblock %}

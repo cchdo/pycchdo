@@ -3,6 +3,7 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 import pycchdo.models as models
+from pycchdo.views import staff
 
 
 def institutions_index(request):
@@ -28,11 +29,17 @@ def _redirect_response(request, id):
 
 
 def institution_show(request):
-    institution_id = request.matchdict.get('institution_id')
-    institution = models.Institution.get_id(institution_id)
+    institution = _get_institution(request)
     if not institution:
         return HTTPNotFound()
     return {'institution': institution}
+
+
+def institution_archive(request):
+    institution = _get_institution(request)
+    if not institution:
+        return HTTPNotFound()
+    return staff.archive(request, institution.cruises())
 
 
 def institution_edit(request):
@@ -55,8 +62,7 @@ def institution_merge(request):
     if not h.has_mod(request):
         return HTTPUnauthorized()
 
-    institution_id = request.matchdict.get('institution_id')
-    institution = models.Institution.get_id(institution_id)
+    institution = _get_institution(request)
     if not institution:
         return HTTPNotFound()
 

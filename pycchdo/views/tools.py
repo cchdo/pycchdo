@@ -237,3 +237,8 @@ def convert_from_to(request):
     if not cfrom or not cto:
         return HTTPBadRequest()
     return available_converters.get((cfrom, cto))(request)
+
+
+@staff_signin_required
+def archives(request):
+    return {}

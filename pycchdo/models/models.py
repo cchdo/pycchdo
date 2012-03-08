@@ -8,7 +8,8 @@ from warnings import warn
 from webob.multidict import MultiDict
 
 import pymongo
-from pymongo.errors import AutoReconnect
+import pymongo.replica_set_connection
+from pymongo.errors import AutoReconnect, ConnectionFailure
 from pymongo import DESCENDING
 from pymongo.objectid import ObjectId, InvalidId
 
@@ -24,12 +25,13 @@ import triggers
 
 
 mongo_conn = None
+db_name = None
 grid_fs = None
 
 
 # Connection management is left flat in the module b/c for now it's not
 # necessary to have more than one database connection.
-def init_conn(db_uri, *args, **kwargs):
+def init_conn(settings, *args, **kwargs):
     """Set up a connection to the PyMongo database.
 
     Arguments:
@@ -38,10 +40,22 @@ def init_conn(db_uri, *args, **kwargs):
       **kwargs: required for miscellaneous options to the
                 pymongo.Connection constructor
     """
-    global mongo_conn
+    global mongo_conn, db_name
+
+    db_uri = settings['db_uri']
+    db_name = settings['db_name']
+
     try:
-        mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
-    except AutoReconnect:
+        try:
+            replicaSet = settings['db_replSet']
+
+            mongo_conn = pymongo.replica_set_connection.ReplicaSetConnection(
+                db_uri, replicaSet=replicaSet,
+                read_preference=pymongo.ReadPreference.SECONDARY,
+            )
+        except KeyError:
+            mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
+    except (AutoReconnect, ConnectionFailure):
         raise IOError('Unable to connect to database (%s). Check that the '
                       'database server is running.' % db_uri)
 
@@ -87,9 +101,8 @@ def cchdo():
       it exists.
     """
     if not mongo_conn:
-        raise IOError('No database connection. Check that the server .ini file '
-                      'contains the correct db_uri.')
-    return mongo_conn.cchdo
+        raise IOError('No database connection.')
+    return mongo_conn[db_name]
 
 
 def fs():
@@ -1702,6 +1715,16 @@ class Cruise(Obj):
         if country:
             return Country.get_id(country)
         return None
+
+    @property
+    def files(self):
+        files = {}
+        file_types = data_file_descriptions.keys()
+        for ft in file_types:
+            v = self.get(ft)
+            if v:
+                files[ft] = v
+        return files
 
     @property
     def participants(self):

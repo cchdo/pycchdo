@@ -50,7 +50,7 @@ def add_renderer_globals(event):
 
 def obj_routes(config, obj, plural_obj=None,
                new=False, mergeable=False, editable=False, json_index=False,
-               json_show=False):
+               json_show=False, archiveable=False):
     if not plural_obj:
         plural_obj = obj + 's'
 
@@ -83,6 +83,13 @@ def obj_routes(config, obj, plural_obj=None,
         route_name='{obj}_show'.format(obj=obj),
         renderer='templates/{obj}/show.jinja2'.format(obj=obj))
 
+    if archiveable:
+        config.add_route(
+            '{obj}_archive'.format(obj=obj),
+            '/{obj}/{{{obj}_id}}/archive.zip'.format(obj=obj))
+        config.add_view(
+            'pycchdo.views.{obj}.{obj}_archive'.format(obj=obj),
+            route_name='{obj}_archive'.format(obj=obj))
 
     if new:
         config.add_route(
@@ -144,11 +151,7 @@ def main(global_config, **settings):
         session_factory=session_factory,
     )
 
-    try:
-        models.init_conn(settings['db_uri'])
-    except IOError:
-        # TODO XXX massive warning about no connection to database
-        pass
+    models.init_conn(settings)
 
     config.include('pyramid_jinja2')
     config.include('pyramid_mailer')
@@ -230,16 +233,20 @@ def main(global_config, **settings):
     config.add_route('cruise_map_thumb', '/cruise/{cruise_id}/map_thumb')
     config.add_view('pycchdo.views.cruise.map_thumb',
                     route_name='cruise_map_thumb')
+    config.add_route('cruises_archive', '/cruises/archive.zip')
+    config.add_view('pycchdo.views.cruise.cruises_archive',
+                    route_name='cruises_archive')
 
     obj_routes(config, 'collection', mergeable=True, editable=True,
-               json_index=True)
+               json_index=True, archiveable=True)
     obj_routes(config, 'country', 'countries', mergeable=True, editable=True,
-               json_index=True)
+               json_index=True, archiveable=True)
     obj_routes(config, 'person', 'people', mergeable=True, editable=True,
-               json_index=True)
+               json_index=True, archiveable=True)
     obj_routes(config, 'institution', mergeable=True, editable=True,
-               json_index=True)
-    obj_routes(config, 'ship', mergeable=True, editable=True, json_index=True)
+               json_index=True, archiveable=True)
+    obj_routes(config, 'ship', mergeable=True, editable=True,
+               json_index=True, archiveable=True)
 
     # Argo Secure File Repository
     config.add_route('argo_index', '/argo')
@@ -328,6 +335,9 @@ def main(global_config, **settings):
     config.add_route('tool_convert_any_to_google_wire', '/tool/convert/any_to_google_wire')
     config.add_view('pycchdo.views.tools.convert_any_to_google_wire',
                     route_name='tool_convert_any_to_google_wire', renderer='json')
+    config.add_route('tool_archives', '/tool/archives.html')
+    config.add_view('pycchdo.views.tools.archives', route_name='tool_archives',
+                    renderer='templates/tool/archives.jinja2')
 
     # Staff
     config.add_route('staff_index', '/staff.html')

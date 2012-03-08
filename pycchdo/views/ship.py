@@ -3,6 +3,7 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 import pycchdo.models as models
+from pycchdo.views import staff
 
 
 def ships_index(request):
@@ -28,6 +29,13 @@ def ship_show(request):
     if not ship:
         return HTTPNotFound()
     return {'ship': ship}
+
+
+def ship_archive(request):
+    ship = _get_ship(request)
+    if not ship:
+        return HTTPNotFound()
+    return staff.archive(request, ship.cruises())
 
 
 def ship_edit(request):

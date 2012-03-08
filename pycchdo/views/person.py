@@ -4,6 +4,7 @@ from . import *
 import pycchdo.helpers as h
 import pycchdo.models as models
 from pycchdo.views.staff import staff_signin_required
+from pycchdo.views import staff
 
 
 def people_index(request):
@@ -33,6 +34,13 @@ def person_show(request):
     if not person:
         return HTTPNotFound()
     return {'person': person}
+
+
+def person_archive(request):
+    person = _get_person(request)
+    if not person:
+        return HTTPNotFound()
+    return staff.archive(request, person.cruises())
 
 
 @staff_signin_required

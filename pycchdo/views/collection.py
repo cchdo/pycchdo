@@ -3,6 +3,7 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 import pycchdo.models as models
+from pycchdo.views import staff
 
 
 def collections_index(request):
@@ -32,6 +33,13 @@ def collection_show(request):
     if not collection:
         return HTTPNotFound()
     return {'collection': collection}
+
+
+def collection_archive(request):
+    collection = _get_collection(request)
+    if not collection:
+        return HTTPNotFound()
+    return staff.archive(request, collection.cruises())
 
 
 def collection_edit(request):

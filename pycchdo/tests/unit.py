@@ -653,6 +653,25 @@ class TestModel(unittest.TestCase):
 
         c2.remove()
 
+    def test_cruise_files(self):
+        """ cruise.files should be a dict mapping data_file_human_names to the
+            actual value for that cruise
+        """
+        c = Cruise(self.testPerson)
+        c.save()
+
+        c.set_accept('bottle_exchange', 'botex', self.testPerson)
+        c.set_accept('ctdzip_netcdf', 'ctdzipnc', self.testPerson)
+        c.set_accept('doc_pdf', 'doc_pdf', self.testPerson)
+
+        self.assertEquals(c.files, {
+            'bottle_exchange': 'botex',
+            'ctdzip_netcdf': 'ctdzipnc',
+            'doc_pdf': 'doc_pdf',
+        })
+
+        c.remove()
+
 
 class TestHelper(unittest.TestCase):
     setUp = global_setUp

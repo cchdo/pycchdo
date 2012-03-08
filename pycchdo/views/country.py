@@ -3,6 +3,7 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 import pycchdo.models as models
+from pycchdo.views import staff
 
 
 def countries_index(request):
@@ -36,6 +37,13 @@ def country_show(request):
     if not country:
         return HTTPNotFound()
     return {'country': country}
+
+
+def country_archive(request):
+    country = _get_country(request)
+    if not country:
+        return HTTPNotFound()
+    return staff.archive(request, country.cruises())
 
 
 def country_edit(request):

@@ -1,6 +1,18 @@
+import inspect
+import cgi
+import tarfile
+import os
+import tempfile
+import time
+import shutil
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
 from pyramid.httpexceptions import HTTPUnauthorized
 
-from pycchdo.helpers import link_cruise, date, link_person
+from pycchdo.helpers import link_cruise, date, link_person, whtext
 import pycchdo.models as models
 
 from pycchdo.views import *
@@ -12,16 +24,38 @@ def staff_signin_required(view_callable):
     """ Decorates a view_callable so that the signed in user must be a staff
         member in order to view.
     """
-    def decorator(*args, **kwargs):
-        request = args[-1]
+    def check_signin(request):
         user = request.user
         if user is None:
             request.session.flash('Please sign in to use staff tools.', 'help')
             return require_signin(request)
         if not has_staff(request):
             return HTTPUnauthorized()
-        return view_callable(request)
-    return decorator
+        return None
+
+    numargs = len(inspect.getargspec(view_callable)[0])
+    if numargs == 1:
+        def decorator(request):
+            response = check_signin(request)
+            if response is None:
+                response = view_callable(request)
+            return response
+        return decorator
+    elif numargs == 2:
+        def decorator(context, request):
+            response = check_signin(request)
+            if response is None:
+                response = view_callable(context, request)
+            return response
+        return decorator
+    else:
+        def decorator(*args, **kwargs):
+            request = args[1]
+            response = check_signin(request)
+            if response is None:
+                response = view_callable(*args, **kwargs)
+            return response
+        return decorator
 
 
 @staff_signin_required
@@ -36,7 +70,6 @@ def _submission_short_text(submission):
                 submission.identifier)
 
 
-@staff_signin_required
 def _moderate_submission(request):
     try:
         submission_id = request.params['submission_id']
@@ -116,7 +149,6 @@ def submissions(request):
         }
 
 
-@staff_signin_required
 def _moderate_attribute(request):
     try:
         attr = models._Attr.get_id(request.params['attr'])
@@ -179,3 +211,85 @@ def moderation(request):
         'parameters': parameters,
         'files_by_parameters': files_by_parameters,
     }
+
+
+def _archive_path(cruise, tree=[]):
+    """ Gives the archive path for the cruise
+    
+    Arguments:
+        tree - describes the path components. e.g. a cruise '33RR2009____' with
+        a ship named 'Revelle' and date_start year 2009 along with tree=['ship',
+        'date_start'] will produce a path /revelle/2009/33RR2009____
+
+    """
+    urlify = whtext.urlify
+    cruise_id = urlify(str(cruise.uid))
+    try:
+        ship = urlify(cruise.ship.name)
+    except AttributeError:
+        ship = 'unk_ship'
+    try:
+        date_start = urlify(str(cruise.date_start.year))
+    except AttributeError:
+        date_start = 'unk_year'
+    parts = []
+    for branch in tree:
+        if branch == 'ship':
+            parts.append(ship)
+        elif branch == 'date_start':
+            parts.append(date_start)
+    parts.append(cruise_id)
+    return os.path.join(*parts)
+
+
+@staff_signin_required
+def archive(request, cruises, filename='archive.tbz', formats=['exchange'],
+            tree=['ship', 'date_start']):
+    """ Produce an archive of data files for the specified cruises
+
+    Arguments:
+        formats - limits the file formats returned
+        tree - see _archive_path
+    """
+    tempdir = tempfile.mkdtemp()
+
+    for cruise in cruises:
+        path = os.path.join(tempdir, _archive_path(cruise, tree))
+        for type, file in cruise.files.items():
+            if not any(type.endswith(format) for format in formats):
+                continue
+
+            try:
+                os.makedirs(path)
+            except OSError:
+                pass
+            filepath = os.path.join(path, file.name)
+
+            with open(filepath, 'w') as f:
+                try:
+                    f.write(file.read())
+                except models.CorruptGridFile:
+                    pass
+
+            now = time.time()
+            d = file.upload_date
+            created = time.mktime(d.timetuple())
+            os.utime(filepath, (now, created))
+
+    temp = tempfile.SpooledTemporaryFile()
+    archive = tarfile.open(mode='w:bz2', fileobj=temp)
+    savedir = os.getcwd()
+    os.chdir(tempdir)
+    archive.add('.')
+    os.chdir(savedir)
+    archive.close()
+    shutil.rmtree(tempdir)
+
+    field = cgi.FieldStorage()
+    field.name = filename
+    field.file = temp
+    field.content_type = 'application/x-tar-bz2'
+    temp.seek(0, os.SEEK_END)
+    field.length = temp.tell()
+    temp.seek(0)
+    return _file_response(request, field, 'attachment')

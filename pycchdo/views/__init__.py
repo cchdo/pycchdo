@@ -17,10 +17,14 @@ import pycchdo.models as models
 from pycchdo.models.models import data_file_human_names
 
 
+__CONSTANTS__ = [
+    'FILE_GROUPS', 'FILE_GROUPS_SELECT', 'PLEASE_SIGNIN_MESSAGE', 
+]
+
+
 __all__ = [
     '_collapsed_dict', '_http_method', '_paged', '_unescape', 'text_to_obj',
-    'str_to_track', '_file_response', 'FILE_GROUPS', 'FILE_GROUPS_SELECT',
-    'PLEASE_SIGNIN_MESSAGE', ]
+    'str_to_track', '_file_response', ] + __CONSTANTS__
 
 
 PLEASE_SIGNIN_MESSAGE = """\
@@ -200,8 +204,8 @@ def _file_response(request, file, disposition='inline'):
 
     # Hack for detecting corrupted GridFiles
     try:
-        file.read(1)
-        file.seek(0)
+        resp.app_iter.read(1)
+        resp.app_iter.seek(0)
     except models.CorruptGridFile:
         log.error('Missing GridFile %s' % file._id)
         return HTTPNotFound()

@@ -23,6 +23,7 @@ import pycchdo.helpers as h
 
 from . import *
 from session import require_signin
+from pycchdo.views import staff
 
 
 def allowed_attrs_select(cls):
@@ -35,7 +36,7 @@ def allowed_attrs_select(cls):
 CRUISE_ATTRS_SELECT = allowed_attrs_select(models.Cruise)
 
 
-def cruises_index(request):
+def _cruises(request):
     seahunt = request.params.get('seahunt_only', False)
     allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
@@ -45,7 +46,11 @@ def cruises_index(request):
     else:
         cruises = models.Cruise.get_all({'accepted': True})
     cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
-    cruises = _paged(request, cruises)
+    return cruises
+
+
+def cruises_index(request):
+    cruises = _paged(request, _cruises(request))
     return {'cruises': cruises}
 
 
@@ -71,17 +76,13 @@ def cruises_index_json(request):
     elif request.params.get('contribution_kmzs'):
         return _contribution_kmzs(request)
 
-    seahunt = request.params.get('seahunt_only', False)
-    allow_seahunt = request.params.get('allow_seahunt', False)
-    if seahunt:
-        cruises = models.Cruise.get_all({'accepted': False})
-    elif allow_seahunt:
-        cruises = models.Cruise.get_all()
-    else:
-        cruises = models.Cruise.get_all({'accepted': True})
-    cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
-    cruises = [c.to_nice_dict() for c in cruises]
+    cruises = [c.to_nice_dict() for c in _cruises(request)]
     return cruises
+
+
+def cruises_archive(request):
+    return staff.archive(request, _cruises(request),
+                         formats=['woce', 'exchange'])
 
 
 def _suggest_file(request, cruise_obj):

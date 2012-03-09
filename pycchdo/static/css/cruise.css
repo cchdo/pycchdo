@@ -137,6 +137,9 @@
   width: 100%;
 }
 #info .editor input[type="text"],
+#info .editor input[type="datetime"],
+#info .editor input[type="url"],
+#info .editor input[type="email"],
 #info .editor input[type="file"] {
   width: 100%;
 }

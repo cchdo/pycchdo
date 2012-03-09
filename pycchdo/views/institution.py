@@ -13,6 +13,7 @@ def institutions_index(request):
 
 def institutions_index_json(request):
     institutions = sorted(models.Institution.get_all(), key=lambda x: x.name)
+    institutions = [i.to_nice_dict() for i in institutions]
     return institutions
 
 

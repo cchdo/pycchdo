@@ -475,6 +475,20 @@ def cruise_show(request):
         }
 
 
+def cruise_show_json(request):
+    try:
+        cruise_id = request.matchdict['cruise_id']
+    except KeyError:
+        return HTTPBadRequest()
+    try:
+        cruise_obj = _get_cruise(cruise_id)
+    except ValueError:
+        return HTTPSeeOther(
+            location=request.route_path('cruise_new', cruise_id=cruise_id))
+
+    return cruise_obj.to_nice_dict()
+
+
 def cruise_new(request):
     if not request.user:
         request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')

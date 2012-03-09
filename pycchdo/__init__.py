@@ -46,7 +46,8 @@ def add_renderer_globals(event):
 
 
 def obj_routes(config, obj, plural_obj=None,
-               new=False, mergeable=False, editable=False, json_index=False):
+               new=False, mergeable=False, editable=False, json_index=False,
+               json_show=False):
     if not plural_obj:
         plural_obj = obj + 's'
 
@@ -63,12 +64,22 @@ def obj_routes(config, obj, plural_obj=None,
             obj=obj, plural_obj=plural_obj), route_name=plural_obj + '_json',
             renderer='json')
 
+    if json_show:
+        config.add_route(
+            '{obj}_show_json'.format(obj=obj),
+            '/{obj}/{{{obj}_id}}.json'.format(obj=obj))
+        config.add_view(
+            'pycchdo.views.{obj}.{obj}_show_json'.format(obj=obj),
+            route_name='{obj}_show_json'.format(obj=obj),
+            renderer='json')
+
     config.add_route(
         '{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
     config.add_view(
         'pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
         route_name='{obj}_show'.format(obj=obj),
         renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+
 
     if new:
         config.add_route(
@@ -209,7 +220,7 @@ def main(global_config, **settings):
     # Need precedence for extension to catch before ending up a cruise identifier
     config.add_route('cruise_kml', '/cruise/{cruise_id}.kml')
     config.add_view('pycchdo.views.cruise.kml', route_name='cruise_kml')
-    obj_routes(config, 'cruise', new=True, json_index=True)
+    obj_routes(config, 'cruise', new=True, json_index=True, json_show=True)
     config.add_route('cruise_map_full', '/cruise/{cruise_id}/map_full')
     config.add_view('pycchdo.views.cruise.map_full',
                     route_name='cruise_map_full')

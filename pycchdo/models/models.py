@@ -2064,11 +2064,12 @@ class Institution(CruiseParticipantAssociate):
 
         """
         rep = super(Institution, self).to_nice_dict()
-        rep.update({
+        d = {
             'name': self.name,
-            'people': [p.to_nice_dict() for p in self.people],
-            'country': self.country.to_nice_dict(),
-        })
+        }
+        if self.country:
+            d['country'] = self.country.to_nice_dict()
+        rep.update(d)
         return rep
 
 

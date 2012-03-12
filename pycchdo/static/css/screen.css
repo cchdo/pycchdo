@@ -204,11 +204,17 @@ tr.odd {
   right: 0;
   top: 0;
 }
+input#query {
+  font-size: 1.1em;
+}
 #query:focus {
   border: 1px solid #67A9BB;
   border-left: none;
   border-right: none;
   outline: none;
+}
+#gsearch input[type="submit"] {
+  vertical-align: middle;
 }
 input {
   vertical-align: top;
@@ -224,8 +230,8 @@ input[type="url"],
 input[type="email"],
 input[type="text"],
 textarea {
+  font-size: 1em;
   background: #F0F0F0;
-  font-size: 1.1em;
   border: 1px solid #D0D0D0;
   border-left: 0;
   border-right: 0;
@@ -255,7 +261,7 @@ input[type="search"] {
 }
 
 input[type="submit"] { 
-  letter-spacing: -1px;
+  letter-spacing: -0.1em;
   border: 1px solid #afafaf;
   color: #4f4f4f;
   font-weight: lighter;

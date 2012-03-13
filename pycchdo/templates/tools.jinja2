@@ -3,11 +3,7 @@
 {% block content -%}
 {% call h.boxed('Tools') -%}
   {%- if h.has_staff(request) %}
-    <p><a href="/staff.html">Staff</a></p>
-    <p>{{ whh.HTML.li(whh.tags.link_to('Data Compare', '/tool/data_cmp.html')) }}</p>
-    <p>{{ whh.HTML.li(whh.tags.link_to('Visual', '/tool/visual.html')) }}</p>
-    <p>{{ whh.HTML.li(whh.tags.link_to('Convert', '/tool/convert.html')) }}</p>
-    <p>{{ whh.HTML.li(whh.tags.link_to('Archives', '/tool/archives.html')) }}</p>
+    {%- include 'templates/_tools_list.jinja2' %}
   {%- endif %}
 {%- endcall %}
 {%- endblock %}

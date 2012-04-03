@@ -210,4 +210,6 @@ def _file_response(request, file, disposition='inline'):
         log.error('Missing GridFile %s' % file._id)
         return HTTPNotFound()
 
+    print resp.app_iter
+
     return resp

@@ -7,6 +7,8 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
+import tempfile
+import sqlite3
 
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.response import Response
@@ -27,6 +29,7 @@ import libcchdo.formats.ctd.zip.netcdf as ctdzipex
 import libcchdo.formats.ctd.zip.netcdf_oceansites as ctdzipnc_os
 import libcchdo.formats.bottle.exchange as botex
 
+from pycchdo import models
 from pycchdo.views import _file_response
 from pycchdo.views.staff import staff_signin_required
 
@@ -242,3 +245,156 @@ def convert_from_to(request):
 @staff_signin_required
 def archives(request):
     return {}
+
+
+@staff_signin_required
+def dumps(request):
+    return {}
+
+
+@staff_signin_required
+def dumps_sqlite(request):
+    type = request.params.get('type')
+    datatype = request.params.get('datatype')
+    seahunt = request.params.get('seahunt')
+
+    if type == 'metadata' and datatype == 'ctd':
+        temp = tempfile.NamedTemporaryFile()
+        conn = sqlite3.connect(temp.name)
+
+        cur = conn.cursor()
+        cur.execute(
+            'CREATE TABLE metadata_ctd (filename, dac, id, date date, '
+            'latitude numeric, longitude numeric, profile_type, cruise, '
+            'institution, nb_parameters, date_update, avail_exchange bool, '
+            'avail_woce bool, avail_netcdf bool)')
+        conn.commit()
+
+        ctd_formats = filter(lambda x: x.startswith('ctd'),
+                             models.data_file_descriptions.keys())
+
+        insert_vals = [
+            'filename', 'dac', 'id', 'date', 'latitude', 'longitude', 
+            'profile_type', 'cruise', 'institution', 'date_update',
+            'avail_exchange', 'avail_woce', 'avail_netcdf', ]
+
+        dac = 'CCHDO'
+        profile_type = 'ctd'
+        for c in models.Cruise.get_all():
+            if any(c.get(format) for format in ctd_formats):
+                cruise = c.uid
+                date = c.date_start
+
+                lat = None
+                lng = None
+                if c.track:
+                    lng, lat = c.track.coords[0]
+
+                #try:
+                #    institutions = [c.institution]
+                #except AttributeError:
+                #    institutions = []
+                #for rpi in c.get('participants'):
+                #    try:
+                #        institutions.append(rpi['institution'])
+                #    except KeyError:
+                #        pass
+                try:
+                    institution = c.institution.name
+                except AttributeError:
+                    institution = None
+
+                files = dict((format.split('_')[-1],
+                              c.get(format)) for format in ctd_formats)
+
+                if files['exchange']:
+                    file = files['exchange']
+                else:
+                    if files['netcdf']:
+                        file = files['netcdf']
+                    else:
+                        file = files['woce']
+
+                avail_exchange = bool(files['exchange'])
+                avail_woce = bool(files['woce'])
+                avail_netcdf = bool(files['netcdf'])
+
+                filename = file.name
+                id = str(file._id)
+                date_update = file.upload_date
+
+                cur.execute(
+                    'INSERT INTO metadata_ctd (%s) VALUES (%s)' % (
+                        ','.join(insert_vals),
+                        ','.join(['?'] * len(insert_vals))),
+                    (filename, dac, id, date, lat, lng, profile_type, cruise,
+                     institution, date_update, avail_exchange, avail_woce,
+                     avail_netcdf))
+        conn.commit()
+        conn.close()
+
+        field = FieldStorage()
+        field.file = temp
+        field.name = 'metadata_ctd.sqlite'
+        temp.seek(0, os.SEEK_END)
+        field.length = temp.tell()
+        temp.seek(0)
+        return _file_response(request, field, disposition='attachment')
+    elif seahunt and type == 'metadata':
+        temp = tempfile.NamedTemporaryFile()
+        conn = sqlite3.connect(temp.name)
+
+        cur = conn.cursor()
+        cur.execute(
+            'CREATE TABLE metadata_seahunt (id, aliases, collections, ship, '
+            'country, chi_sci, ports, date_start date, date_end date, track)')
+        conn.commit()
+
+        ctd_formats = filter(lambda x: x.startswith('ctd'),
+                             models.data_file_descriptions.keys())
+
+        insert_vals = [
+            'id', 'aliases', 'collections', 'ship', 'country', 'chi_sci', 
+            'ports', 'date_start', 'date_end', 'track', ]
+
+        for c in models.Cruise.get_all({'accepted': False}):
+            id = c.uid
+            aliases = ', '.join(c.aliases)
+            collections = ', '.join([x.name for x in c.collections])
+            ship = None
+            if c.ship:
+                ship = c.ship.name
+            country = None
+            if c.country:
+                country = c.country.name
+            chi_sci = None
+            if c.chief_scientists:
+                chi_sci = c.chief_scientists[0].full_name
+            ports = None
+            if c.ports:
+                ports = ', '.join(c.ports)
+            date_start = c.date_start
+            date_end = c.date_end
+
+            track = None
+            if c.track:
+                track = str(c.track)
+
+            cur.execute(
+                'INSERT INTO metadata_seahunt (%s) VALUES (%s)' % (
+                    ','.join(insert_vals),
+                    ','.join(['?'] * len(insert_vals))),
+                (id, aliases, collections, ship, country, chi_sci, ports,
+                 date_start, date_end, track))
+        conn.commit()
+        conn.close()
+
+        field = FieldStorage()
+        field.file = temp
+        field.name = 'metadata_ctd.sqlite'
+        temp.seek(0, os.SEEK_END)
+        field.length = temp.tell()
+        temp.seek(0)
+        return _file_response(request, field, disposition='attachment')
+
+    return HTTPBadRequest()

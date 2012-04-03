@@ -338,6 +338,12 @@ def main(global_config, **settings):
     config.add_route('tool_archives', '/tool/archives.html')
     config.add_view('pycchdo.views.tools.archives', route_name='tool_archives',
                     renderer='templates/tool/archives.jinja2')
+    config.add_route('tool_dumps', '/tool/dumps.html')
+    config.add_view('pycchdo.views.tools.dumps', route_name='tool_dumps',
+                    renderer='templates/tool/dumps.jinja2')
+    config.add_route('tool_dumps_sqlite', '/tool/dumps.sqlite')
+    config.add_view('pycchdo.views.tools.dumps_sqlite',
+                    route_name='tool_dumps_sqlite')
 
     # Staff
     config.add_route('staff_index', '/staff.html')

@@ -56,6 +56,25 @@
   {% set step_num = step_num + 1 %}
   
   {% call step(step_num, 'submission_type', 'Type of Submission') -%}
+    <h3>Status</h3>
+    <table>
+      <tr>
+        <td>
+          {%- set public = h.form_entered(request, 'public') %}
+          {{ whh.tags.radio('public', 'public',
+                            checked=(public == 'public')) }}
+          <label for="public_public">Public</label>
+          {{ whh.tags.radio('public', 'nonpublic',
+                            checked=(public == 'nonpublic' or not public)) }}
+          <label for="public_nonpublic">Non-Public</label>
+          {{ whh.tags.radio('public', 'nonpublic_argo',
+                            checked=(public == 'nonpublic_argo')) }}
+          <label for="public_nonpublic_argo">Non-Public for Argo calibration</label>
+        </td>
+        <td>{{ h.form_errors(request, 'public') }}</td>
+      </tr>
+    </table>
+    <h3>Action</h3>
     <table>
       <tr>
         <td>
@@ -63,6 +82,8 @@
           <label for="type_merge_data">Merge Data</label>
           <span>{{ h.form_errors(request, 'type_merge_data') }}</span>
         </td>
+      </tr>
+      <tr>
         <td>
           {{ whh.tags.checkbox('type_place_online', checked=h.form_entered(request, 'type_place_online')) }}
           <label for="type_place_online">Place Data Online</label>
@@ -75,21 +96,6 @@
           <label for="type_update_params">Update Parameters</label>
           <span>{{ h.form_errors(request, 'type_update_params') }}</span>
         </td>
-        <td>
-          {{ whh.tags.checkbox('type_argo', checked=h.form_entered(request, 'type_argo')) }}
-          <label for="type_argo">Non-public data for Argo calibration (proprietary, rapid-delivery)</label>
-          <span>{{ h.form_errors(request, 'type_argo') }}</span>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="2">
-          {%- set public = not h.form_entered(request, 'nonpublic') %}
-          {{ whh.tags.radio('public', 'public', checked=public) }}
-          <label for="public_public">Public</label>
-          {{ whh.tags.radio('public', 'nonpublic', checked=not public) }}
-          <label for="public_nonpublic">Non-Public</label>
-        </td>
-        <td>{{ h.form_errors(request, 'public') }}</td>
       </tr>
     </table>
   {%- endcall %}

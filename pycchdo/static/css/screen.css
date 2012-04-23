@@ -219,6 +219,7 @@ input#query {
 input {
   vertical-align: top;
 }
+input[type="radio"],
 input[type="checkbox"] {
   vertical-align: baseline;
 }

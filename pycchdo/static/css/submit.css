@@ -32,7 +32,7 @@
 }
 
 .box_content div td {
-  padding: 0.3em;
+  padding: 0.2em;
 }
 
 .box_content div h3 {
@@ -70,4 +70,12 @@
 #file_reselect_warn li {
   list-style-type: disc;
   margin-left: 2em;
+}
+
+#submission_type label {
+  margin-right: 0.5em;
+}
+#submission_type h3 {
+  margin: 0.2em;
+  color: #000000;
 }

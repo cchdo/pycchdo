@@ -10,8 +10,8 @@
   {%- call h.boxed('Data submission by %s' % submission.name) %}
     <p>Thank you for submitting data, {{ submission.name }}.</p>
     <dl>
-      <dt>{% trans count=files|length %}File{% pluralize %}Files{% endtrans %}</dt>
-        <dd>{{ ''.join(files) }}</dd>
+      <dt>{% trans count=file_names|length %}File{% pluralize %}Files{% endtrans %}</dt>
+        <dd>{{ ''.join(file_names) }}</dd>
       <dt>Status</dt>
         <dd>{{ files|attr('public') or 'Non-public' }}</dd>
       <dt>Action</dt>

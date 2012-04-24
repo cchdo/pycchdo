@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
 from whoosh.writing import BufferedWriter
-from whoosh.qparser import QueryParser, MultifieldParser, OrGroup, FieldAliasPlugin
+from whoosh.qparser import QueryParser, MultifieldParser, AndGroup, FieldAliasPlugin
 from whoosh.qparser.dateparse import DateParserPlugin
 
 import triggers
@@ -107,9 +107,9 @@ def _create_parsers(schemas):
     for name, schema in schemas.items():
         fields = list(set(schema.names()) - set(('id', 'mtime', )))
         if len(fields) > 1:
-            parser = MultifieldParser(fields, schema=schema, group=OrGroup)
+            parser = MultifieldParser(fields, schema=schema, group=AndGroup)
         elif len(fields) is 1:
-            parser = QueryParser(fields[0], schema=schema, group=OrGroup)
+            parser = QueryParser(fields[0], schema=schema, group=AndGroup)
         else:
             continue
         parser.add_plugin(FieldAliasPlugin(_field_aliases[name]))

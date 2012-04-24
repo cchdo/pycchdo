@@ -544,9 +544,9 @@ def _cruise_to_json(cruise):
         v = cruise.__getattr__(attr_key)
         if v:
             if type(v) is not list:
-                obj[attr_key] = str(v)
+                obj[attr_key] = unicode(v)
             else:
-                obj[attr_key] = map(str, v)
+                obj[attr_key] = map(unicode, v)
 
     track = cruise.track
     if track:

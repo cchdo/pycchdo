@@ -1,0 +1,8 @@
+<noscript>
+  {%- call h.boxed('JavaScript is needed to use the interactive map.') %}
+    <p>
+      JavaScript is either disabled or not supported by your browser.
+      Please enable JavaScript by changing your browser options and reload.
+    </p>
+  {%- endcall %}
+</noscript>

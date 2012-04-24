@@ -117,7 +117,7 @@
 #updates #merged .odd.open { background-color: #C1D2D5; }
 
 .editor textarea {
-  width: 100%;
+  width: 99.5%;
   min-height: 6em;
 }
 

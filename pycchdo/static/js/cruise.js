@@ -168,7 +168,7 @@ $(function () {
     }
   });
 
-  $(function () {
+  (function () {
     function split(val) {
       return val.split(/,\s*/);
     }
@@ -407,5 +407,69 @@ $(function () {
         }
       }
     }).change();
-  });
+  })();
+
+  (function plotCruiseTrack() {
+    if (window.CCHDO.cruise.track) {
+      var mapdiv = $('#plot_map').css({height: 300, width: '78.5%'});
+      var coordstr = $('#plot textarea').css({height: mapdiv.outerHeight(), width: '20%'});
+
+      var opts = {
+        zoom: 2,
+        center: new google.maps.LatLng(0, 0),
+        scrollwheel: false,
+        streetViewControl: false,
+        mapTypeId: google.maps.MapTypeId.TERRAIN
+      };
+      var map = new google.maps.Map(mapdiv[0], opts);
+      new Graticule(map);
+
+      var track = CCHDO.cruise.track;
+      var path = $.map(track.coordinates, function (c) {
+        return new google.maps.LatLng(c[1], c[0]);
+      });
+      var bounds = new google.maps.LatLngBounds();
+      $.each(path, function (i, p) {
+        bounds.extend(p);
+      });
+      map.fitBounds(bounds);
+
+      var track_line = new google.maps.Polyline({
+        //editable: true,
+        map: map,
+        path: path,
+        strokeColor: '#FF4444'
+      });
+
+      function pathFromString(s) {
+        var coords = s.split('\n');
+        return $.map(coords, function (coord) {
+          var lnglat = coord.split(', '); 
+          return new google.maps.LatLng(lnglat[1], lnglat[0]);
+        });
+      }
+
+      function stringFromPath(p) {
+        return $.map(p.getArray(), function (c) {
+          return c.lng().toFixed(4) + ', ' + c.lat().toFixed(4);
+        }).join('\n');
+      }
+
+      function updateStringFromPolyline() {
+        coordstr.val(stringFromPath(track_line.getPath()));
+      }
+
+      var track_line_path = track_line.getPath();
+      google.maps.event.addListener(
+        track_line_path, 'insert_at', updateStringFromPolyline);
+      google.maps.event.addListener(
+        track_line_path, 'remove_at', updateStringFromPolyline);
+      google.maps.event.addListener(
+        track_line_path, 'set_at', updateStringFromPolyline);
+
+      coordstr.change(function () {
+        track_line.setPath(pathFromString($(this).val()));
+      });
+    }
+  })();
 });

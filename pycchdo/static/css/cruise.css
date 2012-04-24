@@ -22,6 +22,11 @@
   height: 46.8em;
 }
 
+.cruise-page #plot #plot_map {
+  float: left;
+  margin: auto 1em 1em auto;
+}
+
 .cruise-page .subsection { margin-top: 1em; }
 
 /* trim the padding and margins a little so text is nicely square.

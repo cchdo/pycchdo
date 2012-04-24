@@ -13,6 +13,8 @@ import webhelpers
 import webhelpers.html
 import webhelpers.html.tags
 
+import geojson
+
 import models
 import helpers
 from views.basin import basins
@@ -43,6 +45,7 @@ def add_renderer_globals(event):
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
     event['h'] = helpers
+    event['geojson'] = geojson
 
 
 def obj_routes(config, obj, plural_obj=None,

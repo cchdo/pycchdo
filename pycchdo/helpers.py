@@ -469,6 +469,10 @@ def cruise_listing(cruises, pre_expand=False, allow_empty=False):
     return H.table(*list, class_=table_class)
 
 
+def track_as_string(track):
+    return '\n'.join([', '.join(map(str, coord)) for coord in track.coords])
+
+
 def collection_names(coll_list):
     return filter(None, [c.name for c in coll_list])
 

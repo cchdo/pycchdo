@@ -342,6 +342,13 @@
       </div>
     {%- endcall %}
   </div>
+  {%- if cruise.track %}
+    {%- call h.boxed('Plot', id='plot') %}
+      {%- include "templates/_noscript_warning.txt" %}
+      <div id="plot_map"></div>
+      <textarea>{{ h.track_as_string(cruise.track)}}</textarea>
+    {%- endcall %}
+  {%- endif %}
   {%- if updates %}
     {%- call h.boxed('Updates', id="updates") %}
       {%- if updates['attrs'] %}
@@ -520,8 +527,33 @@
   {%- endif %}
 {%- endblock %}
 {% block js %}
-  {{ whh.tags.javascript_link('/static/js/jquery-1.7.1.min.js') }}
-  {{ whh.tags.javascript_link('/static/js/jquery-ui-1.8.14.custom.min.js') }}
+  {{- h.GAPI_autoload(request, [
+            {
+                'name': 'jquery',
+                'version': '1.7.1',
+            },
+            {
+                'name': 'jqueryui',
+                'version': '1.8.16',
+            },
+            {
+                'name': 'maps',
+                'version': '3',
+                'other_params': 'sensor=false&libraries=drawing',
+            }
+        ]) }}
+  {{ whh.tags.javascript_link('/static/cchdomap/js/graticule.3.js') }}
   {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
+  {%- if cruise.track %}
+    <script>
+      if (!window.CCHDO) {
+        window.CCHDO = {};
+      }
+      if (!CCHDO.cruise) {
+        CCHDO.cruise = {};
+      }
+      CCHDO.cruise.track = {{ geojson.dumps(cruise.track)|safe }};
+    </script>
+  {%- endif %}
   {{ whh.tags.javascript_link('/static/js/cruise.js') }}
 {%- endblock %}

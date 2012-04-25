@@ -1,15 +1,7 @@
 {% extends "templates/staff.jinja2" %}
-{% block title %}Staff | Home{% endblock %}
+{% block title %}Home | Staff{% endblock %}
 {% block content -%}
-  {% call h.boxed('Staff Home') -%}
-    <h2>List of servers that CCHDO is maintaining</h1>
-    <table>
-      <tr><th><a href="http://cchdo.ucsd.edu:80">CCHDO</a></th><td>http://cchdo.ucsd.edu:80</td><td>CCHDO</td></tr>
-      <tr><th><a href="http://ushydro.ucsd.edu:80">USHYDRO</a></th><td>http://ushydro.ucsd.edu:80</td><td>USHYDRO</td></tr>
-      <tr><th><a href="http://seahunt.ucsd.edu:80">Seahunt</a></th><td>http://seahunt.ucsd.edu:80</td><td>SEAHUNT</td></tr>
-      <tr><th><a href="http://goship.ucsd.edu">goship</a></th><td>http://goship.ucsd.edu</td><td>old goship</td></tr>
-      <tr><th><a href="http://joa.ucsd.edu">JOA</a></th><td>http://joa.ucsd.edu</td><td>virtual named host on goship</td></tr>
-      <tr><th><a href="git@cchdo.ucsd.edu">repositories</a></th><td>git@cchdo.ucsd.edu</td><td>repositories</td></tr>
-    </table>
+  {% call h.boxed('Hi %s!' % request.user.name_first) -%}
+    <a href="http://goship.ucsd.edu:8080">CCHDO Operations Manual</a>
   {%- endcall %}
 {%- endblock %}

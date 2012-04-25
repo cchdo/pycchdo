@@ -321,6 +321,45 @@ class TestModel(unittest.TestCase):
         self.assertRaises(TypeError, lambda: Stamp(None))
         Stamp(self.testPerson)
 
+    def test_Person_is_authorized(self):
+        """ See if a person is authorized for the given permissions
+
+            The authorization logic is basic. Everything is based on groups.
+
+            1. If no groups are requested, nothing is required.
+            2. A person is always authorized if they are in the 'staff' group.
+            3. A person is authorized if they are in any of the requested
+               groups.
+
+        """
+        p = Person('person')
+        p.save()
+
+        self.assertTrue(p.is_authorized([]))
+
+        perms = ['testgroup', ]
+
+        self.assertFalse(p.is_authorized(perms))
+
+        p.permissions = ['nogoodgroup']
+        p.save()
+        self.assertFalse(p.is_authorized(perms))
+
+        p.permissions = ['testgroup']
+        p.save()
+        self.assertTrue(p.is_authorized(perms))
+        
+        p.permissions = ['nogoodgroup', 'testgroup', ]
+        p.save()
+        self.assertTrue(p.is_authorized(perms))
+        
+        # Staff users have super powers!
+        p.permissions = ['staff', ]
+        p.save()
+        self.assertTrue(p.is_authorized(perms))
+        
+        p.remove()
+
     def test_mongodoc_custom_attrs(self):
         """ Custom attributes for mongodoc
         Editing an attribute that is listed will edit the value as if the

@@ -7,6 +7,7 @@ import geojson
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent
+from pyramid.exceptions import NotFound
 from pyramid.url import current_route_url
 
 from webhelpers import paginate
@@ -208,7 +209,7 @@ def _file_response(request, file, disposition='inline'):
         resp.app_iter.seek(0)
     except models.CorruptGridFile:
         log.error('Missing GridFile %s' % file._id)
-        return HTTPNotFound()
+        return NotFound()
 
     print resp.app_iter
 

@@ -3,6 +3,7 @@ import os
 from pyramid.renderers import render_to_response
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther
+from pyramid.exceptions import Forbidden, NotFound
 
 import pycchdo.models as models
 from pycchdo.views import *
@@ -136,22 +137,35 @@ def data(request):
     try:
         data = models._Attr.get_id(id)
     except ValueError:
-        return HTTPNotFound()
+        return NotFound()
 
     if not data:
         try:
             data = models.Submission.get_id(id)
         except ValueError:
-            return HTTPNotFound()
+            return NotFound()
 
     if not data:
         try:
             data = models.ArgoFile.get_id(id)
         except ValueError:
-            return HTTPNotFound()
+            return NotFound()
 
     if not data:
-        return HTTPNotFound()
+        return NotFound()
+
+    # Ensure the session is authorized to read the data
+    perms = None
+    try:
+        perms = data.permissions['read']
+    except (KeyError, AttributeError):
+        pass
+    if perms:
+        try:
+            if not request.user.is_authorized(perms):
+                return Forbidden()
+        except AttributeError:
+            return Forbidden()
 
     return _file_response(request, data.file)
 

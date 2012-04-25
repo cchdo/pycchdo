@@ -825,7 +825,7 @@ class _Attr(_Change, _FileHolder):
 
     """
     __allowed_keys = ['key', 'value', '_requests', 'file', 'track', 'obj',
-                      'deleted', 'accepted_value', ]
+                      'deleted', 'accepted_value', 'permissions', ]
 
     @classmethod
     def _mongo_collection(cls):
@@ -1975,6 +1975,18 @@ class Person(CruiseParticipantAssociate):
 
     def is_verified(self):
         return self.identifier is not None
+
+    def is_authorized(self, perms):
+        if not perms:
+            return True
+        try:
+            permissions = self.permissions
+            if 'staff' in permissions:
+                return True
+            return any(group in permissions for group in perms)
+        except AttributeError:
+            return False
+        return False
 
     @property
     def institution(self):

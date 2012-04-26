@@ -25,21 +25,21 @@ def _get_person(request):
 
 
 def _redirect_response(request, id):
-    return HTTPSeeOther(
+    raise HTTPSeeOther(
         location=request.route_path('person_show', person_id=id))
 
 
 def person_show(request):
     person = _get_person(request)
     if not person:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return {'person': person}
 
 
 def person_archive(request):
     person = _get_person(request)
     if not person:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return staff.archive(request, person.cruises())
 
 
@@ -47,7 +47,7 @@ def person_archive(request):
 def person_edit(request):
     person = _get_person(request)
     if not person:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     identifier = request.params.get('identifier', '')
     name_first = request.params.get('name_first', '')
@@ -92,14 +92,14 @@ def person_edit(request):
 @staff_signin_required
 def person_merge(request):
     if _http_method(request) != 'PUT':
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     if not h.has_mod(request):
-        return HTTPUnauthorized()
+        raise HTTPUnauthorized()
 
     person = _get_person(request)
     if not person:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     redirect_response = _redirect_response(request, person.id)
 

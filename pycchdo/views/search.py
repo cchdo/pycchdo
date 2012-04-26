@@ -20,7 +20,7 @@ def search_results(request):
     request.session['query'] = query
 
     if not query:
-        return HTTPSeeOther(location=request.route_path('advanced_search'))
+        raise HTTPSeeOther(location=request.route_path('advanced_search'))
     try:
         results = _collapsed_dict(request.search_index.search(unicode(query)))
     except Exception, e:
@@ -35,7 +35,7 @@ def search_results(request):
 def search_results_json(request):
     query = request.params.get('query', None)
     if not query:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     try:
         results = request.search_index.search(unicode(query))
     except Exception, e:
@@ -60,11 +60,11 @@ def search(request):
     params = request.params
 
     if not params: 
-        return HTTPMovedPermanently(location='/search/advanced') 
+        raise HTTPMovedPermanently(location='/search/advanced') 
 
     queries = []
     if 'query' in params:
-        return HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
+        raise HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
     if params.get('line'): 
         queries.append("line:" + _quote(params['line']))
     if params.get('expocode'): 
@@ -80,5 +80,5 @@ def search(request):
     if params.get('search_date_max'):
         queries.append("to:" + _quote(params['search_date_max']))
     query = '+'.join(queries)
-    return HTTPSeeOther(location='/search/results?query=%s'%(query))
+    raise HTTPSeeOther(location='/search/results?query=%s'%(query))
 

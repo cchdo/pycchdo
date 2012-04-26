@@ -1,0 +1,20 @@
+{% extends "templates/base.jinja2" %}
+{%- block title %}{{ errno }} {{ errstr }} | CLIVAR & Carbon Hydrographic Data Office{%- endblock %}
+{% block head -%}
+  <style>
+    #error{{ errno }} .box_content {
+      text-align: center;
+    }
+    #error{{ errno }} h2 {
+      font-size: 8em;
+      margin: 0.5em 0;
+    }
+  </style>
+{%- endblock %}
+{% block content %}
+  {% call h.boxed('%s %s' % (errno, errstr), id='error%s' % errno) %}
+    <h2>{{ errno }}</h2>
+    <p>{{ errmsg }}</p>
+    <p>Try the search box?</p>
+  {% endcall %}
+{% endblock %}

@@ -62,14 +62,14 @@ def cruises_index_json(request):
         try:
             cruise = _get_cruise(id)
         except ValueError:
-            return HTTPBadRequest()
+            raise HTTPBadRequest()
         return _cruise_to_json(cruise)
     elif request.params.get('ids'):
         ids = [x.strip() for x in request.params.get('ids').split(',')]
         try:
             cruises = [_get_cruise(cruise_id) for cruise_id in ids]
         except ValueError:
-            return HTTPBadRequest()
+            raise HTTPBadRequest()
         return [_cruise_to_json(cruise) for cruise in cruises]
     elif request.params.get('contributions'):
         return _contributions(request)
@@ -373,11 +373,11 @@ def cruise_show(request):
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     try:
         cruise_obj = _get_cruise(cruise_id)
     except ValueError:
-        return HTTPSeeOther(
+        raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     method = _http_method(request)
@@ -480,11 +480,11 @@ def cruise_show_json(request):
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     try:
         cruise_obj = _get_cruise(cruise_id)
     except ValueError:
-        return HTTPSeeOther(
+        raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     return cruise_obj.to_nice_dict()
@@ -506,16 +506,16 @@ def map_full(request):
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     try:
         cruise_obj = _get_cruise(cruise_id)
     except ValueError:
-        return HTTPSeeOther(
+        raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     a = cruise_obj.get_attr('map_full')
     if not a:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return _file_response(request, a.file)
 
 
@@ -523,15 +523,15 @@ def map_thumb(request):
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     try:
         cruise_obj = _get_cruise(cruise_id)
     except ValueError:
-        return HTTPSeeOther(
+        raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
     a = cruise_obj.get_attr('map_thumb')
     if not a:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return _file_response(request, a.file)
 
 
@@ -559,11 +559,11 @@ def kml(request):
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     try:
         cruise = _get_cruise(cruise_id)
     except ValueError:
-        return HTTPSeeOther(
+        raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
     kml = KML.kml()

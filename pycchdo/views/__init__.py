@@ -6,8 +6,7 @@ log = logging.getLogger(__name__)
 import geojson
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent
-from pyramid.exceptions import NotFound
+from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent, HTTPUnauthorized
 from pyramid.url import current_route_url
 
 from webhelpers import paginate
@@ -167,7 +166,7 @@ def _file_response(request, file, disposition='inline'):
         raise ValueError('Disposition must be in %r' % disposition)
 
     if file is None:
-        return HTTPNoContent()
+        raise HTTPNoContent()
 
     resp = Response(conditional_response=True)
 
@@ -209,8 +208,33 @@ def _file_response(request, file, disposition='inline'):
         resp.app_iter.seek(0)
     except models.CorruptGridFile:
         log.error('Missing GridFile %s' % file._id)
-        return NotFound()
-
-    print resp.app_iter
+        raise HTTPNotFound()
 
     return resp
+
+
+def notfound_view(request):
+    request.response.status_int = 404
+    return {
+        'errno': '404',
+        'errstr': 'Not Found',
+        'errmsg': 'The requested resource could not be found.',
+    }
+
+
+def unauthorized_view(request):
+    request.response.status_int = 401
+    return {
+        'errno': '401',
+        'errstr': 'Unauthorized',
+        'errmsg': "I'm sorry. I can't let you do that.",
+    }
+
+
+def server_error_view(request):
+    request.response.status_int = 500
+    return {
+        'errno': '500',
+        'errstr': 'Internal Server Error',
+        'errmsg': "Oops! That's an error. We've been notified and will take a look shortly.",
+    }

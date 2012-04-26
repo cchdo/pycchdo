@@ -35,7 +35,7 @@ def entity(request):
     id = request.matchdict['id']
     argo_file = models.ArgoFile.get_id(id)
     if not argo_file:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     method =  _http_method(request)
     if method == 'PUT':
@@ -47,10 +47,10 @@ def entity(request):
         argo_file.display = bool(display)
         argo_file.description = description
 
-        return HTTPSeeOther(location='/argo')
+        raise HTTPSeeOther(location='/argo')
     elif method == 'DELETE':
         argo_file.remove()
-        return HTTPSeeOther(location=request.referrer)
+        raise HTTPSeeOther(location=request.referrer)
     return {'argo_file': argo_file}
 
 
@@ -73,7 +73,7 @@ def _create(request):
 
     if file is None or file == '':
         request.session.flash('A file to upload is required', 'form_error_argo_file')
-        return HTTPSeeOther(location=request.referrer)
+        raise HTTPSeeOther(location=request.referrer)
 
     if not expocode:
         text_id = '%s_%s' % (ship, date)
@@ -94,4 +94,4 @@ def _create(request):
     request.session.pop_flash('form_entered_argo_description')
 
     request.session.flash('Added Argo file to Argo secure file repository.', 'action_taken')
-    return HTTPSeeOther(location='/argo')
+    raise HTTPSeeOther(location='/argo')

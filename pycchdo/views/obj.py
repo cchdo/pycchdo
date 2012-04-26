@@ -20,7 +20,7 @@ def objs(request):
 @staff_signin_required
 def obj_new(request):
     if _http_method(request) != 'PUT':
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     obj_type = request.params.get('_obj_type', models.Obj.__name__)
     attributes = {}
@@ -52,7 +52,7 @@ def obj_new(request):
                     obj.set(k, v, request.user)
 
     if isinstance(obj, models.Cruise):
-        return HTTPSeeOther(location=request.route_path('cruise_show',
+        raise HTTPSeeOther(location=request.route_path('cruise_show',
                                                         cruise_id=obj.id))
     return {'obj': obj}
 
@@ -62,7 +62,7 @@ def obj_show(request):
     obj_id = request.matchdict['obj_id']
     obj = models.Obj.get_id(obj_id)
     if not obj:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     link = request.url
     method = _http_method(request)
@@ -71,12 +71,12 @@ def obj_show(request):
             obj.remove()
             obj = None
             request.session.flash('Removed Obj %s' % obj_id, 'action_taken')
-            return HTTPSeeOther(location='/objs')
+            raise HTTPSeeOther(location='/objs')
     elif method == 'PUT':
         if not request.user:
             return require_signin(request)
         if not has_mod(request):
-            return HTTPUnauthorized()
+            raise HTTPUnauthorized()
         try:
             action = request.params['action']
             obj = obj.polymorph()
@@ -86,12 +86,12 @@ def obj_show(request):
                     'Accepted Obj %s' % obj_id, 'action_taken')
                 request.session.flash(
                     "Reminder: Attributes are not accepted automatically.", 'help')
-                return HTTPSeeOther(location=request.referrer)
+                raise HTTPSeeOther(location=request.referrer)
             if action == 'Reject':
                 obj.reject(request.user)
                 request.session.flash(
                     'Rejected Obj %s' % obj_id, 'action_taken')
-                return HTTPSeeOther(location=request.referrer)
+                raise HTTPSeeOther(location=request.referrer)
         except KeyError:
             pass
 
@@ -115,7 +115,7 @@ def obj_attrs(request):
     obj_id = request.matchdict['obj_id']
     obj = models.Obj.get_id(obj_id)
     if not obj:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     if method  == 'GET':
         return {'obj': obj, 'type': __builtins__['type']}
@@ -135,7 +135,7 @@ def obj_attrs(request):
     if method == 'POST':
         value = request.params.get('value', None)
         if not key and value:
-            return HTTPBadRequest('Attr key required if setting value')
+            raise HTTPBadRequest('Attr key required if setting value')
         type = request.params.get('type', None)
 
         if type == 'text':
@@ -167,9 +167,9 @@ def obj_attr(request):
     key = request.matchdict['key']
     attr = models._Attr.get_id(key)
     if not attr:
-        return HTTPNotFound('No attr with key %s' % key)
+        raise HTTPNotFound('No attr with key %s' % key)
     if not str(attr['obj']) == obj_id:
-        return HTTPNotFound('No obj with id %s' % obj_id)
+        raise HTTPNotFound('No obj with id %s' % obj_id)
 
     method = _http_method(request)
     if method == 'GET':
@@ -178,20 +178,20 @@ def obj_attr(request):
         if not request.user:
             return require_signin(request)
         if not has_mod(request):
-            return HTTPUnauthorized()
+            raise HTTPUnauthorized()
 
         def redirect():
             # Special case for accepting expocode. The cruise will not exist any
             # more under the original expocode so redirect to the new expocode.
             if attr.key == 'expocode' and action == 'Accept':
-                return HTTPSeeOther(location=request.route_url(
+                raise HTTPSeeOther(location=request.route_url(
                                     'cruise_show', cruise_id=attr.value))
-            return HTTPSeeOther(location=request.referrer)
+            raise HTTPSeeOther(location=request.referrer)
 
         try:
             action = request.params['action']
         except KeyError:
-            return HTTPBadRequest()
+            raise HTTPBadRequest()
 
         if action == 'Accept':
             if attr.key == 'data_suggestion':

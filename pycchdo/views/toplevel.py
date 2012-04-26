@@ -2,8 +2,8 @@ import os
 
 from pyramid.renderers import render_to_response
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther
-from pyramid.exceptions import Forbidden, NotFound
+from pyramid.httpexceptions import \
+    HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
 import pycchdo.models as models
 from pycchdo.views import *
@@ -98,7 +98,7 @@ def parameter_show(request):
     try:
         parameter_id = request.matchdict['parameter_id']
     except KeyError:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     parameter = models.Parameter.get_id(parameter_id)
     if not parameter:
@@ -106,7 +106,7 @@ def parameter_show(request):
         if len(parameters) > 0:
             parameter = parameters[0]
         else:
-            return HTTPNotFound()
+            raise HTTPNotFound()
 
     response = {'parameter': {
         'name': parameter.get('name', ''),
@@ -137,22 +137,22 @@ def data(request):
     try:
         data = models._Attr.get_id(id)
     except ValueError:
-        return NotFound()
+        raise HTTPNotFound()
 
     if not data:
         try:
             data = models.Submission.get_id(id)
         except ValueError:
-            return NotFound()
+            raise HTTPNotFound()
 
     if not data:
         try:
             data = models.ArgoFile.get_id(id)
         except ValueError:
-            return NotFound()
+            raise HTTPNotFound()
 
     if not data:
-        return NotFound()
+        raise HTTPNotFound()
 
     # Ensure the session is authorized to read the data
     perms = None
@@ -163,9 +163,9 @@ def data(request):
     if perms:
         try:
             if not request.user.is_authorized(perms):
-                return Forbidden()
+                raise HTTPUnauthorized()
         except AttributeError:
-            return Forbidden()
+            raise HTTPUnauthorized()
 
     return _file_response(request, data.file)
 
@@ -182,4 +182,4 @@ def catchall_static(request):
 
     if os.path.isfile(path):
         return render_to_response(relpath, {}, request)
-    return HTTPNotFound()
+    raise HTTPNotFound()

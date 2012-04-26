@@ -144,7 +144,7 @@ def basin_show(request):
         if basin in static_basins:
             request.matchdict = {'subpath': [u'basin/%s.html' % basin]}
             return catchall_static(request)
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     collections = None
     areas = []
@@ -158,7 +158,7 @@ def basin_show(request):
         collections = _southern()
 
     if not collections:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     return {
         'basin': basin.capitalize(),

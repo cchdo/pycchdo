@@ -207,7 +207,7 @@ def layer(request):
     if temp_dir is None:
         tempdir = tempfile.mkdtemp(temp_suffix, '')
     if temp_dir is None:
-        return HTTPInternalServerError('Failed to make temp directory')
+        raise HTTPInternalServerError('Failed to make temp directory')
 
     path = request.params.get('path', '')
     if path:
@@ -230,7 +230,7 @@ def layer(request):
         temp_file = os.fdopen(temp_file, 'w')
         file = request.POST.get('file', None)
         if file is None:
-            return HTTPBadRequest()
+            raise HTTPBadRequest()
         else:
             file = file.file
         while True:
@@ -246,7 +246,7 @@ def layer(request):
                 _query={'path': os.path.basename(temp_path)})}
         return Response(unicode(whh.HTML.textarea(
                                     whh.literal(json.dumps(response)))))
-    return HTTPNotFound()
+    raise HTTPNotFound()
 
 
 def _info(id_cruises):

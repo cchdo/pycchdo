@@ -48,7 +48,7 @@ def _profile_to_person(profile):
 
 
 def _do_signin(request, person):
-    return HTTPSeeOther(
+    raise HTTPSeeOther(
         location=_redirect_uri(request),
         headers=_sign_in_user(request, person))
 
@@ -56,7 +56,7 @@ def _do_signin(request, person):
 def require_signin(request):
     _save_request(request)
     request.session['skip_save_signin_return_uri'] = True
-    return HTTPSeeOther(location='/session/identify')
+    raise HTTPSeeOther(location='/session/identify')
 
 
 def session_show(request):
@@ -90,7 +90,7 @@ def session_new(request):
         direct_name_last = request.params.get('direct_name_last')
         direct_email = request.params.get('direct_email')
         if not direct_email:
-            return HTTPSeeOther(location=_redirect_uri(request))
+            raise HTTPSeeOther(location=_redirect_uri(request))
         person = models.Person(name_first=direct_name_first,
                                name_last=direct_name_last,
                                email=direct_email)
@@ -101,7 +101,7 @@ def session_new(request):
     token = request.params.get('token', None)
 
     if not token:
-        return HTTPSeeOther(location=_redirect_uri(request))
+        raise HTTPSeeOther(location=_redirect_uri(request))
      
     # auth_info expects an HTTP Post with the following paramters:
     api_params = {
@@ -126,8 +126,8 @@ def session_new(request):
         return _do_signin(request, _profile_to_person(profile))
     else:
         print 'ERROR: During signin: ' + auth_info['err']['msg']
-        return HTTPSeeOther(location='/session/identify')
+        raise HTTPSeeOther(location='/session/identify')
 
 
 def session_delete(request):
-    return HTTPSeeOther(location=request.referrer, headers=forget(request))
+    raise HTTPSeeOther(location=request.referrer, headers=forget(request))

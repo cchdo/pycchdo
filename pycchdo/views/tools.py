@@ -238,7 +238,7 @@ def convert_from_to(request):
     cfrom = request.params.get('from')
     cto = request.params.get('to')
     if not cfrom or not cto:
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
     return available_converters.get((cfrom, cto))(request)
 
 
@@ -397,4 +397,4 @@ def dumps_sqlite(request):
         temp.seek(0)
         return _file_response(request, field, disposition='attachment')
 
-    return HTTPBadRequest()
+    raise HTTPBadRequest()

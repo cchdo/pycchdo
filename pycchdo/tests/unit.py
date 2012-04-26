@@ -4,6 +4,7 @@ from StringIO import StringIO
 
 from pyramid import testing
 from pyramid.config import Configurator
+from pyramid.httpexceptions import HTTPBadRequest
 
 import shapely.geometry.linestring
 import shapely.geometry.polygon
@@ -790,8 +791,8 @@ class TestView(unittest.TestCase):
     def test_cruise_show(self):
         from pycchdo.views.cruise import cruise_show
         request = testing.DummyRequest()
-        result = cruise_show(request)
-        self.assertEqual(result.status, '400 Bad Request')
+        with self.assertRaises(HTTPBadRequest):
+            cruise_show(request)
 
         from pycchdo.models import Cruise
 

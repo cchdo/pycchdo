@@ -1,7 +1,7 @@
 import unittest
 
 from pyramid.config import Configurator
-from pyramid.exceptions import Forbidden
+from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
 from pyramid import testing
 
 from . import *
@@ -39,13 +39,17 @@ class TestView(unittest.TestCase):
 
         # No permissions required, no user -> ok
         request.user = None
-        result = data(request)
-        self.assertNotEqual(Forbidden, type(result))
+        try:
+            data(request)
+        except HTTPNoContent:
+            pass
         request.user = person
 
         # No permissions required, has no permissions -> ok
-        result = data(request)
-        self.assertNotEqual(Forbidden, type(result))
+        try:
+            data(request)
+        except HTTPNoContent:
+            pass
 
         data_attr.permissions = {
             'read': ['argo', ],
@@ -55,26 +59,30 @@ class TestView(unittest.TestCase):
 
         # argo group required, no user -> unauthorized
         request.user = None
-        result = data(request)
-        self.assertEqual(Forbidden, type(result))
+        with self.assertRaises(HTTPUnauthorized):
+            data(request)
         request.user = person
 
         # argo group required, has no permissions -> unauthorized
-        result = data(request)
-        self.assertEquals(Forbidden, type(result))
+        with self.assertRaises(HTTPUnauthorized):
+            data(request)
 
         # argo group required, has argo permission -> ok
         person.permissions = ['argo']
         person.save()
-        result = data(request)
-        self.assertNotEquals(Forbidden, type(result))
+        try:
+            data(request)
+        except HTTPNoContent:
+            pass
         
         # Staff users have super powers
         # argo group required, has staff permission -> ok
         person.permissions = ['argo']
         person.save()
-        result = data(request)
-        self.assertNotEquals(Forbidden, type(result))
+        try:
+            data(request)
+        except HTTPNoContent:
+            pass
 
         data_attr.remove()
         person.remove()

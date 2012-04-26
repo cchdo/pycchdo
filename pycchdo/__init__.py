@@ -8,6 +8,8 @@ from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.decorator import reify
 from pyramid.request import Request
 from pyramid.security import unauthenticated_userid
+from pyramid.httpexceptions import HTTPUnauthorized, HTTPInternalServerError
+from pyramid.exceptions import NotFound
 
 import webhelpers
 import webhelpers.html
@@ -159,6 +161,10 @@ def main(global_config, **settings):
     config.add_renderer('.html', 'pyramid_jinja2.renderer_factory')
     config.add_renderer('json', 'pycchdo.renderer_factory.json')
 
+    config.add_view('pycchdo.views.notfound_view', context=NotFound, renderer='templates/errors/xxx.jinja2')
+    config.add_view('pycchdo.views.unauthorized_view', context=HTTPUnauthorized, renderer='templates/errors/xxx.jinja2')
+    config.add_view('pycchdo.views.server_error_view', context=HTTPInternalServerError, renderer='templates/errors/xxx.jinja2')
+
     # Serve static files from root
     config.add_route('favicon', '/favicon.ico')
     config.add_view('pycchdo.views.toplevel.favicon', route_name='favicon')
@@ -249,8 +255,11 @@ def main(global_config, **settings):
                json_index=True, archiveable=True)
 
     # Argo Secure File Repository
-    config.add_route('argo_index', '/argo')
+    config.add_route('argo_index', '/argo.html')
     config.add_view('pycchdo.views.argo.index', route_name='argo_index', renderer='templates/argo/index.jinja2')
+    route_for_path(
+        config, 'argo_index_no_ext', '/argo',
+        'pycchdo.views.legacy.add_extension')
     config.add_route('argo_new', '/argo/new')
     config.add_view('pycchdo.views.argo.new', route_name='argo_new', renderer='templates/argo/new.jinja2')
     config.add_route('argo_entity', '/argo/{id}')
@@ -268,8 +277,9 @@ def main(global_config, **settings):
 	# Search routes
     config.add_route('search', '/search.html')
     config.add_view('pycchdo.views.search.search', route_name='search')
-    config.add_route('search_no_ext', '/search')
-    config.add_view('pycchdo.views.search.search', route_name='search_no_ext')
+    route_for_path(
+        config, 'search_no_ext', '/search',
+        'pycchdo.views.legacy.add_extension')
 
     config.add_route('search_results', '/search/results')
     config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
@@ -278,13 +288,19 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.search.search_results_json',
                     route_name='search_results_json', renderer='json')
 
-    config.add_route('advanced_search', '/search/advanced')
+    config.add_route('advanced_search', '/search/advanced.html')
     config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
+    route_for_path(
+        config, 'advance_search_no_ext', '/search/advanced',
+        'pycchdo.views.legacy.add_extension')
 
     # Search map routes
-    config.add_route('search_map', '/search/map')
+    config.add_route('search_map', '/search/map.html')
     config.add_view('pycchdo.views.search_map.index', route_name='search_map',
                     renderer='templates/search/map.jinja2')
+    route_for_path(
+        config, 'search_map_no_ext', '/search/map',
+        'pycchdo.views.legacy.add_extension')
     config.add_route('search_map_ids', '/search/map/ids')
     config.add_view('pycchdo.views.search_map.ids', route_name='search_map_ids')
     config.add_route('search_map_layer', '/search/map/layer')
@@ -296,7 +312,7 @@ def main(global_config, **settings):
 
     # maintain legacy data_access
     route_for_path(config, 'parameter_descriptions',
-                   '/parameter_descriptions.html',
+                   '/parameter_descriptions',
                    'pycchdo.views.legacy.parameter_descriptions')
     route_for_path(config, 'data_access', '/data_access',
                    'pycchdo.views.legacy.data_access')

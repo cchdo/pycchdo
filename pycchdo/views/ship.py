@@ -21,27 +21,27 @@ def _get_ship(request):
 
 
 def _redirect_response(request, id):
-    return HTTPSeeOther(location=request.route_path('ship_show', ship_id=id))
+    raise HTTPSeeOther(location=request.route_path('ship_show', ship_id=id))
 
 
 def ship_show(request):
     ship = _get_ship(request)
     if not ship:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return {'ship': ship}
 
 
 def ship_archive(request):
     ship = _get_ship(request)
     if not ship:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return staff.archive(request, ship.cruises())
 
 
 def ship_edit(request):
     ship = _get_ship(request)
     if not ship:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     name = request.params.get('name', '')
 
@@ -53,14 +53,14 @@ def ship_edit(request):
 
 def ship_merge(request):
     if _http_method(request) != 'PUT':
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     if not h.has_mod(request):
-        return HTTPUnauthorized()
+        raise HTTPUnauthorized()
 
     ship = _get_ship(request)
     if not ship:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     redirect_response = _redirect_response(request, ship.id)
 

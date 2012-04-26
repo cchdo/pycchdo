@@ -24,28 +24,28 @@ def _get_institution(request):
 
 
 def _redirect_response(request, id):
-    return HTTPSeeOther(
+    raise HTTPSeeOther(
         location=request.route_path('institution_show', institution_id=id))
 
 
 def institution_show(request):
     institution = _get_institution(request)
     if not institution:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return {'institution': institution}
 
 
 def institution_archive(request):
     institution = _get_institution(request)
     if not institution:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return staff.archive(request, institution.cruises())
 
 
 def institution_edit(request):
     institution = _get_institution(request)
     if not institution:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     name = request.params.get('name', '')
 
@@ -57,14 +57,14 @@ def institution_edit(request):
 
 def institution_merge(request):
     if _http_method(request) != 'PUT':
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     if not h.has_mod(request):
-        return HTTPUnauthorized()
+        raise HTTPUnauthorized()
 
     institution = _get_institution(request)
     if not institution:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     redirect_response = _redirect_response(request, institution.id)
 

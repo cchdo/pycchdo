@@ -30,7 +30,7 @@ def staff_signin_required(view_callable):
             request.session.flash('Please sign in to use staff tools.', 'help')
             return require_signin(request)
         if not has_staff(request):
-            return HTTPUnauthorized()
+            raise HTTPUnauthorized()
         return None
 
     numargs = len(inspect.getargspec(view_callable)[0])

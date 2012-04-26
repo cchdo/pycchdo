@@ -24,28 +24,28 @@ def _get_collection(request):
 
 
 def _redirect_response(request, id):
-    return HTTPSeeOther(
+    raise HTTPSeeOther(
         location=request.route_path('collection_show', collection_id=id))
 
 
 def collection_show(request):
     collection = _get_collection(request)
     if not collection:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return {'collection': collection}
 
 
 def collection_archive(request):
     collection = _get_collection(request)
     if not collection:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return staff.archive(request, collection.cruises())
 
 
 def collection_edit(request):
     collection = _get_collection(request)
     if not collection:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     try:
         names = text_to_obj(request.params.get('names', ''), 'text_list')
@@ -83,14 +83,14 @@ def collection_edit(request):
 
 def collection_merge(request):
     if _http_method(request) != 'PUT':
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     if not h.has_mod(request):
-        return HTTPUnauthorized()
+        raise HTTPUnauthorized()
 
     collection = _get_collection(request)
     if not collection:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     redirect_response = _redirect_response(request, collection.id)
 

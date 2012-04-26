@@ -93,7 +93,7 @@ def submit(request):
         return require_signin(request)
     elif method == 'POST':
         if not h.has_edit(request):
-            return HTTPUnauthorized()
+            raise HTTPUnauthorized()
 
         d = {}
         d['name'] = request.params.get('name', None)
@@ -176,5 +176,5 @@ def submit(request):
             'pycchdo:templates/submit_confirmation.jinja2',
             {'files': files, 'file_names': d['file_names'],
              'submission': sample_submission}, request=request)
-    return HTTPBadRequest()
+    raise HTTPBadRequest()
 

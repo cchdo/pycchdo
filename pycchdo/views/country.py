@@ -28,28 +28,28 @@ def _get_country(request):
 
 
 def _redirect_response(request, id):
-    return HTTPSeeOther(location=request.route_path('country_show',
+    raise HTTPSeeOther(location=request.route_path('country_show',
                                                     country_id=id))
 
 
 def country_show(request):
     country = _get_country(request)
     if not country:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return {'country': country}
 
 
 def country_archive(request):
     country = _get_country(request)
     if not country:
-        return HTTPNotFound()
+        raise HTTPNotFound()
     return staff.archive(request, country.cruises())
 
 
 def country_edit(request):
     country = _get_country(request)
     if not country:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     name = request.params.get('name', '')
     iso2 = request.params.get('iso_3166-1_alpha-2', '')
@@ -67,14 +67,14 @@ def country_edit(request):
 
 def country_merge(request):
     if _http_method(request) != 'PUT':
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
     if not h.has_mod(request):
-        return HTTPUnauthorized()
+        raise HTTPUnauthorized()
 
     country = _get_country(request)
     if not country:
-        return HTTPNotFound()
+        raise HTTPNotFound()
 
     redirect_response = _redirect_response(request, country.id)
 

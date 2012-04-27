@@ -2421,7 +2421,7 @@ class Submission(Obj, _FileHolder):
         ship_name
         line
         action
-        public - whether the submission is of public or non-public data
+        type - the type of submission {public, non-public, argo}
         cruise_date - the date of the cruise being submitted
         file - the file that is being suggested
         attached - an _Attr id.
@@ -2433,7 +2433,7 @@ class Submission(Obj, _FileHolder):
             is no way to determine it without human help.
 
     """
-    __allowed_keys = ['expocode', 'ship_name', 'line', 'action', 'public',
+    __allowed_keys = ['expocode', 'ship_name', 'line', 'action', 'type',
                       'cruise_date', 'attached', 'file', ] 
 
     @property
@@ -2455,8 +2455,14 @@ class Submission(Obj, _FileHolder):
 
     @property
     def attached(self):
-        """ Gives the _Attr that the submission is attached into OR True if
-            the submission was imported and attached already.
+        """ Whether the submission has been attached.
+            
+            Gives either
+            1. the _Attr that the submission is attached to
+            OR
+            2. True if the submission was imported and attached already. This is
+               because no assumptions are made by the importer as to what cruise
+               the submission is really attached to.
 
         """
         if self.attached_ == True:

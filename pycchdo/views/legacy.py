@@ -15,7 +15,8 @@ def basin(request):
 
 
 def add_extension(request, ext='html'):
-    raise HTTPMovedPermanently(location=u'%s.%s' % (request.url, ext))
+    raise HTTPMovedPermanently(
+        location=u'%s.%s?%s' % (request.path, ext, request.query_string))
 
 
 def data_access(request):

@@ -79,6 +79,7 @@ p a:hover:visited, p .link.visited.hover {
 }
 
 .preformatted,
+.notes .note .body,
 pre {
   line-height: 1.2em;
   font-size: 1em;

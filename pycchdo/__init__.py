@@ -180,10 +180,6 @@ def main(global_config, **settings):
     config.add_view('pycchdo.views.toplevel.get_menu', route_name='get_menu',
                     renderer='templates/get.jinja2')
 
-    config.add_route('search_menu', '/search.html')
-    config.add_view('pycchdo.views.toplevel.search_menu', route_name='search_menu',
-                    renderer='templates/search.jinja2')
-
     config.add_route('information_menu', '/information.html')
     config.add_view('pycchdo.views.toplevel.information_menu', route_name='information_menu',
                     renderer='templates/information.jinja2')
@@ -281,8 +277,11 @@ def main(global_config, **settings):
         config, 'search_no_ext', '/search',
         'pycchdo.views.legacy.add_extension')
 
-    config.add_route('search_results', '/search/results')
+    config.add_route('search_results', '/search/results.html')
     config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
+    route_for_path(
+        config, 'search_results_no_ext', '/search/results',
+        'pycchdo.views.legacy.add_extension')
 
     config.add_route('search_results_json', '/search/results.json')
     config.add_view('pycchdo.views.search.search_results_json',

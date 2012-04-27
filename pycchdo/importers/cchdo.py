@@ -1195,23 +1195,35 @@ def _import_parameters(session, importer):
         update_attr(cruise, 'parameter_informations', param_infos, importer)
 
 
+argo_action_str = 'Non-public data for Argo calibration (proprietary, rapid-delivery)'
+
+
 def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
     implog.info("Importing Submissions")
 
     imported_submissions = set([
         s.get('import_id') for s in models.Submission.get_all(fields=['creation_stamp'])])
 
-    def public_to_bool(p, action):
+    def submission_public_to_type(p, argo_action):
+        """ Convert CCHDO submission public and action to submission type """
+        # 2011-09-16 myshen
+        # cberys has determined "assigned" corroborates
+        # non-public status and is generally redundant. More importantly it
+        # is not used anywhere in the application.
         if p is None:
-            # Assume that no response means public data as long as action does
-            # not contain Argo.
-            if not action or 'Argo' in action:
-                return False
-            return True
-        elif p == 'Public':
-            return True
+            # Assume that no response means public data as long the submission
+            # is not for Argo
+            if argo_action:
+                return 'argo'
+            return 'public'
+
+        p = p.lower()
+        if p == 'public':
+            return 'public'
+        elif p == 'argo':
+            return 'argo'
         else:
-            return False
+            return 'non-public'
 
     for sub in session.query(legacy.Submission).all():
         if sub.id in imported_submissions:
@@ -1232,7 +1244,8 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             ip = sub.ip
             ua = sub.user_agent
 
-            submitter, inst = _import_person_inst(importer, name, '', inst, email)
+            submitter, inst = _import_person_inst(
+                importer, name, '', inst, email)
             submitter.set_accept('country', country, importer)
             submitter.set_accept('ip', ip, importer)
             submitter.set_accept('ua', ua, importer)
@@ -1245,6 +1258,7 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             ship_name = sub.ship_name
             line = sub.line
             action = sub.action
+            argo_action = False
             notes = sub.notes
             file_path = sub.file
 
@@ -1255,6 +1269,13 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             if line:
                 submission.line_ = _ustr2uni(line)
             if action:
+                # Remove Argo import string from list of actions and set the
+                # argo bit
+                if 'Argo' in action:
+                    argo_action = True
+                    if argo_action_str in action:
+                        removed = action.replace(argo_action_str, '')
+                        action = ','.join(filter(None, removed.split(',')))
                 submission.action_ = _ustr2uni(action)
             if notes:
                 submission.add_note(
@@ -1290,15 +1311,11 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
                     submission.store_file(actual_file)
                 submission.save()
 
-            public = public_to_bool(sub.public, action)
-            # 2011-09-16 myshen
-            # cberys has determined "assigned" corroborates
-            # non-public status and is generally redundant. More importantly it
-            # is not used.
+            submission.type_ = submission_public_to_type(
+                sub.public, argo_action)
             # "assimilated" is used to color code the submission table according
             # to whether submission has been put in the queue.
             assimilated = bool(sub.assimilated)
-            submission.public_ = public
             submission.attached_ = assimilated
             submission.save()
             try:
@@ -1378,12 +1395,17 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
                 implog.warn(
                     "CCHDO contact %s is not recognized" % qfile.cchdo_contact)
 
+        # merged status codes
+        # 0 - unmerged, shown online
+        # 1 - merged, shown online
+        # 2 - unmerged, hidden from public
+
         if qfile.merged == 1:
             date_merged = qfile.date_merged
             queue_file.accept(importer)
             if not date_merged:
                 implog.warn('No date merged for merged file. Obtaining from '
-                             'file timestamp')
+                            'file timestamp')
                 date_merged = _get_mtime(sftp_cchdo, unprocessed_input)
             else:
                 date_merged = _date_to_datetime(date_merged)
@@ -1618,7 +1640,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
     any_unaccounted = False
     remote_dir = os.path.dirname(doc.FileName)
     # Use a shorter temp root so long path names don't get too long. Mac OS
-    # X limits to 1024 bits.
+    # X limits to 1024 bytes.
     su_lock.acquire()
     local_dir = tempfile.mkdtemp(dir='/tmp')
     su_lock.release()
@@ -1692,6 +1714,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
         field.type = mimetypes.guess_type(field.filename)
         field.file = unaccounted_archive
         attr = cruise.set_accept('unaccounted', field, importer)
+        attr.permissions = {'read': ['staff', ]}
         attr.import_id = cruise.id
         attr.save()
 

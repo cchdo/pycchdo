@@ -66,16 +66,16 @@
   margin-left: -0.5em;
 }
 
-.cruise-page .subsection.data-files th,
-.cruise-page .subsection.data-files td {
+.subsection.data-files th,
+.subsection.data-files td {
   text-align: left;
   vertical-align: top;
 }
-.cruise-page .subsection.data-files th {
+.subsection.data-files th {
   width: 5em;
 }
-.cruise-page .subsection.data-files tr.preliminary td,
-.cruise-page .subsection.data-files tr.preliminary th {
+.subsection.data-files tr.preliminary td,
+.subsection.data-files tr.preliminary th {
   color: #FF5555;
   font-style: italic;
 }
@@ -127,25 +127,25 @@
 }
 
 /* editing information */
-#info .editor table {
+.editor table {
   width: 100%;
 }
-#info .editor th,
-#info .editor .submit {
+.editor th,
+.editor td.submit {
   text-align: right;
 }
-#info .editor th {
+.editor th {
   width: 10%;
 }
-#info .editor select {
+.editor select {
   min-width: 5em;
   width: 100%;
 }
-#info .editor input[type="text"],
-#info .editor input[type="datetime"],
-#info .editor input[type="url"],
-#info .editor input[type="email"],
-#info .editor input[type="file"] {
+.editor input[type="text"],
+.editor input[type="datetime"],
+.editor input[type="url"],
+.editor input[type="email"],
+.editor input[type="file"] {
   width: 100%;
 }
 label {

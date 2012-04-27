@@ -319,15 +319,18 @@
                 <td><input type="text" name="note_action"></td>
                 <td><input type="text" name="note_summary"></td>
               </tr>
-              <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
+              <tr class="mb-link{{ i }} body {{ hl }} editor continued">
                 <td colspan="4">
                   <p>
                     <label for="note_discussion_{{ i }}">Public</label>
                     <input id="note_discussion_{{ i }}" type="checkbox"
                            name="note_discussion" value="public" checked="checked">
-                   </p>
-                   <textarea name="note_note"></textarea>
-                   <input type="submit" value="Add note">
+                  </p>
+                  <textarea name="note_note"></textarea>
+                </td>
+              <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
+                <td colspan="4" class="submit">
+                  <input type="submit" value="Add note">
                 </td>
               </tr>
             {%- endif %}

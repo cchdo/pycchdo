@@ -36,12 +36,12 @@
           <th class="person">Person</th>
           <th class="file">File</th>
           <th class="date_submitted">Date submitted</th>
-          <th class="public">Public</th>
+          <th class="type">Type</th>
           <th class="attached">Attached</th>
         </tr>
       {%- for submission in submissions %}
         {%- set hl = loop.cycle('even', 'odd') %}
-        {%- set attached = submission.attached or '' %}
+        {%- set attached = submission.attached or None %}
         <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
           {%- set ident = submission.get('expocode') or ' ' %}
           <td class="identifier">{{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}</td>
@@ -49,8 +49,19 @@
           <td class="person">{{ h.link_person(submission.creation_stamp.person) }}</td>
           <td class="file">{{ h.link_file_holder(submission) }}</td>
           <td class="date_submitted">{{ h.date(submission.creation_stamp.timestamp) }}</td>
-          <td class="public">{% if submission.get('public') %}yes{% else %}NO{% endif %}</td>
-          <td class="attached">{%- if attached != True %}{{ h.link_cruise(attached.obj) }}{%- elif attached == True %}Yes{%- endif %}</td>
+          <td class="type">{{ submission.get('type') }}</td>
+          <td class="attached">
+            {# TODO attached can be either None, True, or _Attr. True is when the submission was imported. #}
+            {%- if attached %}
+              {%- if attached == True %}
+                yes
+              {%- else %}
+                {{ h.link_cruise(attached.obj) }}
+              {%- endif %}
+            {%- else %}
+              NO
+            {%- endif %}
+          </td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
           <td colspan="4">

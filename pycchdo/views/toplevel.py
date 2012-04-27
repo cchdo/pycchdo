@@ -166,6 +166,8 @@ def data(request):
                 raise HTTPUnauthorized()
         except AttributeError:
             raise HTTPUnauthorized()
+    if not data.judgment_stamp and not request.user:
+        raise HTTPUnauthorized()
 
     return _file_response(request, data.file)
 

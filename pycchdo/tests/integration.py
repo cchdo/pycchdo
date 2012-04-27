@@ -24,6 +24,9 @@ class TestView(unittest.TestCase):
             1. If there are no requirements, the session is authorized
                This includes the case where no user is signed in.
             2. If there are requirements, test if the session is authorized
+            3. In addition to the requirements, there are also restrictions on
+               accessing data based on its status. If the data is pending or
+               unjudged, it may only be accessed by signed in users.
 
         """
         from pycchdo.views.toplevel import data
@@ -33,6 +36,7 @@ class TestView(unittest.TestCase):
         person.save()
 
         data_attr = models._Attr(person, None)
+        data_attr.judgment_stamp = models.Stamp(person)
         data_attr.permissions = {}
         data_attr.save()
         request.matchdict['data_id'] = data_attr.id
@@ -77,12 +81,26 @@ class TestView(unittest.TestCase):
         
         # Staff users have super powers
         # argo group required, has staff permission -> ok
-        person.permissions = ['argo']
+        person.permissions = ['staff']
         person.save()
         try:
             data(request)
         except HTTPNoContent:
             pass
+
+        del data_attr.permissions 
+        del data_attr.judgment_stamp
+        data_attr.save()
+        # data is not judged, user -> ok
+        try:
+            data(request)
+        except HTTPNoContent:
+            pass
+
+        # data is not judged, no user -> unauthorized
+        request.user = None
+        with self.assertRaises(HTTPUnauthorized):
+            data(request)
 
         data_attr.remove()
         person.remove()

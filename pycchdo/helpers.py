@@ -645,18 +645,18 @@ def short_data_type(type):
     if type.startswith('ctd'):
         return 'CTD'
     if type.startswith('bot'):
-        return 'BOT'
+        return 'Bottle'
     if type.startswith('sum'):
-        return 'SUM'
+        return 'Summary'
     if type.startswith('large_volume_samples'):
         return 'Large Volume'
     if type.startswith('trace_metals'):
         return 'Trace Metal'
     if type.startswith('doc'):
         if 'pdf' in type:
-            return 'PDF'
+            return 'PDF Documentation'
         elif 'txt' in type or 'text' in type:
-            return 'TXT'
+            return 'Text Documentation'
     return ''
 
 
@@ -715,9 +715,12 @@ def data_file_link(request, type, data):
     else:
         logging.error('%r has no obj' % data)
 
+    preliminary_marker = ''
+    if preliminary:
+        preliminary_marker = ' *'
+
     items = [
-        H.th(tags.link_to(data_type, link)),
-        H.td(description),
+        H.th(H.abbr(tags.link_to(data_type + preliminary_marker, link), title=description)),
     ]
 
     classes = [type.replace('_', ' ')]

@@ -225,7 +225,7 @@
       {%- call h.boxed('Data', id='data', class='upper', box_content_class='scrollable-y') %}
         <div class="subsection data-files">
           {%- if cruise.preliminary %}
-            <p id="preliminary">These data are preliminary</p> 
+            <p id="preliminary">* These data are preliminary</p> 
           {%- endif %}
           {%- if updates['as_received'] or updates['merged'] %}
             <a class="updates-available" href="#updates">

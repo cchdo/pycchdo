@@ -72,10 +72,11 @@
   vertical-align: top;
 }
 .subsection.data-files th {
-  width: 5em;
+  padding-left: 1em;
 }
 .subsection.data-files tr.preliminary td,
-.subsection.data-files tr.preliminary th {
+.subsection.data-files tr.preliminary th,
+.subsection.data-files tr.preliminary th a {
   color: #FF5555;
   font-style: italic;
 }

@@ -728,23 +728,26 @@ class TestHelper(unittest.TestCase):
         data.obj = self.testPerson.id
         data.save()
         id = data['_id']
-        answer = ('<tr class="bottle exchange"><th><a href="/data/b/{id}">BOT'
-                  '</a></th><td>ASCII .csv bottle data with station '
-                  'information</td></tr>').format(id=id)
+        answer = (
+            '<tr class="bottle exchange"><th><abbr title="ASCII .csv bottle '
+            'data with station information"><a href="/data/b/{id}">Bottle</a>'
+            '</abbr></th></tr>').format(id=id)
         self.assertEquals(data_file_link(request, 'bottle_exchange', data), answer)
-        answer = ('<tr class="ctdzip exchange"><th><a href="/data/b/{id}">CTD'
-                  '</a></th><td>ZIP archive of ASCII .csv CTD data with '
-                  'station information</td></tr>').format(id=id)
+        answer = (
+            '<tr class="ctdzip exchange"><th><abbr title="ZIP archive of '
+            'ASCII .csv CTD data with station information"><a '
+            'href="/data/b/{id}">CTD</a></abbr></th></tr>').format(id=id)
         self.assertEquals(data_file_link(request, 'ctdzip_exchange', data), answer)
         data.remove()
 
         data = _Attr(self.testPerson, 'testid', 'a', 'b')
         data.obj = self.testPerson.id
         data.save()
-        self.assertEquals('<tr class="ctdzip exchange"><th><a href="/404.html">CTD'
-                          '</a></th><td>ZIP archive of ASCII .csv CTD data with '
-                          'station information</td></tr>',
-                          data_file_link(request, 'ctdzip_exchange', data))
+        self.assertEquals(
+            '<tr class="ctdzip exchange"><th><abbr title="ZIP archive of '
+            'ASCII .csv CTD data with station information">'
+            '<a href="/404.html">CTD</a></abbr></th></tr>',
+            data_file_link(request, 'ctdzip_exchange', data))
         data.remove()
 
 

@@ -42,10 +42,12 @@ def search_results_json(request):
         logging.error('Search failed: %s' % e)
         results = {'cruise': []}
 
-    cruises = map(_cruise_to_json, results['cruise'])
+    cruise_jsons = map(_cruise_to_json, results['cruise'])
+    for person, cruises in results['person'].items():
+        cruise_jsons.extend(map(_cruise_to_json, cruises))
     return {
         'query': query,
-        'results': cruises,
+        'results': cruise_jsons,
     }
 
 

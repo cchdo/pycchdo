@@ -35,6 +35,31 @@
       <div class="container">
         <div class="editor">
           <table>
+            <tr>
+              <td colspan="2">
+                {{ whh.tags.title('Coordinates (Lng, Lat)', label_for='attr_track') }}
+                <p>
+                  <button id="new_line">Draw new line</button>
+                </p>
+                <div id="track-help-tooltip" class="help" style="display: block;">
+                  <p>Drag the point on the map to start drawing a line.</p>
+                  <p>You may edit the numbers in the box.</p>
+                  <p>
+                    Press <strong>Shift</strong> when over the map to see 
+                    the latitude and longitude of your mouse position.
+                  </p>
+                </div>
+                <div id="track-help" class="help">
+                  <p>Please make sure your coordinates are formatted like this:
+                    </p><pre>longitude,latitude
+longitude,latitude
+...</pre>
+                  <p></p>
+                  <p>Hint: Check line <span></span></p>
+                </div>
+                {{ whh.tags.textarea('attr_track') }}
+              </td>
+            </tr>
             <tr><th>{{ whh.tags.title('Cruise name', label_for='attr_name') }}</th><td>{{ whh.tags.text('attr_expocode') }}</td></tr>
             <tr><th>{{ whh.tags.title('Ports/Location', label_for='attr_ports') }}</th><td>{{ whh.tags.text('attr_ports') }}</td></tr>
             <tr><th>{{ whh.tags.title('Programs', label_for='attr_programs') }}</th><td>{{ whh.tags.text('attr_programs') }}</td></tr>
@@ -70,32 +95,6 @@
                   HTML is allowed but please be succinct.
                 </div>
                 {{ whh.tags.textarea('attr_notes') }}
-              </td>
-            </tr>
-            <tr>
-              <td colspan="2">
-                {{ whh.tags.title('Coordinates (Lng, Lat)', label_for='attr_track') }}
-                <p>
-                  <button id="new_line">Draw new line</button>
-                </p>
-                <div id="track-help-tooltip" class="help" style="display: block;">
-                  <p>Click on the map to draw a line.</p>
-                  <strong>Click the last point twice to stop drawing.</strong>
-                  <p>You may change numbers directly. </p>
-                  <p>
-                    Press <strong>Shift</strong> when over the map to see 
-                    the latitude and longitude of your mouse position.
-                  </p>
-                </div>
-                <div id="track-help" class="help">
-                  <p>Please make sure your coordinates are formatted like this:
-                    </p><pre>longitude,latitude
-longitude,latitude
-...</pre>
-                  <p></p>
-                  <p>Hint: Check line <span></span></p>
-                </div>
-                {{ whh.tags.textarea('attr_track') }}
               </td>
             </tr>
           </table>  

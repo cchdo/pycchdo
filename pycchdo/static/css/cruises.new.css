@@ -18,9 +18,9 @@
 .container #map {
   position: absolute;
   top: 0;
-  left: 30%;
+  left: 31%;
   margin-left: 1px;
-  width: 70%;
+  width: 69%;
 }
 .help {
   background: #ffffdf;

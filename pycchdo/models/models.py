@@ -22,41 +22,9 @@ from gridfs.errors import NoFile
 
 from libcchdo.fns import uniquify
 
+from pycchdo.util import flatten, str2uni
 from pycchdo.models import triggers
 from pycchdo.models.filefs import FileFS, NoFile
-
-
-def flatten(l):
-    return [item for sublist in l for item in sublist]
-
-
-def _str2unicode(x):
-    if type(x) is str:
-        return unicode(x)
-    return x
-
-
-def is_valid_ipv4(ip):
-    try:
-        return socket.inet_pton(socket.AF_INET, ip)
-    except AttributeError: # no inet_pton here, sorry
-        try:
-            return socket.inet_aton(ip)
-        except socket.error:
-            return False
-    except socket.error:
-        return False
-
-
-def is_valid_ipv6(ip):
-    try:
-        return socket.inet_pton(socket.AF_INET6, ip)
-    except socket.error:
-        return False
-
-
-def is_valid_ip(ip):
-    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
 
 
 class MongoDBConnection:
@@ -133,28 +101,29 @@ def fs():
 
 
 def ensure_indices():
+    db = cchdo()
     # Searching for Objs by _Attr value, not key-value
-    cchdo().attrs.ensure_index([
+    db.attrs.ensure_index([
         ('obj', 1), ('value', 1), ('accepted', 1)])
     # Searching for _Attrs by key-value
-    cchdo().attrs.ensure_index([
+    db.attrs.ensure_index([
         ('key', 1), ('value', 1), ('accepted', 1)])
     # Searching for Objs by _Attr key-value (get_by_attrs)
-    cchdo().attrs.ensure_index([
+    db.attrs.ensure_index([
         ('key', 1), ('accepted', 1), ('accepted_value', 1)])
     # Searching on _Attr belonging to a specific Obj. Usually needs sorting.
-    cchdo().attrs.ensure_index([
+    db.attrs.ensure_index([
         ('obj', 1), ('key', 1), ('accepted', 1),
         ('judgment_stamp.timestamp', -1), ])
     # GEO2D index requires MongoDB >=1.3.3
     # Indexing by polygon requires MongoDB >=1.9 It is not included.
-    cchdo().attrs.ensure_index([
+    db.attrs.ensure_index([
         ('track', pymongo.GEO2D)])
 
     # Objs often need to be sorted by accept time and create time
-    cchdo().objs.ensure_index([
+    db.objs.ensure_index([
         ('_obj_type', 1), ('judgment_stamp.timestamp', 1), ])
-    cchdo().objs.ensure_index([
+    db.objs.ensure_index([
         ('creation_stamp.timestamp', 1), ])
 
 
@@ -1380,7 +1349,7 @@ class Obj(_Change):
     
     @classmethod
     def _get_by_attrs_query(cls, k, v, value_key):
-        value_query = _str2unicode(v)
+        value_query = str2uni(v)
         return {
             'key': unicode(k),
             'accepted': True,

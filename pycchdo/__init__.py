@@ -280,6 +280,8 @@ def _configure_routes(config):
                'pycchdo.views.legacy.data_access_show_cruise')
     route_path(config, 'submit_no_ext', '/submit',
                'pycchdo.views.legacy.add_extension')
+    route_path(config, 'groups', '/groups',
+               'pycchdo.views.legacy.groups')
 
     # legacy static files
     route_path(config, 'static_metermap', '/metermap.html',

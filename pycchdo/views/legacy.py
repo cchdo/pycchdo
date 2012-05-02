@@ -1,4 +1,4 @@
-from pyramid.httpexceptions import HTTPMovedPermanently, HTTPNotFound
+from pyramid.httpexceptions import HTTPMovedPermanently, HTTPNotFound, HTTPSeeOther
 
 import pycchdo.models as models
 
@@ -53,3 +53,11 @@ def static_metermap(request):
 
 def static_policies_name(request):
     raise HTTPMovedPermanently(location='/policies/woce_name.html')
+
+
+def groups(request):
+    group = request.params['id']
+
+    # TODO Attempt to find collection page.
+    raise HTTPSeeOther(
+        location=request.route_path('collection_show', collection_id=1))

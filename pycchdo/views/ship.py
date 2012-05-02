@@ -52,7 +52,7 @@ def ship_edit(request):
 
 
 def ship_merge(request):
-    if _http_method(request) != 'PUT':
+    if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
     if not h.has_mod(request):

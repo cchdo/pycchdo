@@ -169,7 +169,7 @@ def data(request):
     if not data.judgment_stamp and not request.user:
         raise HTTPUnauthorized()
 
-    return _file_response(request, data.file)
+    return file_response(request, data.file)
 
 
 def catchall_static(request):

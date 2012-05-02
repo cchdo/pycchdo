@@ -13,13 +13,13 @@ from session import require_signin
 @staff_signin_required
 def objs(request):
     objs = models.Obj.get_all()
-    objs = _paged(request, objs)
+    objs = paged(request, objs)
     return {'objs': objs}
 
 
 @staff_signin_required
 def obj_new(request):
-    if _http_method(request) != 'PUT':
+    if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
     obj_type = request.params.get('_obj_type', models.Obj.__name__)
@@ -65,7 +65,7 @@ def obj_show(request):
         raise HTTPNotFound()
 
     link = request.url
-    method = _http_method(request)
+    method = http_method(request)
     if method == 'DELETE':
         if obj:
             obj.remove()
@@ -110,7 +110,7 @@ def obj_show(request):
 
 @staff_signin_required
 def obj_attrs(request):
-    method = _http_method(request)
+    method = http_method(request)
 
     obj_id = request.matchdict['obj_id']
     obj = models.Obj.get_id(obj_id)
@@ -171,7 +171,7 @@ def obj_attr(request):
     if not str(attr['obj']) == obj_id:
         raise HTTPNotFound('No obj with id %s' % obj_id)
 
-    method = _http_method(request)
+    method = http_method(request)
     if method == 'GET':
         pass
     elif method == 'PUT':

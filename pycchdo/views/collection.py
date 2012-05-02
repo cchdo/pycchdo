@@ -8,7 +8,7 @@ from pycchdo.views import staff
 
 def collections_index(request):
     collections = sorted(models.Collection.get_all(), key=lambda c: c.name)
-    collections = _paged(request, collections)
+    collections = paged(request, collections)
     return {'collections': collections}
 
 
@@ -82,7 +82,7 @@ def collection_edit(request):
 
 
 def collection_merge(request):
-    if _http_method(request) != 'PUT':
+    if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
     if not h.has_mod(request):

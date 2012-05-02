@@ -84,7 +84,7 @@ Additional information collected with your submission:
 
 
 def submit(request):
-    method = _http_method(request)
+    method = http_method(request)
     if method == 'GET':
         if h.has_edit(request):
             return {}

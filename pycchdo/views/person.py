@@ -9,7 +9,7 @@ from pycchdo.views import staff
 
 def people_index(request):
     people = sorted(models.Person.get_all(), key=lambda x: x.name_last)
-    people = _paged(request, people)
+    people = paged(request, people)
     return {'people': people}
 
 
@@ -91,7 +91,7 @@ def person_edit(request):
 
 @staff_signin_required
 def person_merge(request):
-    if _http_method(request) != 'PUT':
+    if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
     if not h.has_mod(request):

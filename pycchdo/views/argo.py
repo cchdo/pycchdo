@@ -16,7 +16,7 @@ def index(request):
     
     """
     details = request.params.get('details', False)
-    method = _http_method(request)
+    method = http_method(request)
 
     if method == 'POST':
         return _create(request)
@@ -37,7 +37,7 @@ def entity(request):
     if not argo_file:
         raise HTTPNotFound()
 
-    method =  _http_method(request)
+    method =  http_method(request)
     if method == 'PUT':
         expocode = request.params.get('expocode', '')
         display = request.params.get('display', False)

@@ -8,7 +8,7 @@ from pycchdo.views import staff
 
 def institutions_index(request):
     institutions = sorted(models.Institution.get_all(), key=lambda x: x.name)
-    institutions = _paged(request, institutions)
+    institutions = paged(request, institutions)
     return {'institutions': institutions}
 
 
@@ -56,7 +56,7 @@ def institution_edit(request):
 
 
 def institution_merge(request):
-    if _http_method(request) != 'PUT':
+    if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
     if not h.has_mod(request):

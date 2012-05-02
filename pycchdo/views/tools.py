@@ -30,7 +30,7 @@ import libcchdo.formats.ctd.zip.netcdf_oceansites as ctdzipnc_os
 import libcchdo.formats.bottle.exchange as botex
 
 from pycchdo import models
-from pycchdo.views import _file_response
+from pycchdo.views import file_response
 from pycchdo.views.staff import staff_signin_required
 
 
@@ -136,7 +136,7 @@ def _convert(request, fn, filename_callback, *args):
         output_file.length = output.tell()
         output.seek(0)
         output_file.name = filename_callback(file, df, output)
-        return _file_response(request, output_file, 'attachment')
+        return file_response(request, output_file, 'attachment')
     except Exception, e:
         logging.debug(e)
         request.response.status = 500
@@ -339,7 +339,7 @@ def dumps_sqlite(request):
         temp.seek(0, os.SEEK_END)
         field.length = temp.tell()
         temp.seek(0)
-        return _file_response(request, field, disposition='attachment')
+        return file_response(request, field, disposition='attachment')
     elif seahunt and type == 'metadata':
         temp = tempfile.NamedTemporaryFile()
         conn = sqlite3.connect(temp.name)
@@ -395,6 +395,6 @@ def dumps_sqlite(request):
         temp.seek(0, os.SEEK_END)
         field.length = temp.tell()
         temp.seek(0)
-        return _file_response(request, field, disposition='attachment')
+        return file_response(request, field, disposition='attachment')
 
     raise HTTPBadRequest()

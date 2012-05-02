@@ -851,15 +851,15 @@ class TestView(PersonBaseTest):
 
     def test__collapse_dict(self):
         """ Collapse a dictionary tree based on a given value being invalid. """
-        from pycchdo.views import _collapsed_dict
+        from pycchdo.views import collapse_dict
         d = {}
-        self.assertEquals(_collapsed_dict(d, 1), 1)
+        self.assertEquals(collapse_dict(d, 1), 1)
         d = {'a': 1, 'b': None}
-        self.assertEquals(_collapsed_dict(d), {'a': 1})
+        self.assertEquals(collapse_dict(d), {'a': 1})
         d = {'a': 1, 'b': None, 'c': {'d': None, 'e': 2}}
-        self.assertEquals(_collapsed_dict(d), {'a': 1, 'c': {'e': 2}})
+        self.assertEquals(collapse_dict(d), {'a': 1, 'c': {'e': 2}})
         d = {'a': 1, 'b': 1, 'c': {'d': 1, 'e': 1}}
-        self.assertEquals(_collapsed_dict(d, 1), 1)
+        self.assertEquals(collapse_dict(d, 1), 1)
 
     def test_cruise_show(self):
         from pycchdo.views.cruise import cruise_show

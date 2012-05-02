@@ -66,7 +66,7 @@ def country_edit(request):
 
 
 def country_merge(request):
-    if _http_method(request) != 'PUT':
+    if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
     if not h.has_mod(request):

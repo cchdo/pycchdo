@@ -50,7 +50,7 @@ def _cruises(request):
 
 
 def cruises_index(request):
-    cruises = _paged(request, _cruises(request))
+    cruises = paged(request, _cruises(request))
     return {'cruises': cruises}
 
 
@@ -380,7 +380,7 @@ def cruise_show(request):
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
-    method = _http_method(request)
+    method = http_method(request)
 
     if method == 'PUT':
         if not request.user:
@@ -468,9 +468,9 @@ def cruise_show(request):
     return {
         'cruise': cruise_obj,
         'cruise_dict': cruise,
-        'data_files': _collapsed_dict(data_files) or {},
+        'data_files': collapse_dict(data_files) or {},
         'history': history,
-        'updates': _collapsed_dict(updates, []) or {},
+        'updates': collapse_dict(updates, []) or {},
         'CRUISE_ATTRS_SELECT': CRUISE_ATTRS_SELECT,
         'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,
         }
@@ -516,7 +516,7 @@ def map_full(request):
     a = cruise_obj.get_attr('map_full')
     if not a:
         raise HTTPNotFound()
-    return _file_response(request, a.file)
+    return file_response(request, a.file)
 
 
 def map_thumb(request):
@@ -532,7 +532,7 @@ def map_thumb(request):
     a = cruise_obj.get_attr('map_thumb')
     if not a:
         raise HTTPNotFound()
-    return _file_response(request, a.file)
+    return file_response(request, a.file)
 
 
 def _cruise_to_json(cruise):

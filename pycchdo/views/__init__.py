@@ -9,6 +9,8 @@ from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent, HTTPUnauthorized
 from pyramid.url import current_route_url
 
+import gridfs.errors
+
 from webhelpers import paginate
 
 from webob.multidict import MultiDict
@@ -23,8 +25,8 @@ __CONSTANTS__ = [
 
 
 __all__ = [
-    '_collapsed_dict', '_http_method', '_paged', '_unescape', 'text_to_obj',
-    'str_to_track', '_file_response', ] + __CONSTANTS__
+    'collapse_dict', 'http_method', 'paged', 'text_to_obj', 'str_to_track',
+    'file_response', ] + __CONSTANTS__
 
 
 PLEASE_SIGNIN_MESSAGE = """\
@@ -47,14 +49,14 @@ for k, v in FILE_GROUPS.items():
 FILE_GROUPS_SELECT.append('Other')
 
 
-def _collapsed_dict(d, n=None):
+def collapse_dict(d, n=None):
     """ Collapses a dict recursively into the value n if it has no values that
     are not n """
     e = {}
     for k, v in d.items():
         if type(v) is dict:
             # recurse into sub-dicts
-            v = _collapsed_dict(v, n)
+            v = collapse_dict(v, n)
         if type(v) is list:
             # TODO TEST for list condition
             # do not recurse into lists if n is None
@@ -67,14 +69,14 @@ def _collapsed_dict(d, n=None):
     return e
 
 
-def _http_method(request):
+def http_method(request):
     try:
         return request.params['_method']
     except KeyError:
         return request.method
 
 
-def _paged(request, l):
+def paged(request, l):
     current_page = int(request.params.get('page', 1))
     items_per_page = int(request.params.get('items_per_page', 50))
     def page_url(page):
@@ -161,7 +163,7 @@ def _humanize(obj):
     return str(obj)
 
 
-def _file_response(request, file, disposition='inline'):
+def file_response(request, file, disposition='inline'):
     if disposition not in ['inline', 'attachment']:
         raise ValueError('Disposition must be in %r' % disposition)
 
@@ -202,11 +204,13 @@ def _file_response(request, file, disposition='inline'):
     except AttributeError:
         resp.content_disposition = disposition
 
-    # Hack for detecting corrupted GridFiles
+    # XXX
+    # Hack for detecting corrupted GridFiles (data in fs missing) before the
+    # framework gets handed the file to send
     try:
         resp.app_iter.read(1)
         resp.app_iter.seek(0)
-    except IOError:
+    except gridfs.errors.CorruptGridFile:
         log.error('Missing file %s' % file._id)
         raise HTTPNotFound()
 

@@ -134,14 +134,14 @@ def _moderate_submission(request):
 
 @staff_signin_required
 def submissions(request):
-    method = _http_method(request)
+    method = http_method(request)
     if method == 'PUT':
         if not request.user:
             return require_signin(request)
         _moderate_submission(request)
     submissions = models.Submission.map_mongo(
                       models.sort_by_stamp(models.Submission.find()))
-    submissions = _paged(request, submissions)
+    submissions = paged(request, submissions)
 
     return {
         'submissions': submissions,
@@ -183,7 +183,7 @@ def _moderate_attribute(request):
 
 @staff_signin_required
 def moderation(request):
-    method = _http_method(request)
+    method = http_method(request)
     if method == 'PUT':
         if not request.user:
             return require_signin(request)
@@ -205,7 +205,7 @@ def moderation(request):
                     m = l[p.obj] = set()
                 m.add(p)
 
-    parameters = _paged(request, sorted(files_by_parameters.keys()))
+    parameters = paged(request, sorted(files_by_parameters.keys()))
 
     return {
         'parameters': parameters,
@@ -292,4 +292,4 @@ def archive(request, cruises, filename='archive.tbz', formats=['exchange'],
     temp.seek(0, os.SEEK_END)
     field.length = temp.tell()
     temp.seek(0)
-    return _file_response(request, field, 'attachment')
+    return file_response(request, field, 'attachment')

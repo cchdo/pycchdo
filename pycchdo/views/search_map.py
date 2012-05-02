@@ -19,7 +19,7 @@ import bson.objectid
 from pycchdo import models
 from pycchdo.models import search
 from pycchdo import helpers as h
-from pycchdo.views import _file_response
+from pycchdo.views import file_response
 
 
 RADIUS_EARTH = 6371.01 # km
@@ -216,7 +216,7 @@ def layer(request):
         if os.path.isfile(full_path):
             size = os.stat(full_path).st_size
             f = open(full_path, 'r')
-            return _file_response(request, f)
+            return file_response(request, f)
     else:
         # Do some cleanup
         for entry in os.listdir(temp_dir):

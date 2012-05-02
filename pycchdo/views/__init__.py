@@ -206,8 +206,8 @@ def _file_response(request, file, disposition='inline'):
     try:
         resp.app_iter.read(1)
         resp.app_iter.seek(0)
-    except models.CorruptGridFile:
-        log.error('Missing GridFile %s' % file._id)
+    except IOError:
+        log.error('Missing file %s' % file._id)
         raise HTTPNotFound()
 
     return resp

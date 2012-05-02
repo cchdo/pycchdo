@@ -13,8 +13,6 @@ import webhelpers.html.tags as tags
 import webhelpers.html.tools as whhtools
 import webhelpers.text as whtext
 
-from gridfs.grid_file import GridOut
-
 import models
 
 
@@ -215,9 +213,11 @@ def datetime(dt, format='%F %T'):
 
 def attr_value(a):
     v = a.value
-    if type(v) is GridOut:
+    try:
+        v.read
         return 'file(%s)' % v.name
-    return a.value
+    except AttributeError:
+        return v
 
 
 def cruise_dates(cruise):

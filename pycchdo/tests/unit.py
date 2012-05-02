@@ -1,6 +1,10 @@
 import unittest
+import uuid
 import datetime
-from StringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 from pyramid import testing
 from pyramid.config import Configurator
@@ -9,9 +13,10 @@ from pyramid.httpexceptions import HTTPBadRequest
 import shapely.geometry.linestring
 import shapely.geometry.polygon
 
-from pycchdo.models.models import mongodoc, collectablemongodoc, Stamp, Obj, \
-                                  _Change, _Attr, Note, Country, Cruise, \
-                                  Person, Collection
+from pycchdo.models import filefs
+from pycchdo.models.models import \
+    cchdo, mongodoc, collectablemongodoc, Stamp, Obj, _Change, _Attr, Note, \
+    Country, Cruise, Person, Collection
 
 from . import *
 
@@ -711,6 +716,66 @@ class TestModel(unittest.TestCase):
         })
 
         c.remove()
+
+
+class TestModelFileFS(unittest.TestCase):
+    def setUp(self):
+        global_setUp(self)
+        self.connection = cchdo()
+
+    def tearDown(self):
+        del self.connection
+        global_tearDown(self)
+
+    def test_create(self):
+        """ A FS object representing a filesystem backed file storage system.
+
+        """
+        fs = filefs.FileFS(self.connection)
+        self.assertEqual(self.connection, fs.connection)
+        self.assertNotEqual(None, fs.root)
+    
+    def test_delete(self):
+        """ Delete a file-like object with attributes from the fs
+
+        """
+        fs = filefs.FileFS(self.connection)
+        file = StringIO('Hello World!')
+        id = fs.put(file, 'filename.txt', 'text/plain')
+        self.assertNotEqual(id, None)
+        fs.delete(id)
+        self.assertRaises(filefs.NoFile, lambda: fs.get(id))
+    
+    def test_put(self):
+        """ Putting a file-like object with attributes into the fs returns an id
+            to refer to the data.
+
+        """
+        fs = filefs.FileFS(self.connection)
+        file = StringIO('Hello World!')
+        id = fs.put(file, 'filename.txt', 'text/plain')
+        self.assertNotEqual(id, None)
+        fs.delete(id)
+    
+    def test_get(self):
+        """ Get a file-like object with attributes from the fs
+
+        """
+        fs = filefs.FileFS(self.connection)
+        file = StringIO('Hello World!')
+        filename = 'filename.txt'
+        contentType = 'text/plain'
+        id = fs.put(file, filename, contentType)
+        outfile = fs.get(id)
+
+        outfile.seek(0)
+        file.seek(0)
+        self.assertEqual(outfile.name, filename)
+        self.assertEqual(outfile.read(), file.read())
+        self.assertEqual(outfile.__class__, filefs.FileOut)
+        fs.delete(id)
+
+        self.assertRaises(filefs.NoFile, lambda: fs.get(id))
 
 
 class TestHelper(unittest.TestCase):

@@ -2,8 +2,8 @@ import datetime
 import re
 import socket
 import errno
-
 from warnings import warn
+from cgi import FieldStorage
 
 from webob.multidict import MultiDict
 
@@ -18,17 +18,22 @@ from bson.errors import InvalidId
 from shapely.geometry import linestring
 from geojson import LineString
 
-import gridfs
-from gridfs.errors import CorruptGridFile
+from gridfs import GridFS
+from gridfs.errors import NoFile
 
 from libcchdo.fns import uniquify
 
-import triggers
+from pycchdo.models.filefs import FileFS, NoFile
+from pycchdo.models import triggers
+
+
+# Use FileFS instead of GridFS for testing performance
+fs_constructor = FileFS
 
 
 mongo_conn = None
 db_name = None
-grid_fs = None
+filesys = None
 
 
 # Connection management is left flat in the module b/c for now it's not
@@ -109,12 +114,12 @@ def cchdo():
 
 def fs():
     """ Provides the root file system object
-        Ensure and return a GridFS wrapper for the database connection.
+        Ensure and return a filesystem wrapper for the database connection.
     """
-    global grid_fs
-    if not grid_fs:
-        grid_fs = gridfs.GridFS(cchdo())
-    return grid_fs
+    global filesys
+    if not filesys:
+        filesys = fs_constructor(cchdo())
+    return filesys
 
 
 data_file_human_names = {
@@ -747,26 +752,29 @@ class _FileHolder(_RequestTracker):
 
     """
 
-    def store_file(self, field_or_gridout):
-        """ Stores the file described by field_or_gridout in the filesystem and keeps a
+    def store_file(self, field_or_file):
+        """ Stores the file described by field_or_file in the filesystem and keeps a
             reference.
 
             The reference will be stored in the object's file attribute.
 
-            If field_or_gridout is a gridfs.grid_file.GridOut object then the
+            If field_or_file is a file-like object with an id then the
             reference is stored and no new file is created.
 
             Raises: AttributeError when field does not have file, filename, and
                     type
         """
         self.file_ = None
-        if type(field_or_gridout) is gridfs.grid_file.GridOut:
-            self.file_ = field_or_gridout._id
-        else:
-            field = field_or_gridout
+        try:
+            file = field_or_file
+            file.read
+            id = file._id
+            self.file_ = id
+        except AttributeError:
+            field = field_or_file
             try:
-                self.file_ = fs().put(field.file, filename=field.filename,
-                                      contentType=field.type)
+                self.file_ = fs().put(
+                    field.file, filename=field.filename, contentType=field.type)
             except Exception, e:
                 raise e
 
@@ -776,7 +784,7 @@ class _FileHolder(_RequestTracker):
             return None
         try:
             return fs().get(fileid)
-        except gridfs.NoFile:
+        except NoFile:
             raise IOError('File not found')
 
     @property

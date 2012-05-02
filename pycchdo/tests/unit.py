@@ -1,5 +1,3 @@
-import unittest
-import uuid
 import datetime
 try:
     from cStringIO import StringIO
@@ -13,6 +11,7 @@ from pyramid.httpexceptions import HTTPBadRequest
 import shapely.geometry.linestring
 import shapely.geometry.polygon
 
+import pycchdo
 from pycchdo.models import filefs
 from pycchdo.models.models import \
     cchdo, mongodoc, collectablemongodoc, Stamp, Obj, _Change, _Attr, Note, \
@@ -21,16 +20,28 @@ from pycchdo.models.models import \
 from . import *
 
 
-class TestModel(unittest.TestCase):
-    setUp = global_setUp
-    tearDown = global_tearDown
+class PersonBaseTest(BaseTest):
+    def setUp(self):
+        super(PersonBaseTest, self).setUp()
+        self.testPerson = Person(
+            identifier='testid', name_first='Testing', name_last='Tester')
+        self.testPerson.save()
 
+    def tearDown(self):
+        self.testPerson.remove()
+        del self.testPerson
+        super(PersonBaseTest, self).tearDown()
+
+
+class TestModelStamp(PersonBaseTest):
     def test_Stamp_requires_saved_Person(self):
         """ Stamp requires a saved Person. """
         p = Person(identifier='testid1')
         Stamp(self.testPerson)
         self.assertRaises(ValueError, lambda: Stamp(p))
 
+
+class TestModelChange(PersonBaseTest):
     def test_new_Change(self):
         """ Newly created objects have correct values for stamps and notes """
         before = datetime.datetime.utcnow()
@@ -78,6 +89,29 @@ class TestModel(unittest.TestCase):
         self.assertFalse(change['accepted'])
         change.remove()
 
+    def test_Change_stamp_properties(self):
+        """ The properties for _Changes corresponding to stamps should return a mapped object """
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertTrue(type(obj.creation_stamp) is Stamp)
+        self.assertTrue(obj.pending_stamp is None)
+        self.assertTrue(obj.judgment_stamp is None)
+        obj.acknowledge(self.testPerson)
+        self.assertTrue(type(obj.pending_stamp) is Stamp)
+        obj.accept(self.testPerson)
+        self.assertTrue(type(obj.judgment_stamp) is Stamp)
+        obj.remove()
+
+
+class TestModelAttrs(PersonBaseTest):
+    def test_new_Attr(self):
+        """ New Attrs are instances of _Change """
+        o = Obj(self.testPerson)
+        o.save()
+        attr = _Attr(self.testPerson, o)
+        self.assertTrue(isinstance(attr, _Change))
+        o.remove()
+
     def test_Attrs_accepted_changes(self):
         """ Accepted changes """
         o = Obj(self.testPerson)
@@ -86,7 +120,8 @@ class TestModel(unittest.TestCase):
         o.set('a', 'b', self.testPerson)
         self.assertEquals([], o.accepted_tracked())
         _Attr.map_mongo(o.history()[0]).accept(self.testPerson)
-        self.assertEquals([_Attr.map_mongo(o.history()[0])], o.accepted_tracked())
+        self.assertEquals(
+            [_Attr.map_mongo(o.history()[0])], o.accepted_tracked())
         o.remove()
 
     def test_Attrs_keys(self):
@@ -183,6 +218,85 @@ class TestModel(unittest.TestCase):
 
         obj.remove()
 
+    def test_new_Attr_returns_Attr(self):
+        obj = Obj(self.testPerson)
+        obj.save()
+        self.assertTrue(type(obj.set('a', 'v', self.testPerson)) is _Attr)
+        obj.remove()
+
+    def test_Attr_list(self):
+        """ Setting a list on an Obj's attrs stores a list """
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.set('a', [], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a['value']) is list)
+        a = obj.set('a', ['b'], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a['value']) is list)
+        self.assertTrue(a['value'] == ['b'])
+
+        obj.remove()
+
+    def test_Attr_file_suggesting(self):
+        """ Setting an _Attr to some binary data adds a _Attr that has file set
+        to True. Such an object must be given some data. It may optionally be
+        given
+            a MIME type.
+        """
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        file_data = StringIO('this is a test file object\nwith two lines')
+        file = MockFieldStorage('testfile.txt', file_data, 'text/plain')
+
+        a = obj.set('a', file, self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a) is _Attr)
+        self.assertTrue(a['file'])
+        obj.remove()
+
+    def test_Attr_file_creation(self):
+        """ Creating a _Attr with a file stores the file in an object store. """
+        file_data = StringIO('this is a test file object\nwith two lines')
+        file = MockFieldStorage('testfile.txt', file_data, 'text/plain')
+        note = None
+
+        d = _Attr(self.testPerson, 'testid', 'a', file, note)
+        d.save()
+
+        file.file.seek(0)
+        self.assertEquals(d.file.read(), file.file.read())
+        d.remove()
+
+    def test_Attr_track_suggesting(self):
+        """ Setting an _Attr to a track saves the value in track.
+        """
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.set('track', [[32, -117], [33, 118]], self.testPerson)
+        a.accept(self.testPerson)
+        self.assertTrue(type(a) is _Attr)
+        self.assertTrue(a['track'])
+        obj.remove()
+
+    def test_Attr_accept_value(self):
+        """ Accepting an _Attr with an accepted value will change the returned
+            value of the Attribute """
+        obj = Obj(self.testPerson)
+        obj.save()
+
+        a = obj.set('a', 1, self.testPerson)
+        self.assertEqual(1, a.value)
+        a.accept_value(2, self.testPerson)
+        self.assertEqual(2, a.value)
+
+        obj.remove()
+
+
+class TestModelObj(PersonBaseTest):
     def test_new_Obj(self):
         """ New Objs are instances of _Change """
         obj = Obj(self.testPerson)
@@ -259,7 +373,8 @@ class TestModel(unittest.TestCase):
         conflicted_attr = conflicted_obj.set('a','first_value', self.testPerson)
         conflicted_attr.accept_value("second_value", self.testPerson)
         conflicted_obj.save()
-        # Don't find objects whose value match, but accepted value does not match.        
+        # Don't find objects whose value match, but accepted value does not
+        # match.
         found_objects = Obj.get_by_attrs(a= 'first_value')
         self.assertEquals(len(found_objects), 0)
         # Find objects whose accepted value matches.
@@ -270,14 +385,7 @@ class TestModel(unittest.TestCase):
         conflicted_obj.remove()
 
 
-    def test_new_Attr(self):
-        """ New Attrs are instances of _Change """
-        o = Obj(self.testPerson)
-        o.save()
-        attr = _Attr(self.testPerson, o)
-        self.assertTrue(isinstance(attr, _Change))
-        o.remove()
-
+class TestModelPerson(PersonBaseTest):
     def test_Person_new(self):
         """ New people are Objs """
         p = Person(name_first="Ryan", name_last="Tester",
@@ -366,34 +474,6 @@ class TestModel(unittest.TestCase):
         
         p.remove()
 
-    def test_mongodoc_custom_attrs(self):
-        """ Custom attributes for mongodoc
-        Editing an attribute that is listed will edit the value as if the
-        attribute name were the dictionary key.
-
-        """
-        # Get
-        doc = mongodoc({'a': 1, 'b': 2})
-        self.assertEquals(doc.a, 1)
-        self.assertEquals(doc.b, 2)
-        self.assertRaises(AttributeError, lambda: doc.c)
-
-        # Set
-        doc = mongodoc({'a': 1, 'b': 2})
-        self.assertEquals(doc.a, 1)
-        doc.a = 3
-        self.assertEquals(doc.a, 3)
-
-        # Del
-        doc = mongodoc({'a': 1, 'b': 2})
-        self.assertEquals(doc.a, 1)
-        del doc.a
-        self.assertRaises(AttributeError, lambda: doc.a)
-
-    def test_collectablemongodoc_find_id_with_invalid_id_gives_None(self):
-        """ Attempting to find an invalid collectablemongodoc gives None. """
-        self.assertEquals(None, collectablemongodoc.find_id('invalid_object_id'))
-
     def test_Obj_map_mongo(self):
         """ An Obj mapped from a mongo doc will have the correct _obj_type """
         id = self.testPerson['_id']
@@ -461,96 +541,38 @@ class TestModel(unittest.TestCase):
         self.assertTrue(issubclass(type(new_obj), Obj))
         obj.remove()
 
-    def test_Change_stamp_properties(self):
-        """ The properties for _Changes corresponding to stamps should return a mapped object """
-        obj = Obj(self.testPerson)
-        obj.save()
-        self.assertTrue(type(obj.creation_stamp) is Stamp)
-        self.assertTrue(obj.pending_stamp is None)
-        self.assertTrue(obj.judgment_stamp is None)
-        obj.acknowledge(self.testPerson)
-        self.assertTrue(type(obj.pending_stamp) is Stamp)
-        obj.accept(self.testPerson)
-        self.assertTrue(type(obj.judgment_stamp) is Stamp)
-        obj.remove()
 
-    def test_new_Attr_returns_Attr(self):
-        obj = Obj(self.testPerson)
-        obj.save()
-        self.assertTrue(type(obj.set('a', 'v', self.testPerson)) is _Attr)
-        obj.remove()
+class TestModelMongodoc(PersonBaseTest):
+    def test_mongodoc_custom_attrs(self):
+        """ Custom attributes for mongodoc
+        Editing an attribute that is listed will edit the value as if the
+        attribute name were the dictionary key.
 
-    def test_Attr_list(self):
-        """ Setting a list on an Obj's attrs stores a list """
-        obj = Obj(self.testPerson)
-        obj.save()
-
-        a = obj.set('a', [], self.testPerson)
-        a.accept(self.testPerson)
-        self.assertTrue(type(a['value']) is list)
-        a = obj.set('a', ['b'], self.testPerson)
-        a.accept(self.testPerson)
-        self.assertTrue(type(a['value']) is list)
-        self.assertTrue(a['value'] == ['b'])
-
-        obj.remove()
-
-    def test_Attr_file_suggesting(self):
-        """ Setting an _Attr to some binary data adds a _Attr that has file set
-        to True. Such an object must be given some data. It may optionally be
-        given
-            a MIME type.
         """
-        obj = Obj(self.testPerson)
-        obj.save()
+        # Get
+        doc = mongodoc({'a': 1, 'b': 2})
+        self.assertEquals(doc.a, 1)
+        self.assertEquals(doc.b, 2)
+        self.assertRaises(AttributeError, lambda: doc.c)
 
-        file_data = StringIO('this is a test file object\nwith two lines')
-        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
+        # Set
+        doc = mongodoc({'a': 1, 'b': 2})
+        self.assertEquals(doc.a, 1)
+        doc.a = 3
+        self.assertEquals(doc.a, 3)
 
-        a = obj.set('a', file, self.testPerson)
-        a.accept(self.testPerson)
-        self.assertTrue(type(a) is _Attr)
-        self.assertTrue(a['file'])
-        obj.remove()
+        # Del
+        doc = mongodoc({'a': 1, 'b': 2})
+        self.assertEquals(doc.a, 1)
+        del doc.a
+        self.assertRaises(AttributeError, lambda: doc.a)
 
-    def test_Attr_file_creation(self):
-        """ Creating a _Attr with a file stores the file in an object store. """
-        file_data = StringIO('this is a test file object\nwith two lines')
-        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
-        note = None
+    def test_collectablemongodoc_find_id_with_invalid_id_gives_None(self):
+        """ Attempting to find an invalid collectablemongodoc gives None. """
+        self.assertEquals(None, collectablemongodoc.find_id('invalid_object_id'))
 
-        d = _Attr(self.testPerson, 'testid', 'a', file, note)
-        d.save()
 
-        file.file.seek(0)
-        self.assertEquals(d.file.read(), file.file.read())
-        d.remove()
-
-    def test_Attr_track_suggesting(self):
-        """ Setting an _Attr to a track saves the value in track.
-        """
-        obj = Obj(self.testPerson)
-        obj.save()
-
-        a = obj.set('track', [[32, -117], [33, 118]], self.testPerson)
-        a.accept(self.testPerson)
-        self.assertTrue(type(a) is _Attr)
-        self.assertTrue(a['track'])
-        obj.remove()
-
-    def test_Attr_accept_value(self):
-        """ Accepting an _Attr with an accepted value will change the returned
-            value of the Attribute """
-        obj = Obj(self.testPerson)
-        obj.save()
-
-        a = obj.set('a', 1, self.testPerson)
-        self.assertEqual(1, a.value)
-        a.accept_value(2, self.testPerson)
-        self.assertEqual(2, a.value)
-
-        obj.remove()
-
+class TestModelCruise(PersonBaseTest):
     def test_Cruise_has_country(self):
         """ Get a Cruise's country """
         c = Cruise(self.testPerson)
@@ -611,8 +633,10 @@ class TestModel(unittest.TestCase):
 
         cs = Cruise.map_mongo(Cruise.all())
 
-        p0 = shapely.geometry.polygon.Polygon([[-1, -1], [-1, 2], [4, 2], [4, -1], [-1, -1]])
-        p1 = shapely.geometry.polygon.Polygon([[1, -1], [1, 2], [4, 2], [4, -1], [1, -1]])
+        p0 = shapely.geometry.polygon.Polygon(
+            [[-1, -1], [-1, 2], [4, 2], [4, -1], [-1, -1]])
+        p1 = shapely.geometry.polygon.Polygon(
+            [[1, -1], [1, 2], [4, 2], [4, -1], [1, -1]])
 
         self.assertEquals(Cruise.filter_geo(p0.intersects, cs), cs)
         self.assertEquals(Cruise.filter_geo(p1.intersects, cs), [cs[1]])
@@ -631,13 +655,33 @@ class TestModel(unittest.TestCase):
 
         self.assertEquals(c.tracked_data(), [])
 
-        f0 = _mock_FieldStorage('f0_hy1.csv', StringIO('mock_botex'), 'text/csv')
+        f0 = MockFieldStorage('f0_hy1.csv', StringIO('mock_botex'), 'text/csv')
         a0 = c.set('bottle_exchange', f0, self.testPerson)
         a0.accept(self.testPerson)
         self.assertEquals(c.tracked_data(), [a0])
 
         c.remove()
 
+    def test_cruise_files(self):
+        """ cruise.files should be a dict mapping data_file_human_names to the
+            actual value for that cruise
+        """
+        c = Cruise(self.testPerson)
+        c.save()
+
+        c.set_accept('bottle_exchange', 'botex', self.testPerson)
+        c.set_accept('ctdzip_netcdf', 'ctdzipnc', self.testPerson)
+        c.set_accept('doc_pdf', 'doc_pdf', self.testPerson)
+
+        self.assertEquals(c.files, {
+            'bottle_exchange': 'botex',
+            'ctdzip_netcdf': 'ctdzipnc',
+            'doc_pdf': 'doc_pdf',
+        })
+
+        c.remove()
+
+class TestModelCollection(PersonBaseTest):
     def test_Collection_merge(self):
         """
         Collections that are merged together should have:
@@ -698,34 +742,15 @@ class TestModel(unittest.TestCase):
 
         c2.remove()
 
-    def test_cruise_files(self):
-        """ cruise.files should be a dict mapping data_file_human_names to the
-            actual value for that cruise
-        """
-        c = Cruise(self.testPerson)
-        c.save()
 
-        c.set_accept('bottle_exchange', 'botex', self.testPerson)
-        c.set_accept('ctdzip_netcdf', 'ctdzipnc', self.testPerson)
-        c.set_accept('doc_pdf', 'doc_pdf', self.testPerson)
-
-        self.assertEquals(c.files, {
-            'bottle_exchange': 'botex',
-            'ctdzip_netcdf': 'ctdzipnc',
-            'doc_pdf': 'doc_pdf',
-        })
-
-        c.remove()
-
-
-class TestModelFileFS(unittest.TestCase):
+class TestModelFileFS(BaseTest):
     def setUp(self):
-        global_setUp(self)
+        super(TestModelFileFS, self).setUp()
         self.connection = cchdo()
 
     def tearDown(self):
         del self.connection
-        global_tearDown(self)
+        super(TestModelFileFS, self).tearDown()
 
     def test_create(self):
         """ A FS object representing a filesystem backed file storage system.
@@ -778,17 +803,17 @@ class TestModelFileFS(unittest.TestCase):
         self.assertRaises(filefs.NoFile, lambda: fs.get(id))
 
 
-class TestHelper(unittest.TestCase):
-    setUp = global_setUp
-    tearDown = global_tearDown
-
+class TestHelper(PersonBaseTest):
     def test_helper_data_file_link(self):
-        """ Given an _Attr with a file, provide a link to a file next to its description """
+        """ Given an _Attr with a file, provide a link to a file next to its
+            description
+
+        """
         from pycchdo.helpers import data_file_link
         request = testing.DummyRequest()
         #match 'entry/new' => 'entries#new'
         file_data = StringIO('')
-        file = _mock_FieldStorage('testfile.txt', file_data, 'text/plain')
+        file = MockFieldStorage('testfile.txt', file_data, 'text/plain')
         data = _Attr(self.testPerson, 'testid', 'a', file)
         data.obj = self.testPerson.id
         data.save()
@@ -816,33 +841,13 @@ class TestHelper(unittest.TestCase):
         data.remove()
 
 
-class _MockSession:
-    def get(self, key, default):
-        return 'Mock Session value for', key, default
-
-    def __setitem__(self, key, value):
-        print 'Mock set', key, value
-
-    def flash(self, queue, msg):
-        print 'Mock Flash', queue, msg
-
-    def peek_flash(self, queue):
-        return 'Mock Flash peek for', queue
-
-    def pop_flash(self, queue):
-        return 'Mock Flash pop for', queue
-
-
-class TestView(unittest.TestCase):
+class TestView(PersonBaseTest):
     def setUp(self):
-        global_setUp(self)
+        super(TestView, self).setUp()
         self.config.include('pyramid_jinja2')
         self.config.add_jinja2_search_path('pycchdo:')
         from pyramid.events import BeforeRender
-        import pycchdo
         self.config.add_subscriber(pycchdo.add_renderer_globals, BeforeRender)
-
-    tearDown = global_tearDown
 
     def test__collapse_dict(self):
         """ Collapse a dictionary tree based on a given value being invalid. """
@@ -884,7 +889,7 @@ class TestView(unittest.TestCase):
         c.save()
 
         mock_data = StringIO('')
-        mock_file = _mock_FieldStorage('mockfile.txt', mock_data, 'plain/text')
+        mock_file = MockFieldStorage('mockfile.txt', mock_data, 'plain/text')
 
         request = testing.DummyRequest()
         request.matchdict['cruise_id'] = c.id
@@ -895,7 +900,7 @@ class TestView(unittest.TestCase):
         request.params['type'] = 'invalid_type'
         request.params['file'] = mock_file
 
-        request.session = _MockSession()
+        request.session = MockSession()
 
         dictionary = cruise_show(request)
 

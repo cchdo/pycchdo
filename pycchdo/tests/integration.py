@@ -1,5 +1,3 @@
-import unittest
-
 from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
 from pyramid import testing
@@ -8,10 +6,7 @@ from . import *
 from pycchdo import models
 
 
-class TestView(unittest.TestCase):
-    setUp = global_setUp
-    tearDown = global_tearDown
-
+class TestView(BaseTest):
     def test_home_view(self):
         from pycchdo.views.toplevel import home
         request = testing.DummyRequest()

@@ -11,6 +11,8 @@ db_uri = mongodb://sui.ucsd.edu:27019/?journal=true&w=1
 db_name = cchdo
 # Search index
 db_search_index_path = /var/cache/pycchdo_search_index_dev
+# submission confirmation recipient (leave blank for default)
+submission_confirmation_recipient = synmantics+test@gmail.com
 # Security keys
 # TODO change the secrets
 key_auth_policy = seekrit
@@ -32,14 +34,14 @@ port = 6543
 keys = root, pycchdo
 
 [handlers]
-keys = console
+keys = console, console_root
 
 [formatters]
-keys = generic
+keys = generic, generic_root
 
 [logger_root]
 level = DEBUG
-handlers = console
+handlers = console_root
 
 [logger_pycchdo]
 level = DEBUG
@@ -52,7 +54,16 @@ args = (sys.stderr,)
 level = NOTSET
 formatter = generic
 
+[handler_console_root]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic_root
+
 [formatter_generic]
 format = %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s
+
+[formatter_generic_root]
+format = ROOT %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s
 
 # End logging configuration

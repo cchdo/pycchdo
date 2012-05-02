@@ -2,8 +2,6 @@ import datetime
 import re
 import socket
 import errno
-from warnings import warn
-from cgi import FieldStorage
 
 from webob.multidict import MultiDict
 
@@ -16,6 +14,7 @@ from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
 from shapely.geometry import linestring
+
 from geojson import LineString
 
 from gridfs import GridFS
@@ -23,48 +22,114 @@ from gridfs.errors import NoFile
 
 from libcchdo.fns import uniquify
 
-from pycchdo.models.filefs import FileFS, NoFile
 from pycchdo.models import triggers
+from pycchdo.models.filefs import FileFS, NoFile
 
 
-# Use FileFS instead of GridFS for testing performance
-fs_constructor = FileFS
+def flatten(l):
+    return [item for sublist in l for item in sublist]
 
 
-mongo_conn = None
-db_name = None
-filesys = None
+def _str2unicode(x):
+    if type(x) is str:
+        return unicode(x)
+    return x
+
+
+def is_valid_ipv4(ip):
+    try:
+        return socket.inet_pton(socket.AF_INET, ip)
+    except AttributeError: # no inet_pton here, sorry
+        try:
+            return socket.inet_aton(ip)
+        except socket.error:
+            return False
+    except socket.error:
+        return False
+
+
+def is_valid_ipv6(ip):
+    try:
+        return socket.inet_pton(socket.AF_INET6, ip)
+    except socket.error:
+        return False
+
+
+def is_valid_ip(ip):
+    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
+
+
+class MongoDBConnection:
+    def __init__(self, settings, fs=GridFS, *args, **kwargs):
+        """ Set up a connection to the MongoDB
+
+        Args:
+           settings - settings dictionary containing, among other
+               configuration options, the database URI
+           fs - the filesystem backend to use 
+           **kwargs - required for miscellaneous options to the
+               pymongo.Connection constructor
+        """
+        db_uri = settings['db_uri']
+        self._db_name = settings['db_name']
+        self._fs = fs
+        self._filesys = None
+
+        try:
+            try:
+                replicaSet = settings['db_replSet']
+                self._mongo_conn = ReplicaSetConnection(
+                    db_uri, replicaSet=replicaSet,
+                    read_preference=pymongo.ReadPreference.SECONDARY,
+                )
+            except KeyError:
+                self._mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
+        except (AutoReconnect, ConnectionFailure):
+            raise IOError('Unable to connect to database (%s). Check that the '
+                          'database server is running.' % db_uri)
+
+    def db(self):
+        """ Yield the root database object
+        
+        This is a connection to the MongoDB.
+
+        Returns:
+            The pymongo.Connection object representing the connection to the
+            PyCCHDO PyMongo database, iff it exists.
+
+        """
+        if not self._mongo_conn:
+            raise IOError('No database connection.')
+        return self._mongo_conn[self._db_name]
+
+    def fs(self):
+        """ Provides the root file system object
+
+            Ensure and return a filesystem wrapper for the database connection.
+
+        """
+        if not self._filesys:
+            self._filesys = self._fs(self.db())
+        return self._filesys
+
+
+# Global connection object for the models
+connection = None
 
 
 # Connection management is left flat in the module b/c for now it's not
 # necessary to have more than one database connection.
 def init_conn(settings, *args, **kwargs):
-    """Set up a connection to the PyMongo database.
+    global connection
+    connection = MongoDBConnection(settings, *args, **kwargs)
 
-    Arguments:
-      settings: settings dictionary containing, among other
-                configuration options, the database URI
-      **kwargs: required for miscellaneous options to the
-                pymongo.Connection constructor
-    """
-    global mongo_conn, db_name
 
-    db_uri = settings['db_uri']
-    db_name = settings['db_name']
+def cchdo():
+    return connection.db()
 
-    try:
-        try:
-            replicaSet = settings['db_replSet']
 
-            mongo_conn = pymongo.replica_set_connection.ReplicaSetConnection(
-                db_uri, replicaSet=replicaSet,
-                read_preference=pymongo.ReadPreference.SECONDARY,
-            )
-        except KeyError:
-            mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
-    except (AutoReconnect, ConnectionFailure):
-        raise IOError('Unable to connect to database (%s). Check that the '
-                      'database server is running.' % db_uri)
+def fs():
+    return connection.fs()
 
 
 def ensure_indices():
@@ -91,35 +156,6 @@ def ensure_indices():
         ('_obj_type', 1), ('judgment_stamp.timestamp', 1), ])
     cchdo().objs.ensure_index([
         ('creation_stamp.timestamp', 1), ])
-
-
-def cchdo():
-    """Yield the root database object.
-    
-    This is a connection to the PyMongo database.
-
-    This operation will fail if init_conn() [see above] has
-    not been invoked, or if init_conn() has failed to
-    establish the database connection.
-
-    Return:
-      The pymongo.Connection object representing the
-      connection to the PyCCHDO PyMongo database, iff
-      it exists.
-    """
-    if not mongo_conn:
-        raise IOError('No database connection.')
-    return mongo_conn[db_name]
-
-
-def fs():
-    """ Provides the root file system object
-        Ensure and return a filesystem wrapper for the database connection.
-    """
-    global filesys
-    if not filesys:
-        filesys = fs_constructor(cchdo())
-    return filesys
 
 
 data_file_human_names = {
@@ -159,10 +195,6 @@ data_file_descriptions = {
 }
 
 
-def flatten(l):
-    return [item for sublist in l for item in sublist]
-
-
 def timestamp():
     """Create a datetime.datetime representing Now."""
     # FIXME This needs to make a datetime that is timezone aware
@@ -187,36 +219,6 @@ def guess_objectid(idobj):
     except ValueError:
         pass
     return idobj
-
-
-def _str2unicode(x):
-    if type(x) is str:
-        return unicode(x)
-    return x
-
-
-def is_valid_ip(ip):
-    """ Validates IP Addresses """
-    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
-
-
-def is_valid_ipv4(ip):
-    try:
-        return socket.inet_pton(socket.AF_INET, ip)
-    except AttributeError: # no inet_pton here, sorry
-        try:
-            return socket.inet_aton(ip)
-        except socket.error:
-            return False
-    except socket.error:
-        return False
-
-
-def is_valid_ipv6(ip):
-    try:
-        return socket.inet_pton(socket.AF_INET6, ip)
-    except socket.error:
-        return False
 
 
 def sort_by_stamp(query, stamp='creation', direction=DESCENDING):

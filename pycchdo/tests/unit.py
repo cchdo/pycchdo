@@ -842,13 +842,6 @@ class TestHelper(PersonBaseTest):
 
 
 class TestView(PersonBaseTest):
-    def setUp(self):
-        super(TestView, self).setUp()
-        self.config.include('pyramid_jinja2')
-        self.config.add_jinja2_search_path('pycchdo:')
-        from pyramid.events import BeforeRender
-        self.config.add_subscriber(pycchdo.add_renderer_globals, BeforeRender)
-
     def test__collapse_dict(self):
         """ Collapse a dictionary tree based on a given value being invalid. """
         from pycchdo.views import collapse_dict

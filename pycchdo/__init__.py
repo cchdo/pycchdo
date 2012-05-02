@@ -1,5 +1,3 @@
-import os
-
 from pyramid.config import Configurator
 from pyramid.events import BeforeRender
 from pyramid.authentication import AuthTktAuthenticationPolicy
@@ -17,10 +15,33 @@ import webhelpers.html.tags
 
 import geojson
 
-import models
-import helpers
-from views.basin import basins
+from pycchdo import models, helpers
+from pycchdo.views.basin import basins
 from pycchdo.models.search import SearchIndex
+
+
+def create_config(settings):
+    authentication_policy = AuthTktAuthenticationPolicy(
+        settings['key_auth_policy'])
+    authorization_policy = ACLAuthorizationPolicy()
+    session_factory = UnencryptedCookieSessionFactoryConfig(
+        settings['key_session_factory'])
+
+    settings['db.search_index'] = SearchIndex(settings['db_search_index_path'])
+
+    return Configurator(
+        settings=settings,
+        request_factory=RequestFactory,
+        authentication_policy=authentication_policy,
+        authorization_policy=authorization_policy,
+        session_factory=session_factory,
+    )
+
+
+def _configure_bindings(config):
+    config.include('pyramid_jinja2')
+    config.include('pyramid_mailer')
+    config.add_jinja2_search_path('pycchdo:templates')
 
 
 class RequestFactory(Request):
@@ -41,13 +62,34 @@ class RequestFactory(Request):
         return models
 
 
-def add_renderer_globals(event):
-    # from json import dumps
+def _add_renderer_globals(event):
     # from urllib import quote
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
     event['h'] = helpers
     event['geojson'] = geojson
+
+
+def _configure_renderers(config):
+    config.add_subscriber(_add_renderer_globals, BeforeRender)
+    config.add_renderer('.html', 'pyramid_jinja2.renderer_factory')
+    config.add_renderer('json', 'pycchdo.renderer_factory.json')
+
+
+def _add_error_view(config, view_callable, context,
+                   renderer='errors/xxx.jinja2'):
+    config.add_view(view_callable, context=context, renderer=renderer)
+
+
+def _configure_error_views(config):
+    _add_error_view(config, 'pycchdo.views.notfound_view', NotFound)
+    _add_error_view(config, 'pycchdo.views.unauthorized_view', HTTPUnauthorized)
+    _add_error_view(config, 'pycchdo.views.server_error_view', HTTPInternalServerError)
+
+
+def route_path(config, route_name, path, view_callable, renderer=None):
+    config.add_route(route_name, path)
+    config.add_view(view_callable, route_name=route_name, renderer=renderer)
 
 
 def obj_routes(config, obj, plural_obj=None,
@@ -56,188 +98,118 @@ def obj_routes(config, obj, plural_obj=None,
     if not plural_obj:
         plural_obj = obj + 's'
 
-    config.add_route(plural_obj,
-                     '/{plural_obj}.html'.format(plural_obj=plural_obj))
-    config.add_view('pycchdo.views.{obj}.{plural_obj}_index'.format(
-        obj=obj, plural_obj=plural_obj), route_name=plural_obj,
-        renderer='templates/{obj}/index.jinja2'.format(obj=obj))
+    route_path(config, plural_obj,
+               '/{0}.html'.format(plural_obj),
+               'pycchdo.views.{0}.{1}_index'.format(obj, plural_obj),
+               '{0}/index.jinja2'.format(obj))
 
     if json_index:
-        config.add_route(plural_obj + '_json',
-                         '/{plural_obj}.json'.format(plural_obj=plural_obj))
-        config.add_view('pycchdo.views.{obj}.{plural_obj}_index_json'.format(
-            obj=obj, plural_obj=plural_obj), route_name=plural_obj + '_json',
-            renderer='json')
+        route_path(config, plural_obj + '_json',
+                   '/{0}.json'.format(plural_obj), 
+                   'pycchdo.views.{0}.{1}_index_json'.format(obj, plural_obj),
+                   'json')
 
     if json_show:
-        config.add_route(
-            '{obj}_show_json'.format(obj=obj),
-            '/{obj}/{{{obj}_id}}.json'.format(obj=obj))
-        config.add_view(
-            'pycchdo.views.{obj}.{obj}_show_json'.format(obj=obj),
-            route_name='{obj}_show_json'.format(obj=obj),
-            renderer='json')
+        route_path(config, '{0}_show_json'.format(obj),
+                   '/{0}/{{{0}_id}}.json'.format(obj),
+                   'pycchdo.views.{0}.{0}_show_json'.format(obj),
+                   'json')
 
-    config.add_route(
-        '{obj}_show'.format(obj=obj), '/{obj}/{{{obj}_id}}'.format(obj=obj))
-    config.add_view(
-        'pycchdo.views.{obj}.{obj}_show'.format(obj=obj),
-        route_name='{obj}_show'.format(obj=obj),
-        renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+    route_path(config, '{0}_show'.format(obj),
+               '/{0}/{{{0}_id}}'.format(obj),
+               'pycchdo.views.{0}.{0}_show'.format(obj),
+               '{0}/show.jinja2'.format(obj))
 
     if archiveable:
-        config.add_route(
-            '{obj}_archive'.format(obj=obj),
-            '/{obj}/{{{obj}_id}}/archive.zip'.format(obj=obj))
-        config.add_view(
-            'pycchdo.views.{obj}.{obj}_archive'.format(obj=obj),
-            route_name='{obj}_archive'.format(obj=obj))
+        route_path(config, '{0}_archive'.format(obj),
+                   '/{0}/{{{0}_id}}/archive.zip'.format(obj),
+                   'pycchdo.views.{0}.{0}_archive'.format(obj))
 
     if new:
-        config.add_route(
-            '{obj}_new'.format(obj=obj),
-            '/{obj}/{{{obj}_id}}/new'.format(obj=obj))
-        config.add_view(
-            'pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
-            route_name='{obj}_new'.format(obj=obj),
-            renderer='templates/{obj}/new.jinja2'.format(obj=obj))
+        route_path(config, '{0}_new'.format(obj),
+                   '/{0}/{{{0}_id}}/new'.format(obj),
+                   'pycchdo.views.{0}.{0}_new'.format(obj),
+                   '{0}/new.jinja2'.format(obj))
 
-        config.add_route(
-            '{plural_obj}_new'.format(plural_obj=plural_obj),
-            '/{plural_obj}/new.html'.format(plural_obj=plural_obj))
-        config.add_view(
-            'pycchdo.views.{obj}.{obj}_new'.format(obj=obj),
-            route_name='{plural_obj}_new'.format(plural_obj=plural_obj),
-            renderer='templates/{obj}/new.jinja2'.format(obj=obj))
+        route_path(config, '{0}_new'.format(plural_obj),
+                   '/{0}/new.html'.format(plural_obj),
+                   'pycchdo.views.{0}.{0}_new'.format(obj),
+                   '{0}/new.jinja2'.format(obj))
 
     if mergeable:
-        config.add_route(
-            '{obj}_merge'.format(obj=obj),
-            '/{obj}/{{{obj}_id}}/merge'.format(obj=obj))
-        config.add_view(
-            'pycchdo.views.{obj}.{obj}_merge'.format(obj=obj),
-            route_name='{obj}_merge'.format(obj=obj),
-            renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+        route_path(config, '{0}_merge'.format(obj),
+                   '/{0}/{{{0}_id}}/merge'.format(obj),
+                   'pycchdo.views.{0}.{0}_merge'.format(obj),
+                   '{0}/show.jinja2'.format(obj))
 
     if editable:
-        config.add_route(
-            '{obj}_edit'.format(obj=obj),
-            '/{obj}/{{{obj}_id}}/edit'.format(obj=obj))
-        config.add_view(
-            'pycchdo.views.{obj}.{obj}_edit'.format(obj=obj),
-            route_name='{obj}_edit'.format(obj=obj),
-            renderer='templates/{obj}/show.jinja2'.format(obj=obj))
+        route_path(config, '{0}_edit'.format(obj),
+                   '/{0}/{{{0}_id}}/edit'.format(obj),
+                   'pycchdo.views.{0}.{0}_edit'.format(obj),
+                   '{0}/show.jinja2'.format(obj))
 
 
-def route_for_path(config, route_name, path, view_callable):
-    config.add_route(route_name, path)
-    config.add_view(view_callable, route_name=route_name)
-
-
-def main(global_config, **settings):
-    """ This function returns a Pyramid WSGI application.
-
-    """
-    authentication_policy = AuthTktAuthenticationPolicy(
-        settings['key_auth_policy'])
-    authorization_policy = ACLAuthorizationPolicy()
-    session_factory = UnencryptedCookieSessionFactoryConfig(
-        settings['key_session_factory'])
-    settings['db.search_index'] = SearchIndex(settings['db_search_index_path'])
-
-    config = Configurator(
-        settings=settings,
-        authentication_policy=authentication_policy,
-        authorization_policy=authorization_policy,
-        request_factory=RequestFactory,
-        session_factory=session_factory,
-    )
-
-    models.init_conn(settings)
-
-    config.include('pyramid_jinja2')
-    config.include('pyramid_mailer')
-    config.add_subscriber(add_renderer_globals, BeforeRender)
-    config.add_renderer('.html', 'pyramid_jinja2.renderer_factory')
-    config.add_renderer('json', 'pycchdo.renderer_factory.json')
-
-    config.add_view('pycchdo.views.notfound_view', context=NotFound, renderer='templates/errors/xxx.jinja2')
-    config.add_view('pycchdo.views.unauthorized_view', context=HTTPUnauthorized, renderer='templates/errors/xxx.jinja2')
-    config.add_view('pycchdo.views.server_error_view', context=HTTPInternalServerError, renderer='templates/errors/xxx.jinja2')
-
+def _configure_routes(config):
     # Serve static files from root
-    config.add_route('favicon', '/favicon.ico')
-    config.add_view('pycchdo.views.toplevel.favicon', route_name='favicon')
-    config.add_route('robots', '/robots.txt')
-    config.add_view('pycchdo.views.toplevel.robots', route_name='robots')
+    route_path(config, 'favicon', '/favicon.ico',
+               'pycchdo.views.toplevel.favicon')
+    route_path(config, 'robots', '/robots.txt',
+               'pycchdo.views.toplevel.robots')
 
-    config.add_static_view('static', 'pycchdo:static', cache_max_age=60 * 60 * 24 * 30)
+    config.add_static_view(
+        'static', 'pycchdo:static', cache_max_age=60 * 60 * 24 * 30)
 
-    config.add_route('home', '/')
-    config.add_view('pycchdo.views.toplevel.home', route_name='home', renderer='templates/home.jinja2')
+    route_path(config, 'home', '/',
+               'pycchdo.views.toplevel.home', 'home.jinja2')
+    route_path(config, 'get_menu', '/get.html',
+               'pycchdo.views.toplevel.get_menu', 'get.jinja2')
+    route_path(config, 'give_menu', '/give.html',
+               'pycchdo.views.toplevel.give_menu', 'give.jinja2')
+    route_path(config, 'information_menu', '/information.html',
+               'pycchdo.views.toplevel.information_menu', 'information.jinja2')
 
-    config.add_route('get_menu', '/get.html')
-    config.add_view('pycchdo.views.toplevel.get_menu', route_name='get_menu',
-                    renderer='templates/get.jinja2')
+    route_path(config, 'submit', '/submit.html',
+               'pycchdo.views.submit.submit', 'submit.jinja2')
+    route_path(config, 'parameters', '/parameters.html',
+               'pycchdo.views.toplevel.parameters', 'parameters.jinja2')
+    route_path(config, 'contributions', '/contributions.html',
+               'pycchdo.views.toplevel.contributions', 'search/map.jinja2')
 
-    config.add_route('information_menu', '/information.html')
-    config.add_view('pycchdo.views.toplevel.information_menu', route_name='information_menu',
-                    renderer='templates/information.jinja2')
+    route_path(config, 'parameter_show', '/parameter/{parameter_id}.json',
+               'pycchdo.views.toplevel.parameter_show', 'json')
 
-    config.add_route('give_menu', '/give.html')
-    config.add_view('pycchdo.views.toplevel.give_menu', route_name='give_menu',
-                    renderer='templates/give.jinja2')
+    route_path(config, 'session', '/session',
+               'pycchdo.views.session.session_show', 'sessions/show.jinja2')
+    route_path(config, 'session_identify', '/session/identify',
+               'pycchdo.views.session.session_identify', 'sessions/identify.jinja2')
+    route_path(config, 'session_new', '/session/new',
+               'pycchdo.views.session.session_new')
+    route_path(config, 'session_delete', '/session/delete',
+               'pycchdo.views.session.session_delete')
 
-    config.add_route('submit', '/submit.html')
-    config.add_view('pycchdo.views.submit.submit', route_name='submit',
-                    renderer='templates/submit.jinja2')
+    route_path(config, 'objs', '/objs',
+               'pycchdo.views.obj.objs', 'objs/index.jinja2')
+    route_path(config, 'obj_new', '/objs/new',
+               'pycchdo.views.obj.obj_new', 'objs/new.jinja2')
+    route_path(config, 'obj_show', '/obj/{obj_id}',
+               'pycchdo.views.obj.obj_show', 'objs/show.jinja2')
+    route_path(config, 'obj_attrs', '/obj/{obj_id}/a',
+               'pycchdo.views.obj.obj_attrs', 'objs/attrs.jinja2')
 
-    config.add_route('parameters', '/parameters.html')
-    config.add_view('pycchdo.views.toplevel.parameters', route_name='parameters',
-                    renderer='templates/parameters.jinja2')
-
-    config.add_route('contributions', '/contributions.html')
-    config.add_view('pycchdo.views.toplevel.contributions', route_name='contributions',
-                    renderer='templates/search/map.jinja2')
-
-    config.add_route('parameter_show', '/parameter/{parameter_id}.json')
-    config.add_view('pycchdo.views.toplevel.parameter_show', route_name='parameter_show',
-                    renderer='json')
-
-    config.add_route('session', '/session')
-    config.add_view('pycchdo.views.session.session_show', route_name='session', renderer='templates/sessions/show.jinja2')
-    config.add_route('session_identify', '/session/identify')
-    config.add_view('pycchdo.views.session.session_identify', route_name='session_identify', renderer='templates/sessions/identify.jinja2')
-    config.add_route('session_new', '/session/new')
-    config.add_view('pycchdo.views.session.session_new', route_name='session_new')
-    config.add_route('session_delete', '/session/delete')
-    config.add_view('pycchdo.views.session.session_delete', route_name='session_delete')
-
-    config.add_route('objs', '/objs')
-    config.add_view('pycchdo.views.obj.objs', route_name='objs', renderer='templates/objs/index.jinja2')
-    config.add_route('obj_new', '/objs/new')
-    config.add_view('pycchdo.views.obj.obj_new', route_name='obj_new', renderer='templates/objs/new.jinja2')
-    config.add_route('obj_show', '/obj/{obj_id}')
-    config.add_view('pycchdo.views.obj.obj_show', route_name='obj_show', renderer='templates/objs/show.jinja2')
-    config.add_route('obj_attrs', '/obj/{obj_id}/a')
-    config.add_view('pycchdo.views.obj.obj_attrs', route_name='obj_attrs', renderer='templates/objs/attrs.jinja2')
-
-    config.add_route('obj_attr', '/obj/{obj_id}/a/{key}')
-    config.add_view('pycchdo.views.obj.obj_attr', route_name='obj_attr', renderer='templates/objs/attr.jinja2')
+    route_path(config, 'obj_attr', '/obj/{obj_id}/a/{key}',
+               'pycchdo.views.obj.obj_attr', 'objs/attr.jinja2')
 
     # Need precedence for extension to catch before ending up a cruise identifier
-    config.add_route('cruise_kml', '/cruise/{cruise_id}.kml')
-    config.add_view('pycchdo.views.cruise.kml', route_name='cruise_kml')
+    route_path(config, 'cruise_kml', '/cruise/{cruise_id}.kml',
+               'pycchdo.views.cruise.kml')
     obj_routes(config, 'cruise', new=True, json_index=True, json_show=True)
-    config.add_route('cruise_map_full', '/cruise/{cruise_id}/map_full')
-    config.add_view('pycchdo.views.cruise.map_full',
-                    route_name='cruise_map_full')
-    config.add_route('cruise_map_thumb', '/cruise/{cruise_id}/map_thumb')
-    config.add_view('pycchdo.views.cruise.map_thumb',
-                    route_name='cruise_map_thumb')
-    config.add_route('cruises_archive', '/cruises/archive.zip')
-    config.add_view('pycchdo.views.cruise.cruises_archive',
-                    route_name='cruises_archive')
+    # TODO map_full.png?
+    route_path(config, 'cruise_map_full', '/cruise/{cruise_id}/map_full',
+               'pycchdo.views.cruise.map_full')
+    route_path(config, 'cruise_map_thumb', '/cruise/{cruise_id}/map_thumb',
+               'pycchdo.views.cruise.map_thumb')
+    route_path(config, 'cruises_archive', '/cruises/archive.zip',
+               'pycchdo.views.cruise.cruises_archive')
 
     obj_routes(config, 'collection', mergeable=True, editable=True,
                json_index=True, archiveable=True)
@@ -251,138 +223,126 @@ def main(global_config, **settings):
                json_index=True, archiveable=True)
 
     # Argo Secure File Repository
-    config.add_route('argo_index', '/argo.html')
-    config.add_view('pycchdo.views.argo.index', route_name='argo_index', renderer='templates/argo/index.jinja2')
-    route_for_path(
-        config, 'argo_index_no_ext', '/argo',
-        'pycchdo.views.legacy.add_extension')
-    config.add_route('argo_new', '/argo/new')
-    config.add_view('pycchdo.views.argo.new', route_name='argo_new', renderer='templates/argo/new.jinja2')
-    config.add_route('argo_entity', '/argo/{id}')
-    config.add_view('pycchdo.views.argo.entity', route_name='argo_entity', renderer='templates/argo/show.jinja2')
+    route_path(config, 'argo_index', '/argo.html',
+               'pycchdo.views.argo.index', 'argo/index.jinja2')
+    route_path(config, 'argo_index_no_ext', '/argo',
+               'pycchdo.views.legacy.add_extension')
+    route_path(config, 'argo_new', '/argo/new',
+               'pycchdo.views.argo.new', 'argo/new.jinja2')
+    route_path(config, 'argo_entity', '/argo/{id}',
+               'pycchdo.views.argo.entity', 'argo/show.jinja2')
 
     # Basin lists
     basins_re = '|'.join(basins)
-    config.add_route('basin_show', '/basin/{basin:%s}.html' % basins_re)
-    config.add_view('pycchdo.views.basin.basin_show', route_name='basin_show',
-                    renderer='templates/basin.jinja2')
-
-    config.add_route('legacy_basin', '/{basin:%s}{ext:|\.html}' % basins_re)
-    config.add_view('pycchdo.views.legacy.basin', route_name='legacy_basin')
+    route_path(config, 'basin_show', '/basin/{basin:%s}.html' % basins_re,
+               'pycchdo.views.basin.basin_show', 'basin.jinja2')
+    route_path(config, 'legacy_basin', '/{basin:%s}{ext:|\.html}' % basins_re,
+               'pycchdo.views.legacy.basin')
 
 	# Search routes
-    config.add_route('search', '/search.html')
-    config.add_view('pycchdo.views.search.search', route_name='search')
-    route_for_path(
-        config, 'search_no_ext', '/search',
-        'pycchdo.views.legacy.add_extension')
+    route_path(config, 'search', '/search.html',
+               'pycchdo.views.search.search')
+    route_path(config, 'search_no_ext', '/search',
+               'pycchdo.views.legacy.add_extension')
 
-    config.add_route('search_results', '/search/results.html')
-    config.add_view('pycchdo.views.search.search_results', route_name='search_results', renderer='templates/search/results.jinja2')
-    route_for_path(
-        config, 'search_results_no_ext', '/search/results',
-        'pycchdo.views.legacy.add_extension')
+    route_path(config, 'search_results', '/search/results.html',
+               'pycchdo.views.search.search_results', 'search/results.jinja2')
+    route_path(config, 'search_results_no_ext', '/search/results',
+               'pycchdo.views.legacy.add_extension')
 
-    config.add_route('search_results_json', '/search/results.json')
-    config.add_view('pycchdo.views.search.search_results_json',
-                    route_name='search_results_json', renderer='json')
+    route_path(config, 'search_results_json', '/search/results.json',
+               'pycchdo.views.search.search_results_json', 'json')
 
-    config.add_route('advanced_search', '/search/advanced.html')
-    config.add_view('pycchdo.views.search.advanced_search', route_name='advanced_search', renderer='templates/search/advanced.jinja2')
-    route_for_path(
-        config, 'advance_search_no_ext', '/search/advanced',
-        'pycchdo.views.legacy.add_extension')
+    route_path(config, 'advanced_search', '/search/advanced.html',
+               'pycchdo.views.search.advanced_search', 'search/advanced.jinja2')
+    route_path(config, 'advance_search_no_ext', '/search/advanced',
+               'pycchdo.views.legacy.add_extension')
 
     # Search map routes
-    config.add_route('search_map', '/search/map.html')
-    config.add_view('pycchdo.views.search_map.index', route_name='search_map',
-                    renderer='templates/search/map.jinja2')
-    route_for_path(
-        config, 'search_map_no_ext', '/search/map',
-        'pycchdo.views.legacy.add_extension')
-    config.add_route('search_map_ids', '/search/map/ids')
-    config.add_view('pycchdo.views.search_map.ids', route_name='search_map_ids')
-    config.add_route('search_map_layer', '/search/map/layer')
-    config.add_view('pycchdo.views.search_map.layer',
-                    route_name='search_map_layer')
+    route_path(config, 'search_map', '/search/map.html',
+               'pycchdo.views.search_map.index', 'search/map.jinja2')
+    route_path(config, 'search_map_no_ext', '/search/map',
+               'pycchdo.views.legacy.add_extension')
+    route_path(config, 'search_map_ids', '/search/map/ids',
+               'pycchdo.views.search_map.ids')
+    route_path(config, 'search_map_layer', '/search/map/layer',
+               'pycchdo.views.search_map.layer')
 
-    config.add_route('legacy_map_search', '/map_search')
-    config.add_view('pycchdo.views.legacy.map_search', route_name='legacy_map_search')
+    route_path(config, 'legacy_map_search', '/map_search', 
+               'pycchdo.views.legacy.map_search')
 
     # maintain legacy data_access
-    route_for_path(config, 'parameter_descriptions',
-                   '/parameter_descriptions',
-                   'pycchdo.views.legacy.parameter_descriptions')
-    route_for_path(config, 'data_access', '/data_access',
-                   'pycchdo.views.legacy.data_access')
-    route_for_path(config, 'data_access_show_cruise',
-                   '/data_access/show_cruise',
-                   'pycchdo.views.legacy.data_access_show_cruise')
-    route_for_path(config, 'submit_no_ext', '/submit',
-                   'pycchdo.views.legacy.add_extension')
+    route_path(config, 'parameter_descriptions', '/parameter_descriptions',
+               'pycchdo.views.legacy.parameter_descriptions')
+    route_path(config, 'data_access', '/data_access',
+               'pycchdo.views.legacy.data_access')
+    route_path(config, 'data_access_show_cruise', '/data_access/show_cruise',
+               'pycchdo.views.legacy.data_access_show_cruise')
+    route_path(config, 'submit_no_ext', '/submit',
+               'pycchdo.views.legacy.add_extension')
 
     # legacy static files
-    route_for_path(config, 'static_metermap', '/metermap.html',
-                   'pycchdo.views.legacy.static_metermap')
-    route_for_path(config, 'static_policies_parameters', '/policies/parameters.html',
-                   'pycchdo.views.legacy.static_policies_parameters')
-    route_for_path(config, 'static_policies_name', '/policies/name.html',
-                   'pycchdo.views.legacy.static_policies_name')
+    route_path(config, 'static_metermap', '/metermap.html',
+               'pycchdo.views.legacy.static_metermap')
+    route_path(config, 'static_policies_parameters', '/policies/parameters.html',
+               'pycchdo.views.legacy.static_policies_parameters')
+    route_path(config, 'static_policies_name', '/policies/name.html',
+               'pycchdo.views.legacy.static_policies_name')
 
     # Tools
-    config.add_route('tools_menu', '/tools.html')
-    config.add_view('pycchdo.views.toplevel.tools_menu', route_name='tools_menu',
-                    renderer='templates/tools.jinja2')
-    config.add_route('tool_data_cmp', '/tool/data_cmp.html')
-    config.add_view('pycchdo.views.tools.data_cmp', route_name='tool_data_cmp',
-                    renderer='templates/tool/data_cmp.jinja2')
-    config.add_route('tool_visual', '/tool/visual.html')
-    config.add_view('pycchdo.views.tools.visual',
-                    route_name='tool_visual',
-                    renderer='templates/tool/visual.jinja2')
-    config.add_route('tool_convert', '/tool/convert.html')
-    config.add_view('pycchdo.views.tools.convert',
-                    route_name='tool_convert',
-                    renderer='templates/tool/convert.jinja2')
-    config.add_route('tool_convert_from_to', '/tool/convert')
-    config.add_view('pycchdo.views.tools.convert_from_to',
-                    route_name='tool_convert_from_to', renderer='json')
-    config.add_route('tool_convert_any_to_google_wire', '/tool/convert/any_to_google_wire')
-    config.add_view('pycchdo.views.tools.convert_any_to_google_wire',
-                    route_name='tool_convert_any_to_google_wire', renderer='json')
-    config.add_route('tool_archives', '/tool/archives.html')
-    config.add_view('pycchdo.views.tools.archives', route_name='tool_archives',
-                    renderer='templates/tool/archives.jinja2')
-    config.add_route('tool_dumps', '/tool/dumps.html')
-    config.add_view('pycchdo.views.tools.dumps', route_name='tool_dumps',
-                    renderer='templates/tool/dumps.jinja2')
-    config.add_route('tool_dumps_sqlite', '/tool/dumps.sqlite')
-    config.add_view('pycchdo.views.tools.dumps_sqlite',
-                    route_name='tool_dumps_sqlite')
+    route_path(config, 'tools_menu', '/tools.html',
+               'pycchdo.views.toplevel.tools_menu', 'tools.jinja2')
+    route_path(config, 'tool_data_cmp', '/tool/data_cmp.html',
+               'pycchdo.views.tools.data_cmp', 'tool/data_cmp.jinja2')
+    route_path(config, 'tool_visual', '/tool/visual.html',
+               'pycchdo.views.tools.visual', 'tool/visual.jinja2')
+    route_path(config, 'tool_convert', '/tool/convert.html',
+               'pycchdo.views.tools.convert', 'tool/convert.jinja2')
+    route_path(config, 'tool_convert_from_to', '/tool/convert',
+               'pycchdo.views.tools.convert_from_to', 'json')
+    route_path(config, 'tool_convert_any_to_google_wire', '/tool/convert/any_to_google_wire',
+               'pycchdo.views.tools.convert_any_to_google_wire', 'json')
+    route_path(config, 'tool_archives', '/tool/archives.html',
+               'pycchdo.views.tools.archives', 'tool/archives.jinja2')
+    route_path(config, 'tool_dumps', '/tool/dumps.html',
+               'pycchdo.views.tools.dumps', 'tool/dumps.jinja2')
+    route_path(config, 'tool_dumps_sqlite', '/tool/dumps.sqlite',
+               'pycchdo.views.tools.dumps_sqlite')
 
     # Staff
-    config.add_route('staff_index', '/staff.html')
-    config.add_view('pycchdo.views.staff.index', route_name='staff_index', renderer='templates/staff/index.jinja2')
-    config.add_route('staff_submissions', '/staff/submissions.html')
-    config.add_view('pycchdo.views.staff.submissions', route_name='staff_submissions', renderer='templates/staff/submissions.jinja2')
-    config.add_route('staff_moderation', '/staff/moderation.html')
-    config.add_view('pycchdo.views.staff.moderation', route_name='staff_moderation', renderer='templates/staff/moderation.jinja2')
+    route_path(config, 'staff_index', '/staff.html',
+               'pycchdo.views.staff.index', 'staff/index.jinja2')
+    route_path(config, 'staff_submissions', '/staff/submissions.html',
+               'pycchdo.views.staff.submissions', 'staff/submissions.jinja2')
+    route_path(config, 'staff_moderation', '/staff/moderation.html',
+               'pycchdo.views.staff.moderation', 'staff/moderation.jinja2')
 
     # dynamic static pages
-    config.add_route('project_carina', '/project_carina.html')
-    config.add_view('pycchdo.views.toplevel.project_carina', route_name='project_carina',
-                    renderer='templates/project_carina.jinja2')
+    route_path(config, 'project_carina', '/project_carina.html',
+               'pycchdo.views.toplevel.project_carina', 'project_carina.jinja2')
 
     # Serve data blobs
-    config.add_route('data', '/data/b/{data_id}*ignore')
-    config.add_view('pycchdo.views.toplevel.data', route_name='data')
+    route_path(config, 'data', '/data/b/{data_id}*ignore',
+               'pycchdo.views.toplevel.data')
 
     # Serve legacy /data prefix data files
-    route_for_path(config, 'data_df', '/data/*rest',
-                   'pycchdo.views.legacy.data_df')
+    route_path(config, 'data_df', '/data/*rest',
+               'pycchdo.views.legacy.data_df')
 
 	# catchall_static must be last route
-    config.add_route('catchall_static', '/*subpath')
-    config.add_view('pycchdo.views.toplevel.catchall_static', route_name='catchall_static')
+    route_path(config, 'catchall_static', '/*subpath',
+               'pycchdo.views.toplevel.catchall_static')
 
+
+def main(global_config, **settings):
+    """ This function returns a Pyramid WSGI application.
+
+    """
+    models.init_conn(settings)
+
+    config = create_config(settings)
+    _configure_bindings(config)
+    _configure_renderers(config)
+    _configure_error_views(config)
+    _configure_routes(config)
     return config.make_wsgi_app()

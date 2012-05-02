@@ -6,12 +6,10 @@ import errno
 from webob.multidict import MultiDict
 
 import pymongo
-import bson
-import pymongo.replica_set_connection
-from pymongo.errors import AutoReconnect, ConnectionFailure
 from pymongo import DESCENDING
-from bson.objectid import ObjectId
-from bson.errors import InvalidId
+from pymongo.replica_set_connection import ReplicaSetConnection
+from pymongo.errors import AutoReconnect, ConnectionFailure
+from pymongo.objectid import ObjectId, InvalidId
 
 from shapely.geometry import linestring
 
@@ -22,9 +20,41 @@ from gridfs.errors import NoFile
 
 from libcchdo.fns import uniquify
 
-from pycchdo.util import flatten, str2uni
 from pycchdo.models import triggers
 from pycchdo.models.filefs import FileFS, NoFile
+
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+
+
+def _str2unicode(x):
+    if type(x) is str:
+        return unicode(x)
+    return x
+
+
+def is_valid_ipv4(ip):
+    try:
+        return socket.inet_pton(socket.AF_INET, ip)
+    except AttributeError: # no inet_pton here, sorry
+        try:
+            return socket.inet_aton(ip)
+        except socket.error:
+            return False
+    except socket.error:
+        return False
+
+
+def is_valid_ipv6(ip):
+    try:
+        return socket.inet_pton(socket.AF_INET6, ip)
+    except socket.error:
+        return False
+
+
+def is_valid_ip(ip):
+    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
 
 
 class MongoDBConnection:

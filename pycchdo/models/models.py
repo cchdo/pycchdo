@@ -8,10 +8,12 @@ from warnings import warn
 from webob.multidict import MultiDict
 
 import pymongo
+import bson
 import pymongo.replica_set_connection
 from pymongo.errors import AutoReconnect, ConnectionFailure
 from pymongo import DESCENDING
-from pymongo.objectid import ObjectId, InvalidId
+from bson.objectid import ObjectId
+from bson.errors import InvalidId
 
 from shapely.geometry import linestring
 from geojson import LineString

@@ -14,7 +14,7 @@ from webhelpers import html as whh
 
 from shapely.geometry import polygon as poly
 
-import pymongo.objectid
+import bson.objectid
 
 from pycchdo import models
 from pycchdo.models import search

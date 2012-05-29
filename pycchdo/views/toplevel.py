@@ -13,7 +13,7 @@ from pycchdo.views.search_map import index as map_index
 
 
 __all__ = [
-    'favicon', 'robots', 'home', 'get_menu', 'search_menu', 'give_menu',
+    'favicon', 'robots', 'home', 'find_menu', 'search_menu', 'submit_menu',
     'information_menu', 'tools_menu', 'project_carina', 'parameters',
     'contributions', 'parameter_show', 'data', 'catchall_static',
 ]
@@ -49,9 +49,9 @@ def empty_view(context, request):
     return {}
 
 
-get_menu = empty_view
+find_menu = empty_view
 search_menu = empty_view
-give_menu = empty_view
+submit_menu = empty_view
 information_menu = empty_view
 tools_menu = staff_signin_required(empty_view)
 

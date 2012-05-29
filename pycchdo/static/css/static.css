@@ -248,26 +248,26 @@
   text-align: right;
 }
 
-.give h2#seahunt {
+.submit h2#seahunt {
   font-size: 1.2em;
   margin: 0.2em 0;
 }
-.boxed.get ul li,
-.give ul.seahunt li {
+.boxed.find ul li,
+.submit ul.seahunt li {
   list-style: disc;
   margin-left: 2em;
 }
 
-.boxed.get .first {
+.boxed.find .first {
   margin-top: -1em;
 }
-.boxed.get h2 {
+.boxed.find h2 {
   font-size: 1.2em;
 }
-.boxed.get #search_map_ad,
-.boxed.get #basin_selector_map {
+.boxed.find #search_map_ad,
+.boxed.find #basin_selector_map {
   margin: 0.5em;
 }
-.boxed.get ul {
+.boxed.find ul {
   margin-bottom: 0.5em;
 }

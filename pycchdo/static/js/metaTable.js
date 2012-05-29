@@ -35,7 +35,7 @@ function metaTable(table) {
 
     if (body.length > 0) {
       $(this).prepend($('<td class="expander"></td>').append(
-        $('<a href=""><div></div></a>')
+        $('<a href="javascript:void(0);" title="Expand"></a>')
           .click(function () { react(); return false; }))
         .css({cursor: 'pointer'}));
       row.click(function (event) {

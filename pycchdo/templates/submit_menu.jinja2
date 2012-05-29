@@ -2,9 +2,9 @@
 {%- block head %}
   {{ whh.tags.stylesheet_link('/static/css/static.css') }}
 {%- endblock %}
-{%- block title %}Give{% endblock %}
+{%- block title %}Submit{% endblock %}
 {%- block content -%}
-{%- call h.boxed('Give', class="give") -%}
+{%- call h.boxed('Submit', class="submit") -%}
   <ul>
     {{ whh.HTML.li(whh.tags.link_to('Submit data', '/submit.html')) }}
   </ul>

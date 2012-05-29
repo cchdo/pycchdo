@@ -271,7 +271,7 @@
             <div id="data-pending">
               <h4>Data Pending</h4>
               <p>Contact the CCHDO for more information.</p>
-              <p>If you are the PI, please visit the <a href="/give.html">Give</a>
+              <p>If you are the PI, please visit the {{ h.tags.link_to('Submit', request.route_path('submit_menu')) }}
                 page or contact the CCHDO for submission information.</p>
             </div>
           {%- endif %}

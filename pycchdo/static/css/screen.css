@@ -170,6 +170,20 @@ table tr.header th {
 /* Hide email obfuscation */
 .copythis { display: none; }
 
+.expander a {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-top: 4.5px;
+  background: url('/static/img/icons/disclosure_arrows.png') no-repeat;
+}
+.reverse.expander a {
+  background-position: 0 -18px;
+}
+.open .expander a {
+  background-position: 0 -9px;
+}
+
 /* Default table row styling */
 tr.odd {
   background: #F8F8F8;
@@ -327,7 +341,7 @@ input[type="submit"]:active {
   width: 100%;
   /* make a light area in the picture for the menu */
   background: url("/static/img/banners/transparent_menu_bg.png");
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(219, 219, 219, 0.7);
   text-align: center;
 }
 #cchdo_menu .nav {
@@ -336,11 +350,11 @@ input[type="submit"]:active {
 #cchdo_menu h1 a {
   font-size: 1.3em;
   line-height: 2em;
-  text-shadow: 0 0 0.3em #FFFFFF, 0 0 0.3em #FFFFFF, 0 0 0.3em #FFFFFF;
+  text-shadow: #DDDDDD 1px 1px 0;
 }
 #cchdo_menu h1 a.focus,
 #cchdo_menu h1 a:hover {
-  text-shadow: 0 0 0.2em #90A3D1;
+  text-shadow: #90A3E1 1px 1px 0;
 }
 #cchdo_menu a {
   color: #000000;
@@ -362,11 +376,13 @@ input[type="submit"]:active {
   white-space: nowrap;
   line-height: 2em;
 }
-#cchdo_menu #cchdo_menu_basins {
-  padding: 2.5em;
-}
+#cchdo_menu .expander,
+#cchdo_menu #cchdo_menu_find,
 #cchdo_menu #cchdo_menu_information {
   padding: 0;
+}
+#cchdo_menu #cchdo_menu_basins {
+  padding: 3em;
 }
 
 #cchdo_menu li h1 { 
@@ -415,8 +431,10 @@ input[type="submit"]:active {
 }
 #cchdo_menu ul ul ul a {
   font-size: 0.9em;
+  padding-left: 1.5em;
 }
 #cchdo_menu ul ul ul {
+  border-left: 1px solid #E4E4E4;
   position: static;
 }
 #cchdo_menu ul ul ul li.focus a,
@@ -443,19 +461,25 @@ input[type="submit"]:active {
 #cchdo_menu ul.open ul li ul {
   visibility: visible;
 }
-#cchdo_menu .expander {
-  padding: 0;
+#cchdo_menu .expander a {
+  width: 0;
+  -webkit-transition: none;
+  -moz-transition: none;
+  -o-transition: none;
+  transition: none;
 }
-#cchdo_menu .expander h1 a {
-  display: inline;
-  font-size: 1em;
-  color: #405381;
-  width: 7em;
-}
-#cchdo_menu .expander.lightup h1 a {
+#cchdo_menu .expander.lightup h1 {
   background: #F8F8D8;
-  text-shadow: none;
-  padding: 0.3em 0.5em;
+  -webkit-transition: background .2s ease;
+  -moz-transition: background .2s ease;
+  -o-transition: background .2s ease;
+  transition: background .2s ease;
+}
+#cchdo_menu .reverse.expander.more a {
+  font-size: 0.95em;
+  color: #7083C1;
+  display: inline;
+  background: none;
 }
 
 #gfooter {

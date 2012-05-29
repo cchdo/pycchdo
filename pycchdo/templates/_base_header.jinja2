@@ -28,22 +28,23 @@
 </div>
 <div id="cchdo_menu">
   <ul class="nav open"> 
-  <li id="cchdo_menu_get"><h1><a href="/get.html">Get</a></h1>
+  <li id="cchdo_menu_home"><h1><a href="/">Home</a></h1></li>
+  <li id="cchdo_menu_find"><h1>{{ h.tags.link_to('Find Data', request.route_path('find_menu')) }}</h1>
     <ul>
-      <li><a href="/get.html#search">Search</a>
+      <li>{{ h.tags.link_to('Search', request.route_path('find_menu', _anchor='search')) }}
         <ul class="search">
           <li>{{ h.tags.link_to('Advanced', request.route_path('advanced_search')) }}</li>
           <li>{{ h.tags.link_to('Map', request.route_path('search_map')) }}</li>
         </ul>
       </li>
-      <li><a href="/get.html#time-series">Time Series</a></li>
-      <li><a href="/get.html#project">Projects</a></li>
-      <li><a href="/get.html#list">Lists</a></li>
+      <li>{{ h.tags.link_to('Time Series', request.route_path('find_menu', _anchor='time-series')) }}</li>
+      <li>{{ h.tags.link_to('Projects', request.route_path('find_menu', _anchor='project')) }}</li>
+      <li>{{ h.tags.link_to('Lists', request.route_path('find_menu', _anchor='list')) }}</li>
     </ul>
   </li>
-  <li id="cchdo_menu_basins"><h1></h1>
+  <li id="cchdo_menu_basins" class="expandable"><h1></h1>
     <ul>
-      <li><a href="/get.html#basin">Basins</a>
+      <li>{{ h.tags.link_to('Basins', request.route_path('find_menu', _anchor='basin')) }}
         <ul class="basins">
           <li><a href="/arctic.html">Arctic</a></li>
           <li><a href="/atlantic.html">Atlantic</a></li>
@@ -54,7 +55,7 @@
       </li>
     </ul>
   </li>
-  <li id="cchdo_menu_give"><h1><a href="/give.html">Give</a></h1>
+  <li id="cchdo_menu_submit" class="expandable"><h1>{{ h.tags.link_to('Submit', request.route_path('submit_menu')) }}</h1>
     <ul>
       <li><a href="/submit.html">Submit data</a></li>
       <li><a href="/seahunt.html">Seahunt</a>
@@ -66,11 +67,11 @@
     </ul>
   </li>
   {%- if h.has_staff(request) %}
-  <li><h1><a href="/tools.html">Tools</a></h1>
+  <li class="expandable"><h1><a href="/tools.html">Tools</a></h1>
     {%- include 'templates/_tools_list.jinja2' %}
   </li>
   {%- endif %}
-  <li id="cchdo_menu_information"><h1><a href="/information.html">Information</a></h1>
+  <li id="cchdo_menu_information" class="expandable"><h1><a href="/information.html">Information</a></h1>
     <ul>
       <li><a href="/contact.html">Contact</a></li>
       <li><a href="/manuals.html">Manuals</a></li>

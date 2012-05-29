@@ -14,12 +14,3 @@
 .has-meta-bodies .open.odd {
   background: #F0EEDD;
 }
-.has-meta-bodies .expander a div {
-  width: 9px;
-  height: 9px;
-  margin-top: 4.5px;
-  background: url('/static/img/icons/disclosure_arrows.png') no-repeat;
-}
-.has-meta-bodies .open .expander a div {
-  background-position: 0 -9px;
-}

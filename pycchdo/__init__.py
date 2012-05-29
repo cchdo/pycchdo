@@ -161,10 +161,10 @@ def _configure_routes(config):
 
     route_path(config, 'home', '/',
                'pycchdo.views.toplevel.home', 'home.jinja2')
-    route_path(config, 'get_menu', '/get.html',
-               'pycchdo.views.toplevel.get_menu', 'get.jinja2')
-    route_path(config, 'give_menu', '/give.html',
-               'pycchdo.views.toplevel.give_menu', 'give.jinja2')
+    route_path(config, 'find_menu', '/find.html',
+               'pycchdo.views.toplevel.find_menu', 'find.jinja2')
+    route_path(config, 'submit_menu', '/submit_menu.html',
+               'pycchdo.views.toplevel.submit_menu', 'submit_menu.jinja2')
     route_path(config, 'information_menu', '/information.html',
                'pycchdo.views.toplevel.information_menu', 'information.jinja2')
 

@@ -45,7 +45,7 @@
 }
 
 #rdev .box_content {
-  max-height: 42em;
+  max-height: 42.3em;
 }
 .home h2 {
   margin-top: 0;
@@ -59,17 +59,17 @@
   margin: 0 0 1em 0;
 }
 #rdev .thumb {
-  height: 8em;
+  height: 6em;
 }
 #rdev img {
   margin-right: 0.5em;
   height: 100%;
-  max-width: 8em;
+  max-width: 6em;
 }
 #rdev .info {
   position: absolute;
   top: 0;
-  left: 8.5em;
+  left: 6.5em;
 }
 #rdev .info h3,
 #rdev .info p {

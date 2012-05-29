@@ -57,9 +57,10 @@ tools_menu = staff_signin_required(empty_view)
 
 
 def home(request):
-    num_updates = 2
+    num_updates = 4
+    num_upcoming = 2
     updated = models.Cruise.updated(num_updates)
-    upcoming = models.Cruise.upcoming(num_updates)
+    upcoming = models.Cruise.upcoming(num_upcoming)
 
     return {
         'updated': updated,

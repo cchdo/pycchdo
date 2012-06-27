@@ -2,26 +2,26 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 
 from . import *
 import pycchdo.helpers as h
-import pycchdo.models as models
+from pycchdo.models import Person
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
 
 
 def people_index(request):
-    people = sorted(models.Person.get_all(), key=lambda x: x.name_last)
+    people = sorted(request.db.query(Person).all(), key=lambda x: x.name_last)
     people = paged(request, people)
     return {'people': people}
 
 
 def people_index_json(request):
-    people = sorted(models.Person.get_all(), key=lambda x: x.name_last)
+    people = sorted(request.db.query(Person).all(), key=lambda x: x.name_last)
     people = [p.to_nice_dict() for p in people]
     return people
 
 
 def _get_person(request):
     person_id = request.matchdict.get('person_id')
-    return models.Person.get_id(person_id)
+    return request.db.query(Person).get(person_id)
 
 
 def _redirect_response(request, id):
@@ -108,7 +108,7 @@ def person_merge(request):
     except KeyError:
         request.session.flash('No mergee person given', 'help')
         return redirect_response
-    mergee = models.Person.get_id(mergee_id)
+    mergee = request.db.query(Person).get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee person %s given' % mergee_id,
                               'help')
@@ -136,7 +136,7 @@ def person_merge(request):
         for p in participants:
             if p['person'] == mergee.id:
                 p['person'] = person.id
-        cruise.set_accept(models.Person.cruise_associate_key, participants,
+        cruise.set_accept(Person.cruise_associate_key, participants,
                           request.user)
     request.session.flash('Merged person with %s' % mergee, 'action_taken')
     mergee.remove()

@@ -11,8 +11,8 @@ from geoalchemy import LineString as LS
 
 from shapely import wkb
 
-from pycchdo.importers import *
-from pycchdo.importers.cchdo import *
+from pycchdo.importer import *
+from pycchdo.importer.cchdo import *
 import pycchdo.models as models
 
 
@@ -301,8 +301,8 @@ def _import_cruise(importer, cruise, sftp_goship, dl_files=True):
     c = _ensure_cruise(cruise, importer)
 
     c.acknowledge(importer)
-    c.creation_stamp.timestamp = cruise.created_at
-    c.pending_stamp.timestamp = cruise.updated_at
+    c.creation_timestamp = cruise.created_at
+    c.pending_timestamp = cruise.updated_at
     c.save()
 
     aliases = [a.alias for a in cruise.aliases.all()]
@@ -407,8 +407,8 @@ def _import_inst(inst, importer):
         institution.set_accept('import_id', import_id, importer)
 
     institution.acknowledge(importer)
-    institution.creation_stamp.timestamp = inst.created_at
-    institution.pending_stamp.timestamp = inst.updated_at
+    institution.creation_timestamp = inst.created_at
+    institution.pending_timestamp = inst.updated_at
 
     names = filter(None, [inst.name, inst.full_name])
     if names:
@@ -463,7 +463,7 @@ def _import_contact(contact, importer):
     else:
         implog.info('Creating Seahunt Contact %s' % import_id)
         p = models.Person(import_id)
-        p.creation_stamp.timestamp = contact.created_at
+        p.creation_timestamp = contact.created_at
         p.save()
         p.set_accept('import_id', import_id, importer)
 
@@ -514,7 +514,7 @@ def _import_ship(ship, importer):
         s = ships[0]
     else:
         s = models.Ship(importer)
-        s.creation_stamp.timestamp = _date_to_datetime(ship.created_at)
+        s.creation_timestamp = _date_to_datetime(ship.created_at)
         s.save()
 
     if ship.full_name:
@@ -537,7 +537,7 @@ def _import_program(program, importer):
         p = programs[0]
     else:
         p = models.Collection(importer)
-        p.creation_stamp.timestamp = program.created_at
+        p.creation_timestamp = program.created_at
         p.save()
 
     update_attr(p, 'names', filter(None, [program.name, program.notes]),
@@ -559,7 +559,7 @@ def _import_resource(resource, importer, sftp_goship, dl_files=True):
     if resource.type == 'URLResource':
         a = cruise.set('link', resource.url, importer)
         update_note(a, resource.description, importer, resource.note)
-        a.creation_stamp.timestamp = resource.created_at
+        a.creation_timestamp = resource.created_at
         a.save()
     elif resource.type == 'NoteResource':
         update_note(cruise, resource.note, importer, resource.description)
@@ -581,7 +581,7 @@ def _import_resource(resource, importer, sftp_goship, dl_files=True):
                     a = update_attr(cruise, 'map_thumb', file, importer)
                 elif resource.type == 'MapResource':
                     a = update_attr(cruise, 'map_full', file, importer)
-                a.creation_stamp.timestamp = resource.file_updated_at
+                a.creation_timestamp = resource.file_updated_at
                 a.save()
                 if resource.description or resource.note:
                     update_note(a, resource.note, importer,
@@ -658,7 +658,7 @@ def clear():
     objs = [x.obj for x in attrs]
 
     if person:
-        objs = objs + models.Obj.get_all({'creation_stamp.person': person.id})
+        objs = objs + models.Obj.get_all({'creation_person_id': person.id})
 
     lobjs = float(len(objs))
     for i, obj in enumerate(objs):
@@ -667,7 +667,7 @@ def clear():
             implog.info('%d/%d = %f' % (i, lobjs, i / lobjs))
 
     max_id = models.Obj.find_one(
-        fields=[], sort=[('creation_stamp.timestamp', models.DESCENDING)])['_id']
+        fields=[], sort=[('creation_timestamp', models.DESCENDING)])['_id']
     if models.ObjId.peek_id() != max_id:
         models.ObjId.set_id(max_id)
         implog.info('Reset max ObjId to %d' % max_id)

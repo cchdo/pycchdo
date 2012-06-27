@@ -18,7 +18,8 @@ from lxml import etree
 
 from webhelpers import text as whtext
 
-import pycchdo.models as models
+from pycchdo.models import (
+    data_file_descriptions, _Attr, Cruise, Note, Person, Institution)
 import pycchdo.helpers as h
 
 from . import *
@@ -33,18 +34,18 @@ def allowed_attrs_select(cls):
     return sel
 
 
-CRUISE_ATTRS_SELECT = allowed_attrs_select(models.Cruise)
+CRUISE_ATTRS_SELECT = allowed_attrs_select(Cruise)
 
 
 def _cruises(request):
     seahunt = request.params.get('seahunt_only', False)
     allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
-        cruises = models.Cruise.get_all({'accepted': False})
+        cruises = Cruise.all_only_accepted(request.db, False)
     elif allow_seahunt:
-        cruises = models.Cruise.get_all()
+        cruises = request.db.query(Cruise).all()
     else:
-        cruises = models.Cruise.get_all({'accepted': True})
+        cruises = Cruise.all_only_accepted(request.db, True)
     cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
     return cruises
 
@@ -56,18 +57,18 @@ def cruises_index(request):
 
 def cruises_index_json(request):
     if request.params.get('pending_years'):
-        return models.Cruise.pending_years()
+        return Cruise.pending_years(request.db)
     elif request.params.get('id'):
         id = request.params.get('id')
         try:
-            cruise = _get_cruise(id)
+            cruise = _get_cruise(request.db, id)
         except ValueError:
             raise HTTPBadRequest()
         return _cruise_to_json(cruise)
     elif request.params.get('ids'):
         ids = [x.strip() for x in request.params.get('ids').split(',')]
         try:
-            cruises = [_get_cruise(cruise_id) for cruise_id in ids]
+            cruises = [_get_cruise(request.db, cruise_id) for cruise_id in ids]
         except ValueError:
             raise HTTPBadRequest()
         return [_cruise_to_json(cruise) for cruise in cruises]
@@ -88,14 +89,14 @@ def cruises_archive(request):
 def _suggest_file(request, cruise_obj):
     try:
         type = request.params['type']
-        if not type in models.data_file_descriptions.keys():
+        if not type in data_file_descriptions.keys():
             logging.warn('Attempted to suggest file with improper type')
             request.response_status_int = 400
             request.session.flash(
                 'Invalid file type %s.' % type, 'help')
             request.session.flash(
                 'File type must be one of %s' % \
-                ', '.join(models.data_file_descriptions.keys()), 'help')
+                ', '.join(data_file_descriptions.keys()), 'help')
             return
     except KeyError:
         logging.warn('Attempted to suggest file without type')
@@ -104,7 +105,7 @@ def _suggest_file(request, cruise_obj):
             'Your file submission was missing a type.', 'help')
         return
     try:
-        note = models.Note(request.user, request.params['notes'])
+        note = Note(request.user.id, request.params['notes'])
     except KeyError:
         note = None
 
@@ -137,8 +138,8 @@ def _edit_attr(request, cruise_obj):
     try:
         key = request.params['key']
         # Allow any Cruise attrs in addition to file_type_status attrs
-        allowed_list = models.Cruise.allowed_attrs_list + \
-            ['%s_status' % x for x in models.data_file_descriptions.keys()]
+        allowed_list = Cruise.allowed_attrs_list + \
+            ['%s_status' % x for x in data_file_descriptions.keys()]
         if key not in allowed_list:
             logging.warn('Attempted to edit attribute with illegal key')
             request.response_status = '400 Bad Request'
@@ -161,7 +162,7 @@ def _edit_attr(request, cruise_obj):
         return
 
     try:
-        note = models.Note(request.user, request.params['notes'])
+        note = Note(request.user.id, request.params['notes'])
     except KeyError:
         note = None
 
@@ -175,7 +176,7 @@ def _edit_attr(request, cruise_obj):
                 'You did not give a value for the attribute.', 'help')
             return
 
-        value_type = models.Cruise.attr_type(key)
+        value_type = Cruise.attr_type(key)
         try:
             value = text_to_obj(value, value_type)
         except ValueError:
@@ -230,7 +231,7 @@ def _edit_attr(request, cruise_obj):
                     if rpi['person']:
                         person_id = rpi['person']
                         try:
-                            person = models.Person.get_id(person_id)
+                            person = Person.get_id(person_id)
                             if not person:
                                 failed = True
                                 request.session.flash(
@@ -245,7 +246,7 @@ def _edit_attr(request, cruise_obj):
                     if rpi['institution']:
                         institution_id = rpi['institution']
                         try:
-                            institution = models.Institution.get_id(
+                            institution = Institution.get_id(
                                 institution_id)
                             if not institution:
                                 failed = True
@@ -295,14 +296,14 @@ def _add_note_to_attr(request):
     except KeyError:
         public = False
 
-    attr_obj = models._Attr.get_id(attr_id)
+    attr_obj = request.db.query(_Attr).get(attr_id)
     if not attr_obj:
         request.response_status = '404 Not Found'
         request.session.flash(
             'The attribute you tried to add a note to could not be found.', 'help')
         return
 
-    attr_obj.add_note(models.Note(request.user, note, discussion=not public))
+    attr_obj.add_note(Note(request.user.id, note, discussion=not public))
 
 
 def _add_note_to_file(request):
@@ -321,14 +322,14 @@ def _add_note_to_file(request):
     except KeyError:
         public = False
 
-    file_obj = models._Attr.get_id(file_id)
+    file_obj = request.db.query(_Attr).get(file_id)
     if not file_obj:
         request.response_status = '404 Not Found'
         request.session.flash(
             'The file you tried to add a note to could not be found.', 'help')
         return
 
-    file_obj.add_note(models.Note(request.user, note, discussion=not public))
+    file_obj.add_note(Note(request.user.id, note, discussion=not public))
 
 
 def _add_note(request, cruise_obj):
@@ -349,19 +350,22 @@ def _add_note(request, cruise_obj):
     except KeyError:
         public = False
 
-    cruise_obj.add_note(models.Note(request.user, note, action, data_type,
-                                    summary, not public))
+    cruise_obj.add_note(
+        Note(request.user.id, note, action, data_type, summary, not public))
 
 
-def _get_cruise(cruise_id):
+def _get_cruise(session, cruise_id):
     try:
-        cruise_obj = models.Cruise.get_id(cruise_id)
+        if cruise_id:
+            cruise_obj = session.query(Cruise).get(cruise_id)
+        else:
+            cruise_obj = None
     except ValueError:
         cruise_obj = None
 
     # If the id is not an ObjectId, try searching based on ExpoCode
     if not cruise_obj:
-        cruises = models.Cruise.get_by_attrs(expocode=cruise_id)
+        cruises = Cruise.get_by_attrs2(session, {'expocode': cruise_id})
         if len(cruises) > 0:
             cruise_obj = cruises[0]
         else:
@@ -375,7 +379,7 @@ def cruise_show(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = _get_cruise(request.db, cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -447,18 +451,18 @@ def cruise_show(request):
         else:
             history = cruise_obj.notes_public
 
-        unjudged = cruise_obj.unjudged_tracked()
+        unjudged = cruise_obj.unjudged_tracked.all()
         suggested_attrs = []
         for attr in unjudged:
-            if attr.key in models.Cruise.allowed_attrs_list:
+            if attr.key in Cruise.allowed_attrs_list:
                 suggested_attrs.append(attr)
 
         if h.has_mod(request):
             # Only show unacknowledged suggestions to mods
-            as_received = cruise_obj.unjudged_tracked_data()
+            as_received = cruise_obj.unjudged_tracked_data.all()
         else:
-            as_received = cruise_obj.pending_tracked_data()
-        merged = cruise_obj.accepted_tracked_data()
+            as_received = cruise_obj.pending_tracked_data.all()
+        merged = cruise_obj.accepted_tracked_data.all()
         updates = {
             'attrs': suggested_attrs,
             'as_received': as_received,
@@ -482,7 +486,7 @@ def cruise_show_json(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = _get_cruise(request.db, cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -508,7 +512,7 @@ def map_full(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = _get_cruise(request.db, cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -525,7 +529,7 @@ def map_thumb(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = _get_cruise(request.db, cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -561,7 +565,7 @@ def kml(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise = _get_cruise(cruise_id)
+        cruise = _get_cruise(request.db, cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -729,7 +733,7 @@ def kml(request):
 
 
 def _contributions(request):
-    pending_cruises = models.Cruise.get_all({'accepted': False})
+    pending_cruises = Cruise.all_only_accepted(request.db, False)
     def has_track(c):
         try:
             c.get_attr('track')

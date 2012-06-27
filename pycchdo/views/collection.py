@@ -2,25 +2,25 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 
 from . import *
 import pycchdo.helpers as h
-import pycchdo.models as models
+from pycchdo.models import Collection
 from pycchdo.views import staff
 
 
 def collections_index(request):
-    collections = sorted(models.Collection.get_all(), key=lambda c: c.name)
+    collections = sorted(request.db.query(Collection).all(), key=lambda c: c.name)
     collections = paged(request, collections)
     return {'collections': collections}
 
 
 def collections_index_json(request):
-    collections = sorted(models.Collection.get_all(), key=lambda c: c.name)
+    collections = sorted(request.db.query(Collection).all(), key=lambda c: c.name)
     collections = [c.to_nice_dict() for c in collections]
     return collections
 
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    return models.Collection.get_id(coll_id)
+    return request.db.query(Collection).get(coll_id)
 
 
 def _redirect_response(request, id):
@@ -99,7 +99,7 @@ def collection_merge(request):
     except KeyError:
         request.session.flash('No mergee collection given', 'help')
         return redirect_response
-    mergee = models.Collection.get_id(mergee_id)
+    mergee = request.db.query(Collection).get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee collection %s given' % mergee_id,
                               'help')

@@ -1,38 +1,81 @@
 from unittest import TestCase
+from shutil import rmtree
+from StringIO import StringIO as pyStringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    StringIO = pyStringIO
 
 from pyramid import testing
 
+from sqlalchemy import create_engine
+
+from pycchdo.models.models import (
+    DBSession,
+    Base,
+    FSFile,
+    )
 import pycchdo.models as M
+from pycchdo.util import FileProxyMixin
+from pycchdo.log import ColoredLogger
 
 
-__all__ = ['BaseTest', 'MockFieldStorage', 'MockSession', ]
+__all__ = [
+    'BaseTest', 'MockFile', 'MockFieldStorage', 'MockSession',
+]
+
+
+log = ColoredLogger(__name__)
 
 
 class BaseTest(TestCase):
-    _connected = False
+    @classmethod
+    def setUpClass(cls):
+        """Setup testing environment connections."""
+        cls.log = log
+        engine = create_engine('sqlite://')
+        DBSession.configure(bind=engine)
+        Base.metadata.create_all(engine)
+
+        FSFile.reconfig_fs_storage()
+
     def setUp(self):
-        self.config = testing.setUp()
-        if not self._connected:
-            M.init_conn({
-                'db_uri': 'mongodb://sui.ucsd.edu:27018/?w=1&fsync=true',
-                'db_name': 'cchdo',
-            })
-            self._connected = True
-        M.cchdo().objs.drop()
-        M.cchdo().attrs.drop()
+        self._config = testing.setUp()
+        self.session = DBSession()
 
     def tearDown(self):
-        M.cchdo().objs.drop()
-        M.cchdo().attrs.drop()
-        del self.config
+        DBSession.remove()
+        del self._config
         testing.tearDown()
+
+    @classmethod
+    def tearDownClass(cls):
+        """Tear down testing environment connections."""
+        fss_root = FSFile._fs.base_location
+        rmtree(fss_root)
+        del cls.log
+
+
+class MockFile(pyStringIO):
+    def __init__(self, content, filename):
+        pyStringIO.__init__(self, content)
+        self.name = filename
+        self.flush()
+
+    @property
+    def size(self):
+        return len(self.getvalue())
 
 
 class MockFieldStorage:
-    def __init__(self, filename, file, contentType):
+    def __init__(self, file, filename='mockfile.txt',
+                 contentType='application/octet-stream'):
         self.filename = filename
         self.file = file
         self.type = contentType
+        
+        if not self.filename and self.file.name:
+            self.filename = self.file.name
 
 
 class MockSession:

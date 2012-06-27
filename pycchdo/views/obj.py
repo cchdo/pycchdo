@@ -129,7 +129,8 @@ def obj_attrs(request):
     note_data_type = request.params.get('note_data_type', None)
     note_subject = request.params.get('note_subject', None)
     if note_body or note_action or note_data_type or note_subject:
-        note = models.Note(note_body, note_action, note_data_type, note_subject)
+        note = models.Note(request.user.id, note_body, note_action,
+                           note_data_type, note_subject)
 
     key = request.params.get('key', None)
     if method == 'POST':

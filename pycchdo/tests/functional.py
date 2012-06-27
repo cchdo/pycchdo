@@ -26,4 +26,3 @@ class ViewIntegrationTests(unittest.TestCase):
     def test_empty_login_redirects(self):
         from pycchdo.views import session
         pass
-

@@ -6,6 +6,7 @@ from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
 import pycchdo.models as models
+from pycchdo.models import DBSession
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -57,10 +58,11 @@ tools_menu = staff_signin_required(empty_view)
 
 
 def home(request):
+    session = DBSession()
     num_updates = 4
     num_upcoming = 2
-    updated = models.Cruise.updated(num_updates)
-    upcoming = models.Cruise.upcoming(num_upcoming)
+    updated = models.Cruise.updated(session, num_updates)
+    upcoming = models.Cruise.upcoming(session, num_upcoming)
 
     return {
         'updated': updated,
@@ -133,22 +135,24 @@ def parameter_show(request):
 
 
 def data(request):
-    """ Returns data """
+    """Returns data."""
+    session = DBSession()
     id = request.matchdict['data_id']
+
     try:
-        data = models._Attr.get_id(id)
-    except ValueError:
+        data = session.query(models._Attr).get(id)
+    except TypeError:
         raise HTTPNotFound()
 
     if not data:
         try:
-            data = models.Submission.get_id(id)
+            data = session.query(models.Submission).get(id)
         except ValueError:
             raise HTTPNotFound()
 
     if not data:
         try:
-            data = models.ArgoFile.get_id(id)
+            data = session.query(models.ArgoFile).get(id)
         except ValueError:
             raise HTTPNotFound()
 
@@ -158,7 +162,7 @@ def data(request):
     # Ensure the session is authorized to read the data
     perms = None
     try:
-        perms = data.permissions['read']
+        perms = data.permissions_read
     except (KeyError, AttributeError):
         pass
     if perms:
@@ -170,7 +174,7 @@ def data(request):
     if not data.judgment_stamp and not request.user:
         raise HTTPUnauthorized()
 
-    return file_response(request, data.file)
+    return file_response(request, data.value)
 
 
 def catchall_static(request):

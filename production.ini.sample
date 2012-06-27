@@ -6,16 +6,23 @@ debug_notfound = false
 debug_routematch = false
 debug_templates = false
 default_locale_name = en
-# DB
-db_uri = mongodb://goship.ucsd.edu:27017/?journal=true&w=1&slaveOk=true
-db_name = cchdo
-db_replSet = pycchdo
+pyramid.includes = 
+    pyramid_jinja2
+    pyramid_mailer
+    pyramid_tm
+
 # Search index
 db_search_index_path = /var/cache/pycchdo_search_index
+
+# submission confirmation recipient (leave blank for default)
+submission_confirmation_recipient = synmantics+test@gmail.com
+
 # Security keys
 # TODO change the secrets
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
+
+sqlalchemy.url = postgresql+psycopg2://pycchdo:pycchd0@315@sui.ucsd.edu:5432/pycchdo_dev
 
 [filter:weberror]
 use = egg:WebError#error_catcher
@@ -44,7 +51,7 @@ port = 6543
 # Begin logging configuration
 
 [loggers]
-keys = root, pycchdo
+keys = root, pycchdo, sqlalchemy
 
 [handlers]
 keys = console
@@ -60,6 +67,11 @@ handlers = console
 level = WARN
 handlers =
 qualname = pycchdo
+
+[logger_sqlalchemy]
+level = WARN
+handlers = console
+qualname = sqlalchemy.engine
 
 [handler_console]
 class = StreamHandler

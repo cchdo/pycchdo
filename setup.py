@@ -7,42 +7,41 @@ here = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.txt')).read()
 CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
-_importer_requires = [
+
+_requires_framework = [
+    'repoze.tm2',
+    'pyramid',
+    'pyramid_jinja2',
+    'pyramid_mailer',
+    'WebError',
+    'waitress',
+]
+if sys.version_info[:3] < (2,5,0):
+    _requires_framework.append('pysqlite')
+_requires_framework_db = [
+    'SQLAlchemy',
+    'transaction',
+    'pyramid_tm',
+    'zope.sqlalchemy',
+]
+_requires_app = [
+    'webhelpers',
+    'pyKML',
+    'whoosh',
+    'geojson',
+    'shapely',
+]
+_requires_importer = [
 #    'libcchdo',
     'paramiko',
     'geoalchemy',
-    ]
+]
+requires = \
+    _requires_framework + \
+    _requires_framework_db + \
+    _requires_app + \
+    _requires_importer
 
-requires = [
-    'repoze.tm2',
-    'pyramid_jinja2',
-    'pyramid_mailer',
-    'webhelpers',
-    'WebError',
-    'pymongo',
-    'pyKML',
-    'whoosh',
-    'waitress',
-    'geojson',
-    'shapely',
-    ] + _importer_requires
-
-if sys.version_info[:3] < (2,5,0):
-    requires.append('pysqlite')
-
-
-class SearchIndexCommand(Command):
-    description = "Rebuilds the search index"
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        pass
 
 setup(
     name='pycchdo',
@@ -67,6 +66,10 @@ setup(
     entry_points = {
         'paste.app_factory': [
             'main = pycchdo:main',
+        ],
+        'console_scripts': [
+            'pycchdo_initialize_db = pycchdo.scripts.initializedb:main',
+            'pycchdo_import = pycchdo.importer:do_import',
         ],
     }
 )

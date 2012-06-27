@@ -1,160 +1,102 @@
-import datetime
+from datetime import datetime
+from tempfile import mkdtemp
+from string import capwords
 import re
-import socket
-import errno
 
 from webob.multidict import MultiDict
 
-import pymongo
-from pymongo import DESCENDING
-from pymongo.replica_set_connection import ReplicaSetConnection
-from pymongo.errors import AutoReconnect, ConnectionFailure
-from pymongo.objectid import ObjectId, InvalidId
+# underlying FS implementation
+from django.conf import settings as django_settings
+from django.core.files.storage import FileSystemStorage
+from django.core.files.base import File as DjangoFile
+from django.utils.functional import empty
 
-from shapely.geometry import linestring
+from sqlalchemy import (
+    create_engine,
+    event,
+    Column,
+    ForeignKey,
+    Table,
+    )
+from sqlalchemy.exc import StatementError
+from sqlalchemy.types import (
+    TypeEngine,
+    Integer, Boolean, Enum, Text, String, Unicode, DateTime, TIMESTAMP,
+    )
+from sqlalchemy.sql import (
+    and_, not_,
+    case, select, exists,
+    )
+from sqlalchemy.orm import (
+    backref,
+    scoped_session,
+    sessionmaker,
+    composite,
+    relationship,
+    object_session,
+    )
+from sqlalchemy.orm.collections import collection, attribute_mapped_collection
+from sqlalchemy.ext.associationproxy import (
+    association_proxy, AssociationProxy, _AssociationList)
+from sqlalchemy.ext.hybrid import hybrid_property, Comparator
+from sqlalchemy.ext.mutable import MutableComposite
+from sqlalchemy.ext.declarative import (
+    declarative_base,
+    declared_attr, 
+    )
 
-from geojson import LineString
+from zope.sqlalchemy import ZopeTransactionExtension
 
-from gridfs import GridFS
-from gridfs.errors import NoFile
+from geoalchemy import LineString
+
+import shapely.wkt
+import shapely.geometry
+
+import geojson
 
 from libcchdo.fns import uniquify
 
-from pycchdo.models import triggers
-from pycchdo.models.filefs import FileFS, NoFile
+from pycchdo.util import (
+    flatten,
+    str2uni,
+    FileProxyMixin,
+    deprecated,
+    )
+import triggers as triggers
+from pycchdo.log import ColoredLogger
 
 
-def flatten(l):
-    return [item for sublist in l for item in sublist]
+log = ColoredLogger(__name__)
 
 
-def _str2unicode(x):
-    if type(x) is str:
-        return unicode(x)
-    return x
-
-
-def is_valid_ipv4(ip):
-    try:
-        return socket.inet_pton(socket.AF_INET, ip)
-    except AttributeError: # no inet_pton here, sorry
-        try:
-            return socket.inet_aton(ip)
-        except socket.error:
-            return False
-    except socket.error:
-        return False
-
-
-def is_valid_ipv6(ip):
-    try:
-        return socket.inet_pton(socket.AF_INET6, ip)
-    except socket.error:
-        return False
-
-
-def is_valid_ip(ip):
-    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
-
-
-class MongoDBConnection:
-    def __init__(self, settings, fs=GridFS, *args, **kwargs):
-        """ Set up a connection to the MongoDB
-
-        Args:
-           settings - settings dictionary containing, among other
-               configuration options, the database URI
-           fs - the filesystem backend to use 
-           **kwargs - required for miscellaneous options to the
-               pymongo.Connection constructor
-        """
-        db_uri = settings['db_uri']
-        self._db_name = settings['db_name']
-        self._fs = fs
-        self._filesys = None
-
-        try:
-            try:
-                replicaSet = settings['db_replSet']
-                self._mongo_conn = ReplicaSetConnection(
-                    db_uri, replicaSet=replicaSet,
-                    read_preference=pymongo.ReadPreference.SECONDARY,
-                )
-            except KeyError:
-                self._mongo_conn = pymongo.Connection(db_uri, *args, **kwargs)
-        except (AutoReconnect, ConnectionFailure):
-            raise IOError('Unable to connect to database (%s). Check that the '
-                          'database server is running.' % db_uri)
-
-    def db(self):
-        """ Yield the root database object
-        
-        This is a connection to the MongoDB.
-
-        Returns:
-            The pymongo.Connection object representing the connection to the
-            PyCCHDO PyMongo database, iff it exists.
-
-        """
-        if not self._mongo_conn:
-            raise IOError('No database connection.')
-        return self._mongo_conn[self._db_name]
-
-    def fs(self):
-        """ Provides the root file system object
-
-            Ensure and return a filesystem wrapper for the database connection.
-
-        """
-        if not self._filesys:
-            self._filesys = self._fs(self.db())
-        return self._filesys
-
-
-# Global connection object for the models
-connection = None
-
-
-# Connection management is left flat in the module b/c for now it's not
-# necessary to have more than one database connection.
-def init_conn(settings, *args, **kwargs):
-    global connection
-    connection = MongoDBConnection(settings, *args, **kwargs)
-
-
-def cchdo():
-    return connection.db()
-
-
-def fs():
-    return connection.fs()
-
-
-def ensure_indices():
-    db = cchdo()
-    # Searching for Objs by _Attr value, not key-value
-    db.attrs.ensure_index([
-        ('obj', 1), ('value', 1), ('accepted', 1)])
-    # Searching for _Attrs by key-value
-    db.attrs.ensure_index([
-        ('key', 1), ('value', 1), ('accepted', 1)])
-    # Searching for Objs by _Attr key-value (get_by_attrs)
-    db.attrs.ensure_index([
-        ('key', 1), ('accepted', 1), ('accepted_value', 1)])
-    # Searching on _Attr belonging to a specific Obj. Usually needs sorting.
-    db.attrs.ensure_index([
-        ('obj', 1), ('key', 1), ('accepted', 1),
-        ('judgment_stamp.timestamp', -1), ])
-    # GEO2D index requires MongoDB >=1.3.3
-    # Indexing by polygon requires MongoDB >=1.9 It is not included.
-    db.attrs.ensure_index([
-        ('track', pymongo.GEO2D)])
-
-    # Objs often need to be sorted by accept time and create time
-    db.objs.ensure_index([
-        ('_obj_type', 1), ('judgment_stamp.timestamp', 1), ])
-    db.objs.ensure_index([
-        ('creation_stamp.timestamp', 1), ])
+__all__ = [
+    'data_file_human_names',
+    'data_file_descriptions',
+    'DBSession', 
+    'Base', 
+    'Stamp',
+    'Note',
+    'FSFile',
+    'RequestForAttr',
+    'FileComposite',
+    'Obj',
+    'Person',
+    'Cruise',
+    'CruiseAssociate',
+    'CruiseParticipantAssociate',
+    'Country',
+    'Institution',
+    'Ship',
+    'Collection',
+    'ArgoFile',
+    'OldSubmission',
+    'Submission',
+    'Parameter',
+    'Unit',
+    'ParameterOrder',
+    '_Change',
+    '_Attr',
+]
 
 
 data_file_human_names = {
@@ -194,339 +136,82 @@ data_file_descriptions = {
 }
 
 
-def timestamp():
+DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
+
+
+Base = declarative_base()
+
+
+def _reset_database(engine):
+    """Clears the database and recreates schema."""
+    meta = Base.metadata
+    meta.reflect(bind=engine)
+    for table in reversed(meta.sorted_tables):
+        table.drop()
+    Base.metadata.create_all(engine)
+
+
+def timestamp_now():
     """Create a datetime.datetime representing Now."""
     # FIXME This needs to make a datetime that is timezone aware
-    return datetime.datetime.utcnow()
+    return datetime.utcnow()
 
 
-def guess_objectid(idobj):
-    """ Guess that an id is an ObjectId and then guess that it is an ObjId
+class Stamp(MutableComposite):
+    def __init__(self, person_id, timestamp=None):
+        """Create a Stamp representing a Person and a time.
 
-        Argument:
-          idobj: an id.
-
-    """
-    if type(idobj) is ObjectId:
-        return idobj
-    try:
-        return ObjectId(idobj)
-    except (TypeError, InvalidId):
-        pass
-    try:
-        return ObjId.parse(idobj)
-    except ValueError:
-        pass
-    return idobj
-
-
-def sort_by_stamp(query, stamp='creation', direction=DESCENDING):
-    """ Applies a sort to the mongodb query by the given stamp's timestamp key.
-
-        Valid stamp arguments:
-            * creation
-            * pending
-            * judgment
-    
-    """
-    return query.sort('%s_stamp.timestamp' % stamp, direction)
-
-
-class mongodoc(dict):
-    """ Represents a mongodb document in memory
-
-        Each document has keys and values that need to be mapped and saved. They
-        define the document's data.
-
-        A document's data can be accessed using keys as indices and also as
-        attributes, e.g.
-
-            d = mongodoc()
-
-            d['key'] = 'foo'
-            d['key'] == 'foo'
-
-            d.key == 'foo'
-
-            d.key = 'bar'
-            d.key == 'bar'
-            del d.key
-
-        Keys, when accessed as attributes, have the additional property of being
-        subject to aliasing. By redefining the _key_alias_resolve function, different
-        names can be given to the same attribute.
-
-            class specialmongodoc(mongodoc):
-                def _key_alias_resolve(self, name):
-                    if name == 'foo':
-                        name = 'bar'
-                    return name
-
-            d = specialmongodoc()
-            d.foo = 'baz'
-            d.bar == 'baz'
-
-    """
-    __allowed_keys = []
-
-    @property
-    def allowed_keys(self):
-        return self.__allowed_keys
-
-    def copy_keys_from(self, o, keys):
-        """ Used by from_mongo to copy saved keys from mongodb into instances.
-
-        This should be extended by subclasses to add keys to the db to model
-        mapping.
-        """
-        if not o:
-            return
-        for key in keys:
-            try:
-                self[key] = o[key]
-            except KeyError:
-                pass
-
-    def from_mongo(self, doc):
-        """ Used by map_mongo to copy saved data from mongodb into a new
-        instances.
-
-        Redefine to provide a better mapping from a mongodb document onto a new
-        instance.
+        Arguments::
+        person_id -- the Person id
+        timestamp -- the time (default: now)
 
         """
-        self.copy_keys_from(doc, self.allowed_keys)
-        return self
+        self.person_id = None
+        self.timestamp = None
+        if person_id:
+            self.person_id = person_id
+            if not timestamp:
+                timestamp = timestamp_now()
+            self.timestamp = timestamp
+        elif timestamp:
+            raise ValueError('Stamp must have a Person')
 
-    @property
-    def allowed_untracked_keys(self):
-        return self.__allowed_keys
+    def __composite_values__(self):
+        return [self.person_id, self.timestamp, ]
 
-    def __getattr__(self, name):
-        try:
-            return self[self._key_alias_resolve(name)]
-        except KeyError:
-            raise AttributeError(
-                '%r has no attribute %s' % (self, self._key_alias_resolve(name)))
+    def __setattr__(self, key, value):
+        """Intercept set events and alert parents to change."""
+        object.__setattr__(self, key, value)
+        self.changed()
 
-    def __setattr__(self, name, value):
-        self[self._key_alias_resolve(name)] = value
-
-    def __delattr__(self, name):
-        try:
-            del self[self._key_alias_resolve(name)]
-        except KeyError:
-            pass
-
-    def _key_alias_resolve(self, name):
-        """ Used by attribute model to Allow for attribute aliases.
-
-        Override to add aliases for attributes.
-
-        The default behavior is for attribute names with trailing '_' to be
-        automatically considered aliases. This is useful for defining properties
-        on subclasses that need to refer to the same name for the mapping.
-
-            class propertied_mongodoc(mongodoc):
-                @property
-                def foo(self):
-                    return d.foo_ + ' world!'
-
-            d = propertied_mongodoc()
-            d.foo_ = 'Hello'
-            d.foo_ == 'Hello world!'
-
-        """
-        if name.endswith('_'):
-            name = name[:-1]
-        return name
-
-    @classmethod
-    def map_mongo(cls, cursor_or_dict):
-        """ Converts lists of or single mongodb documents into class instances.
-        
-            If the input is a cursor, returns a list of mapped class instances.
-            Otherwise, returns the mapped class instance
-
-        """
-        if cursor_or_dict is None:
-            return None
-
-        def get_instance(d):
-            if cls is _Attr:
-                return cls('placeholder', 'placeholder').from_mongo(d)
-            else:
-                return cls('placeholder').from_mongo(d)
-
-        if issubclass(type(cursor_or_dict), dict):
-            return get_instance(cursor_or_dict)
-        try:
-            return map(get_instance, cursor_or_dict)
-        except AutoReconnect:
-            return []
-        except EnvironmentError, e:
-            try:
-                if e[0] in [errno.EINVAL, errno.ECONNREFUSED, ]:
-                    return []
-                else:
-                    raise e
-            except IndexError:
-                raise e
-
-
-class Stamp(mongodoc):
-    __allowed_keys = ['timestamp', 'person', ]
-
-    def __init__(self, person):
-        self.timestamp = timestamp()
-        if type(person) is Person:
-            try:
-                self.person = person.id
-            except AttributeError:
-                raise ValueError('Person object must be saved first')
-        else:
-            if not person:
-                # No check performed on whether the Person actually exists
-                # Leave that to the user.
-                raise TypeError(
-                    "Stamp must be initialized with a Person or Person id")
-            self.person = person
-
-    @property
-    def allowed_keys(self):
-        return super(Stamp, self).allowed_keys + self.__allowed_keys
-
-    @property
-    def person(self):
-        return Person.get_id(self['person'])
-
-    def __unicode__(self):
-        return u"Stamp(%s, %r)" % (self.timestamp.strftime('%FT%T'),
-                                  self.person)
-
-
-class idablemongodoc(mongodoc):
-    """ These documents have _ids versus non-idable ones which should only
-        ever be stored inside these.
-
-    """
-    __allowed_keys = ['_id', ]
-
-    @property
-    def allowed_keys(self):
-        return super(idablemongodoc, self).allowed_keys + self.__allowed_keys
-
-    def _key_alias_resolve(self, attr):
-        if attr == 'id':
-            attr = '_id'
-        return super(idablemongodoc, self)._key_alias_resolve(attr)
-
-    def __eq__(self, o):
-        if not o:
+    def __eq__(self, other):
+        if self.person_id is None and self.timestamp is None and other is None:
+            return True
+        if type(other) is not Stamp:
             return False
-        return self.id == o.id
+        return (
+            self.person_id == other.person_id and 
+            self.timestamp == other.timestamp)
 
-    def __hash__(self):
-        return int(str(self.id), 26)
-
-
-class collectablemongodoc(idablemongodoc):
-    """ A top level mongodb document in mongodb collections.
-    
-        These documents are stored directly in the collection and may have other
-        documents inside themselves.
-
-    """
-    @classmethod
-    def _mongo_collection(cls):
-        """ Defines the mongodb collection that instances of this class will be
-        put in. This affects where the documents will be searched for, saved,
-        and removed.
-
-        """
-        return cchdo().collectables
-
-    def save(self):
-        try:
-            self.id = self._mongo_collection().save(self)
-        except IOError:
-            pass
-        return self
-
-    def remove(self):
-        try:
-            self._mongo_collection().remove(self.id)
-        except IOError:
-            pass
-        return self
-
-    @classmethod
-    def find(cls, *args, **kwargs):
-        try:
-            return cls._mongo_collection().find(*args, **kwargs)
-        except IOError:
-            return []
-
-    @classmethod
-    def count(cls, *args, **kwargs):
-        try:
-            return cls.find(*args, **kwargs).count()
-        except AttributeError:
-            return 0
-
-    @classmethod
-    def all(cls):
-        return cls.find()
-
-    @classmethod
-    def find_one(cls, *args, **kwargs):
-        try:
-            return cls._mongo_collection().find_one(*args, **kwargs)
-        except IOError:
-            return None
-
-    @classmethod
-    def find_id(cls, idobj):
-        idobj = guess_objectid(idobj)
-        return cls.find_one(idobj)
-
-    @classmethod
-    def get_all(cls, *args, **kwargs):
-        return cls.map_mongo(cls.find(*args, **kwargs))
-
-    @classmethod
-    def get_one(cls, *args, **kwargs):
-        return cls.map_mongo(cls.find_one(*args, **kwargs))
-
-    @classmethod
-    def get_id(cls, idobj):
-        try:
-            return cls.map_mongo(cls.find_id(idobj))
-        except ValueError:
-            return None
-
-    @classmethod
-    def get_all_by_ids(cls, obj_ids):
-        return cls.get_all({'_id': {'$in': obj_ids}})
-
-    def __str__(self):
-        return unicode(self).encode('ascii', 'replace')
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __unicode__(self):
-        return unicode(idablemongodoc.__repr__(self))
+        if self.__eq__(None):
+            return u'Stamp(empty)'
+        return u"Stamp(%s, %s)" % (
+            self.person_id, self.timestamp.strftime('%FT%T'))
 
     def __repr__(self):
-        klass = self.__class__.__name__
-        try:
-            return u"%s(%s)" % (klass, self['_id'])
-        except KeyError:
-            return u'%s(unsaved)' % klass
+        return unicode(self)
 
 
-class Note(collectablemongodoc):
-    """ A Note that can be attached to any _Change 
+class Note(Base):
+    """ A Note that can be attached to any _Change
 
-        Attrs:
+    A _Change may have many Notes.
+
+    Attrs:
         creation_stamp - creation stamp
         body - the actual note
         action - the action taken
@@ -536,48 +221,105 @@ class Note(collectablemongodoc):
                      for mergers.
                      
     """
-    __allowed_keys = ['creation_stamp', 'body', 'action', 'data_type',
-                      'subject', 'discussion']
+    __tablename__ = 'notes'
 
-    @classmethod
-    def _mongo_collection(cls):
-        return cchdo().notes
+    id = Column(Integer, primary_key=True)
+
+    creation_timestamp = Column(DateTime, default=timestamp_now)
+    creation_person_id = Column(ForeignKey('people.id'))
+    creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
+    #creation_person = relationship('Person', primaryjoin="Note.creation_person_id==Person.id")
+
+    body = Column(Unicode)
+    action = Column(Unicode)
+    data_type = Column(Unicode)
+    subject = Column(Unicode)
+    discussion = Column(Boolean)
+
+    change_id = Column(ForeignKey('changes.id'))
 
     def __init__(self, person, body=None, action=None, data_type=None,
                  subject=None, discussion=False):
-        self.creation_stamp_ = Stamp(person)
+        self.creation_stamp = Stamp(person.id)
         self.body = body
         self.action = action
         self.data_type = data_type
         self.subject = subject
         self.discussion = discussion
 
-    @property
-    def creation_stamp(self):
-        v = self.creation_stamp_
-        if type(v) is Stamp:
-            return v
-        return Stamp.map_mongo(v)
-
-    @property
-    def allowed_keys(self):
-        return super(Note, self).allowed_keys + self.__allowed_keys
-
-    @property
-    def ctime(self):
-        return self.creation_stamp.timestamp
-
     def __unicode__(self):
         try:
-            return u'Note(%s, %s)' % (self.subject, self.id)
+            return u'Note(%s, %s)' % (self.id, self.subject)
         except AttributeError:
             try:
                 return u'Note(%s)' % self.id
             except AttributeError:
-                return u'Note'
+                return u'Note()'
 
 
-class _Change(collectablemongodoc):
+@event.listens_for(Note, 'after_insert')
+@event.listens_for(Note, 'after_update')
+def _saved_note(mapper, connection, target):
+    triggers.saved_note(target)
+
+
+@event.listens_for(Note, 'after_delete')
+def _deleted_note(mapper, connection, target):
+    triggers.deleted_note(target)
+
+
+class FSFile(Base, FileProxyMixin):
+    __tablename__ = 'fsfile'
+
+    id = Column(Integer, primary_key=True)
+    fsid = Column(Unicode)
+    name = Column(Unicode)
+    content_type = Column(String)
+    upload_date = Column(TIMESTAMP)
+
+    _fs = None
+
+    def __init__(self, file=None, filename=None, contentType=None):
+        if file:
+            self.file = DjangoFile(file)
+        self.name = filename
+        self.content_type = contentType
+
+    @property
+    def fs(self):
+        if not self._fs:
+            self.reconfig_fs_storage()
+        return self._fs
+    
+    @classmethod
+    def reconfig_fs_storage(cls, root=None, url='', perms=0644):
+        if not root:
+            root = mkdtemp()
+        django_settings._wrapped = empty
+        django_settings.configure(
+            MEDIA_ROOT=root,
+            MEDIA_URL=url,
+            FILE_UPLOAD_PERMISSIONS=perms,
+        )
+        cls._fs = FileSystemStorage()
+
+
+@event.listens_for(FSFile, 'before_insert')
+def _saved_file(mapper, connection, target):
+    target.fsid = target.fs.save(target.fs.get_available_name(''), target.file)
+
+
+@event.listens_for(FSFile, 'load')
+def _loaded_file(target, context):
+    target.file = target.fs.open(target.fsid)
+
+
+@event.listens_for(FSFile, 'before_delete')
+def _deleted_file(mapper, connection, target):
+    target.fs.delete(target.fsid)
+
+
+class _Change(Base):
     """ A Change to the dataset that should be recorded along with the time and
     person who changed it.
 
@@ -585,68 +327,57 @@ class _Change(collectablemongodoc):
     which may themselves be public or for dicussion purposes only.
 
     """
-    __allowed_keys = ['creation_stamp', 'pending_stamp', 'judgment_stamp',
-                      'accepted', 'notes', ]
+    __tablename__ = 'changes'
+    id = Column(Integer, primary_key=True)
+    accepted = Column(Boolean, default=False)
+    notes = relationship(
+        'Note', backref='change', lazy='dynamic',
+        cascade='all, delete, delete-orphan')
+    notes_public = relationship(
+        'Note', viewonly=True,
+        primaryjoin='and_(Note.change_id == _Change.id, not_(Note.discussion))')
+    notes_discussion = relationship(
+        'Note', viewonly=True,
+        primaryjoin='and_(Note.change_id == _Change.id, Note.discussion)')
+    obj_type = Column(String)
 
-    @classmethod
-    def _mongo_collection(cls):
-        return cchdo().changes
+    ctime = creation_timestamp = Column(DateTime, default=timestamp_now)
+    creation_person_id = Column(ForeignKey('people.id'))
+    creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
+    #creation_person = relationship('Person', 
+    #    primaryjoin="_Change.creation_person_id==Person.id", post_update=True)
+
+    pending_timestamp = Column(DateTime)
+    pending_person_id = Column(ForeignKey('people.id'))
+    pending_stamp = composite(Stamp, pending_person_id, pending_timestamp)
+    #pending_person = relationship('Person', 
+    #    primaryjoin="_Change.pending_person_id==Person.id")
+
+    judgment_timestamp = Column(DateTime)
+    judgment_person_id = Column(ForeignKey('people.id'))
+    judgment_stamp = composite(Stamp, judgment_person_id, judgment_timestamp)
+    #judgment_person = relationship('Person', 
+    #    primaryjoin="_Change.judgment_person_id==Person.id")
+
+    __mapper_args__ = {
+        'polymorphic_on': obj_type,
+    }
 
     def __init__(self, person, note=None, *args, **kwargs):
         super(_Change, self).__init__(*args, **kwargs)
-        self.creation_stamp_ = Stamp(person)
-        self.pending_stamp_ = None
-        self.judgment_stamp_ = None
-        self.accepted = False
-        self.notes_ = []
-        try:
+        self._set_creation_stamp(person)
+        if note:
             self.add_note(note)
-        except TypeError:
-            pass
 
-    @property
-    def allowed_keys(self):
-        return super(_Change, self).allowed_keys + self.__allowed_keys
-
-    @property
-    def creation_stamp(self):
-        v = self.creation_stamp_
-        if type(v) is Stamp:
-            return v
-        return Stamp.map_mongo(v)
-
-    @property
-    def pending_stamp(self):
-        v = self.pending_stamp_
-        if type(v) is Stamp:
-            return v
-        return Stamp.map_mongo(v)
-
-    @property
-    def judgment_stamp(self):
-        v = self.judgment_stamp_
-        if type(v) is Stamp:
-            return v
-        return Stamp.map_mongo(v)
-
-    @property
-    def notes(self):
-        return sorted(filter(None, [Note.get_id(nid) for nid in self.notes_]),
-                      key=lambda n: n.creation_stamp.timestamp)
-
-    @property
-    def notes_public(self):
-        return filter(lambda n: not n.discussion, self.notes)
-
-    @property
-    def notes_discussion(self):
-        return filter(lambda n: n.discussion, self.notes)
+    def _set_creation_stamp(self, person):
+        """Set the creation_stamp for person."""
+        self.creation_stamp = Stamp(person.id)
 
     def is_judged(self):
-        return self.judgment_stamp_ is not None
+        return self.judgment_stamp != None
 
     def is_acknowledged(self):
-        return self.pending_stamp_ is not None
+        return self.pending_stamp != None
 
     def is_accepted(self):
         return self.is_judged() and self.accepted
@@ -655,56 +386,50 @@ class _Change(collectablemongodoc):
         return self.is_judged() and not self.accepted
 
     def accept(self, person):
-        self.judgment_stamp = Stamp(person)
+        self.judgment_stamp = Stamp(person.id)
         self.accepted = True
-        self.save()
 
     def acknowledge(self, person):
-        if not self.pending_stamp_:
-            self.pending_stamp = Stamp(person)
-            self.save()
-            return True
-        else:
-            return False
+        if not self.pending_stamp:
+            self.pending_stamp = Stamp(person.id)
 
     def reject(self, person):
-        self.judgment_stamp = Stamp(person)
+        self.judgment_stamp = Stamp(person.id)
         self.accepted = False
-        self.save()
 
-    @property
-    def ctime(self):
-        return self.creation_stamp.timestamp
-
+    @deprecated('Use _Change.notes.append(note)')
     def add_note(self, note):
-        if note is None:
-            raise TypeError()
-        try:
-            note.id
-        except AttributeError:
-            note.save()
-        if note.id not in self.notes_:
-            self.notes_.append(note.id)
-            self.save()
-            triggers.saved_note(note)
+        self.notes.append(note)
 
+    @deprecated('Use _Change.notes.remove(note)')
     def remove_note(self, note):
-        if note is None:
-            raise TypeError()
-        if note.id in self.notes_:
-            self.notes_.remove(note.id)
-            self.save()
-            triggers.removed_note(note)
+        self.notes.remove(note)
+
+    def __repr__(self):
+        return u'{}({})'.format(type(self).__name__, self.id)
 
 
-class _RequestTracker(mongodoc):
-    """ Adds methods to a mongodoc to allow it to track requests
+@event.listens_for(_Change.notes, 'append')
+def _appended_note(target, value, initiator):
+    triggers.saved_note(target)
 
-        This class serves as a function grouping and should not be instantiated.
-        Remember to add "_requests" to subclasses copy_keys_from
 
-    """
-    def add_request(self, request):
+@event.listens_for(_Change.notes, 'remove')
+def _removed_note(target, value, initiator):
+    triggers.removed_note(target)
+
+
+class RequestFor(Base):
+    """ Information about HTTP request of another object """
+    __tablename__ = 'requests_for'
+
+    id = Column(Integer, primary_key=True)
+
+    dt = Column(DateTime)
+    ip = Column(String)
+    type = Column(String)
+
+    def __init__(self, request):
         """ Takes a webob request and stores relevant information related to
         tracking.
 
@@ -712,510 +437,723 @@ class _RequestTracker(mongodoc):
             request - the webob.Request
 
         """
-        req = {}
         try:
-            req['date'] = request.date
-            req['ip'] = request.remote_addr
-            if not type(req['date']) is datetime.datetime:
+            self.dt = request.date
+            self.ip = request.remote_addr
+            if not type(self.dt) is datetime:
                 raise ValueError()
-            if not is_valid_ip(req['ip']):
+            if not is_valid_ip(self.ip):
                 raise ValueError()
         except (AttributeError, ValueError):
             # Don't store request if either of these are invalid or missing
             return False
         try:
-            req['date'] = request.date
-        except AttributeError:
-            pass
-        self.requests.append(req)
-
-    @property
-    def requests(self):
-        try:
-            return self._requests_
-        except AttributeError:
-            self._requests_ = []
-            return self._requests_
-
-    def clear_requests(self):
-        try:
-            del self._requests_
+            self.date = request.date
         except AttributeError:
             pass
 
-
-class _FileHolder(_RequestTracker):
-    """ Adds methods to a mongodoc to allow it to hold a reference to a file in
-        the filesystem.
-
-        This class serves as a function grouping and should not be instantiated.
-        Remember to add "file" to subclasses copy_keys_from
-
-    """
-
-    def store_file(self, field_or_file):
-        """ Stores the file described by field_or_file in the filesystem and keeps a
-            reference.
-
-            The reference will be stored in the object's file attribute.
-
-            If field_or_file is a file-like object with an id then the
-            reference is stored and no new file is created.
-
-            Raises: AttributeError when field does not have file, filename, and
-                    type
-        """
-        self.file_ = None
-        try:
-            file = field_or_file
-            file.read
-            id = file._id
-            self.file_ = id
-        except AttributeError:
-            field = field_or_file
-            try:
-                self.file_ = fs().put(
-                    field.file, filename=field.filename, contentType=field.type)
-            except Exception, e:
-                raise e
-
-    def _get_file(self, fileid):
-        """ Retrieves the file from the filesystem using the given reference """
-        if not fileid:
-            return None
-        try:
-            return fs().get(fileid)
-        except NoFile:
-            raise IOError('File not found')
-
-    @property
-    def file(self):
-        try:
-            return self._get_file(self.file_)
-        except IOError:
-            return None
-
-    def delete_file(self):
-       if not self.file_:
-           return
-       fs().delete(self.file_)
+    __mapper_args__ = {
+        'polymorphic_identity': 'request_for',
+        'polymorphic_on': type,
+    }
 
 
-class _Attr(_Change, _FileHolder):
-    """ An _Attr of an Obj
+class RequestForAttr(RequestFor):
+    __tablename__ = 'requests_for_attrs'
 
-        _Attrs are not embedded because queries currently return the top-level
-        object instead of sub-objects.
+    id = Column(ForeignKey('requests_for.id'), primary_key=True)
+    attr_id = Column(ForeignKey('attrs.id'))
 
-        Not for general use. Please defer to Obj's get, set, and delete methods
+    __mapper_args__ = {
+        'polymorphic_identity': 'request_for_attr',
+    }
 
-        An _Attr may be suggested, acknowledged, accepted or rejected.
 
-        An _Attr, in addition to being accepted, may be accepted with a new
-        value. This is useful for handling user suggestions in this way:
-
-            1. suggested: A has been attached to a cruise using a key, e.g.
-                    'bottle_exchange'
-            2. acknowledged: The suggestion has been reviewed by staff and is
-                    being actively worked on.
-
-            The states diverge here for acceptance and acceptance with a new
-            value:
-
-            3. accepted: The suggestion has been accepted as is and becomes part
-                    of the object state.
-            3. accepted (with value): The suggestion has been accepted but a new
-                    value replaces the original. The original value is still
-                    stored but only as a suggested value. E.g. a partial file
-                    has been suggested as "bottle_exchange" on a cruise. A
-                    merger has finished merging the partial file with the
-                    original and accepts the partial file with the merged file
-                    as the new value. Both merged and partial are retained in
-                    history but only the merged becomes part of the object
-                    state.
+class FileComposite(object):
+    """A composite for storing files.
 
     """
-    __allowed_keys = ['key', 'value', '_requests', 'file', 'track', 'obj',
-                      'deleted', 'accepted_value', 'permissions', ]
+    def __init__(self, fileid):
+        self.fileid = fileid
+
+    def get(self, fs):
+        return fs.get(self.fileid)
 
     @classmethod
-    def _mongo_collection(cls):
-        return cchdo().attrs
+    def store(cls, fs, field):
+        """ Stores the file described by field in the filesystem and keeps a
+        reference
 
-    def __init__(self, person, obj, key=None, value=None,
-                 note=None, deleted=False):
+        Raises: AttributeError when field does not have file, filename, and type
+
+        """
+        file = field.file
+        filename = field.filename
+        content_type = field.type
+
+        try:
+            id = fs.put(file, filename=filename, contentType=content_type)
+        except Exception, e:
+            raise e
+        return cls(id)
+
+
+# Types for database storage
+class ID(Integer):
+    pass
+
+
+class IDList(TypeEngine):
+    pass
+
+
+class TextList(TypeEngine):
+    pass
+
+
+class File(TypeEngine):
+    pass
+
+
+class _AttrValue(Base):
+    """A value stored by _Attr.
+
+    Meant to be abstract but has a concrete table because it contains the
+    reference to the _Attr that helps with polymorphic querying.
+
+    """
+    id = Column(Integer, primary_key=True)
+    type = Column(String)
+
+    accepted = Column(Boolean, default=False)
+    attr_id = Column(ForeignKey('attrs.id'))
+
+    @declared_attr
+    def __tablename__(cls):
+        return cls.__name__.lower()
+
+    @declared_attr
+    def __mapper_args__(cls):
+        if cls.__name__ == '_AttrValue':
+            return {
+                'polymorphic_on': cls.type,
+                'polymorphic_identity': cls.__name__,
+            }
+        else:
+            return {
+                'polymorphic_identity': cls.__name__,
+            }
+
+    @hybrid_property
+    def value(self):
+        raise ValueError('_AttrValue is not a valid storage container.')
+
+    @value.expression
+    def value(cls):
+        return '{}.{}'.format(cls.__name__, 'value')
+
+    def __repr__(self):
+        return u'{}({}, {})'.format(type(self).__name__, self.id, self.value)
+
+
+@event.listens_for(DBSession, 'after_flush')
+def delete_attrvalue_orphans(session, ctx):
+    """Clean up _AttrValues whose _Attrs no longer exist.
+
+    Called after each session flush.
+
+    """
+    orphans = session.query(_AttrValue).with_polymorphic('*').\
+        filter(~_AttrValue.attr.has())
+    for orphan in orphans:
+        session.delete(orphan)
+
+
+class _AttrValueNone(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+
+    @hybrid_property
+    def value(self):
+        return None
+
+
+class _AttrValueInteger(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    value = Column(Integer)
+
+
+class _AttrValueBoolean(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    value = Column(Boolean)
+
+
+class _AttrValueUnicode(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    value = Column(Unicode)
+
+
+class _AttrValueDatetime(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    value = Column(DateTime)
+
+
+class _AttrValueLineString(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    value = Column(LineString)
+
+    def _verify_and_normalize_linestring(self, value):
+        """Convert value into a Shapely LineString."""
+        if type(value) is shapely.geometry.linestring.LineString:
+            return value
+        elif type(value) is geojson.LineString:
+            value = shapely.geometry.shape(value)
+        else:
+            assert not isinstance(value, str)
+            for i, c in enumerate(value):
+                assert not isinstance(c, str)
+                assert len(c) is 2
+                try:
+                    float(c[0])
+                    float(c[1])
+                except ValueError:
+                    raise TypeError(
+                        'Coordinate list must contain numbers. '
+                        'Element %d does not' % i)
+            value = shapely.geometry.linestring.LineString(value)
+        return value
+
+    def __init__(self, value):
+        value = self._verify_and_normalize_linestring(value)
+        self.value = value.wkt
+
+
+class _AttrValueFile(_AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    value_ = Column('value', ForeignKey('fsfile.id'))
+    value = relationship(
+        'FSFile', primaryjoin='FSFile.id == _AttrValueFile.value_')
+
+    def __init__(self, value):
+        self.value = FSFile(value.file, value.filename)
+
+
+class _AttrValueElem(Base):
+    """Base for _AttrValueList elements."""
+    __abstract__ = True
+
+    @declared_attr
+    def id(cls):
+        return Column(Integer, primary_key=True)
+
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self.value == other.value
+        return self.value == other
+
+    def __ne__(self, other):
+        if isinstance(other, type(self)):
+            return self.value != other.value
+        return self.value != other
+
+    def __unicode__(self):
+        return self.value
+
+    def __repr__(self):
+        return u'{}({}, {}, {})'.format(
+            type(self).__name__, self.id, self.attrvalue_id, unicode(self))
+
+
+class _AttrValueElemID(_AttrValueElem):
+    __tablename__ = '_attrvalueelemid'
+    attrvalue_id = Column(ForeignKey('_attrvalue.id'))
+    value = Column(ID)
+
+
+class _AttrValueElemText(_AttrValueElem):
+    __tablename__ = '_attrvalueelemtext'
+    attrvalue_id = Column(ForeignKey('_attrvalue.id'))
+    value = Column(Text)
+
+
+class _AttrValueList(object):
+    # TODO figure out why value must be declared for each list type rather than
+    # inherited
+    pass
+
+
+class _AttrValueListID(_AttrValueList, _AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    values = relationship(
+        _AttrValueElemID, cascade='all, delete, delete-orphan')
+    value = association_proxy('values', 'value')
+
+
+class _AttrValueListText(_AttrValueList, _AttrValue):
+    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    values = relationship(
+        _AttrValueElemText, cascade='all, delete, delete-orphan')
+    value = association_proxy('values', 'value')
+
+
+class _AttrPermission(Base):
+    """Permissions associated with an _Attr.
+
+    Permissions for _Attrs are subdivided into read and write.
+    # TODO perms need to store dicts...
+
+    """
+    __tablename__ = 'attrs_permissions'
+    attr_id = Column(ForeignKey('attrs.id'), primary_key=True)
+    perm_type = Column(Enum('read', 'write'), default='read', primary_key=True)
+    permission = Column(Unicode, primary_key=True)
+
+    def __init__(self, perm_type, permission):
+        self.perm_type = perm_type
+        self.permission = permission
+
+
+class _AttrValueTransformer(Comparator):
+    def operate(self, op, other):
+        def transform(q):
+            clause = self.__clause_element__()
+            log.debug(repr(clause) + str(clause))
+            parent_alias = aliased(clause)
+            return q.join(parent_alias, clause.parent).\
+                filter(op(parent_alias.parent, other))
+
+            #return and_(_AttrValue.attr_id == _Attr.id, _AttrValue.accepted == False)
+            #return case([
+            #    (cls.deleted == True, None),
+            #    #(exists(select(cls.v_accepted)), cls.v_accepted),
+            #], else_=cls.v)
+        return transform
+
+
+class _Attr(_Change):
+    """An _Attr of an _AttrMgr.
+
+    Not for general use. Please defer to _AttrMgr's methods.
+
+    The life of an _Attr
+    ====================
+
+    States
+    ------
+    The possible states of an _Attr are::
+
+    1. Suggested
+    2. Acknowledged
+    3. judged
+      a. accepted
+        i. As is
+        ii. With new value
+      b. Rejected
+
+    Accepted value
+    --------------
+    In addition to being accepted, an _Attr may be accepted with a new
+    value. This is useful for handling user suggestions. E.g.
+
+    1. suggested: An _Attr has been attached to a Cruise using a key
+
+    >>> aaa = _Attr(submitter, cruise, 'bottle_exchange', File,
+    >>>             'bottle_exchange', preliminary_file)
+
+    2. acknowledged: The suggestion has been reviewed by staff and is
+           being actively worked on.
+
+    >>> aaa.acknowledge(staff_working_on_file)
+
+    The states diverge here for acceptance and acceptance with a new value::
+
+    3a. accepted as is -- The suggestion has been accepted as is and becomes
+    part of the object state. In this case, the preliminary_file would have been
+    reviewed by a merger and determined to be good for public dissemination.
+
+    >>> aaa.accept(staff_working_on_file)
+    >>> aaa.value == preliminary_file
+    True
+
+    3. accepted with new value -- The suggestion has been accepted but a new
+    value is added. The original value is still stored but only as the suggested
+    value.
+
+    A case where this is useful: a partial file has been suggested as
+    "bottle_exchange" on a cruise. A merger finishes merging the partial
+    file with the original and accepts the partial file with the merged file as
+    the new value. Both merged and partial are retained in history but only the
+    merged becomes part of the object state.
+
+    >>> aaa.accept_value(someone, merged_file)
+    >>> aaa.value == merged_file
+    True
+    >>> aaa.value_original == preliminary_file
+    True
+
+    """
+    __tablename__ = 'attrs'
+
+    id = Column(ForeignKey('changes.id'), primary_key=True)
+    key = Column(Unicode)
+    type = Column(String)
+    deleted = Column(Boolean)
+    obj_id = Column(ForeignKey('objs.id'))
+
+    @declared_attr
+    def obj(cls):
+        return relationship(
+            'Obj', primaryjoin='_Attr.obj_id == Obj.id',
+            single_parent=True,
+            backref=backref(
+                'attrs',
+                lazy='dynamic',
+                order_by=_Change.judgment_timestamp.desc,
+                cascade='all, delete, delete-orphan',
+                ),
+            )
+
+    vs = relationship(
+        _AttrValue, primaryjoin='and_(_AttrValue.attr_id == _Attr.id)',
+        uselist=False, single_parent=True,
+        backref='attr', cascade='all, delete, delete-orphan')
+    v = relationship(
+        '_AttrValue', primaryjoin='and_(_AttrValue.attr_id == _Attr.id, '
+                                  '_AttrValue.accepted == False)',
+        uselist=False, single_parent=True,
+        cascade='all, delete, delete-orphan')
+    v_accepted = relationship(
+        '_AttrValue', primaryjoin='and_(_AttrValue.attr_id == _Attr.id, '
+                                  '_AttrValue.accepted == True)',
+        uselist=False, single_parent=True,
+        cascade='all, delete, delete-orphan')
+
+    #permissions_ = relationship(
+    #    _AttrPermission,
+    #    collection_class=attribute_mapped_collection('perm_type'),
+    #    cascade='all, delete-orphan')
+    #permissions = association_proxy(
+    #    'permissions_', 'perm_type',
+    #    creator=lambda k, v: _AttrPermission(perm_type=v, permission=k))
+
+    permissions_read_ = relationship(
+        _AttrPermission,
+        primaryjoin='and_(_AttrPermission.attr_id == _Attr.id, '
+                    "_AttrPermission.perm_type == 'read')",
+        cascade='all, delete-orphan')
+    permissions_read = association_proxy(
+        'permissions_read_', 'permission',
+        creator=lambda x: _AttrPermission('read', x))
+    permissions_write_ = relationship(
+        _AttrPermission,
+        primaryjoin='and_(_AttrPermission.attr_id == _Attr.id, '
+                    "_AttrPermission.perm_type == 'write')",
+        cascade='all, delete-orphan')
+    permissions_write = association_proxy(
+        'permissions_write_', 'permission',
+        creator=lambda x: _AttrPermission('write', x))
+
+    requests = relationship(
+        'RequestForAttr', backref='attr', cascade='all, delete, delete-orphan')
+
+    __mapper_args__ = {
+        'polymorphic_identity': '_attr',
+    }
+
+    def __init__(self, person, key, type, value=None, note=None, deleted=False):
+        """Create an _Attr _Change state.
+
+        Arguments::
+        person -- the person who performed the change
+        key -- the attribute name that this change is for
+        type -- the type of value that this _Attr stores. This
+            should be an sqlalchemy type
+        
+        Keyword arguments::
+        value -- the value to store
+        note -- a note to add during creation; syntactic sugar
+        deleted -- whether this _Attr's new state is deleted. If this is True,
+            the _Attr's value is disregarded.
+
+        """
         super(_Attr, self).__init__(person)
-        self.obj_ = obj
+
+        self.key = key
+        self.type = _AttrMgr.attr_type_to_str(type)
+        self.constructor = _AttrMgr.value_class(type)
+
         self.deleted = deleted
+        if not deleted:
+            self._set(value)
+
         if note is not None:
             self.add_note(note)
-        self.accepted_value = None
-        self.set(key, value)
 
-    @property
-    def allowed_keys(self):
-        return super(_Attr, self).allowed_keys + self.__allowed_keys
+    def _set(self, value, accepted=False):
+        """Set the _Attr value.
 
-    def set(self, key, value):
-        """ Sets the key and value.
+        Validate and store the value.
+
+        Raises:
+            TypeError when value does not match the defined type for the _Attr
         
-            Special cases:
-            
-            * value is a cgi.FieldStorage-like object
-              Attempts to store the file in the filesystem and stores the id in
-              the 'file' attribute.
-            * key is track
-              Stores the value (which must be a GeoJSON linestring coordinate
-              list) in the 'track' attribute.
+        Special cases::
+        value -- a cgi.FieldStorage-like object
+            Attempts to store the file in the filesystem and stores the id in
+            the 'file' attribute.
+        key -- track
+            Stores the value (which must be a GeoJSON linestring coordinate
+            list) in the 'track' attribute.
+        accepted -- whether to set the value for the original or accepted state
 
         """
-        self.key = key
-        self.track = None
-        self.value = None
+        cannot_be_stored_error = TypeError(
+            '{} cannot be stored as {}'.format(value, self.constructor))
 
-        if key == 'track':
-            if type(value) is LineString:
-                value = value.coordinates
-            elif type(value) is linestring.LineString:
-                value = list(value.coords)
-            else:
-                assert not isinstance(value, str)
-                for i, c in enumerate(value):
-                    assert not isinstance(c, str)
-                    assert len(c) is 2
-                    try:
-                        float(c[0])
-                        float(c[1])
-                    except ValueError:
-                        raise TypeError('Coordinate list must contain numbers.'
-                                        ' Element %d does not' % i)
-            self.track = value
-            return
+        if value is None and self.type == 'ID':
+            raise ValueError(
+                'IDs should not be None. Is the object persisted?')
+
         try:
-            self.store_file(value)
-        except AttributeError:
-            self.value = value
-
-    @property
-    def file(self):
-        if self.file_ and self.accepted_value:
-            return self._get_file(self.accepted_value)
-        return self.file_original
-
-    @property
-    def file_original(self):
-        # Let _FileHolder handle this
-        return super(_Attr, self).file
-
-    @property
-    def value_original(self):
-        if self.deleted:
-            raise KeyError(self.key)
-        if self.file_:
-            return self.file_original
-        if self.track_:
-            return self.track_
-        return self.value_
-
-    @property
-    def value(self):
-        if self.deleted:
-            raise KeyError(self.key)
-        if self.accepted_value:
-            if self.file_:
-                return self.file
-            if self.track_:
-                return self.accepted_value
-            return self.accepted_value
-        return self.value_original
-
-    @property
-    def obj(self):
-        """ The object that the _Attr is attached to """
-        return Obj.get_id_polymorphic(self.obj_)
+            if accepted:
+                self.v_accepted = self.constructor(
+                    value=value, accepted=accepted)
+            else:
+                self.v = self.constructor(value=value)
+        except StatementError:
+            raise cannot_be_stored_error
 
     def accept_value(self, value, person):
-        """ Changes the accepted value of the _Attr to 'value'. This should be
-            used when the original value of _Attr was a suggestion from a human
-            and the new value is a moderated known good value.
+        """Accept the _Attr with a new value.
+        
+        Example use case::
+        The original value of _Attr was a suggestion from a human and the new
+        value is a moderated known-good value.
 
         """
-        if self.file_:
-            try:
-                value.file
-            except AttributeError:
-                raise ValueError("Tried to accept value (%r) that did not match "
-                                 "_Attr type" % value)
-        if self.track_:
-            pass
-            # TODO check to make sure it is a track-like object
-
-        # TODO what if value is a FieldStorage?
-        self.accepted_value = value
+        self._set(value, accepted=True)
         self.accept(person)
+
+    @hybrid_property
+    def attr_value(self):
+        """Return the current _AttrValue of the _Attr.
+
+        This takes into account whether the _Attr has been accepted with a new
+        value.
+
+        """
+        if self.deleted:
+            raise KeyError(self.key)
+        if self.v_accepted:
+            return self.v_accepted
+        return self.v
+
+    @hybrid_property
+    def attr_value_original(self):
+        """Return the original _AttrValue of the _Attr."""
+        if self.deleted:
+            raise KeyError(self.key)
+        return self.v
+
+    @hybrid_property
+    def value(self):
+        """Return the current value of the _Attr.
+
+        This takes into account whether the _Attr has been accepted with a new
+        value.
+
+        """
+        return self.attr_value.value
+
+    @hybrid_property
+    def value_original(self):
+        """Return the original value of the _Attr."""
+        return self.attr_value_original.value
 
     def remove(self):
         self.delete_file()
         super(_Attr, self).remove()
 
-    def __unicode__(self):
+    def __repr__(self):
         try:
-            mapping = u'%r: %r' % (self.key, self.value)
+            mapping = u'{}, {}'.format(self.key, self.value)
         except KeyError:
             mapping = u'DEL'
         except IOError:
-            mapping = u'FILE NOT FOUND'
+            mapping = u'404'
 
-        # If object hasn't been saved yet, there is no id.
-        if hasattr(self, 'id'):
-            return u"_Attr({mapping}, {accepted}|{id})".format(
-                mapping=mapping, accepted=self.accepted, id=self.id)
-        else:
-            return u"_Attr({mapping}, {accepted}|UNSAVED)".format(
-                mapping=mapping, accepted=self.accepted)
+        state = 'SUGG'
+        if self.accepted:
+            if self.v_accepted:
+                state = 'NEW'
+            else:
+                state = 'ASIS'
+        elif self.pending_stamp != None:
+            state = 'ACK'
+
+        try:
+            attr_class = self.obj.attr_class(self.key)
+        except AttributeError:
+            attr_class = '???'
+
+        id = self.id or '?'
+        return u"_Attr({}, {}, {}, {}, {})".format(
+            mapping, state, self.type, attr_class, id)
 
     @classmethod
     def all_data(cls):
-        return cls.find({'file': {'$ne': None}})
+        return object_session(self).query(_Attr).filter(_Attr.type == 'File').all()
 
     @classmethod
     def all_track(cls):
-        return cls.find({'track': {'$ne': None}})
+        return object_session(self).query(_Attr).filter(_Attr.type == 'LineString').all()
 
     @classmethod
     def pending(cls):
-        return cls.get_all({'judgment_stamp': None})
+        return object_session(self).query(_Attr).filter(_Change.judgment_stamp == None).all()
 
 
-class ObjId(idablemongodoc):
-    id = {'_id': 'objid'}
-    counter = 'c'
-    inc = {counter: 1}
+class _AttrMgr(object):
+    """Abstract class grouping _Attr related functionality.
 
-    @classmethod
-    def _mongo_collection(cls):
-        return cchdo().objid
+    This includes modifiying _Attrs and querying them.
 
-    @classmethod
-    def parse(cls, s):
-        try:
-            return int(s)
-        except ValueError:
-            return s
+    _AttrMgrs define _Attr keys and types that are to be tracked. The value to
+    be assigned to a key must match the type specified.
 
-    @classmethod
-    def code(cls, id):
-        return id
+    Queries can be performed on _AttrMgrs based on the values of _Attrs.
 
-    @classmethod
-    def set_id(cls, id):
-        obj = cls.id.copy()
-        obj[cls.counter] = id
-        return cls._mongo_collection().save(obj)
+    The main methods that _AttrMgrs have are get(), set() and delete().
+    These methods, along with the _Attr implementation, govern how _Attr
+    data is stored.
 
-    @classmethod
-    def peek_id(cls):
-        return int(cls._mongo_collection().find_one(cls.id)[cls.counter])
+    Many queries on _Attrs involve their _Change status or type. These are
+    easy queries. The tricky ones are obtaining Objs that are associated to
+    other Objs through _Attrs. This involves finding _Attrs whose value
+    contains the ID of one Obj with proper filtering and then collecting the
+    Objs using the _Attrs. E.g. finding Cruises belonging to a Collection.
 
-    @classmethod
-    def next_id(cls):
-        obj_id = cls._mongo_collection().find_and_modify(
-            cls.id, {'$inc': cls.inc}, new=True, upsert=True)
-        return int(obj_id[cls.counter])
+    TODO better writeup
 
+    It could be best to construct a connection table with _Attr like attributes. However, does this consider the case of non-relational values?
 
-class Obj(_Change):
-    """ Base object for all tracked objects in the system.
+    For example, a Collection to Cruise mapping through _Attr. The mapping
+    should be tracked. This means the mapping has notes, acceptance, and
+    creation, pending, and judgment stamps.
 
-        Objs may have two types of attributes:
-        1. system attributes (Keys) - written directly into the object
-        2. tracked attributes (_Attrs) - written as _Attrs which are
-            _Changes themselves. These should only be edited using the provided
-            accessors/mutators.
+    Possible solution:
+      Create a table for Collections.
+      Create a table for Cruises.
+      Create a mapping table for CruisesCollections with additional association with _Attr.
+      _Attr knows about this mapping table and can pull up the correct Cruise-Collection mapping when called.
+      Create a table for value types
+      _Attr also knows about these value types and can pull up the correct value when called.
 
+    Evaluation:
+    * Does this allow querying in SQL?
+      SQL can find CruisesCollection that match, find _Attr, and then find Cruise.
+    * Does this allow querying values?
+      SQL can find values that match, find _Attr, then find Cruise.
+
+    How does setting an _Attr work then?
+      1. Create an _Attr, saving its creation stamp
+      2. The Mgr knows the _Attr's type. Verify and pass it along to the _Attr.
+      3. The _Attr knows enough to persist its value.
+      4. The _Attr needs to be accepted with a different value. How does it know where to look for its value?
+      5. The _Attr knows its type and puts it in Integer, None, Boolean, etc How to tell apart which one is original and accepted?
+      6. Store with a flag indicating whether the value is original. Filter based on current value?
+        
     """
-    __allowed_keys = ['_obj_type', ]
-    allowed_attrs = MultiDict()
+    __allowed_attrs__ = MultiDict()
 
     @classmethod
-    def _mongo_collection(cls):
-        return cchdo().objs
+    def attr_type_to_str(cls, type):
+        return type.__name__
 
-    def __init__(self, person, doc=None):
-        super(Obj, self).__init__(person, doc)
-        self._obj_type = type(self).__name__
-        self.from_mongo(doc)
 
-    @property
-    def allowed_keys(self):
-        return super(Obj, self).allowed_keys + self.__allowed_keys
+    @classmethod
+    def allow_attr(cls, key, type, name=None):
+        """Add an _Attr definition to the list of allowed keys.
 
-    def _key_alias_resolve(self, attr):
-        if attr == 'obj_type':
-            attr = '_obj_type'
-        return super(Obj, self)._key_alias_resolve(attr)
-
-    @property
-    def uid(self):
-        return ObjId.code(self.id)
-
-    @property
-    def mtime(self):
-        creation_time = super(Obj, self).ctime
-        accepted = self.accepted_tracked()
-        if not accepted:
-            return creation_time
-        last_attr_creation_time = accepted[0].creation_stamp.timestamp
-        try:
-            return max(creation_time, last_attr_creation_time)
-        except TypeError:
-            return creation_time
-
-    def polymorph(self):
-        """ Gives back a subclass instance based on _obj_type. All the data
-            loaded in the class is transferred.
-
-            Useful for transforming an Obj into a Cruise or Person, etc.
-
-            Returns:
-                an new instance of a subclass of Obj containing all the current
-                data.
+        Arguments:
+        key -- (str)
+        type -- (sqlalchemy type) the type of data that can be stored for key
+        name -- (str) name of this key for humans (default: capitalized words
+            with underscores converted to spaces)
 
         """
+        attrs = cls.__allowed_attrs__
+        if not name:
+            name = capwords(key.replace('_', ' '))
+
+        d = {'type': type, 'name': name}
         try:
-            klass = Obj.subclass_map().get(self._obj_type, self.__class__)
-            # TODO TEST you cannot simply map_mongo an Obj because some keys
-            # from the document might not have been copied
-            return klass.get_id(self.id)
-        except (TypeError, KeyError) as e:
-            return self
-
-    def save(self):
-        """ Override collectable save in order to call triggers and provide
-            shorter ids. 
-
-        """
-        try:
-            if not self.id:
-                self.id = ObjId.next_id()
-        except AttributeError:
-            self.id = ObjId.next_id()
-        super(Obj, self).save()
-        triggers.saved_obj(self)
-
-    def remove(self):
-        super(Obj, self).remove()
-        for attr in _Attr.map_mongo(self.find_attrs()):
-            attr.remove()
-        triggers.removed_obj(self)
-
-    @classmethod
-    def find(cls, spec=None, *args, **kwargs):
-        if spec:
-            # TODO TEST make sure spec doesn't have additional _obj_type key
-            # left over (require this copy)
-            query = spec.copy()
-        else:
-            query = {}
-        try:
-            query['_obj_type']
+            if d != attrs[key]:
+                raise TypeError('{} already allowed for {} as {}. Clobbering '
+                    'with {} will cause unexpected behavior.'.format(
+                    key, cls, attrs[key], d))
         except KeyError:
-            if cls is not Obj:
-                query['_obj_type'] = cls.__name__
-        try:
-            return cls._mongo_collection().find(spec=query, *args, **kwargs)
-        except IOError:
-            return []
+            pass
+        attrs[key] = d
 
-    @classmethod
-    def find_one(cls, spec_or_id=None, *args, **kwargs):
-        if spec_or_id:
-            if issubclass(type(spec_or_id), dict):
-                query = spec_or_id.copy()
-            else:
-                try:
-                    return cls._mongo_collection().find_one(
-                        spec_or_id, *args, **kwargs)
-                except IOError, e:
-                    return None
-        else:
-            query = {}
-        try:
-            query['_obj_type']
-        except KeyError:
-            if cls is not Obj:
-                query['_obj_type'] = cls.__name__
-        try:
-            return cls._mongo_collection().find_one(
-                spec_or_id=query, *args, **kwargs)
-        except IOError:
-            return None
-
-    @classmethod
-    def descendant_classes(cls):
-        classes = cls.__subclasses__()
-        descendants = []
-        for klass in classes:
-            subclasses = klass.descendant_classes()
-            descendants.append(klass)
-            descendants.extend(subclasses)
-        return descendants
-
-    @classmethod
-    def subclass_map(cls):
-        return dict([(k.__name__, k) for k in cls.descendant_classes()])
-
-    @classmethod
-    def get_all_polymorphic(cls, *args, **kwargs):
-        objs = cls.find(*args, **kwargs)
-        subclass_map = cls.subclass_map()
-        mapped = []
-        for obj in objs:
+        d = MultiDict()
+        for key, attr in attrs.items():
+            type = cls.attr_type_to_str(attr['type'])
             try:
-                klass = subclass_map.get(obj['_obj_type'], cls)
-                mapped.append(klass.map_mongo(obj))
-            except (TypeError, KeyError):
-                mapped.append(cls.map_mongo(obj))
-        return mapped
+                d[type].append(key)
+            except KeyError:
+                d[type] = [key]
+        cls.allowed_attrs = d
+        cls.allowed_attrs_list = attrs.keys()
+
+        d = {}
+        for key, attr in attrs.items():
+            d[key] = attr['name']
+        cls.allowed_attrs_human_names = d
+        return d
 
     @classmethod
-    def get_one_polymorphic(cls, *args, **kwargs):
-        obj = cls.find_one(*args, **kwargs)
+    def attr_type(cls, key):
+        """Return the type of data allowed for key."""
+        attrs = cls.__allowed_attrs__
         try:
-            klass = cls.subclass_map().get(obj['_obj_type'], cls)
-            return klass.map_mongo(obj)
-        except (TypeError, KeyError):
-            return cls.map_mongo(obj)
+            return attrs[key]['type']
+        except KeyError:
+            raise ValueError('{} is not an allowed key'.format(key))
 
     @classmethod
-    def get_id_polymorphic(cls, idobj):
-        obj = cls.find_id(idobj)
-        try:
-            klass = cls.subclass_map().get(obj['_obj_type'], cls)
-            return klass.map_mongo(obj)
-        except (TypeError, KeyError) as e:
-            return cls.map_mongo(obj)
+    def value_class(cls, type):
+        """Get the _AttrValue class corresponding to the type."""
+        if type is String:
+            return _AttrValueUnicode
+        elif type is Unicode:
+            return _AttrValueUnicode
+        elif type is Text:
+            return _AttrValueUnicode
+        elif type is Integer:
+            return _AttrValueInteger
+        elif type is DateTime:
+            return _AttrValueDatetime
+        elif type is ID:
+            return _AttrValueInteger
+        elif type is IDList:
+            return _AttrValueListID
+        elif type is TextList:
+            return _AttrValueListText
+        elif type is File:
+            return _AttrValueFile
+        elif type is LineString:
+            return _AttrValueLineString
 
-    def to_nice_dict(self):
-        """ Returns a dict representation of the Obj.
+        raise TypeError(
+            'Unknown type {} cannot be stored in _Attr system.'.format(type))
 
-            This ends up being used to present JSON.
-        """
-        return {
-            'id': self.id,
-            'obj_type': self.obj_type,
-        }
-
-    def __unicode__(self):
-        copy = {}
-        for key, value in self.items():
-            if key in ('creation_stamp', 'pending_stamp', 'judgment_stamp',
-                       '_obj_type', 'notes'):
-                continue
-            copy[key] = value
-        return u'%s(%s)' % (type(self).__name__, copy)
-
-    # _Attr interface
+    @classmethod
+    def attr_class(cls, key):
+        """Return the class for the type allowed for key."""
+        return cls.value_class(cls.attr_type(key))
 
     def _do_attr_query(self, finder, query={}, **kwargs):
         q = {'obj': self.id}
@@ -1232,60 +1170,103 @@ class Obj(_Change):
     def find_attr(self, query={}, **kwargs):
         return self._do_attr_query(_Attr.find_one, query, **kwargs)
 
-    def get_attr(self, key):
-        """ Returns the most recent _Attr for the given key """
-        attr = self.find_attr({'key': key, 'accepted': True},
-            sort=[('judgment_stamp.timestamp', DESCENDING)])
-        if attr:
-            return _Attr.map_mongo(attr)
-        raise KeyError(key)
+    def attrsq(self, key=None, accepted_only=True):
+        """Return a query for _Attrs in the _AttrMgr with key.
 
-    def history(self, key=None, **kwargs):
+        Arguments::
+        key -- the key (default: None)
+        accepted_only -- whether to limit the query to accepted _Attrs (default:
+            True)
+
+        """
+        attrs = self.attrs
         if key:
-            kwargs['key'] = key
-        return sort_by_stamp(self.find_attrs(**kwargs))
+            attrs = self.attrs.filter(_Attr.key == key)
+        if accepted_only:
+            attrs = attrs.filter(_Change.accepted == True)
+        if attrs:
+            return attrs
+        else:
+            raise KeyError("No _Attr '{}' for {}".format(key, self))
 
-    def tracked(self, *args, **kwargs):
-        return _Attr.map_mongo(
-            sort_by_stamp(self.find_attrs(*args, **kwargs), 'judgment'))
+    @deprecated('Use attrsq() or attrs instead of history()')
+    def history(self, key=None, **kwargs):
+        return self.attrsq(key, **kwargs)
 
-    def tracked_data(self):
-        return self.tracked({'file': {'$ne': None}})
+    @deprecated('Use attrsq() instead of get_attr()')
+    def get_attr(self, key):
+        """Return the most recent accepted _Attr for key."""
+        return self.attrsq(key).first()
 
-    def unjudged_tracked(self):
-        return self.tracked({'judgment_stamp': None})
+    def get(self, key, default=None):
+        """Return the value of the most recent accepted _Attr for key.
 
-    def unjudged_tracked_data(self):
-        return self.tracked({'judgment_stamp': None, 'file': {'$ne': None}})
+        Arguments::
+        key -- the key to fetch the _Attr for
+        default -- if the key is not defined, return this (default: None)
 
-    def unacknowledged_tracked(self):
-        return self.tracked({'judgment_stamp': None, 'pending_stamp': None})
+        """
+        try:
+            attr = self.attrsq(key).first()
+            value = attr.value
+            if type(value) is _AssociationList:
+                # AssociationList goes out of scope after return; get value now
+                return list(value)
+            return value
+        except (AttributeError, KeyError):
+            return default
 
-    def pending_tracked(self):
-        return self.tracked({'judgment_stamp': None,
-                             'pending_stamp': {'$ne': None}})
+    def set(self, key, value, person, note=None):
+        """Set the value for key.
 
-    def pending_tracked_data(self):
-        return self.tracked({
-            'judgment_stamp': None, 'pending_stamp': {'$ne': None},
-            'file': {'$ne': None}})
+        Raises:
+            ValueError when the key is not allowed.
 
-    def accepted_tracked(self):
-        return self.tracked({'accepted': True})
+        """
+        try:
+            restrictions = self.__allowed_attrs__[key]
+        except KeyError:
+            raise ValueError("'{}' is not an allowed key".format(key))
+        # TODO
+        # Don't check for type here. This can/will be done at flush time by the
+        # engine
+        #if type(value) != restrictions['type']:
+        #    raise TypeError('expected {}, got {}'.format(
+        #        restrictions['type'], type(value)))
+        type = restrictions['type']
+        attr = _Attr(person, key, type, value, note)
+        self.attrs.append(attr)
+        return attr
 
-    def accepted_tracked_data(self):
-        return self.tracked({'accepted': True, 'file': {'$ne': None}})
+    def delete(self, key, person, note=None):
+        """Delete the value for key."""
+        try:
+            restrictions = self.__allowed_attrs__[key]
+        except KeyError:
+            raise ValueError("'{}' is not an allowed key".format(key))
+        type = restrictions['type']
+        attr = _Attr(person, key, type, note=note, deleted=True)
+        self.attrs.append(attr)
+        return attr
 
-    def accepted_tracked_changed_data(self):
-        return self.tracked({'accepted': True, 'file': {'$ne': None},
-                             'accepted_value': {'$ne': None}})
+    def set_accept(self, key, value, person, note=None):
+        """Set the value for key and accept immediately."""
+        attr = self.set(key, value, person, note)
+        attr.accept(person)
+        return attr
 
-    def current_attrs(self):
+    def delete_accept(self, key, person, note=None):
+        """Delete the value for key and accept immediately."""
+        attr = self.delete(key, person, note)
+        attr.accept(person)
+        return attr
+
+    @property
+    def attrs_current(self):
+        """Return a map of the most current _Attrs on the _AttrMgr by key."""
         curr = {}
         deleted = set()
-        for attr in _Attr.map_mongo(
-                        sort_by_stamp(self.find_attrs({'accepted': True}),
-                                      'judgment')):
+        for attr in self.attrs.filter(_Change.accepted == True).all():
             k = attr.key
             if k not in curr and k not in deleted:
                 if attr.deleted:
@@ -1296,42 +1277,56 @@ class Obj(_Change):
 
     @property
     def attr_keys(self):
-        """ List of the tracked attributes present for this Obj
+        """Return list of the _Attrs present for this _AttrMgr.
 
-            This list does not include attributes that previously existed but
-            are now deleted.
+        This list does not include attributes that previously existed but
+        are now deleted.
 
         """
-        return self.current_attrs().keys()
+        return self.attrs_current.keys()
 
-    def get(self, key, default=None):
-        try:
-            return self.__getitem__(key)
-        except KeyError:
-            try:
-                return self.get_attr(key).value
-            except KeyError:
-                return default
+    @hybrid_property
+    def tracked(self, *args, **kwargs):
+        return self.attrs
 
-    def set(self, key, value, person, note=None):
-        attr = _Attr(person, self.id, key, value, note)
-        attr.save()
-        return attr
+    @hybrid_property
+    def tracked_data(self):
+        return self.tracked.filter(_Attr.type == 'File')
 
-    def set_accept(self, key, value, person, note=None):
-        attr = self.set(key, value, person, note)
-        attr.accept(person)
-        return attr
+    @hybrid_property
+    def unjudged_tracked(self):
+        return self.tracked.filter(_Change.judgment_timestamp == None).\
+            filter(_Change.judgment_person_id == None)
 
-    def delete(self, key, person, note=None):
-        attr = _Attr(person, self.id, key, None, note, deleted=True)
-        attr.save()
-        return attr
+    @hybrid_property
+    def unjudged_tracked_data(self):
+        return self.unjudged_tracked.filter(_Attr.type == 'File')
 
-    def delete_accept(self, key, person, note=None):
-        attr = self.delete(key, person, note)
-        attr.accept(person)
-        return attr
+    @hybrid_property
+    def unacknowledged_tracked(self):
+        return self.unjudged_tracked.filter(_Change.pending_timestamp == None).\
+            filter(_Change.pending_person_id == None)
+
+    @hybrid_property
+    def pending_tracked(self):
+        return self.unjudged_tracked.filter(_Change.pending_timestamp != None).\
+            filter(_Change.pending_person_id != None)
+
+    @hybrid_property
+    def pending_tracked_data(self):
+        return self.pending_tracked.filter(_Attr.type == 'File')
+
+    @hybrid_property
+    def accepted_tracked(self):
+        return self.tracked.filter(_Change.accepted == True)
+
+    @hybrid_property
+    def accepted_tracked_data(self):
+        return self.accepted_tracked.filter(_Attr.type == 'File')
+
+    @hybrid_property
+    def accepted_tracked_changed_data(self):
+        return self.accepted_tracked_data.filter(_Attr.v_accepted)
 
     @classmethod
     def _attr_value_key(cls, key, value_key=None):
@@ -1340,8 +1335,10 @@ class Obj(_Change):
         return key
 
     @classmethod
-    def _get_by_attrs_true_match(cls, obj, value_key, accepted_only=True, **kwargs):
-        """ Make sure the most current values match by filtering resulting objs
+    def _get_by_attrs_true_match(cls, obj, value_key, accepted_only=True,
+                                 **kwargs):
+        """Make sure the most current values match by filtering resulting objs.
+
         """
         if obj is None or (accepted_only and not obj.accepted):
             return False
@@ -1397,47 +1394,207 @@ class Obj(_Change):
         }
 
     @classmethod
-    def get_by_attrs(cls, d={}, value_key=None, accepted_only=True, **kwargs):
-        """ Gets all objects that have _Attrs that match all the requested
-            key-value pairs.
+    def filter_by_key_value(cls, query, key, value):
+        attrclass = cls.attr_class(key)
+        query = query.join(attrclass).filter(_Attr.key == key)
 
-            Values may be regular expression objects as compiled by `re`.
+        expect_list = type(attrclass.value) == AssociationProxy
+        if type(value) is list:
+            for v in value:
+                if expect_list:
+                    query = query.filter(attrclass.value.contains(v))
+                else:
+                    query = query.filter(attrclass.value == v)
+        else:
+            if expect_list:
+                query = query.filter(attrclass.value.contains(value))
+            else:
+                query = query.filter(attrclass.value == value)
 
-            value_key - (str) an additional key to be appended to the value key.
-                This is useful for querying on sub-objects in the _Attr value
-                e.g.  requiring a specific value for a specific element of the
-                _Attr value array.
+        return query
 
-            accepted_only - (bool) requires that Objs retrieved must be accepted
+    @classmethod
+    def _get_by_attrs_true_match2(cls, obj, dict, accepted_only=True):
+        """Filter resulting objs to ensure the most current values match."""
+        if obj is None or (accepted_only and not obj.accepted):
+            return False
+
+        def listlike(x):
+            try:
+                len(x)
+                x.append
+                return True
+            except (TypeError, AttributeError):
+                return False
+            
+        for k, v in dict.items():
+            key = k
+            obj_v = obj.get(k)
+
+            if listlike(obj_v):
+                if listlike(v):
+                    if obj_v != v:
+                        return False
+                else:
+                    try:
+                        if not any(v.match(x) for x in obj_v):
+                            return False
+                    except AttributeError:
+                        if v not in obj_v:
+                            return False
+            else:
+                try:
+                    if not v.match(obj_v):
+                        return False
+                except AttributeError:
+                    if obj_v != v:
+                        return False
+        return True
+    
+    @classmethod
+    def get_by_attrs_query2(cls, session, dict={}, accepted_only=True):
+        # TODO this should become an attribute on the mapped object so query works normally
+        # TODO kwargs are no longer allowed. change any calls that use it.
+        base_query = session.query(cls).join(cls.attrs)
+        if accepted_only:
+            base_query = base_query.filter(_Change.accepted == True)
+
+        filters = []
+        for k, v in dict.items():
+            filters.append(cls.filter_by_key_value(base_query, k, v))
+        if filters:
+            objs = filters[0].intersect(*filters[1:])
+        else:
+            objs = base_query
+        return objs
+
+    @classmethod
+    def get_by_attrs2(cls, session, dict={}, accepted_only=True):
+        """Return _AttrMgr whose _Attrs values match the given dictionary.
+
+        accepted_only -- (bool) limits the returned _AttrMgrs to ones whose were
+            accepted.
 
         """
-        map = d
-        if not map:
-            map = kwargs
-
-        if not map:
-            raise ValueError("No filters specified. Did you mean get_all()?")
-
-        query = [cls._get_by_attrs_query(k, v, value_key) 
-                 for k, v in map.items()]
-
-        len_query = len(query)
-        try:
-            objs_attrs = _Attr._mongo_collection().group(
-                ['obj'],
-                {'$or': query},
-                {'a': 0}, 
-                'function (x, o) { o.a++; }')
-        except IOError:
-            return []
-
-        # Filter the matched ids for the correct number of matched attrs
-        obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] >= len_query]
-        objs = cls.get_all_by_ids(obj_ids)
-
+        #value_key -- (str) an additional key to be appended to the value key.
+        #    This is useful for querying on sub-objects in the _Attr value e.g.
+        #    requiring a specific value for a specific element of the _Attr value
+        #    array.
+        objs = cls.get_by_attrs_query2(session, dict, accepted_only)
+        objs = objs.all()
         return filter(
-            lambda o: cls._get_by_attrs_true_match(o, value_key,
-                                                   accepted_only, **map), objs)
+            lambda o: cls._get_by_attrs_true_match2(
+                o, dict, accepted_only), objs)
+
+    @classmethod
+    @deprecated('Use get_by_attrs2 and remove kwargs')
+    def get_by_attrs(cls, d={}, value_key=None, accepted_only=True, **kwargs):
+        """Gets all objects that have _Attrs that match all the requested
+        key-value pairs.
+
+        Values may be regular expression objects as compiled by `re`.
+
+        Arguments:
+
+        accepted_only -- (bool) requires that Objs retrieved must be accepted
+
+        """
+        return []
+        #map = d
+        #if not map:
+        #    map = kwargs
+
+        #if not map:
+        #    raise ValueError("No filters specified. Did you mean get_all()?")
+        #
+
+        #query = [cls._get_by_attrs_query(k, v, value_key) 
+        #         for k, v in map.items()]
+
+        #len_query = len(query)
+        #try:
+        #    objs_attrs = _Attr._mongo_collection().group(
+        #        ['obj'],
+        #        {'$or': query},
+        #        {'a': 0}, 
+        #        'function (x, o) { o.a++; }')
+        #except IOError:
+        #    return []
+
+        ## Filter the matched ids for the correct number of matched attrs
+        #obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] >= len_query]
+        #objs = cls.get_all_by_ids(obj_ids)
+
+        #return filter(
+        #    lambda o: cls._get_by_attrs_true_match(
+        #        o, value_key, accepted_only, **map), objs)
+
+
+class Obj(_Change, _AttrMgr):
+    """Base object for all tracked objects in the system.
+
+    Objs may have two types of attributes:
+    1. system attributes (Keys) - written directly into the object
+    2. tracked attributes (_Attrs) - written as _Attrs which are
+        _Changes themselves. These should only be edited using the provided
+        accessors/mutators.
+
+    """
+    __tablename__ = 'objs'
+    id = Column(ForeignKey('changes.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'obj',
+    }
+
+    @hybrid_property
+    def uid(self):
+        return self.id
+
+    @property
+    def mtime(self):
+        creation_time = super(Obj, self).ctime
+        accepted = self.accepted_tracked()
+        if not accepted:
+            return creation_time
+        last_attr_creation_time = accepted[0].creation_timestamp
+        try:
+            return max(creation_time, last_attr_creation_time)
+        except TypeError:
+            return creation_time
+
+    @classmethod
+    def all_by_ids(cls, session, ids):
+        return session.query(cls).filter(cls.id.in_(ids)).all()
+
+    def to_nice_dict(self):
+        """ Returns a dict representation of the Obj.
+
+            This ends up being used to present JSON.
+
+        """
+        return {
+            'id': self.id,
+            'obj_type': self.__class__.__name__,
+        }
+
+    def __unicode__(self):
+        d = {}
+        for col in self.__class__.__table__.columns:
+            d[col.name] = self.__getattribute__(col.name)
+        kws = ', '.join(['='.join(map(unicode, x)) for x in d.items()])
+        return u'%s(%s)' % (type(self).__name__, kws)
+
+
+@event.listens_for(Obj, 'after_insert')
+@event.listens_for(Obj, 'after_update')
+def _saved_obj(mapper, connection, target):
+    triggers.saved_obj(target)
+
+
+@event.listens_for(Obj, 'after_delete')
+def _deleted_obj(mapper, connection, target):
+    triggers.deleted_obj(target)
 
 
 class _Participants(dict):
@@ -1548,106 +1705,82 @@ class _Participants(dict):
 
 
 class Cruise(Obj):
-    """ The basic unit of metadata storage for the CCHDO
+    """The basic unit of metadata storage.
 
-        Adding files
-        ============
-        Files are acquired by PIs submitting their data.
+    Adding files
+    ============
+    Files are acquired by PIs submitting their data.
 
-        There are two cases for adding files to a Cruise:
-          1. Through the submit form and then through moderator intervention
-          2. Added directly to the cruise as a suggested update to a file type
+    There are two cases for adding files to a Cruise:
 
-        Submit form
-        -----------
-        Each file stored with a copy of the submission information in the
-        form of a Submission object.
+    1. Through the submit form and then through moderator intervention
+    2. Added directly to the cruise as a suggested update to a file type
 
-        Submission objects can then be connected to a particular attribute on a
-        cruise as is done for direct suggestions. A human must provide the type
-        of file being suggested. In this manner, they are similar to imported
-        legacy Queue files.
+    Submit form
+    -----------
+    Each file stored with a copy of the submission information in the form of a
+    Submission object.
 
-        NOTE: A difference exists between imported legacy submissions and
-        created submissions. Imported submissions that have already been queued
-        have their _Attr attachment set to True instead of being linked to a
-        direct suggestion. This is because there is no easy inferred link from
-        legacy submission to legacy queue file.
+    Submission objects can then be connected to a particular attribute on a
+    cruise as is done for direct suggestions. A human must provide the type of
+    file being suggested. In this manner, they are similar to imported legacy
+    Queue files.
 
-        Imported legacy Queue files
-        ---------------------------
-        Imported Queue files are direct suggestions but are abnormal in that
-        their keys are "data_suggestion". This is because there is no guaranteed
-        way to determine the type of file being suggested. This is left to a
-        human and will require the imported queue files to be updated
-        accordingly.
+    NOTE: A difference exists between imported legacy submissions and created
+    submissions. Imported submissions that have already been queued have their
+    _Attr attachment set to True instead of being linked to a direct suggestion.
+    This is because there is no easy inferred link from legacy submission to
+    legacy queue file.
 
-        Direct suggestion
-        -----------------
-        A direct suggestion involves an attribute attached to a particular
-        Cruise that has a key associated with a file type. This state is similar
-        to the legacy queue state of "as-received", but is not visible anywhere
-        until the attribute has been acknowledged.
+    Imported legacy Queue files
+    ---------------------------
+    Imported Queue files are direct suggestions but are abnormal in that their
+    keys are "data_suggestion". This is because there is no guaranteed way to
+    determine the type of file being suggested. This is left to a human and will
+    require the imported queue files to be updated accordingly.
+
+    Direct suggestion
+    -----------------
+    A direct suggestion involves an attribute attached to a particular Cruise
+    that has a key associated with a file type. This state is similar to the
+    legacy queue state of "as-received", but is not visible anywhere until the
+    attribute has been acknowledged.
         
-        Once the attribute has been acknowledged, it becomes visible to the
-        public along with any visible notes. This is synonymous with the legacy
-        queue state of "as-received". Public or discussion notes may be made on
-        these attributes. The acknowledger becomes the equivalent of the legacy
-        queue file CCHDO contact.
+    Once the attribute has been acknowledged, it becomes visible to the public
+    along with any visible notes. This is synonymous with the legacy queue state
+    of "as-received". Public or discussion notes may be made on these
+    attributes. The acknowledger becomes the equivalent of the legacy queue file
+    CCHDO contact.
 
-        An acknowledged file attribute may be rejected, accepted, or even
-        accepted with a different value. Accepting a file attribute results in
-        the legacy queue state of "merged". The accepted value becomes the most
-        recent version of the value for the given file.
+    An acknowledged file attribute may be rejected, accepted, or even accepted
+    with a different value. Accepting a file attribute results in the legacy
+    queue state of "merged". The accepted value becomes the most recent version
+    of the value for the given file.
 
-        Attributes:
-        basin - imported from "internal"
-        parameter_informations - list of documents containing
-            status - the status of the parameter; one of the following:
-                 online, reformatted, submitted, not_measured, proposed,
-                 no_information
-            pi - the principal investigator for the parameter on the cruise
-            inst - the institution that the pi was operating for
-            ts - some date attached to the status and PI of the parameter
+    Attributes:
+    basin - imported from "internal"
+    parameter_informations - list of documents containing
+        status - the status of the parameter; one of the following:
+            online, reformatted, submitted, not_measured, proposed,
+            no_information
+        pi - the principal investigator for the parameter on the cruise
+        inst - the institution that the pi was operating for
+        ts - some date attached to the status and PI of the parameter
 
     """
-    allowed_attrs = MultiDict([
-        ['Text', ['expocode', 'link', 'frequency', ]], 
-        ['Datetime', ['date_start', 'date_end', ]], 
-        ['Text List', ['aliases', 'ports', ]],
-        ['ID', ['ship', 'country']],
-        ['ID List', ['collections', 'institutions', ]],
-    ])
+    __tablename__ = 'cruises'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
 
-    allowed_attrs_list = flatten(allowed_attrs.values()) + ['participants']
-
-    allowed_attrs_human_names = {
-        'expocode': 'ExpoCode',
-        'link': 'Expedition Link',
-        'frequency': 'Frequency', 
-        'date_start': 'Start Date',
-        'date_end': 'End Date',
-        'aliases': 'Aliases',
-        'ports': 'Ports', 
-        'ship': 'Ship',
-        'country': 'Country',
-        'collections': 'Collections',
-        'institutions': 'Institutions',
-        'participants': 'Participants',
+    __mapper_args__ = {
+        'polymorphic_identity': 'cruise',
     }
 
-    @classmethod
-    def attr_type(cls, key):
-        types = [k for k, v in cls.allowed_attrs.items() if key in v]
-        if len(types) > 0:
-            return types[0].lower().replace(' ', '_')
-        return 'text'
-
-    def __getattr__(self, key):
-        sup_attr = super(Cruise, self).__getattr__
-        if key in self.allowed_attrs_list:
-            return self.get(key)
-        return sup_attr(key)
+    #def __getattr__(self, key):
+    #    """ Attempt to get attribute as _Attr or attribute on data model"""
+    #    sup_attr = super(Cruise, self).__getattr__
+    #    if key in self.allowed_attrs_list:
+    #        return self.get(key)
+    #    return sup_attr(key)
 
     @property
     def uid(self):
@@ -1670,8 +1803,8 @@ class Cruise(Obj):
 
     @property
     def preliminary(self):
-        """ Tells whether the cruise is preliminary for the purposes of
-        displaying a warning.
+        """Tell whether the cruise is preliminary for the purposes of displaying
+        a warning.
 
         A cruise may either be completely marked preliminary or preliminary
         attributes may cause it to be considered preliminary as well.
@@ -1685,7 +1818,7 @@ class Cruise(Obj):
     @property
     def collections(self):
         collection_ids = self.get('collections', [])
-        return Collection.get_all_by_ids(collection_ids)
+        return Collection.all_by_ids(object_session(self), collection_ids)
 
     @property
     def institutions(self):
@@ -1715,17 +1848,13 @@ class Cruise(Obj):
 
     @property
     def ship(self):
-        ship = self.get('ship', None)
-        if ship:
-            return Ship.get_id(ship)
-        return None
+        return object_session(self).query(Ship).get(
+            self.get('ship', None))
 
     @property
     def country(self):
-        country = self.get('country', None)
-        if country:
-            return Country.get_id(country)
-        return None
+        return object_session(self).query(Country).get(
+            self.get('country', None))
 
     @property
     def files(self):
@@ -1757,7 +1886,7 @@ class Cruise(Obj):
         track = self.get('track', None)
         if not track:
             return track
-        return linestring.LineString(track)
+        return shapely.wkt.loads(str(track.geom_wkb))
 
     @classmethod
     def filter_geo(cls, fn, cruises):
@@ -1780,13 +1909,8 @@ class Cruise(Obj):
         return Cruise.get_all_by_ids(obj_ids)
 
     @classmethod
-    def updated(cls, limit):
+    def updated(cls, session, limit):
         file_types = data_file_descriptions.keys()
-        query = {
-            'key': {'$in': file_types},
-            'accepted': True
-        }
-        sort = [('judgment_stamp.timestamp', DESCENDING)]
 
         skip = 0
         step = limit * 4
@@ -1794,7 +1918,11 @@ class Cruise(Obj):
         cruises = set()
 
         while len(updated) < limit:
-            attrs = _Attr.get_all(query, sort=sort, skip=skip, limit=step)
+            attrs = session.query(_Attr).\
+                filter(_Attr.accepted==True).\
+                filter(_Attr.key.in_(file_types)).\
+                order_by(_Attr.judgment_timestamp.desc()).\
+                offset(skip).limit(step).all()
             if not attrs:
                 break
             for attr in attrs:
@@ -1808,15 +1936,15 @@ class Cruise(Obj):
         return updated
 
     @classmethod
-    def pending_with_date_starts(cls):
-        """ Gives a list of all pending cruises that have start dates """
-        pending = Cruise.get_all({'accepted': False})
+    def pending_with_date_starts(cls, session):
+        """Gives a list of all pending cruises that have start dates"""
+        pending = session.query(Cruise).filter(Cruise.accepted==False).all()
         return filter(lambda c: c.date_start, pending)
 
     @classmethod
-    def upcoming(cls, limit):
-        upcoming = Cruise.pending_with_date_starts()
-        now = datetime.datetime.utcnow()
+    def upcoming(cls, session, limit):
+        upcoming = Cruise.pending_with_date_starts(session)
+        now = datetime.utcnow()
         try:
             upcoming = sorted(upcoming, key=lambda c: c.date_start)
         except TypeError:
@@ -1831,13 +1959,18 @@ class Cruise(Obj):
         return upcoming[i:i + limit]
 
     @classmethod
-    def pending_years(cls):
-        """ Gives a list of integer years that have pending cruises. """
-        pending_with_date_starts = Cruise.pending_with_date_starts()
+    def pending_years(cls, session):
+        """Gives a list of integer years that have pending cruises."""
+        pending_with_date_starts = Cruise.pending_with_date_starts(session)
         years = set()
         for cruise in pending_with_date_starts:
             years.add(cruise.date_start.year)
         return list(years)
+
+    @classmethod
+    def all_only_accepted(cls, session, accepted=True):
+        """Return all that are accepted or not."""
+        return session.query(cls).filter(cls.accepted == accepted).all()
 
     def to_nice_dict(self):
         """ Returns a dict representation of the Cruise.
@@ -1864,20 +1997,54 @@ class Cruise(Obj):
         rep.update(d)
         return rep
 
-class CruiseAssociate(Obj):
-    """ Provide a way to get the cruises that an Obj is associated to
+# TODO move this into the class definition so it only gets called once even if
+# the module is reimported
+Cruise.allow_attr('expocode', Text, 'ExpoCode')
+Cruise.allow_attr('link', Text, 'Expedition Link')
+Cruise.allow_attr('frequency', Text)
 
-    """
+Cruise.allow_attr('date_start', DateTime, 'Start Date')
+Cruise.allow_attr('date_end', DateTime, 'End Date')
+
+Cruise.allow_attr('aliases', TextList)
+Cruise.allow_attr('ports', TextList)
+
+Cruise.allow_attr('ship', ID)
+Cruise.allow_attr('country', ID)
+
+Cruise.allow_attr('collections', IDList)
+Cruise.allow_attr('institutions', IDList)
+
+Cruise.allow_attr('track', LineString)
+
+# array of dicts
+Cruise.allow_attr('participants', String)
+
+Cruise.allow_attr('import_id', ID, 'Import ID')
+
+for key, name in data_file_human_names.items():
+    Cruise.allow_attr(key, File, name)
+    Cruise.allow_attr('{}_status'.format(key), TextList)
+
+
+class CruiseAssociate(Obj):
+    """Provide a way to get the cruises that an Obj is associated to."""
+    __tablename__ = 'cruise_associates'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'cruise_associate',
+    }
+
+    # Cruise associate key is the _Attr key of Cruise on which the
+    # CruiseAssociate ids are stored.
     cruise_associate_key = ''
 
-    def cruises(self, value_key=None, limit=0):
-        query = self._get_by_attrs_query(
-            self.cruise_associate_key, self.id, value_key)
-        attrs = _Attr.find(query, fields=['obj'], limit=limit)
-        attr_obj_ids = list(set(x['obj'] for x in attrs))
-        if attr_obj_ids:
-            return Cruise.get_all_by_ids(attr_obj_ids)
-        return []
+    def cruises(self, value_key=None, limit=0, accepted_only=True):
+        session = object_session(self)
+        query = Cruise.get_by_attrs_query2(
+            session, {self.cruise_associate_key: self.id}, accepted_only)
+        return query.all()
 
 
 class CruiseParticipantAssociate(CruiseAssociate):
@@ -1887,6 +2054,12 @@ class CruiseParticipantAssociate(CruiseAssociate):
         These are people or institutions.
 
     """
+    __tablename__ = 'cruise_participant_associates'
+    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'cruise_participant_associate',
+    }
     cruise_associate_key = 'participants'
     cruise_participant_associate_key = None
 
@@ -1896,16 +2069,18 @@ class CruiseParticipantAssociate(CruiseAssociate):
 
 
 class Country(CruiseAssociate):
+    __tablename__ = 'countries'
+    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
+
+    iso_3166_1 = Column(Unicode, key='name')
+    iso_3166_1_alpha_2 = Column(String(2), key='iso_code_2')
+    iso_3166_1_alpha_3 = Column(String(3), key='iso_code_3')
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'country',
+    }
+
     cruise_associate_key = 'country'
-
-    @property
-    def name(self):
-        return self.get('iso_3166-1', None)
-
-    def iso_code(self, length=2):
-        if length != 2:
-            length = 3
-        return self.get('iso_3166-1_alpha-' + str(length), None)
 
     @property
     def people(self):
@@ -1932,57 +2107,55 @@ class Country(CruiseAssociate):
         return rep
 
 
+class _PersonPermissions(Base):
+    """Permissions associated with a Person."""
+    __tablename__ = 'person_permissions'
+    person_id = Column(ForeignKey('people.id'), primary_key=True)
+    permission = Column(Unicode, primary_key=True)
+
+    def __init__(self, permission):
+        self.permission = permission
+
+
 class Person(CruiseParticipantAssociate):
-    """ People may be either verified or not.
-        If they are associated with an ID provider then they are verified.
+    """A Person in this system.
+
+    People may be either verified or not. If they are associated with an ID
+    provider then they are verified.
 
     """
+    __tablename__ = 'people'
+    id = Column(
+        ForeignKey(
+            'cruise_participant_associates.id', use_alter=True,
+            name='cruise_participant_associate_person'),
+        primary_key=True)
+
+    identifier = Column(String)
+    name = Column(String)
+    institution = Column(ForeignKey('institutions.id'))
+    country = Column(ForeignKey('countries.id'))
+    email = Column(String)
+    permissions_ = relationship(
+        _PersonPermissions, single_parent=True,
+        cascade='all, delete, delete-orphan')
+    permissions = association_proxy('permissions_', 'permission')
+
     cruise_participant_associate_key = 'person'
-    __allowed_keys = ['identifier', 'name_first', 'name_last', 'institution',
-                      'country', 'email', 'permissions', ]
 
-    allowed_attrs = MultiDict([
-        ['Text', ['title', 'job_title', 'phone', 'fax', 'address', ]], 
-        ['ID List', ['programs', ]], 
-    ])
-
-    allowed_attrs_list = flatten(allowed_attrs.values())
-
-    allowed_attrs_human_names = {
-        'title': 'Title',
-        'job_title': 'Job Title',
-        'phone': 'Phone',
-        'fax': 'Fax',
-        'address': 'Address', 
-        'programs': 'Programs', 
+    __mapper_args__ = {
+        'polymorphic_identity': 'person',
     }
 
-    def __init__(self, identifier=None, name_first=None, name_last=None,
-                 institution=None, country=None, email=None):
-        # Pretend Person is already saved so Stamp can be set
-        self.id = 'self'
-        super(Person, self).__init__(self)
-        del self.id
-
-        self.identifier = identifier
-        self.name_first = name_first
-        self.name_last = name_last
-        self.institution_ = institution
-        self.country_ = country
-        self.email = email
-        self.permissions = []
-
-        if identifier is None and None in (name_first, name_last):
+    def __init__(self, *args, **kwargs):
+        super(Person, self).__init__(self, *args, **kwargs)
+        if self.identifier is None and self.name is None:
             raise ValueError(
-                'Person must be initialized either with identifier '
-                'or names.')
+                'Person must be initialized with either identifier or names.')
 
-    @property
-    def allowed_keys(self):
-        return super(Person, self).allowed_keys + self.__allowed_keys
-
+    @hybrid_property
     def full_name(self):
-        return ' '.join((self.name_first or '', self.name_last or ''))
+        return self.name
 
     def is_verified(self):
         return self.identifier is not None
@@ -2005,23 +2178,12 @@ class Person(CruiseParticipantAssociate):
 
     @property
     def country(self):
-        return Country.get_id(self.country_)
-
-    def save(self):
-        super(Person, self).save()
-        try:
-            self['creation_stamp']['person'] = self.id
-        except AttributeError:
-            return False
-        super(Person, self).save()
+        return object_session(self).query(Country).get(
+            self.get('country', None))
 
     def __unicode__(self):
-        try:
-            return u'Person ({identifier}, {last}, {first})'.format(
-                identifier=self.identifier, last=self.name_last,
-                first=self.name_first)
-        except AttributeError:
-            return u'Person ()'
+        return u'Person(identifier={}, name={})'.format(
+            self.identifier, self.name)
 
     def to_nice_dict(self):
         """ Returns a dict representation of the Person.
@@ -2030,12 +2192,25 @@ class Person(CruiseParticipantAssociate):
         rep = super(Person, self).to_nice_dict()
         rep.update({
             'identifier': self.get('identifier', None),
-            'name_first': self.name_first,
-            'name_last': self.name_last,
+            'name': self.name,
             'email': self.email,
         })
         return rep
 
+@event.listens_for(Person, 'after_insert')
+def _insert_person_creation_person_id(mapper, connection, target):
+    """Update the Person's creation_stamp.
+
+    """
+    target._set_creation_stamp(target)
+
+Person.allow_attr('title', Text)
+Person.allow_attr('job_title', Text)
+Person.allow_attr('phone', Text)
+Person.allow_attr('fax', Text)
+Person.allow_attr('address', Text)
+
+Person.allow_attr('programs', IDList)
 
 class MultiNameObj(Obj):
     """ MultiNameObjs have multiple possible names
@@ -2046,10 +2221,17 @@ class MultiNameObj(Obj):
         now let them have just one canonical name.
 
     """
+    __tablename__ = 'multi_name_objs'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'multi_name_obj',
+    }
 
     @property
     def names(self):
-        return self.get('names', [])
+        names = list(self.get('names', []))
+        return names
 
     @property
     def name(self):
@@ -2068,22 +2250,14 @@ class MultiNameObj(Obj):
     
 
 class Institution(CruiseParticipantAssociate):
-    cruise_participant_associate_key = 'institution'
+    __tablename__ = 'institutions'
+    id = Column(ForeignKey('cruise_participant_associates.id'), primary_key=True)
 
-    allowed_attrs = MultiDict([
-        ['Text', ['name', 'phone', 'address', 'url', ]], 
-        ['ID', ['country', ]], 
-    ])
-
-    allowed_attrs_list = flatten(allowed_attrs.values())
-
-    allowed_attrs_human_names = {
-        'name': 'Name',
-        'phone': 'Phone',
-        'address': 'Address',
-        'url': 'Link',
-        'country': 'Country', 
+    __mapper_args__ = {
+        'polymorphic_identity': 'institution',
     }
+
+    cruise_participant_associate_key = 'institution'
 
     @property
     def name(self):
@@ -2118,23 +2292,23 @@ class Institution(CruiseParticipantAssociate):
         rep.update(d)
         return rep
 
+Institution.allow_attr('name', Text)
+Institution.allow_attr('phone', Text)
+Institution.allow_attr('address', Text)
+Institution.allow_attr('url', Text, 'Link')
+
+Institution.allow_attr('country', ID)
+
 
 class Ship(CruiseAssociate):
-    cruise_associate_key = 'ship'
+    __tablename__ = 'ships'
+    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
 
-    allowed_attrs = MultiDict([
-        ['Text', ['name', 'nodc_platform_code', 'url', ]], 
-        ['ID', ['country', ]], 
-    ])
-
-    allowed_attrs_list = flatten(allowed_attrs.values())
-
-    allowed_attrs_human_names = {
-        'name': 'Name',
-        'nodc_platform_code': 'NODC Platform Code', 
-        'url': 'Link', 
-        'country': 'Country', 
+    __mapper_args__ = {
+        'polymorphic_identity': 'ship',
     }
+
+    cruise_associate_key = 'ship'
 
     @property
     def name(self):
@@ -2159,24 +2333,37 @@ class Ship(CruiseAssociate):
         })
         return rep
 
+Ship.allow_attr('name', Text)
+Ship.allow_attr('nodc_platform_code', String, 'NODC Platform Code')
+Ship.allow_attr('url', Text, 'Link')
+
+Ship.allow_attr('country', ID)
+
 
 class Collection(CruiseAssociate, MultiNameObj):
-    """ Essentially tags for Cruises.
+    """Essentially tags for Cruises.
     
-        A Cruise may belong to Basin Collection, WOCE line Collection, etc.
+    A Cruise may belong to Basin Collection, WOCE line Collection, etc.
         
-        A Collection will also include a type as part of its identifier to
-        differentiate between the fields it came from in the original database.
+    A Collection will also include a type as part of its identifier to
+    differentiate between the fields it came from in the original database.
 
-        Attributes:
-        names - names associated with the collection. The first name in the
-            list is the canonical name.
-        type - identifier of WOCE line, group, program, basin
-        basins - a list of any combination of atlantic, arctic, pacific,
-            indian, southern. Having this attribute designates the collection as
-            a spatial_group.
+    Attributes:
+    names - names associated with the collection. The first name in the list is
+        the canonical name.
+    type - identifier of WOCE line, group, program, basin
+    basins - a list of any combination of atlantic, arctic, pacific,
+        indian, southern. Having this attribute designates the collection as
+        a spatial_group.
     
     """
+    __tablename__ = 'collections'
+    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'collection',
+    }
+
     cruise_associate_key = 'collections'
 
     @classmethod
@@ -2201,16 +2388,15 @@ class Collection(CruiseAssociate, MultiNameObj):
     def get_by_name(cls, name):
         return cls.get_by_attrs({'names': name}, value_key='0')
 
-    def merge_(self, signer, mergee):
-        """
-        Merges two Collections together.
-
-        """
+    def merge_(self, mergee, signer):
+        """Merge two Collections together."""
         names = uniquify(self.names + mergee.names)
         self.set_accept('names', names, signer)
         if self.type is None and mergee.type is not None:
             self.set_accept('type', mergee.type, signer)
-        cruises = set(self.cruises()).union(mergee.cruises())
+        cruises = set(
+            self.cruises(accepted_only=False)).union(
+                mergee.cruises(accepted_only=False))
         for cruise in cruises:
             colls = cruise.collections
             try:
@@ -2223,28 +2409,31 @@ class Collection(CruiseAssociate, MultiNameObj):
                 colls.append(self)
             cruise.set_accept(self.cruise_associate_key,
                               [c.id for c in colls], signer)
-        basins = uniquify(self.get('basins', []) + mergee.get('basins', []))
+
+        basins = uniquify(list(self.get('basins', [])) + \
+                          list(mergee.get('basins', [])))
         if basins:
             self.set_accept('basins', basins, signer)
-        mergee.remove()
+        object_session(self).delete(mergee)
 
     # TODO this should be pulled up to at least CruiseAssociate level. This
     # requires merge_ to be implemented
     def merge(self, signer, *mergees):
-        """
-        Merge this Collection with other collections
-
-        """
+        """Merge this Collection with other collections."""
         if not issubclass(type(signer), Person):
             raise TypeError('Signer is not a Person')
-        if not all(issubclass(type(mergee), self.__class__)
-                   for mergee in mergees):
+        if not all(issubclass(type(m), self.__class__) for m in mergees):
             raise TypeError('Not all mergees are %s' % self.__class__)
         for mergee in mergees:
-            self.merge_(signer, mergee)
+            self.merge_(mergee, signer)
 
     @classmethod
     def merge_same(cls, signer):
+        """Merge all collections that are the same together.
+
+        TODO This function should be moved to the importers.
+
+        """
         # Pass 1: same name and same type
         sames = {}
         colls = cls.get_all()
@@ -2317,6 +2506,10 @@ class Collection(CruiseAssociate, MultiNameObj):
         })
         return rep
 
+Collection.allow_attr('type', Text)
+Collection.allow_attr('basins', TextList)
+Collection.allow_attr('names', TextList)
+
 
 class AutoAcceptingObj(Obj):
     """ When AutoAcceptingObjs are saved, they are also accepted using the
@@ -2326,10 +2519,10 @@ class AutoAcceptingObj(Obj):
     def save(self):
         super(AutoAcceptingObj, self).save()
         if not self.judgment_stamp:
-            self.accept(self.creation_stamp.person)
+            self.accept(self.creation_stamp.person_id)
 
 
-class ArgoFile(AutoAcceptingObj, _FileHolder):
+class ArgoFile(AutoAcceptingObj):
     """ Files that are given to the CCHDO for Argo calibration only.
 
         THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure
@@ -2353,8 +2546,19 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         display - whether or not the file is meant to be visible
 
     """
-    __allowed_keys = ['text_identifier', '_requests', 'file', 'description',
-                      'display', ]
+    __tablename__ = 'argo_files'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
+
+    text_identifier = Column(Unicode)
+    description = Column(Unicode)
+    display = Column(Boolean)
+
+    file_id = Column(String)
+    file = composite(FileComposite, file_id)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'argo_file',
+    }
 
     def __init__(self, person):
         super(ArgoFile, self).__init__(person)
@@ -2362,10 +2566,6 @@ class ArgoFile(AutoAcceptingObj, _FileHolder):
         self.file = None
         self.description = None
         self.display = None
-
-    @property
-    def allowed_keys(self):
-        return super(ArgoFile, self).allowed_keys + self.__allowed_keys
 
     @property
     def file(self):
@@ -2410,11 +2610,19 @@ class OldSubmission(Obj):
                 an attribute "old_submission" marked True.
 
     """
-    __allowed_keys = ['date', 'stamp', 'submitter', 'line', 'folder', 'files', ]
+    __tablename__ = 'old_submissions'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
 
-    @property
-    def allowed_keys(self):
-        return super(OldSubmission, self).allowed_keys + self.__allowed_keys
+    date = Column(DateTime)
+    stamp = Column(String(6))
+    submitter = Column(Unicode)
+    line = Column(Unicode)
+    folder = Column(Integer(13))
+    files = Column(String) # TODO array of file ids
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'old_submission',
+    }
 
     def remove(self):
         for file in self.files_:
@@ -2422,7 +2630,7 @@ class OldSubmission(Obj):
         super(OldSubmission, self).remove()
 
 
-class Submission(Obj, _FileHolder):
+class Submission(Obj):
     """ A Submission to the CCHDO. These interface with humans so they need
         intervention to make everything behaves nicely before going into the
         system.
@@ -2433,7 +2641,7 @@ class Submission(Obj, _FileHolder):
         line
         action
         type - the type of submission {public, non-public, argo}
-        cruise_date - the date of the cruise being submitted
+        cruise_date - the date of the cruise being submitted TODO not used?
         file - the file that is being suggested
         attached - an _Attr id.
             When this is set, the submission has been looked at by a human and
@@ -2444,12 +2652,23 @@ class Submission(Obj, _FileHolder):
             is no way to determine it without human help.
 
     """
-    __allowed_keys = ['expocode', 'ship_name', 'line', 'action', 'type',
-                      'cruise_date', 'attached', 'file', ] 
+    __tablename__ = 'submissions'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
 
-    @property
-    def allowed_keys(self):
-        return super(Submission, self).allowed_keys + self.__allowed_keys
+    expocode = Column(Unicode)
+    ship_name = Column(Unicode)
+    line = Column(Unicode)
+    action = Column(Unicode)
+    type = Column(Unicode)
+    attached_id = Column(ForeignKey('attrs.id'))
+    attached = relationship('_Attr')
+
+    file_id = Column(String)
+    file = composite(FileComposite, file_id)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'submission',
+    }
 
     @property
     def identifier(self):
@@ -2513,6 +2732,12 @@ class Parameter(Obj):
             use only.
 
     """
+    __tablename__ = 'parameters'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'parameter',
+    }
     @property
     def aliases(self):
         return self.get('aliases') or []
@@ -2544,6 +2769,12 @@ class Unit(Obj):
     mnemnoic - the WOCE mnemonic for the unit
 
     """
+    __tablename__ = 'units'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'unit',
+    }
     pass
 
 
@@ -2555,6 +2786,12 @@ class ParameterOrder(Obj):
     order - the list of parameters in the order they should appear
 
     """
+    __tablename__ = 'parameter_orders'
+    id = Column(ForeignKey('objs.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'parameter_order',
+    }
     @property
     def order(self):
         order = self.get('order')

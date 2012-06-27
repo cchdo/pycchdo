@@ -161,8 +161,8 @@ def submit(request):
         #    s.set_accept('cruise_date', d['cruise_dates'], user)
         #    s.set_accept('action', d['action_list'], user)
         #    s.set_accept('public', d['public'] == 'public', user)
-        #    s.add_note(models.Note(user, d['notes']).save())
-        #    s.store_file(file)
+        #    s.add_note(models.Note(user.id, d['notes']).save())
+        #    s.store(file)
             submissions.append(s)
             # TODO record submitter useragent and ip
 

@@ -15,8 +15,11 @@ import webhelpers.html.tags
 
 import geojson
 
+from sqlalchemy import engine_from_config
+
 from pycchdo import models, helpers
 from pycchdo.views.basin import basins
+from pycchdo.models import DBSession
 from pycchdo.models.search import SearchIndex
 
 
@@ -39,8 +42,6 @@ def create_config(settings):
 
 
 def _configure_bindings(config):
-    config.include('pyramid_jinja2')
-    config.include('pyramid_mailer')
     config.add_jinja2_search_path('pycchdo:templates')
 
 
@@ -60,6 +61,10 @@ class RequestFactory(Request):
     @reify
     def models(self):
         return models
+
+    @reify
+    def db(self):
+        return DBSession()
 
 
 def _add_renderer_globals(event):
@@ -337,10 +342,9 @@ def _configure_routes(config):
 
 
 def main(global_config, **settings):
-    """ This function returns a Pyramid WSGI application.
-
-    """
-    models.init_conn(settings)
+    """This function returns a Pyramid WSGI application."""
+    engine = engine_from_config(settings, 'sqlalchemy.')
+    DBSession.configure(bind=engine)
 
     config = create_config(settings)
     _configure_bindings(config)

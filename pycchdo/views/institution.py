@@ -2,25 +2,25 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 
 from . import *
 import pycchdo.helpers as h
-import pycchdo.models as models
+from pycchdo.models import Institution
 from pycchdo.views import staff
 
 
 def institutions_index(request):
-    institutions = sorted(models.Institution.get_all(), key=lambda x: x.name)
+    institutions = sorted(request.db.query(Institution).all(), key=lambda x: x.name)
     institutions = paged(request, institutions)
     return {'institutions': institutions}
 
 
 def institutions_index_json(request):
-    institutions = sorted(models.Institution.get_all(), key=lambda x: x.name)
+    institutions = sorted(request.db.query(Institution).all(), key=lambda x: x.name)
     institutions = [i.to_nice_dict() for i in institutions]
     return institutions
 
 
 def _get_institution(request):
     institution_id = request.matchdict.get('institution_id')
-    return models.Institution.get_id(institution_id)
+    return request.db.query(Institution).get(institution_id)
 
 
 def _redirect_response(request, id):
@@ -73,7 +73,7 @@ def institution_merge(request):
     except KeyError:
         request.session.flash('No mergee institution given', 'help')
         return redirect_response
-    mergee = models.Institution.get_id(mergee_id)
+    mergee = request.db.query(Institution).get(mergee_id)
     if not mergee:
         request.session.flash(
             'Invalid mergee institution %s given' % mergee_id, 'help')
@@ -85,7 +85,7 @@ def institution_merge(request):
         for p in participants:
             if p['institution'] == mergee.id:
                 p['institution'] = institution.id
-        cruise.set_accept(models.Institution.cruise_associate_key,
+        cruise.set_accept(Institution.cruise_associate_key,
                           participants, request.user)
     people = mergee.people()
     for person in people:

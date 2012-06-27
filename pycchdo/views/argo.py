@@ -84,7 +84,7 @@ def _create(request):
     argo_file.text_identifier = text_id
     argo_file.description = description
     argo_file.display = bool(display)
-    argo_file.store_file(file)
+    argo_file.store(file)
     argo_file.save()
 
     request.session.pop_flash('form_entered_argo_expocode')

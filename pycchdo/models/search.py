@@ -123,9 +123,7 @@ _parsers = _create_parsers(_schemas)
 
 
 class SearchIndex(object):
-    """ Encapsulates a directory that is used as a Whoosh search index.
-
-    """
+    """Encapsulates a directory that is used as a Whoosh search index."""
     index_dir = '.'
     index_dir_checked_exists = False
 
@@ -443,10 +441,10 @@ class SearchIndex(object):
         return results
 
     def register_triggers(self):
-        triggers.saved_obj_actions.append(self.save_obj)
-        triggers.removed_obj_actions.append(self.remove_obj)
-        triggers.saved_note_actions.append(self.save_note)
-        triggers.removed_note_actions.append(self.remove_note)
+        triggers.saved_obj_actions.append(triggers.saved_obj)
+        triggers.deleted_obj_actions.append(triggers.deleted_obj)
+        triggers.saved_note_actions.append(triggers.saved_note)
+        triggers.deleted_note_actions.append(triggers.deleted_note)
 
     def unregister_triggers(self):
         if triggers:
@@ -472,9 +470,9 @@ class SearchIndex(object):
 
 
 def compile_into_cruises(results):
-    """ Takes the results of a search() and turns them into a list of Cruises
+    """Takes the results of a search() and turns them into a list of Cruises.
 
-        Notes are excluded from this compilation.
+    Notes are excluded from this compilation.
 
     """
     cruises = []

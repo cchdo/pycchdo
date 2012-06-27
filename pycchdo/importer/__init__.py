@@ -1,14 +1,21 @@
-import datetime
+import argparse
+from datetime import datetime, time
 import logging
 from contextlib import contextmanager
-import tempfile
-import os
+from tempfile import NamedTemporaryFile
+from os import getcwd, chdir, unlink, geteuid, getegid, seteuid, setegid
+from pwd import getpwnam
+from ConfigParser import (
+    SafeConfigParser, NoSectionError, NoOptionError, Error as ConfigError)
 
 import paramiko
 
 from pymongo import DESCENDING
 
 from pycchdo import models
+from pycchdo.importer import cchdo, seahunt
+from pycchdo.models.search import SearchIndex
+from pycchdo.log import ColoredLogger
 
 
 __all__ = ['implog', 'db_session', 'su', 'ssh_connect', 'ssh', 'sftp',
@@ -16,9 +23,7 @@ __all__ = ['implog', 'db_session', 'su', 'ssh_connect', 'ssh', 'sftp',
            'update_attr', 'pushd', ]
 
 
-implog = logging.getLogger('pycchdo.import')
-implog.setLevel(logging.DEBUG)
-logging.basicConfig(format='%(levelname)s %(asctime)-15s %(message)s')
+implog = ColoredLogger(__name__)
 
 
 @contextmanager
@@ -32,29 +37,29 @@ def db_session(session):
 
 @contextmanager
 def pushd(dir):
-    cwd = os.getcwd()
-    os.chdir(dir)
+    cwd = getcwd()
+    chdir(dir)
     try:
         yield
     except Exception, e:
         implog.error('Error in pushd')
         implog.error(e)
     finally:
-        os.chdir(cwd)
+        chdir(cwd)
 
 
 @contextmanager
 def su(uid=0, gid=0, su_lock=None):
-    """ Temporarily switch effective uid and gid to provided values """
+    """Temporarily switch effective uid and gid to provided values."""
     if su_lock:
         su_lock.acquire()
     try:
-        seuid = os.geteuid()
-        segid = os.getegid()
+        seuid = geteuid()
+        segid = getegid()
         if uid != 0 and seuid != 0:
-            os.seteuid(0)
-        os.setegid(gid)
-        os.seteuid(uid)
+            seteuid(0)
+        setegid(gid)
+        seteuid(uid)
     except OSError, e:
         implog.error('You must run this program as root because file '
                      'permissions need to be set.')
@@ -65,16 +70,16 @@ def su(uid=0, gid=0, su_lock=None):
         implog.error('Error in su(%s, %s): %s' % (uid, gid, e))
     finally:
         if uid != 0:
-            os.seteuid(0)
-        os.setegid(segid)
-        os.seteuid(seuid)
+            seteuid(0)
+        setegid(segid)
+        seteuid(seuid)
     if su_lock:
         su_lock.release()
 
 
 def ssh_connect(ssh_host,
-                known_hosts='pycchdo_import/known_hosts',
-                ssh_key_file='pycchdo_import/root_ssh_key'):
+                known_hosts='import_assets/known_hosts',
+                ssh_key_file='import_assets/root_ssh_key'):
     implog.info("Connecting (SSH) to %s" % ssh_host)
     ssh_client = paramiko.SSHClient()
     with su():
@@ -127,10 +132,13 @@ def sftp(ssh_host):
 
 @contextmanager
 def sftp_dl(sftp, filepath, dl_files=True):
-    """ Download a filepath from the remote server
-        dl_files - denotes whether the file is actually downloaded
+    """Download a filepath from the remote server.
+
+    Arguments:
+    dl_files - denotes whether the file is actually downloaded
+
     """
-    temp = tempfile.NamedTemporaryFile(delete=False)
+    temp = NamedTemporaryFile(delete=False)
     try:
         implog.info('Downloading %s' % filepath)
         if dl_files:
@@ -144,7 +152,7 @@ def sftp_dl(sftp, filepath, dl_files=True):
         yield None
     finally:
         try:
-            os.unlink(temp.name)
+            unlink(temp.name)
         except OSError, e:
             implog.error('Unable to unlink tempfile: %s' % e)
 
@@ -156,7 +164,7 @@ def _ustr2uni(s):
 
 
 def _date_to_datetime(date):
-    return datetime.datetime.combine(date, datetime.time(0))
+    return datetime.combine(date, time(0))
 
 
 def update_note(obj, note, person, data_type=None):
@@ -168,7 +176,7 @@ def update_note(obj, note, person, data_type=None):
             matched_note = True
             break
     if not matched_note:
-        obj.add_note(models.Note(person, _ustr2uni(note),
+        obj.add_note(models.Note(person.id, _ustr2uni(note),
                                  data_type=data_type).save())
 
 
@@ -206,3 +214,117 @@ def update_attr(o, key, value, signer, accept=True, note=None,
     if attr and note is not None:
         update_note(attr, note, signer, note_data_type)
     return attr
+
+
+argparser = argparse.ArgumentParser(description='Import CCHDO/Seahunt data')
+argparser.add_argument(
+    'paste_config',
+    help='A Paste config .ini file that contains application, database, and '
+         'search index settings')
+argparser.add_argument(
+    '-T', '--tabula-rasa', type=bool, default=False,
+    help='Whether to reset the pycchdo database before rebuilding. Useful for '
+         'full rebuilds.')
+argparser.add_argument(
+    '-C', '--skip_cchdo', type=bool, default=False,
+    help='Skip importing CCHDO data')
+argparser.add_argument(
+    '-S', '--skip_seahunt', type=bool, default=False,
+    help='Skip importing Seahunt data')
+argparser.add_argument(
+    '-I', '--skip_search_index', type=bool, default=False,
+    help='Skip building the search index')
+argparser.add_argument(
+    '-i', '--search_index_only', type=bool, default=False,
+    help='Only build the serach index')
+argparser.add_argument(
+    '-D', '--skip_downloads', type=bool, default=False,
+    help='Skip downloading files')
+argparser.add_argument(
+    '-X', '--clear_seahunt', type=bool, default=False,
+    help='Clear seahunt imports and exit.')
+argparser.add_argument(
+    '-F', '--files_only', type=bool, default=False,
+    help='Only import items that have files')
+argparser.add_argument(
+    '-u', '--username', type=str, default='_www',
+    help='The webserver username for import permissions')
+
+
+def _is_root():
+    return geteuid() is 0
+
+
+def _drop_permissions(user):
+    """Drop effective privileges.
+    Need to re-escalate later when importing files.
+
+    """
+    seteuid(user.pw_uid)
+    setegid(user.pw_gid)
+
+
+def _read_config(args):
+    config = SafeConfigParser()
+    config.read(args.paste_config)
+    app_entry = 'app:pycchdo'
+    args.db_uri = config.get(app_entry, 'db_uri')
+    args.db_search_index_path = config.get(
+        app_entry, 'db_search_index_path')
+
+
+def do_import():
+    args = argparser.parse_args()
+
+    username = '_www'
+    try:
+        wwwuser = getpwnam(username)
+    except Exception:
+        implog.error('No such user {}'.format(username))
+        argparser.exit(1)
+
+    if not args.skip_downloads:
+        if not _is_root():
+            _drop_permissions(wwwuser)
+        else:
+            implog.error('pycchdo importer must be run as root in order to '
+                         'import correct file ownerships')
+            argparser.exit(1)
+    elif _is_root():
+        _drop_permissions(wwwuser)
+
+    try:
+        _read_config(args)
+    except ConfigError:
+        implog.error('importer requires an .ini file with db_uri and '
+                     'db_search_index_path defined for %s' % app_entry)
+        argparser.exit(1)
+
+    implog.info('importing with options %s' % args)
+
+    implog.info("connect to pycchdo (%s)" % args.db_uri)
+    engine = None
+    DBSession.configure(bind=engine)
+
+    if not args.search_index_only:
+        if args.tabula_rasa:
+            models._reset_database(engine)
+
+        if args.clear_seahunt:
+            seahunt.clear()
+            return 0
+
+        if not args.skip_cchdo:
+            cchdo.import_(import_gid, dl_files=not args.skip_downloads,
+                          files_only=args.files_only)
+
+        if not args.skip_seahunt:
+            seahunt.import_(dl_files=not args.skip_downloads,
+                            files_only=args.files_only)
+
+    if not args.skip_search_index:
+        SearchIndex(args.db_search_index_path).rebuild_index(
+            clear=args.tabula_rasa)
+
+    implog.info("finished import.")
+    return 0

@@ -27,7 +27,7 @@ legacy = lcconvert.legacy
 
 from pycchdo import models
 from pycchdo.views import text_to_obj
-from pycchdo.importers import *
+from pycchdo.importer import *
 
 
 __all__ = ['_import_Collection', '_import_person']
@@ -877,8 +877,8 @@ def _import_events(session, importer):
                 summary = _ustr2uni(event.Summary)
 
             person = _import_person(importer, event.LastName, event.First_Name)
-            note = models.Note(person, body, action, data_type, summary)
-            note.creation_stamp.timestamp = \
+            note = models.Note(person.id, body, action, data_type, summary)
+            note.creation_timestamp = \
                 _date_to_datetime(event.Date_Entered)
             note.import_id = event.ID
             note.save()
@@ -1234,7 +1234,7 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             submission = models.Submission(importer)
 
             submission_date = _date_to_datetime(sub.submission_date)
-            submission.creation_stamp.timestamp = submission_date
+            submission.creation_timestamp = submission_date
 
             # Information about submitter
             name = sub.name
@@ -1250,7 +1250,7 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             submitter.set_accept('ip', ip, importer)
             submitter.set_accept('ua', ua, importer)
 
-            submission.creation_stamp.person = submitter.id
+            submission.creation_person_id = submitter.id
 
             submission.save()
 
@@ -1279,7 +1279,7 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
                 submission.action_ = _ustr2uni(action)
             if notes:
                 submission.add_note(
-                    models.Note(submitter, _ustr2uni(notes)).save())
+                    models.Note(submitter.id, _ustr2uni(notes)).save())
 
             file = None
             with sftp_dl(sftp_cchdo, file_path, dl_files) as file:
@@ -1305,10 +1305,10 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
                             file = zf.open(infos[0])
                             actual_file.filename = infos[0].filename
                         actual_file.file = file
-                        submission.store_file(actual_file)
+                        submission.store(actual_file)
                 else:   
                     actual_file.file = file
-                    submission.store_file(actual_file)
+                    submission.store(actual_file)
                 submission.save()
 
             submission.type_ = submission_public_to_type(
@@ -1409,7 +1409,7 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
                 date_merged = _get_mtime(sftp_cchdo, unprocessed_input)
             else:
                 date_merged = _date_to_datetime(date_merged)
-            queue_file.judgment_stamp.timestamp = date_merged
+            queue_file.judgment_timestamp = date_merged
             queue_file.save()
 
         if qfile.merged == 2 or qfile.hidden:
@@ -1420,11 +1420,11 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            queue_file.add_note(models.Note(importer,
+            queue_file.add_note(models.Note(importer.id,
                                             _ustr2uni(qfile.notes)).save())
 
         if qfile.action:
-            queue_file.add_note(models.Note(importer, _ustr2uni(qfile.action),
+            queue_file.add_note(models.Note(importer.id, _ustr2uni(qfile.action),
                                             data_type='Action',
                                             discussion=True).save())
 
@@ -1435,12 +1435,12 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
             if qfile.documentation:
                 if not re_docs.match(parameters):
                     parameters = u','.join([parameters, 'Documentation'])
-            queue_file.add_note(models.Note(importer, parameters,
+            queue_file.add_note(models.Note(importer.id, parameters,
                                             data_type='Parameters',
                                             discussion=True).save())
 
         if qfile.merge_notes:
-            queue_file.add_note(models.Note(importer,
+            queue_file.add_note(models.Note(importer.id,
                                             _ustr2uni(qfile.merge_notes),
                                             discussion=True).save())
 
@@ -1621,9 +1621,9 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
                 update_note(attr, ','.join(date_creations), importer,
                             'dates_updated')
             else:
-                attr.creation_stamp.timestamp = date_creation
+                attr.creation_timestamp = date_creation
         if date_accepted:
-            attr.judgment_stamp.timestamp = parse_dt(date_accepted)
+            attr.judgment_timestamp = parse_dt(date_accepted)
 
         attr.import_filepath = doc.FileName
         attr.import_id = id
@@ -1802,7 +1802,7 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
 
     for file in argo_files:
         argo_file = models.ArgoFile.get_one({
-            'creation_stamp.timestamp': file.created_at})
+            'creation_timestamp': file.created_at})
         if not argo_file:
             implog.info('Creating Argo File (%s, %s)' % (file.filename,
                                                          file.created_at))
@@ -1812,8 +1812,8 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
                 user = users[0]
             else:
                 user = importer
-            argo_file.creation_stamp.person = user.id
-            argo_file.creation_stamp.timestamp = file.created_at
+            argo_file.creation_person_id = user.id
+            argo_file.creation_timestamp = file.created_at
             argo_file.save()
         else:
             implog.info('Updating Argo File (%s, %s)' % (file.filename,
@@ -1859,7 +1859,7 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
                         downloaded.type = mimetypes.guess_type(
                             downloaded.filename)[0]
                         downloaded.file = f
-                        argo_file.store_file(downloaded)
+                        argo_file.store(downloaded)
                     else:
                         implog.error(
                             'Unable to attach argo file by download')
@@ -1872,7 +1872,7 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
                         actual_file.type = mimetypes.guess_type(
                             file.filename)[0]
                         actual_file.file = f
-                        argo_file.store_file(actual_file)
+                        argo_file.store(actual_file)
 
         if file.downloads:
             argo_file.clear_requests()
@@ -1881,24 +1881,6 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
                                                        remote_addr=dl.ip))
 
         argo_file.save()
-
-
-def _import_cchdo_uname_uids(ssh_cchdo, importer):
-    """ Uname/ids preserves the username/id mapping from the imported host
-
-    This is necessary because of the stored tarballs of unaccounted files that
-    need to be crossreferenced for permissions.
-
-    """
-    if not importer.get('cchdo_uname_uids'):
-        implog.info('Import CCHDO username/ids')
-        username_uid_map = {}
-        (sshin, sshout, ssherr) = ssh_cchdo.exec_command(
-            'dscl . list /Users UniqueID')
-        for line in sshout:
-            uname, uid = line.split()
-            username_uid_map[uname] = int(uid)
-        importer.set_accept('cchdo_uname_uids', username_uid_map, importer)
 
 
 def import_(import_gid, dl_files=True, files_only=False):
@@ -1940,5 +1922,4 @@ def import_(import_gid, dl_files=True, files_only=False):
             _import_old_submissions(session, importer, sftp_cchdo, dl_files)
             _import_queue_files(session, importer, sftp_cchdo, dl_files)
             _import_documents(session, importer, import_gid, dl_files)
-            _import_cchdo_uname_uids(ssh_cchdo, importer)
             _import_argo_files(session, importer, sftp_cchdo, dl_files)

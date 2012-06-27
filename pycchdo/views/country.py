@@ -1,35 +1,38 @@
-from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
+from pyramid.httpexceptions import (
+    HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized)
 
 from . import *
 import pycchdo.helpers as h
-import pycchdo.models as models
+from pycchdo.models import Country
 from pycchdo.views import staff
 
 
 def countries_index(request):
-    countries = sorted(models.Country.get_all(), key=lambda x: x.name)
+    countries = sorted(
+        request.db.query(Country).all(), key=lambda x: x.name)
     return {'countries': countries}
 
 
 def countries_index_json(request):
-    countries = sorted(models.Country.get_all(), key=lambda x: x.name)
+    countries = sorted(
+        request.db.query(Country).all(), key=lambda x: x.name)
     countries = [c.to_nice_dict() for c in countries]
     return countries
 
 
 def _get_country(request):
     c_id = request.matchdict.get('country_id')
-    country = models.Country.get_id(c_id)
+    country = request.db.query(Country).get(c_id)
     if not country:
-        countries = models.Country.get_by_attrs({'iso_3166-1': c_id})
+        countries = Country.get_by_attrs({'iso_3166-1': c_id})
         if len(countries) > 0:
             country = countries[0]
     return country
 
 
 def _redirect_response(request, id):
-    raise HTTPSeeOther(location=request.route_path('country_show',
-                                                    country_id=id))
+    raise HTTPSeeOther(
+        location=request.route_path('country_show', country_id=id))
 
 
 def country_show(request):
@@ -83,7 +86,7 @@ def country_merge(request):
     except KeyError:
         request.session.flash('No mergee country given', 'help')
         return redirect_response
-    mergee = models.Country.get_id(mergee_id)
+    mergee = request.db.query(Country).get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee country %s given' % mergee_id, 'help')
         return redirect_response
@@ -92,7 +95,7 @@ def country_merge(request):
 
     cruises = set(country.cruises()).union(mergee.cruises())
     for cruise in cruises:
-        cruise.set_accept(models.Country.cruise_associate_key, country.id, request.user)
+        cruise.set_accept(Country.cruise_associate_key, country.id, request.user)
     people = country.people()
     for person in people:
         if person.country != country.id:

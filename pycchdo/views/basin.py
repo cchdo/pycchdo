@@ -7,6 +7,7 @@ from pyramid.httpexceptions import HTTPNotFound
 
 from pycchdo.views.toplevel import catchall_static
 import pycchdo.models as models
+from pycchdo.models import Collection
 
 
 static_basins = ['atlantic', 'pacific', ]
@@ -20,7 +21,7 @@ def _sorted_by_name(collections):
 
 def _arctic():
     default = []
-    collections = models.Collection.get_by_attrs(
+    collections = Collection.get_by_attrs(
         names=re.compile('.*arctic.*', re.IGNORECASE))
 
     coll_cruises = set()
@@ -51,8 +52,8 @@ def _arctic():
                 reverse=True)[0]
             one_away_collection_ids |= set(
                 attr['accepted_value'] or attr['value'])
-    one_away_collections = models.Collection.get_all_by_ids(
-        list(one_away_collection_ids))
+    one_away_collections = Collection.all_by_ids(
+        request.db, list(one_away_collection_ids))
 
     woce_collections = filter(
         lambda c: c.get('type') == 'WOCE line', one_away_collections)
@@ -65,9 +66,9 @@ def _indian():
     sou = []
     atl = []
     # Currently, only indian basin page is generated from spatial groups
-    colls = models.Collection.get_by_attrs(basins='indian') + \
-            models.Collection.get_by_attrs(basins='southern') + \
-            models.Collection.get_by_attrs(basins='atlantic')
+    colls = Collection.get_by_attrs(basins='indian') + \
+            Collection.get_by_attrs(basins='southern') + \
+            Collection.get_by_attrs(basins='atlantic')
     for sgs in colls:
         basins = sgs.get('basins')
         if 'indian' not in basins:
@@ -107,16 +108,16 @@ def _filter_for_southern(collections):
 
 
 def _southern():
-    sou = models.Collection.get_by_attrs(
+    sou = Collection.get_by_attrs(
         type='WOCE line',
         names=re.compile('S.*', re.IGNORECASE))
-    atl = models.Collection.get_by_attrs(
+    atl = Collection.get_by_attrs(
         type='WOCE line',
         names=re.compile('A(R|J|__).*', re.IGNORECASE))
-    ind = models.Collection.get_by_attrs(
+    ind = Collection.get_by_attrs(
         type='WOCE line',
         names=re.compile('(I|AIS).*', re.IGNORECASE))
-    pac = models.Collection.get_by_attrs(
+    pac = Collection.get_by_attrs(
         type='WOCE line',
         names=re.compile('(P|AAI).*', re.IGNORECASE))
 

@@ -323,7 +323,7 @@ def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
 
 
 def cruise_suggested_attr(attr):
-    person = link_person(attr.creation_stamp.person)
+    person = link_person(attr.creation_person)
     if attr.deleted:
         verb = 'deleting'
         obj_phrase = [H.span(attr.key, class_='key')]
@@ -331,10 +331,10 @@ def cruise_suggested_attr(attr):
         verb = 'changing'
         obj_phrase = [H.span(attr.key, class_='key'), ' to ',
                       H.span(attr.value, class_='value')]
-    when = attr.creation_stamp.timestamp
+    when = attr.creation_timestamp
     if attr.pending_stamp:
         followup = \
-           '(Under review as of %s)' % (attr.pending_stamp.timestamp)
+           '(Under review as of %s)' % (attr.pending_timestamp)
     else:
         followup = ''
 
@@ -356,8 +356,8 @@ def cruise_history_rows(change, i, hl):
     baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
 
     if type(change) == models.Note:
-        time = date(change.creation_stamp.timestamp, '%Y-%m-%d')
-        person = link_person(change.creation_stamp.person)
+        time = date(change.creation_timestamp, '%Y-%m-%d')
+        person = link_person(change.creation_person)
         data_type = change['data_type']
         action = change['action']
         summary = change['subject']
@@ -365,8 +365,8 @@ def cruise_history_rows(change, i, hl):
         if change.discussion:
             baseclass += ' discussion'
     else:
-        time = date(change.creation_stamp.timestamp, '%Y-%m-%d')
-        person = link_person(change.creation_stamp.person)
+        time = date(change.creation_timestamp, '%Y-%m-%d')
+        person = link_person(change.creation_person)
         data_type = change['key']
         if change['deleted']:
             action = 'Deleted'
@@ -598,7 +598,7 @@ def link_pdf_preview(link):
 
 
 def change_pretty(change):
-    person = change.creation_stamp.person
+    person = change.creation_person
     if change['deleted']:
         status = 'deleted'
     else:
@@ -631,14 +631,12 @@ def change_pretty(change):
 
 def data_uri(data):
     """ Given an _Attr with a file, provides a link to a file. """
-    if not data or not data.file_:
-        if not data:
-            logging.error('Cannot link to nothing')
-        else:
-            logging.error('Cannot link to a non file _Attr #%s' % data.id)
+    if not data or not data.value:
+        logging.error('Cannot link to nothing')
+    if data.type != 'File':
+        logging.error('Cannot link to a non file _Attr #%s' % data.id)
         return '/404.html'
-
-    return '/data/b/{id}'.format(id=data['_id'])
+    return '/data/b/{id}'.format(id=data.id)
 
 
 def short_data_type(type):

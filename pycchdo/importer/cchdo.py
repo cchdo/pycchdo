@@ -2,7 +2,6 @@
 import datetime
 from cgi import FieldStorage
 import stat
-import logging
 import tempfile
 import os
 import re
@@ -10,14 +9,22 @@ import mimetypes
 import tarfile
 import shutil
 from StringIO import StringIO
-import threading
+from threading import Thread, Lock
 import time
 import zipfile
+from tempfile import NamedTemporaryFile
+
 from sqlalchemy.exc import OperationalError
+
 from paramiko import SSHException
+
 import shapely.wkt
 from shapely.geos import ReadingError
 from shapely.geometry import LineString
+
+from webob.request import BaseRequest
+
+import transaction
 
 import libcchdo
 from libcchdo.fns import uniquify
@@ -26,31 +33,36 @@ std = lcconvert.std
 legacy = lcconvert.legacy
 
 from pycchdo import models
+from pycchdo.models import (
+    DBSession,
+    Note,
+    FSFile,
+    Cruise, Person, Institution, Country, Participant, ArgoFile, Collection,
+    Submission, OldSubmission, Unit, Ship, Parameter, ParameterOrder, 
+    RequestFor,
+    ParameterInformation, 
+    )
+from pycchdo.importer import * 
 from pycchdo.views import text_to_obj
-from pycchdo.importer import *
 
 
-__all__ = ['_import_Collection', '_import_person']
+__all__ = ['import_Collection', 'import_person']
 
 
-nthreads = 20
-
-
-def _import_Collection(importer, name, type):
-    """ A Collection also will include a type as part of its identifier to
+def import_Collection(updater, name, type):
+    """A Collection also will include a type as part of its identifier to
     differentiate between the fields it came from in the original database.
+
     """
-    collections = models.Collection.get_by_attrs(names=[name], type=type)
-    if len(collections) > 0:
+    collection = Collection.get_one_by_attrs(
+        DBSession, {'names': [name], 'type': type})
+    if collection:
         implog.info('Updating Collection %s %s' % (name, type))
-        collection = collections[0]
     else:
         implog.info('Creating Collection %s %s' % (name, type))
-        collection = models.Collection(importer)
-        collection.accept(importer)
-        collection.save()
-        collection.set_accept('names', [name], importer)
-        collection.set_accept('type', type, importer)
+        collection = updater.create_accept(Collection)
+    updater.attr(collection, 'names', [name])
+    updater.attr(collection, 'type', type)
     return collection
 
 
@@ -90,6 +102,16 @@ def _namesonly(names):
     for name in names:
         d[name] = (name, None, )
     return d
+
+
+codes_name_to_param_info_code = {
+    'OnLine': 'online',
+    'Reformatted': 'reformatted',
+    'Submitted': 'submitted',
+    'NotMeasured': 'not_measured',
+    'Proposed': 'proposed',
+    'No Information': 'no_information',
+}
 
 
 known_names = _namesonly([
@@ -343,37 +365,40 @@ known_aliases = {
 }
 
 
-def _name_to_person(importer, cruise, name):
-    people = models.Person.get_all({'name_last': name})
+def _find_person_with_qlastn_name_first(qlastn, name_first):
+    people = qlastn.filter(Person.name_first == name_first).all()
+    if len(people) == 1:
+        return people[0]
+    elif len(people) > 1:
+        implog.error(
+            u'More than one person for %s' % (name, name_first))
+    else:
+        implog.error(
+            u'No person found for last: {} first: {}'.format(
+                name, name_first))
+    return None
+
+
+def _name_to_person(updater, cruise, name):
+    qlastn = DBSession.query(Person).filter(Person.name_last == name)
+    people = qlastn.all()
     if len(people) == 1:
         return people[0]
     elif len(people) > 1:
         try:
             name_first = known_first_name_for_cruise[cruise.id]
-            people = models.Person.get_all({'name_last': name,
-                                            'name_first': name_first})
-            if len(people) == 1:
-                return people[0]
-            elif len(people) > 1:
-                implog.error(
-                    u'More than one person for %s' % (name, name_first))
-            else:
-                implog.error(u'No person found for last: %s first: %s' % (
-                    name, name_first))
+            person = _find_person_with_qlastn_name_first(
+                qlastn, name_first)
+            if person is not None:
+                return person
         except KeyError:
             try:
                 name_first = known_first_name_given_last_name_for_cruise[
                     (cruise.id, name)]
-                people = models.Person.get_all({'name_last': name,
-                                                'name_first': name_first})
-                if len(people) == 1:
-                    return people[0]
-                elif len(people) > 1:
-                    implog.error(
-                        u'More than one person for %s' % (name, name_first))
-                else:
-                    implog.error(u'No person found for last: %s first: %s' % (
-                        name, name_first))
+                person = _find_person_with_qlastn_name_first(
+                    qlastn, name_first)
+                if person is not None:
+                    return person
             except KeyError:
                 first_names = [p.name_first for p in people]
                 ids = [p.id for p in people]
@@ -392,10 +417,10 @@ def _name_to_person(importer, cruise, name):
 
     # No people found
     implog.warn('No person found for %s' % name)
-    return _import_contact(importer, name, '')
+    return _import_contact(updater, name, '')
 
 
-def _name_to_inst(importer, name, p):
+def _name_to_inst(updater, name, p):
     if name is None or name == 'None' or name == '':
         return None
 
@@ -414,41 +439,46 @@ def _name_to_inst(importer, name, p):
 
     try:
         replacement = names[0]
-        return _import_inst(importer, replacement)
+        return _import_inst(updater, replacement)
     except IndexError:
         return None
 
 
-def _person_insts_to_pi(importer, cruise, person_insts):
-    p = _name_to_person(importer, cruise, person_insts[0])
-    i = _name_to_inst(importer, person_insts[1], p)
+def _person_insts_to_pi(updater, cruise, person_insts):
+    p = _name_to_person(updater, cruise, person_insts[0])
+    if len(person_insts) > 1:
+        i = _name_to_inst(updater, person_insts[1], p)
+    else:
+        i = None
     return (p, i)
 
 
-def _cchdo_pi_to_person_insts(pi, cruise, importer):
-    """ Attempt to map the CCHDO PI/Chief Scientist string melange into Person
+def _cchdo_pi_to_person_insts(pi, cruise, updater):
+    """Attempt to map the CCHDO PI/Chief Scientist string melange into Person
     Institutions pairs.
 
     """
+    implog.info(u'Mapping {} {} to person-institution'.format(pi, cruise))
+
     # Special cases
     if pi == 'Unknown':
         return []
     if pi == 'Miller/NOAA':
         return [_import_person_inst(
-                    importer, u'Miller', u'Rick', u'NOAA',
+                    updater, u'Miller', u'Rick', u'NOAA',
                     u'Hendrick.V.Miller@noaa.gov')]
     if pi == 'Gaillard/NWU':
         return [_import_person_inst(
-                    importer, u'Gaillard', u'Jean-François',
+                    updater, u'Gaillard', u'Jean-François',
                     u'Northwestern University',
                     u'jf-gaillard@northwestern.edu')]
     if pi == 'JOHNSON':
         return [_import_person_inst(
-                    importer, u'Johnson', u'Rodney J.',
+                    updater, u'Johnson', u'Rodney J.',
                     u'Bermuda Institute of Ocean Sciences',
                     u'rod.johnson@bios.edu')]
 
-    names = [unicode(x.strip(), 'unicode_escape') for x in pi.split(',')]
+    names = [_ustr2uni(x.strip()) for x in pi.split(',')]
     pis = []
     for name in names:
         if ':' in name:
@@ -458,7 +488,7 @@ def _cchdo_pi_to_person_insts(pi, cruise, importer):
                 continue
             if '/' in name1:
                 name1, name2 = name1.split('/', 1)
-                pis.extend([(name0, name2), (name1, name2)])
+                pis.extend([(name0, name2, ), (name1, name2, )])
                 continue
             else:
                 pis.extend([(name0, None), (name1, None)])
@@ -468,11 +498,10 @@ def _cchdo_pi_to_person_insts(pi, cruise, importer):
             if name1 in known_names:
                 pis.extend([(name0, None), known_names[name1]])
                 continue
-            if not name1 in known_institutions.keys() and \
-               '/' in name1:
+            if not name1 in known_institutions.keys() and '/' in name1:
                 name1, name2 = name1.split('/', 1)
                 if name2 in known_institutions.keys():
-                    pis.extend([(name0, name2), (name1, name2)])
+                    pis.extend([(name0, name2, ), (name1, name2, )])
                 else:
                     pis.extend([(name0, None), (name1, None), (name2, None)])
                 continue
@@ -486,203 +515,226 @@ def _cchdo_pi_to_person_insts(pi, cruise, importer):
             continue
         except KeyError:
             pass
-        pis.append((name, None))
-
-    return [_person_insts_to_pi(importer, cruise, pi) \
+        pis.append((name, None, ))
+    return [_person_insts_to_pi(updater, cruise, pi) \
             for pi in filter(None, pis)]
 
 
-def _import_inst(importer, institution_name):
-    institutions = models.Institution.get_by_attrs(name=institution_name)
-    if len(institutions) > 0:
-        implog.info("Updating Institution %s" % (institution_name))
-        institution = institutions[0]
+def _import_inst(updater, name):
+    inst = Institution.get_one_by_attrs(DBSession, {'name': name})
+    if inst:
+        implog.info(u"Updating Institution {}".format(name))
     else:
-        implog.info("Creating Institution %s" % (institution_name))
-        institution = models.Institution(importer)
-        institution.accept(importer)
-        institution.save()
-    update_attr(institution, 'name', institution_name, importer)
-    return institution
+        implog.info(u"Creating Institution {}".format(name))
+        inst = updater.create_accept(Institution)
+    updater.attr(inst, 'name', _ustr2uni(name))
+    return inst
 
 
-def _import_contact(importer, name_last, name_first, institution=None,
+def _import_contact(updater, name_last, name_first, institution=None,
                     email=None):
     inst_id = None
     if institution is not None:
         inst_id = institution.id
-    return _import_person(importer, name_last, name_first, None,
-                          institution=inst_id, email=email)
+    return import_person(updater, name_last, name_first, None,
+                         institution=inst_id, email=email)
 
 
-def _import_person_inst(importer, name_last, name_first,
-                        institution_name, email):
-    institution = _import_inst(importer, institution_name)
-    person = _import_contact(importer, name_last, name_first,
-                             institution, email)
+def _import_person_inst(updater,
+                        name_last, name_first, institution_name, email):
+    institution = _import_inst(updater, institution_name)
+    person = _import_contact(
+        updater, name_last, name_first, institution, email)
     return (person, institution)
 
 
-def _import_users(session, importer):
+def _import_users(session, updater):
     implog.info("Importing users")
     users = session.query(legacy.User).all()
     for user in users:
-        person = models.Person.get_one({'identifier': user.username})
+        person = DBSession.query(Person).\
+            filter(Person.identifier == user.username).first()
         if not person:
             implog.info('Creating User %s' % user.username)
-            person = _import_person(
-                importer, None, user.username, user.username)
+            person = import_person(
+                updater, None, user.username, user.username)
         else:
             implog.info('Updating User %s' % user.username)
-        update_attr(person, 'password_hash', user.password_hash, importer)
-        update_attr(person, 'password_salt', user.password_salt, importer)
-        update_attr(person, 'id', user.id, importer)
-        update_attr(person, 'import_id', user.id, importer)
+        updater.attr(person, 'password_hash', user.password_hash)
+        updater.attr(person, 'password_salt', user.password_salt)
+        updater.attr(person, 'import_id', user.id)
 
 
-def _import_contacts(session, importer):
+def _import_contacts(session, updater):
     implog.info("Importing Contacts")
-    for contact in session.query(legacy.Contact).all():
+    contacts = session.query(legacy.Contact).all()
+    for contact in contacts:
         person, inst = _import_person_inst(
-            importer, _ustr2uni(contact.LastName),
-            _ustr2uni(contact.FirstName), _ustr2uni(contact.Institute),
-            _ustr2uni(contact.email))
-        # Since CCHDO currently has no concept of an Institution separate from a
-        # contact, make them here.
+            updater, _ustr2uni(contact.LastName), _ustr2uni(contact.FirstName),
+            _ustr2uni(contact.Institute), _ustr2uni(contact.email))
+        # Since CCHDO currently has no concept of an Institution separate from
+        # a contact, make them here.
         if contact.Address:
-            update_attr(person, 'address', _ustr2uni(contact.Address), importer)
+            updater.attr(person, 'address', _ustr2uni(contact.Address))
         if contact.telephone:
-            update_attr(person, 'telephone', contact.telephone, importer)
+            updater.attr(person, 'phone', contact.telephone)
         if contact.fax:
-            update_attr(person, 'fax', contact.fax, importer)
+            updater.attr(person, 'fax', contact.fax)
         if contact.title:
-            update_attr(person, 'title', contact.title, importer)
-        update_attr(person, 'import_id', contact.id, importer)
+            updater.attr(person, 'title', contact.title)
+        updater.attr(person, 'import_id', contact.id)
+    DBSession.flush()
 
 
-def _import_cruise(importer, cruise):
-    cs = models.Cruise.get_by_attrs(import_id=cruise.id)
-    if len(cs) > 0:
+def _import_ship(updater, ship_name):
+    ship = Ship.get_one_by_attrs(DBSession, {'name': ship_name})
+    if ship:
+        implog.info('Updating Ship %s' % ship_name)
+    else:
+        implog.info('Creating Ship %s' % ship_name)
+        ship = updater.create_accept(Ship)
+        updater.attr(ship, 'name', ship_name)
+    return ship
+
+
+def _import_country(updater, country_name):
+    country = DBSession.query(Country).filter(
+        Country.iso_3166_1 == country_name).first()
+    if country:
+        implog.info('Updating Country %s' % country_name)
+    else:
+        implog.info('Creating Country %s' % country_name)
+        country = updater.create_accept(Country)
+        country.iso_3166_1 = country_name
+    return country
+
+
+def _import_cruise(updater, cruise, flushlock):
+    fcruise = Cruise.get_one_by_attrs(
+        DBSession, {'import_id': cruise.id})
+    if fcruise:
         implog.info('Updating Cruise %s %s' % (cruise.id, cruise.ExpoCode))
-        c = cs[0]
+        c = fcruise
     else:
         implog.info('Creating Cruise %s %s' % (cruise.id, cruise.ExpoCode))
-        c = models.Cruise(importer)
-        c.accept(importer)
-        c.save()
+        c = updater.create_accept(Cruise)
 
-    update_attr(c, 'import_id', cruise.id, importer)
-    update_attr(c, 'expocode', cruise.ExpoCode, importer)
+    updater.attr(c, 'import_id', cruise.id)
+    updater.attr(c, 'expocode', cruise.ExpoCode)
 
     if cruise.Begin_Date:
-        update_attr(c, 'date_start', _date_to_datetime(cruise.Begin_Date), importer)
+        updater.attr(
+            c, 'date_start', _date_to_datetime(cruise.Begin_Date))
     if cruise.EndDate:
-        update_attr(c, 'date_end', _date_to_datetime(cruise.EndDate), importer)
+        updater.attr(c, 'date_end', _date_to_datetime(cruise.EndDate))
     if cruise.link:
-        update_attr(c, 'link', cruise.link, importer)
+        updater.attr(c, 'link', cruise.link)
 
     if cruise.Country:
-        countries = models.Country.get_by_attrs({'iso_3166-1': cruise.Country})
-        if len(countries) > 0:
-            implog.info('Updating Country %s' % cruise.Country)
-            country = countries[0]
-        else:
-            implog.info('Creating Country %s' % cruise.Country)
-            country = models.Country(importer)
-            country.accept(importer)
-            country.save()
-            update_attr(country, 'iso_3166-1', cruise.Country, importer)
-
-        update_attr(c, 'country', country.id, importer)
+        country = _import_country(updater, cruise.Country)
+        updater.attr(c, 'country', country.id)
 
     if cruise.Ship_Name:
-        ships = models.Ship.get_by_attrs(name=cruise.Ship_Name)
-        if len(ships) > 0:
-            implog.info('Updating Ship %s' % cruise.Ship_Name)
-            ship = ships[0]
-        else:
-            implog.info('Creating Ship %s' % cruise.Ship_Name)
-            ship = models.Ship(importer)
-            ship.accept(importer)
-            ship.save()
-            update_attr(ship, 'name', cruise.Ship_Name, importer)
-
-        update_attr(c, 'ship', ship.id, importer)
+        ship = _import_ship(updater, cruise.Ship_Name)
+        updater.attr(c, 'ship', ship.id)
 
     if cruise.Alias:
         # Hope that Alias fields are all comma separated...
         aliases = uniquify([x.strip() for x in cruise.Alias.split(',')])
-        update_attr(c, 'aliases', aliases, importer)
+        updater.attr(c, 'aliases', aliases)
 
     collections = []
     if cruise.Line:
-        collections.append(_import_Collection(importer, cruise.Line, 'WOCE line').id)
+        collections.append(import_Collection(updater, cruise.Line, 'WOCE line').id)
     if cruise.Group:
         groups = [x.strip() for x in cruise.Group.split(',')]
         for group in groups:
-           collections.append(_import_Collection(importer, group, 'group').id)
+           collections.append(import_Collection(updater, group, 'group').id)
     if cruise.Program:
         programs = [x.strip() for x in cruise.Program.split(',')]
         for program in programs:
-            collections.append(_import_Collection(importer, program, 'program').id)
+            collections.append(import_Collection(updater, program, 'program').id)
 
     collections = uniquify(collections)
-    update_attr(c, 'collections', collections, importer)
+    updater.attr(c, 'collections', collections)
     
     if cruise.Chief_Scientist:
         person_insts = _cchdo_pi_to_person_insts(
-            cruise.Chief_Scientist, cruise, importer)
-        c.participants._clear()
+            _ustr2uni(cruise.Chief_Scientist), cruise, updater)
+
+        participants = []
         for pi in person_insts:
-            c.participants._add(pi[0], 'Chief Scientist', pi[1])
+            participants.append(Participant('Chief Scientist', *pi))
+        participants = uniquify(participants)
+        c.participants.replace(
+            c, updater.importer, *participants).accept(updater.importer)
         if c.participants:
-            implog.debug('Participants for cruise %s: %s' % (cruise.id, c.participants))
-        c.participants.save(importer)
+            implog.debug(
+                'Participants for cruise %s: %s' % (cruise.id, c.participants))
+    DBSession.flush()
 
 
-class CruisesImporter(threading.Thread):
-    def __init__(self, cruise, importer):
-        threading.Thread.__init__(self)
+class CruisesImporter(Thread):
+    def __init__(self, cruise, flushlock, updater):
+        Thread.__init__(self)
+        self.updater = updater
         self.cruise = cruise
-        self.importer = importer
+        self.flushlock = flushlock
 
     def run(self):
-        _import_cruise(self.importer, self.cruise)
+        _import_cruise(self.updater, self.cruise, self.flushlock)
         implog.debug('imported cruise %s' % self.cruise.id)
 
 
-def _import_cruises(session, importer):
+def _run_importers(importers, nthreads=1, sftp=False, sleep=0.5):
+    implog.info("Importing with %d threads" % nthreads)
+    if nthreads > 1:
+        active_importers = []
+        i = 0
+        while importers:
+            for imp in active_importers:
+                if not imp.is_alive():
+                    active_importers.remove(imp)
+                    if sftp:
+                        sftp_pool.append(imp.ssh_sftp)
+                    i += 1
+                    if i % nthreads == 0:
+                        implog.info('{:d} / {:d} = {:f}'.format(
+                            i, len(importers), i / len(importers)))
+            while len(active_importers) < nthreads and importers:
+                t = importers.pop()
+                if sftp:
+                    t.ssh_sftp = sftp_pool.pop()
+                active_importers.append(t)
+                t.start()
+            time.sleep(sleep)
+        for imp in active_importers:
+            if imp.is_alive():
+                imp.join()
+    else:
+        for imp in importers:
+            imp.run()
+
+
+def _import_cruises(session, updater):
     implog.info("Importing Cruises")
 
     cruises = session.query(legacy.Cruise).all()
     len_cruises = float(len(cruises))
 
+    flushlock = Lock()
+
     importers = []
     for cruise in cruises:
-        importers.append(CruisesImporter(cruise, importer))
+        #XXX
+        #if cruise.id < 1309:
+        #    continue
+        importers.append(CruisesImporter(cruise, flushlock, updater))
 
-    implog.info("Starting cruise import with %d threads" % nthreads)
-    active_importers = []
-    i = 0
-    while importers:
-        for imp in active_importers:
-            if not imp.is_alive():
-                active_importers.remove(imp)
-                i += 1
-                if i % 10 == 0:
-                    implog.info('%d / %d = %f' % (i, len_cruises, i /
-                                                  len_cruises))
-        while len(active_importers) < nthreads and importers:
-            t = importers.pop()
-            active_importers.append(t)
-            t.start()
-        time.sleep(0.5)
-    for imp in active_importers:
-        if imp.is_alive():
-            imp.join()
+    _run_importers(importers)
 
 
-def _import_track_lines(session, importer):
+def _import_track_lines(session, updater):
     tls = session.query(legacy.TrackLine).all()
     for tl in tls:
         try:
@@ -699,7 +751,7 @@ def _import_track_lines(session, importer):
             pt_list = [point, point]
             linestring = LineString(pt_list)
 
-        cruises = models.Cruise.get_by_attrs(expocode=tl.ExpoCode)
+        cruises = Cruise.get_by_attrs(expocode=tl.ExpoCode)
         if len(cruises) > 0:
             cruise = cruises[0]
         else:
@@ -708,71 +760,87 @@ def _import_track_lines(session, importer):
             continue
 
         if linestring:
-            update_attr(cruise, 'track', linestring, importer)
+            updater.attr(cruise, 'track', linestring)
 
 
-def _import_person(signer, name_last, name_first,
-                   identifier=None, institution=None, email=None):
+def import_person(updater, name_last, name_first,
+                  identifier=None, institution=None, email=None):
     query = {}
+    dbquery = DBSession.query(Person)
     if name_last:
         query['name_last'] = _ustr2uni(name_last)
+        dbquery = dbquery.filter(Person.name_last == query['name_last'])
     if name_first:
         query['name_first'] = _ustr2uni(name_first)
+        dbquery = dbquery.filter(Person.name_first == query['name_first'])
     if identifier:
         query['identifier'] = identifier
-    if institution:
-        query['institution'] = institution
+        dbquery = dbquery.filter(Person.identifier == query['identifier'])
     if email:
         query['email'] = email
+        dbquery = dbquery.filter(
+            Person.email == query['email'])
 
-    person = models.Person.get_one(query)
+    people = dbquery.all()
+
+    person = None
+    if people:
+        person = people[0]
+        if institution:
+            for p in people:
+                if p.get('institution') == institution:
+                    person = p
+                    break
     if person:
         implog.debug(u"Updating person %s" % query)
-        return person
-
-    implog.debug(u"Creating person %s" % query)
-
-    # Make sure there is either an identifier or both names
-    try:
-        query['identifier']
-    except KeyError:
-        try:
-            query['name_last']
-        except KeyError:
-            query['name_last'] = ''
-        try:
-            query['name_first']
-        except KeyError:
-            query['name_first'] = ''
-
-    person = models.Person(**query)
-    person.save()
-    if signer is None:
-        person.accept(person)
     else:
-        person.accept(signer)
+        implog.info(u"Creating person %s" % query)
+
+        # Make sure there is either an identifier or both names
+        try:
+            query['identifier']
+        except KeyError:
+            try:
+                query['name_last']
+            except KeyError:
+                query['name_last'] = ''
+            try:
+                query['name_first']
+            except KeyError:
+                query['name_first'] = ''
+
+        person = Person(**query)
+        DBSession.add(person)
+        DBSession.flush()
+        if updater is None:
+            person.accept(person)
+        else:
+            person.accept(updater.importer)
+
+        if institution:
+            updater.attr(person, 'institution', institution)
+        DBSession.flush()
     return person
 
 
-def _import_collections(session, importer):
+def _import_collections(session, updater):
     implog.info("Importing Collections")
     collections = session.query(legacy.Collection).all()
     for collection in collections:
-        imported_collection = models.Collection.get_by_attrs(
+        imported_collection = Collection.get_by_attrs(
             import_id=collection.id)
         if imported_collection:
             implog.info("Updating Collection %s" % collection.id)
             continue
 
         implog.info("Creating Collection %s" % collection.id)
-        import_collection = models.Collection(importer)
-        import_collection.save()
-        import_collection.accept(importer)
-        update_attr(import_collection, 'names', [collection.Name], importer)
-        update_attr(import_collection, 'import_id', collection.id, importer)
+        import_collection = updater.create_accept(Collection)
+        updater.attr(import_collection, 'names', [collection.Name])
+        updater.attr(import_collection, 'import_id', collection.id)
+    Collection.merge_same(updater.importer)
 
 
-def _import_collections_cruises(session, importer):
+def _import_collections_cruises(session, updater):
     implog.info("Importing CollectionsCruises")
     collections_cruises = session.query(legacy.CollectionsCruise).all()
     for cc in collections_cruises:
@@ -782,14 +850,14 @@ def _import_collections_cruises(session, importer):
                     cc.cruise_id, cc.collection_id))
             continue
 
-        cruises = models.Cruise.get_by_attrs(import_id=cc.cruise.id)
+        cruises = Cruise.get_by_attrs(import_id=cc.cruise.id)
         if len(cruises) > 0:
             cruise = cruises[0]
         else:
             implog.warn('Bad cruise %d' % cc.cruise.id)
             continue
 
-        collections = models.Collection.get_by_attrs(import_id=cc.collection.id)
+        collections = Collection.get_by_attrs(import_id=cc.collection.id)
         if len(collections) > 0:
             collection = collections[0]
         else:
@@ -803,11 +871,11 @@ def _import_collections_cruises(session, importer):
         else:
             implog.info('Adding Collection %s to Cruise %s collections' % \
                         (collection.id, cruise.id))
-            cruise.set_accept('collections',
-                              cruise_collections + [collection.id], importer)
+            updater.attr(
+                cruise, 'collections', cruise_collections + [collection.id])
 
 
-def _import_contacts_cruises(session, importer):
+def _import_contacts_cruises(session, updater):
     implog.info("Importing ContactsCruises")
     contacts_cruises = session.query(legacy.ContactsCruise).all()
     for cc in contacts_cruises:
@@ -818,27 +886,25 @@ def _import_contacts_cruises(session, importer):
             implog.info("Bad Contact ID %s" % (cc.contact_id))
             continue
 
-        cruises = models.Cruise.get_by_attrs(import_id=cc.cruise_id)
-        if len(cruises) > 0:
-            cruise = cruises[0]
-        else:
+        cruise = Cruise.get_one_by_attrs(
+            DBSession, {'import_id': cc.cruise_id})
+        if not cruise:
             implog.warn("Could not import ContactsCruise pair because cruise "
-                         '%s does not exist.' % cruise)
+                        '%s does not exist.' % cc.cruise_id)
             continue
 
-        persons = models.Person.get_by_attrs(import_id=cc.contact.id)
-        if len(persons) > 0:
-            person = persons[0]
-        else:
+        person = Person.get_one_by_attrs(
+            DBSession, {'import_id': cc.contact.id})
+        if not person:
             implog.warn("Could not import ContactsCruise pair because person "
-                         '%s does not exist.' % cc.contact.id)
+                        '%s does not exist.' % cc.contact.id)
             continue
 
         role = cc.function
         if not role:
             role = 'Chief Scientist'
         try:
-            if person in [pi['person'] for pi in cruise.participants[role]]:
+            if person in [pi.person for pi in cruise.participants[role]]:
                 implog.info(
                     "Updating participant %s %s to %s" % (person, role, cruise))
                 continue
@@ -847,21 +913,22 @@ def _import_contacts_cruises(session, importer):
         implog.info(
             "Adding participant %s to cruise %s as %s" % (
                 person, cruise.id, role))
-        cruise.participants.add(person, role, importer)
+        cruise.participants.add(person, role, updater.importer)
 
 
-def _import_events(session, importer):
+def _import_events(session, updater):
     implog.info("Importing Events")
 
     events = session.query(legacy.Event).all()
     len_events = len(events)
     for i, event in enumerate(events):
         if i % 100 == 0:
-            implog.info('%d/%d = %f' % (i, len_events,
-                                        float(i) / len_events))
-        note = models.Note.get_one({'import_id': event.ID})
+            implog.info('{:d}/{:d} = {:f}'.format(
+                i, len_events, float(i) / len_events))
+        event_id = str(event.ID)
+        note = DBSession.query(Note).filter(Note.import_id == event_id).first()
         if note:
-            implog.info("Updating Event %s" % event.ID)
+            implog.info("Updating Event %s" % event_id)
         else:
             body = ''
             if event.Note:
@@ -876,21 +943,22 @@ def _import_events(session, importer):
             if event.Summary:
                 summary = _ustr2uni(event.Summary)
 
-            person = _import_person(importer, event.LastName, event.First_Name)
-            note = models.Note(person.id, body, action, data_type, summary)
-            note.creation_timestamp = \
-                _date_to_datetime(event.Date_Entered)
-            note.import_id = event.ID
-            note.save()
+            person = import_person(updater, event.LastName, event.First_Name)
 
-            cruises = models.Cruise.get_by_attrs(expocode=event.ExpoCode)
+            note = Note(person, body, action, data_type, summary)
+            note.creation_timestamp = _date_to_datetime(event.Date_Entered)
+            note.import_id = event_id
+            DBSession.add(note)
+            DBSession.flush()
+
+            cruises = Cruise.get_by_expocode(DBSession, event.ExpoCode)
             for cruise in cruises:
                 implog.info("Creating Event %s for cruise %s" % (
-                    event.ID, cruise.get('import_id')))
-                cruise.add_note(note)
+                    event_id, cruise.get('import_id')))
+                cruise.notes.append(note)
 
 
-def _import_old_submissions(session, importer, sftp_cchdo, dl_files=True):
+def _import_old_submissions(session, updater, sftp_cchdo, dl_files=True):
     implog.info("Importing Old Submissions")
     subs = session.query(legacy.OldSubmission).all()
 
@@ -900,29 +968,25 @@ def _import_old_submissions(session, importer, sftp_cchdo, dl_files=True):
         try:
             submission = map_submissions[sub.Folder]
         except KeyError:
-            submissions = models.OldSubmission.get_by_attrs(folder=sub.Folder)
+            submissions = OldSubmission.get_by_attrs(folder=sub.Folder)
             if len(submissions) > 0:
                 implog.info('Updating OldSubmission %s' % sub.Folder)
                 submission = submissions[0]
             else:
                 implog.info('Creating OldSubmission %s' % sub.Folder)
-                submission = models.OldSubmission(importer)
-                submission.creation_stamp['timestamp'] = sub.created_at
-                submission.accept(importer)
-                submission.judgment_stamp['timestamp'] = sub.updated_at
+                submission = updater.create_accept(OldSubmission)
+                submission.creation_timestamp = sub.created_at
+                submission.judgment_timestamp = sub.updated_at
                 submission.folderfolder = sub.Folder
                 submission.date = _date_to_datetime(sub.Date)
                 submission.stamp = sub.Stamp
                 submission.line = sub.Line
                 submission.submitter = sub.Name
                 submission.files = []
-                submission.save()
+                DBSession.flush()
             map_submissions[sub.Folder] = submission
 
-        files = submission.files_
-        if models.fs().exists({'filename': sub.Filename,
-                               'old_submission': True}):
-            continue
+        files = submission.files
 
         with sftp_dl(sftp_cchdo, sub.Location, dl_files) as file:
             if file is None and dl_files:
@@ -948,19 +1012,18 @@ def _import_old_submissions(session, importer, sftp_cchdo, dl_files=True):
                 else:
                     raise ValueError('Unable to find file for old submission: '
                                      '%s' % sub.Location)
-            if file:
-                id = models.fs().put(
-                    file, filename=sub.Filename, old_submission=True)
-                files += [id]
-                submission.files_ = files
-            submission.save()
+            if (    file and
+                    not any(f.name == sub.Filename for f in submission.files)):
+                submission.files.append(FSFile(file, sub.Filename))
+            DBSession.add(submission)
+            DBSession.flush()
 
 
-def _import_spatial_groups(session, importer):
+def _import_spatial_groups(session, updater):
     implog.info("Importing Spatial groups")
     sgs = session.query(legacy.SpatialGroup).all()
     for sg in sgs:
-        collection = _import_Collection(importer, sg.area, 'group')
+        collection = import_Collection(updater, sg.area, 'group')
         basins = []
         if sg.atlantic == '1':
             basins.append('atlantic')
@@ -972,81 +1035,77 @@ def _import_spatial_groups(session, importer):
             basins.append('indian')
         if sg.southern == '1':
             basins.append('southern')
-        update_attr(collection, 'basins', basins, importer)
+        updater.attr(collection, 'basins', basins)
 
-        cruises = models.Cruise.get_by_attrs(expocode=sg.expocode)
+        cruises = Cruise.get_by_attrs(expocode=sg.expocode)
         if len(cruises) > 0:
             implog.info("Updating Cruise %s for spatial_groups" % sg.expocode)
             cruise = cruises[0]
             collections = uniquify(cruise.collections + [collection])
             if cruise.collections != collections:
                 ids = [c.id for c in collections]
-                update_attr(cruise, 'collections', ids, importer)
+                updater.attr(cruise, 'collections', ids)
 
 
-def _import_internal(session, importer):
-    """ Internal maps a cruise to a basin """
+def _import_internal(session, updater):
+    """Internal maps a cruise to a basin."""
     implog.info("Importing Internal")
     internals = session.query(legacy.Internal).all()
     for i in internals:
-        cruises = models.Cruise.get_by_attrs(expocode=i.expocode)
+        # TODO
+        cruises = Cruise.get_by_attrs(expocode=i.expocode)
         if len(cruises) > 0:
             implog.info("Updating Cruise %s for internal" % i.expocode)
             cruise = cruises[0]
         else:
             implog.info("Creating Cruise %s for internal" % i.expocode)
-            cruise = models.Cruise(importer)
-            cruise.accept(importer)
-            cruise.save()
-        update_attr(cruise, 'expocode', i.expocode, importer)
-        update_attr(cruise, 'import_id', 'internal', importer)
-        collection = _import_Collection(importer, i.Basin, 'basin')
-        try:
-            a = cruise.get_attr('basin')
-            a.value = uniquify(a.value + [collection.id])
-            a.save()
-        except KeyError:
-            cruise.set_accept('basin', [collection.id], importer)
+            cruise = updater.create_accept(Cruise)
+        updater.attr(cruise, 'expocode', i.expocode)
+        updater.attr(cruise, 'import_id', 'internal')
+        # TODO it may be better to map the cruise to the collection and let
+        # basin attribute on collection figure out the rest.
+        collection = import_Collection(updater, i.Basin, 'basin')
+
+        collections = cruise.collections + [collection.id]
+        collections = uniquify(collections)
+        updater.attr(cruise, 'collections', collections)
 
 
-def _import_unused_tracks(session, importer):
+def _import_unused_tracks(session, updater):
     implog.info("Importing unused tracks")
     ts = session.query(legacy.UnusedTrack).all()
     for t in ts:
-        cruises = models.Cruise.get_by_attrs(expocode=t.expocode)
+        # TODO
+        cruises = Cruise.get_by_attrs(expocode=t.expocode)
         if len(cruises) > 0:
             implog.info("Updating Cruise %s for unused track" % t.expocode)
             cruise = cruises[0]
         else:
             implog.info("Creating Cruise %s for unused track" % t.expocode)
-            cruise = models.Cruise(importer)
-            cruise.accept(importer)
-            cruise.save()
-        update_attr(cruise, 'expocode', t.expocode, importer)
-        update_attr(cruise, 'import_id', 'unused_track', importer)
-        collection = _import_Collection(importer, t.Basin, 'basin')
-        try:
-            a = cruise.get_attr('basin')
-            a.value = uniquify(a.value + [collection.id])
-            a.save()
-        except KeyError:
-            cruise.set_accept('basin', [collection.id], importer)
+            cruise = updater.create_accept(Cruise)
+        updater.attr(cruise, 'expocode', t.expocode)
+        updater.attr(cruise, 'import_id', 'unused_track')
+        collection = import_Collection(updater, t.Basin, 'basin')
+
+        collections = cruise.collections + [collection.id]
+        collections = uniquify(collections)
+        updater.attr(cruise, 'collections', collections)
 
 
-def _import_unit(importer, unit):
-    us = models.Unit.get_by_attrs(import_id=unit.id)
+def _import_unit(updater, unit):
+    us = Unit.get_by_attrs(import_id=unit.id)
     if len(us) > 0:
         return us[0]
     else:
-        u = models.Unit(importer)
-        u.accept(importer)
-        u.save()
-    update_attr(u, 'name', unit.name, importer)
-    update_attr(u, 'mnemonic', unit.mnemonic, importer)
+        u = updater.create_accept(Unit)
+        DBSession.add(u)
+        DBSession.flush()
+    updater.attr(u, 'name', unit.name)
+    updater.attr(u, 'mnemonic', unit.mnemonic)
     return u
 
 
-def _import_parameter_descriptions(importer):
+def _import_parameter_descriptions(updater):
     implog.info("Importing parameter descriptions")
     std_session = std.session()
     std_session.autoflush = False
@@ -1058,109 +1117,110 @@ def _import_parameter_descriptions(importer):
     finally:
         std_session.close()
     for parameter in parameters:
-        parameters = models.Parameter.get_by_attrs(name=parameter.name)
+        parameters = Parameter.get_by_attrs(name=parameter.name)
         if len(parameters) > 0:
             implog.info("Updating Parameter %s" % parameter.name)
             p = parameters[0]
         else:
             implog.info("Creating Parameter %s" % parameter.name)
-            p = models.Parameter(importer)
-            p.accept(importer)
-            p.save()
-        update_attr(p, 'name', parameter.name, importer)
-        update_attr(p, 'full_name', parameter.full_name, importer)
-        update_attr(p, 'name_netcdf', parameter.name_netcdf, importer)
-        update_attr(p, 'description', parameter.description, importer)
-        update_attr(p, 'format', parameter.format, importer)
+            p = updater.create_accept(Parameter)
+        updater.attr(p, 'name', parameter.name)
+        updater.attr(p, 'full_name', parameter.full_name)
+        updater.attr(p, 'name_netcdf', parameter.name_netcdf)
+        updater.attr(p, 'description', parameter.description)
+        updater.attr(p, 'format', parameter.format)
         if parameter.units:
-            update_attr(p, 'unit',
-                _import_unit(importer, parameter.units).id, importer)
-        update_attr(p, 'bounds',
-                    (parameter.bound_lower, parameter.bound_upper), importer)
+            updater.attr(
+                p, 'unit', _import_unit(updater, parameter.units).id)
+        updater.attr(
+            p, 'bounds', (parameter.bound_lower, parameter.bound_upper))
         aliases = [a.name for a in parameter.aliases]
-        update_attr(p, 'aliases', aliases, importer)
+        updater.attr(p, 'aliases', aliases)
 
 
-def _import_parameter_groups(session, importer):
+def _import_parameter_groups(session, updater):
     std_session = std.session()
     groups = session.query(legacy.ParameterGroup).all()
     std_session.close()
     for group in groups:
-        gs = models.ParameterOrder.get_by_attrs(name=group.group)
+        gs = ParameterOrder.get_by_attrs(name=group.group)
         if len(gs) > 0:
             g = gs[0]
         else:
-            g = models.ParameterOrder(importer)
-            g.accept(importer)
-            g.save()
-            g.set_accept('name', group.group, importer)
+            g = ParameterOrder(updater.importer)
+            g.accept(updater.importer)
+            DBSession.add(g)
+            DBSession.flush()
+            updater.attr(g, 'name', group.group)
             order = group.ordered_parameters
             porder = []
             for p in order:
-                parameters = models.Parameter.get_by_attrs(name=p)
+                parameters = Parameter.get_by_attrs(name=p)
                 if len(parameters) < 1:
                     implog.warn("Could not find parameter %s for order" % p)
-                    parameter = models.Parameter(importer)
-                    parameter.accept(importer)
-                    parameter.save()
-                    parameter.set_accept('name', p, importer)
-                    parameter.set_accept('in_groups_but_did_not_exist', True, importer)
+                    parameter = Parameter(updater.importer)
+                    parameter.accept(updater.importer)
+                    DBSession.add(parameter)
+                    DBSession.flush()
+                    updater.attr(parameter, 'name', p)
+                    updater.attr(
+                        parameter, 'in_groups_but_did_not_exist', True)
                 else:
                     parameter = parameters[0]
                 porder.append(parameter.id)
-            g.set_accept('order', porder, importer)
+            updater.attr(g, 'order', porder)
 
 
-def _import_bottle_dbs(session, importer):
+def _import_bottle_dbs(session, updater):
     implog.info("Importing Bottle DBs")
     # TODO regenerate bottle parameter information cache
     implog.info("Omitting import in favor of regenerating this information")
 
 
-def _import_parameter_status(session, importer):
+def _import_parameter_status(session, updater):
     implog.info("Importing parameter statuses")
     implog.info("Omitting import because information is never used in site "
                  "and probably is replaced by documents.preliminary")
 
 
-def _import_parameters(session, importer):
+def _import_parameters(session, updater):
     implog.info("Importing parameters (chiscis responsible)")
 
     codes = {}
     for code in session.query(legacy.Codes).all():
-        codes[int(code.Code)] = code.Status
+        codes[int(code.Code)] = codes_name_to_param_info_code[code.Status]
 
     parameters = {}
     for param in legacy.CruiseParameterInfo._PARAMETERS:
-        ps = models.Parameter.get_by_attrs(name=param)
-
-        if len(ps) > 0:
+        parameter = Parameter.get_one_by_attrs(DBSession, {'name': param})
+        if parameter:
             implog.info("Found Parameter %s for CPI" % param)
-            parameter = ps[0]
         else:
-            implog.warn("Created Parameter %s for CPI" % param)
-            parameter = models.Parameter(importer)
-            parameter.accept(importer)
-            parameter.save()
-        update_attr(parameter, 'name', param, importer)
-        update_attr(parameter, 'import_id', 'cruise_param_info', importer)
+            implog.info("Created Parameter %s for CPI" % param)
+            parameter = Parameter(updater.importer)
+            parameter.accept(updater.importer)
+            DBSession.add(parameter)
+            DBSession.flush()
+        updater.attr(parameter, 'name', param)
+        updater.attr(parameter, 'import_id', 'cruise_param_info')
         parameters[param] = parameter
+    DBSession.flush()
 
     for p in session.query(legacy.CruiseParameterInfo).all():
-        cruise = models.Cruise.get_by_attrs(expocode=p.ExpoCode)
-        if len(cruise) > 0:
+        cruise = Cruise.get_one_by_attrs(DBSession, {'expocode': p.ExpoCode})
+        if cruise:
             implog.info("Found Cruise %s for CPI" % p.ExpoCode)
-            cruise = cruise[0]
         else:
             implog.info("Creating Cruise %s for CPI" % p.ExpoCode)
-            cruise = models.Cruise(importer)
-            cruise.accept(importer)
-            cruise.save()
-        update_attr(cruise, 'expocode', p.ExpoCode, importer)
-        update_attr(cruise, 'import_id', 'cruise_param_info', importer)
+            cruise = Cruise(updater.importer)
+            cruise.accept(updater.importer)
+            DBSession.add(cruise)
+            DBSession.flush()
+        updater.attr(cruise, 'expocode', p.ExpoCode)
+        updater.attr(cruise, 'import_id', 'cruise_param_info')
+        DBSession.flush()
 
         param_infos = []
-
         for param in legacy.CruiseParameterInfo._PARAMETERS:
             parameter = parameters[param]
 
@@ -1170,42 +1230,51 @@ def _import_parameters(session, importer):
             except (TypeError, ValueError):
                 if status != None:
                     implog.warn("Bad Status while importing 'parameters' row "
-                                 "%d parameter %s" % (p.id, param))
+                                "%d parameter %s" % (p.id, param))
                 status = None
             except KeyError:
                 implog.warn("Unrecognized status while importing 'parameters' "
-                             "row %d parameter %s" % (p.id, param))
+                            "row %d parameter %s" % (p.id, param))
                 status = None
 
             try:
-                pi = _ustr2uni(getattr(p, param + '_PI'))
-                pi, inst = _cchdo_pi_to_person_insts(pi)
-            except TypeError:
-                pi = None
-                inst = None
+                pi = getattr(p, param + '_PI')
+                if pi and pi != 'None':
+                    pis = _cchdo_pi_to_person_insts(
+                        _ustr2uni(pi), cruise, updater)
+                else:
+                    pis = []
+            except TypeError, e:
+                implog.warn(e)
+                pis = []
             
             try:
-                d = _date_to_datetime(getattr(p, param + '_Date'))
+                ts = _date_to_datetime(getattr(p, param + '_Date'))
             except TypeError:
-                d = None
+                ts = None
 
-            param_infos.append({'parameter': parameter.id, 'status': status,
-                                'pi': pi, 'inst': inst, 'ts': d})
+            for pi in pis:
+                param_infos.append(
+                    ParameterInformation(parameter, status, pi[0], pi[1], ts))
+            if not pis:
+                param_infos.append(
+                    ParameterInformation(parameter, status, None, None, ts))
+        updater.attr(cruise, 'parameter_informations', param_infos)
+        DBSession.flush()
 
-        update_attr(cruise, 'parameter_informations', param_infos, importer)
+
+argo_action_str = \
+    'Non-public data for Argo calibration (proprietary, rapid-delivery)'
 
 
-argo_action_str = 'Non-public data for Argo calibration (proprietary, rapid-delivery)'
-
-
-def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
+def _import_submissions(session, updater, sftp_cchdo, dl_files=True):
     implog.info("Importing Submissions")
 
-    imported_submissions = set([
-        s.get('import_id') for s in models.Submission.get_all(fields=['creation_stamp'])])
+    submissions = DBSession.query(Submission).all()
+    imported_submissions = set([s.get('import_id') for s in submissions])
 
     def submission_public_to_type(p, argo_action):
-        """ Convert CCHDO submission public and action to submission type """
+        """Convert CCHDO submission public and action to submission type."""
         # 2011-09-16 myshen
         # cberys has determined "assigned" corroborates
         # non-public status and is generally redundant. More importantly it
@@ -1226,33 +1295,41 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             return 'non-public'
 
     for sub in session.query(legacy.Submission).all():
+        # XXX
+        if sub.id < 670:
+            continue
         if sub.id in imported_submissions:
             implog.info("Updating Submission %d" % sub.id)
             continue
         else:
             implog.info("Creating Submission %d" % sub.id)
-            submission = models.Submission(importer)
+            submission = Submission(updater.importer)
 
-            submission_date = _date_to_datetime(sub.submission_date)
-            submission.creation_timestamp = submission_date
+            submission.creation_timestamp = \
+                _date_to_datetime(sub.submission_date)
 
             # Information about submitter
             name = sub.name
             inst = sub.institute
             email = sub.email
             country = sub.country
-            ip = sub.ip
-            ua = sub.user_agent
 
             submitter, inst = _import_person_inst(
-                importer, name, '', inst, email)
-            submitter.set_accept('country', country, importer)
-            submitter.set_accept('ip', ip, importer)
-            submitter.set_accept('ua', ua, importer)
+                updater, name, '', inst, email)
 
             submission.creation_person_id = submitter.id
 
-            submission.save()
+            country = _import_country(updater, country)
+            updater.attr(submitter, 'country', country.id)
+
+            request = BaseRequest.blank('')
+            request.date = submission.creation_timestamp
+            request.remote_addr = sub.ip
+            request.user_agent = sub.user_agent
+
+            submission.request_for = RequestFor(request)
+            DBSession.add(submission)
+            DBSession.flush()
 
             expocode = sub.expocode
             ship_name = sub.ship_name
@@ -1278,13 +1355,13 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
                         action = ','.join(filter(None, removed.split(',')))
                 submission.action_ = _ustr2uni(action)
             if notes:
-                submission.add_note(
-                    models.Note(submitter.id, _ustr2uni(notes)).save())
+                submission.notes.append(
+                    Note(submitter, _ustr2uni(notes)))
 
             file = None
             with sftp_dl(sftp_cchdo, file_path, dl_files) as file:
                 if not file:
-                    submission.remove()
+                    DBSession.delete(submission)
                     implog.warn('unable to get file for Submission %s', sub.id)
                     continue
 
@@ -1294,7 +1371,7 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
 
                 # ZipFile.open will clobber a file object so make a copy.
                 temp = StringIO()
-                temp.write(file.read())
+                copy_chunked(file, temp)
                 file.seek(0)
 
                 if file_name.startswith('multiple_files') and file_name.endswith('.zip'):
@@ -1302,14 +1379,17 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
                     with zipfile.ZipFile(temp) as zf:
                         infos = zf.infolist()
                         if len(infos) == 1:
-                            file = zf.open(infos[0])
+                            tempzipf = NamedTemporaryFile()
+                            zippedf = zf.open(infos[0])
+                            copy_chunked(zippedf, tempzipf)
                             actual_file.filename = infos[0].filename
-                        actual_file.file = file
-                        submission.store(actual_file)
+                            actual_file.file = tempzipf
+                            submission.file = FSFile.from_fieldstorage(
+                                actual_file)
                 else:   
                     actual_file.file = file
-                    submission.store(actual_file)
-                submission.save()
+                    submission.file = FSFile.from_fieldstorage(actual_file)
+                DBSession.flush()
 
             submission.type_ = submission_public_to_type(
                 sub.public, argo_action)
@@ -1317,14 +1397,13 @@ def _import_submissions(session, importer, sftp_cchdo, dl_files=True):
             # to whether submission has been put in the queue.
             assimilated = bool(sub.assimilated)
             submission.attached_ = assimilated
-            submission.save()
+            DBSession.flush()
             try:
-                cruise_date = _date_to_datetime(sub.cruise_date)
-                submission.set_accept('cruise_date', cruise_date, importer)
+                submission.cruise_date = _date_to_datetime(sub.cruise_date)
             except TypeError:
                 pass
 
-            submission.set_accept('import_id', sub.id, importer)
+            updater.attr(submission, 'import_id', sub.id)
 
 
 def _get_mtime(sftp_cchdo, filepath):
@@ -1332,14 +1411,14 @@ def _get_mtime(sftp_cchdo, filepath):
     return datetime.datetime.fromtimestamp(lstat.st_mtime)
 
 
-def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
+def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
     implog.info("Importing queue files")
 
     re_docs = re.compile('Cruise (report|information)', re.IGNORECASE)
 
     queue_files = session.query(legacy.QueueFile).all()
     for qfile in queue_files:
-        cruises = models.Cruise.get_by_attrs(expocode=qfile.expocode)
+        cruises = Cruise.get_by_attrs(expocode=qfile.expocode)
         if not cruises:
             implog.warn("Missing cruise for queue file %s" % qfile.expocode)
             continue
@@ -1366,15 +1445,16 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
                         actual_file.type = 'application/octet-stream'
                     actual_file.file = file
 
-            queue_file = cruise.set('data_suggestion', actual_file, importer)
+            queue_file = cruise.set(
+                'data_suggestion', actual_file, updater.importer)
             queue_file.import_id = qfile.id
 
             name = qfile.contact
             if not name:
-                submitter = importer
+                submitter = updater.importer
             else:
                 submitter, inst = _import_person_inst(
-                    importer, name, '', '', '')
+                    updater, name, '', '', '')
 
             queue_file.creation_stamp['person'] = submitter.id
             date_received = None
@@ -1383,12 +1463,13 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
             else:
                 date_received = _get_mtime(sftp_cchdo, unprocessed_input)
             queue_file.creation_stamp['timestamp'] = date_received
-            queue_file.save()
+            DBSession.flush()
         else:
             implog.info('Updating Queue File %s' % qfile.id)
 
         if qfile.cchdo_contact:
-            contact = models.Person.get_one({'identifier': qfile.cchdo_contact})
+            contact = DBSession.query(Person).\
+                filter(Person.identifier == qfile.cchdo_contact).first()
             if contact:
                 queue_file.acknowledge(contact)
             else:
@@ -1402,7 +1483,7 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
 
         if qfile.merged == 1:
             date_merged = qfile.date_merged
-            queue_file.accept(importer)
+            queue_file.accept(updater.importer)
             if not date_merged:
                 implog.warn('No date merged for merged file. Obtaining from '
                             'file timestamp')
@@ -1410,23 +1491,23 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
             else:
                 date_merged = _date_to_datetime(date_merged)
             queue_file.judgment_timestamp = date_merged
-            queue_file.save()
+            DBSession.flush()
 
         if qfile.merged == 2 or qfile.hidden:
             # file is hidden
-            queue_file.reject(importer)
+            queue_file.reject(updater.importer)
 
         # processed_input is obsolete according to cberys
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            queue_file.add_note(models.Note(importer.id,
-                                            _ustr2uni(qfile.notes)).save())
+            queue_file.notes.append(Note(updater.importer,
+                                            _ustr2uni(qfile.notes)))
 
         if qfile.action:
-            queue_file.add_note(models.Note(importer.id, _ustr2uni(qfile.action),
+            queue_file.notes.append(Note(updater.importer, _ustr2uni(qfile.action),
                                             data_type='Action',
-                                            discussion=True).save())
+                                            discussion=True))
 
         if qfile.parameters or qfile.documentation:
             parameters = qfile.parameters
@@ -1435,14 +1516,14 @@ def _import_queue_files(session, importer, sftp_cchdo, dl_files=True):
             if qfile.documentation:
                 if not re_docs.match(parameters):
                     parameters = u','.join([parameters, 'Documentation'])
-            queue_file.add_note(models.Note(importer.id, parameters,
+            queue_file.notes.append(Note(updater.importer, parameters,
                                             data_type='Parameters',
-                                            discussion=True).save())
+                                            discussion=True))
 
         if qfile.merge_notes:
-            queue_file.add_note(models.Note(importer.id,
+            queue_file.notes.append(Note(updater.importer,
                                             _ustr2uni(qfile.merge_notes),
-                                            discussion=True).save())
+                                            discussion=True))
 
 
 _DOCS_TYPE_IGNORE = [
@@ -1505,7 +1586,7 @@ def parse_dt(s):
         return s
 
 
-def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
+def _import_documents_for_cruise(updater, sftp_cchdo, docs, cruise, import_gid,
                                  su_lock, dl_files=True):
     expocode = cruise.get('expocode')
     if docs:
@@ -1513,7 +1594,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
     else:
         return
 
-    implog.setLevel(logging.INFO)
+    implog.setLevel(INFO)
     mapped_docs = {}
     for doc in docs:
         if doc.FileType in _DOCS_TYPE_IGNORE:
@@ -1548,7 +1629,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
         except KeyError:
             mapped_docs[pycchdo_type] = doc
             implog.debug('Mapped %s %s' % (pycchdo_type, doc.FileName))
-    implog.setLevel(logging.DEBUG)
+    implog.setLevel(DEBUG)
 
     try:
         dir = mapped_docs['directory'].FileName
@@ -1557,8 +1638,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
         implog.error('%s has no directory registered' % expocode)
         return
 
-    if not cruise.get('data_dir', None):
-        cruise.set_accept('data_dir', dir, importer)
+    updater.attr(cruise, 'data_dir', dir)
 
     accounted_files = []
     for type, doc in mapped_docs.items():
@@ -1579,9 +1659,10 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
                 statuses = cruise.get(status_key, [])
                 if 'preliminary' not in statuses:
                     statuses.extend(['preliminary'])
-                    attr = cruise.set_accept(status_key, statuses, importer)
+                    attr = cruise.set_accept(
+                        status_key, statuses, updater.importer)
                     attr.import_id = id
-                    attr.save()
+                    DBSession.flush()
 
         size = int(doc.Size)
         try:
@@ -1606,7 +1687,7 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
             implog.error('Unable to download %s. Skipping' % doc.FileName)
             continue
 
-        attr = cruise.set_accept(type, field, importer)
+        attr = cruise.set_accept(type, field, updater.importer)
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
@@ -1618,16 +1699,16 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
             if len(creations) > 1:
                 date_creations = map(str, sorted(map(parse_dt, creations)))
                 date_creation = date_creations[0]
-                update_note(attr, ','.join(date_creations), importer,
-                            'dates_updated')
+                updater.note(
+                    attr, ','.join(date_creations), 'dates_updated')
             else:
                 attr.creation_timestamp = date_creation
         if date_accepted:
             attr.judgment_timestamp = parse_dt(date_accepted)
 
-        attr.import_filepath = doc.FileName
-        attr.import_id = id
-        attr.save()
+        attr.v.import_path = doc.FileName
+        attr.v.import_id = id
+        DBSession.flush()
 
         accounted_files.append(field.filename)
     accounted_files.extend(_DOCS_FILES_IGNORE)
@@ -1641,9 +1722,8 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
     remote_dir = os.path.dirname(doc.FileName)
     # Use a shorter temp root so long path names don't get too long. Mac OS
     # X limits to 1024 bytes.
-    su_lock.acquire()
-    local_dir = tempfile.mkdtemp(dir='/tmp')
-    su_lock.release()
+    with lock(su_lock):
+        local_dir = tempfile.mkdtemp(dir='/tmp')
     implog.debug('allocated local tempdir %s' % local_dir)
     try:
         dirlist = sftp_cchdo.listdir(remote_dir)
@@ -1713,18 +1793,18 @@ def _import_documents_for_cruise(importer, sftp_cchdo, docs, cruise, import_gid,
         field.filename = 'unaccounted.tar.bz2'
         field.type = mimetypes.guess_type(field.filename)
         field.file = unaccounted_archive
-        attr = cruise.set_accept('unaccounted', field, importer)
+        attr = cruise.set_accept('unaccounted', field, updater.importer)
         attr.permissions = {'read': ['staff', ]}
         attr.import_id = cruise.id
-        attr.save()
+        DBSession.flush()
 
     unaccounted_archive.close()
 
 
-class DocumentsImporter(threading.Thread):
-    def __init__(self, docs, importer, cruise, import_gid, su_lock, dl_files):
-        threading.Thread.__init__(self)
-        self.importer = importer
+class DocumentsImporter(Thread):
+    def __init__(self, docs, updater, cruise, import_gid, su_lock, dl_files):
+        Thread.__init__(self)
+        self.updater = updater
         self.cruise = cruise
         self.docs = docs
         self.ssh_sftp = (None, None)
@@ -1734,20 +1814,20 @@ class DocumentsImporter(threading.Thread):
 
     def run(self):
         _import_documents_for_cruise(
-            self.importer, self.ssh_sftp[1], self.docs, self.cruise,
+            self.updater, self.ssh_sftp[1], self.docs, self.cruise,
             self.import_gid, self.su_lock, self.dl_files)
         implog.debug('imported docs for %s' % self.cruise.get('expocode', ''))
 
 
-def _import_documents(session, importer, import_gid, dl_files=True):
+def _import_documents(session, updater, import_gid, dl_files=True):
     implog.info("Importing documents")
 
     # Instead of importing the documents table, go the other way around and
     # import documents for each cruise
-    cruises = models.Cruise.get_all()
+    cruises = DBSession.query(Cruise).all()
     len_cruises = float(len(cruises))
 
-    su_lock = threading.Lock()
+    su_lock = Lock()
 
     importers = []
     for cruise in cruises:
@@ -1755,8 +1835,9 @@ def _import_documents(session, importer, import_gid, dl_files=True):
             legacy.Document.ExpoCode==cruise.get('expocode')).order_by(
             legacy.Document.LastModified.desc()).all()
         importers.append(DocumentsImporter(
-            docs, importer, cruise, import_gid, su_lock, dl_files))
+            docs, updater, cruise, import_gid, su_lock, dl_files))
 
+    nthreads = 1
     sftp_pool = []
     implog.info("Opening %d SSH connections" % nthreads)
     for i in range(nthreads):
@@ -1767,22 +1848,7 @@ def _import_documents(session, importer, import_gid, dl_files=True):
             implog.error(repr(e))
         sftp_pool.append((ssh_cchdo, sftp_cchdo))
 
-    implog.info("Starting doc import with %d threads" % nthreads)
-    active_importers = []
-    while importers:
-        for imp in active_importers:
-            if not imp.is_alive():
-                active_importers.remove(imp)
-                sftp_pool.append(imp.ssh_sftp)
-        while len(active_importers) < nthreads and importers:
-            t = importers.pop()
-            t.ssh_sftp = sftp_pool.pop()
-            active_importers.append(t)
-            t.start()
-        time.sleep(0.5)
-    for imp in active_importers:
-        if imp.is_alive():
-            imp.join()
+    _run_importers(importers, nthreads, sftp=True)
     for ssh, sftp in sftp_pool:
         sftp.close()
         ssh.close()
@@ -1794,27 +1860,28 @@ class FakeWebObRequest(object):
         self.remote_addr = remote_addr
 
 
-def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
+def _import_argo_files(session, updater, sftp_cchdo, dl_files=True):
     implog.info("Importing Argo files")
     argo_files = session.query(legacy.ArgoFile).all()
 
     sftp_cchdo.chdir('/data/argo/files')
 
     for file in argo_files:
-        argo_file = models.ArgoFile.get_one({
-            'creation_timestamp': file.created_at})
+        argo_file = DBSession.query(ArgoFile).\
+            filter(ArgoFile.creation_timestamp == file.created_at).first()
         if not argo_file:
-            implog.info('Creating Argo File (%s, %s)' % (file.filename,
-                                                         file.created_at))
-            argo_file = models.ArgoFile(importer)
-            users = models.Person.get_by_attrs(import_id=file.user.id)
-            if len(users) > 0:
-                user = users[0]
-            else:
-                user = importer
+            implog.info(
+                u'Creating Argo File ({}, {})'.format(
+                    file.filename, file.created_at))
+            user = Person.get_one_by_attrs(
+                DBSession, {'import_id': file.user.id})
+            if not user:
+                user = updater.importer
+            argo_file = ArgoFile(updater.importer)
             argo_file.creation_person_id = user.id
             argo_file.creation_timestamp = file.created_at
-            argo_file.save()
+            DBSession.add(argo_file)
+            DBSession.flush()
         else:
             implog.info('Updating Argo File (%s, %s)' % (file.filename,
                                                          file.created_at))
@@ -1822,35 +1889,50 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
         argo_file.text_identifier = file.expocode
         argo_file.description = file.description
         argo_file.display = file.display
+
         # Special case for missing.txt because there is no actual file.
         if file.filename != 'missing.txt':
             lstat = sftp_cchdo.lstat(file.filename)
             if stat.S_ISLNK(lstat.st_mode):
                 # Attempt to find the cruise and corresponding file type to link
                 symlink_target = sftp_cchdo.readlink(file.filename)
-                file_type = libcchdo.fns.guess_file_type(symlink_target)
-                expopath = os.path.join(os.path.dirname(symlink_target),
-                                        'ExpoCode')
+                implog.debug(u'ArgoFile is link to {}'.format(symlink_target))
+
+                # Get the ExpoCode from the symlink target's directory
+                expopath = os.path.join(
+                    os.path.dirname(symlink_target), 'ExpoCode')
                 expocode = None
                 with sftp_dl(sftp_cchdo, expopath, dl_files) as expo:
                     if expo:
                         expocode = expo.read().strip()
-                cruises = models.Cruise.get_by_attrs(expocode=expocode)
-                if expocode and len(cruises) > 0:
-                    cruise = cruises[0]
+
+                cruise = Cruise.get_one_by_attrs(
+                    DBSession, {'expocode': expocode})
+                if expocode and cruise:
+                    file_type = libcchdo.fns.guess_file_type(symlink_target)
                     if file_type:
-                        # This method is more simple
                         argo_file.link(cruise, file_type)
                         continue
                     else:
+                        implog.debug(
+                            u'Attempting to find file in imported documents')
+                        # Attempt to find the file in documents to figure out
+                        # the file type.
+                        # TODO
+                        fsfile = DBSession.query(FSFile).filter(
+                            FSFile.import_path == symlink_target).first()
+                        if fsfile:
+                            av = fsfile.av
+                            implog.debug(av)
                         a = models._Attr.get_one({
                             'import_filepath': symlink_target})
                         if a:
                             argo_file.link(cruise, a.key)
                             continue
-                implog.warn('Unable to find cruise %s to link ArgoFile %s to. '
-                            'Attempting download of file.' % (expocode,
-                                                              file.created_at))
+                implog.warn(
+                    u'Unable to find cruise {} to link ArgoFile {} to. '
+                    'Attempting download of file.'.format(
+                        expocode, file.created_at))
                 with sftp_dl(sftp_cchdo, symlink_target, dl_files) as f:
                     if f:
                         downloaded = FieldStorage()
@@ -1859,10 +1941,10 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
                         downloaded.type = mimetypes.guess_type(
                             downloaded.filename)[0]
                         downloaded.file = f
-                        argo_file.store(downloaded)
+                        argo_file.file = FSFile.from_fieldstorage(downloaded)
                     else:
                         implog.error(
-                            'Unable to attach argo file by download')
+                            u'Unable to attach argo file by download')
             else:
                 # File is not a link so just download and attach
                 with sftp_dl(sftp_cchdo, file.filename, dl_files) as f:
@@ -1872,20 +1954,23 @@ def _import_argo_files(session, importer, sftp_cchdo, dl_files=True):
                         actual_file.type = mimetypes.guess_type(
                             file.filename)[0]
                         actual_file.file = f
-                        argo_file.store(actual_file)
+                        argo_file.file = FSFile.from_fieldstorage(actual_file)
+            DBSession.flush()
 
         if file.downloads:
-            argo_file.clear_requests()
+            requests = []
             for dl in file.downloads:
-                argo_file.add_request(FakeWebObRequest(date=dl.created_at,
-                                                       remote_addr=dl.ip))
-
-        argo_file.save()
+                requests.append(
+                    RequestFor(FakeWebObRequest(
+                                   date=dl.created_at, remote_addr=dl.ip)))
+            argo_file.requests_for = requests
+        DBSession.flush()
 
 
 def import_(import_gid, dl_files=True, files_only=False):
     implog.info("Get/Create CCHDO Importer to take blame")
-    importer = _import_person(None, 'importer', 'CCHDO', 'CCHDO_importer')
+    importer = import_person(None, 'importer', 'CCHDO', 'CCHDO_importer')
+    updater = Updater(importer)
 
     # libcchdo does not need a local cache of parameter information. That will
     # be done during the import
@@ -1896,30 +1981,32 @@ def import_(import_gid, dl_files=True, files_only=False):
         session.autoflush = False
 
         if not files_only:
-            _import_users(session, importer)
-            _import_contacts(session, importer)
-            _import_collections(session, importer)
-            _import_cruises(session, importer)
+            _import_users(session, updater)
+            _import_contacts(session, updater)
+            _import_collections(session, updater)
 
-            _import_track_lines(session, importer)
-            _import_collections_cruises(session, importer)
-            _import_contacts_cruises(session, importer)
+            _import_cruises(session, updater)
 
-            _import_events(session, importer)
+            _import_track_lines(session, updater)
+            _import_collections_cruises(session, updater)
+            _import_contacts_cruises(session, updater)
 
-            _import_spatial_groups(session, importer)
-            _import_internal(session, importer)
-            _import_unused_tracks(session, importer)
+            _import_events(session, updater)
 
-            _import_parameter_descriptions(importer)
-            _import_parameter_groups(session, importer)
-            _import_bottle_dbs(session, importer)
-            _import_parameter_status(session, importer)
-            _import_parameters(session, importer)
+            _import_spatial_groups(session, updater)
+            _import_internal(session, updater)
+            _import_unused_tracks(session, updater)
+
+            _import_parameter_descriptions(updater)
+            _import_parameter_groups(session, updater)
+            _import_bottle_dbs(session, updater)
+            _import_parameter_status(session, updater)
+            _import_parameters(session, updater)
 
         with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
-            _import_submissions(session, importer, sftp_cchdo, dl_files)
-            _import_old_submissions(session, importer, sftp_cchdo, dl_files)
-            _import_queue_files(session, importer, sftp_cchdo, dl_files)
-            _import_documents(session, importer, import_gid, dl_files)
-            _import_argo_files(session, importer, sftp_cchdo, dl_files)
+            _import_submissions(session, updater, sftp_cchdo, dl_files)
+            _import_old_submissions(session, updater, sftp_cchdo, dl_files)
+            _import_queue_files(session, updater, sftp_cchdo, dl_files)
+            _import_documents(session, updater, import_gid, dl_files)
+            _import_argo_files(session, updater, sftp_cchdo, dl_files)
+    transaction.commit()

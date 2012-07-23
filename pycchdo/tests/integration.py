@@ -3,7 +3,7 @@ from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
 from pyramid import testing
 
 from . import *
-from pycchdo import models
+from pycchdo.models import DBSession, Cruise, Person
 
 
 class TestView(BaseTest):
@@ -29,10 +29,10 @@ class TestView(BaseTest):
         from pycchdo.views.toplevel import data
         request = testing.DummyRequest()
 
-        person = request.user = models.Person(identifier='person')
-        cruise = models.Cruise(person)
-        self.session.add(person)
-        self.session.add(cruise)
+        person = request.user = Person(identifier='person')
+        cruise = Cruise(person)
+        DBSession.add(person)
+        DBSession.add(cruise)
 
         data_attr = cruise.set_accept(
             'bottle_exchange',
@@ -40,7 +40,7 @@ class TestView(BaseTest):
             person)
         data_attr.permissions = {}
 
-        self.session.flush()
+        DBSession.flush()
 
         request.matchdict['data_id'] = data_attr.id
 
@@ -61,7 +61,7 @@ class TestView(BaseTest):
 
         data_attr.permissions_read = ['argo']
         data_attr.permissions_write = ['notargo']
-        self.session.flush()
+        DBSession.flush()
 
         # argo group required, no user -> unauthorized
         request.user = None

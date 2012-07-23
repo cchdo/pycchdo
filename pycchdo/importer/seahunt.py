@@ -2,6 +2,8 @@ from cgi import FieldStorage
 import os
 import re
 
+import transaction
+
 import sqlalchemy as S
 import sqlalchemy.orm
 import sqlalchemy.ext.declarative
@@ -14,6 +16,11 @@ from shapely import wkb
 from pycchdo.importer import *
 from pycchdo.importer.cchdo import *
 import pycchdo.models as models
+from pycchdo.models import (
+    DBSession,
+    Cruise, Person, Obj, _Attr, Institution, Country, Ship, Collection, 
+    Participant, Participants, 
+    )
 
 
 Base = S.ext.declarative.declarative_base()
@@ -23,7 +30,7 @@ _metadata = Base.metadata
 cred = ['seahunt_web', 'll0yd315']
 
 
-rails_root = os.path.join(os.path.sep, 'srv', 'project_seahunt')
+rails_root = os.path.join(os.path.sep, 'srv', 'not_served', 'project_seahunt')
 
 
 url = S.engine.url.URL('postgresql', cred[0], cred[1], 'goship.ucsd.edu',
@@ -55,7 +62,7 @@ contacts_programs = S.Table('contacts_programs', _metadata,
 )
 
 
-class Country(Base):
+class SCountry(Base):
     __tablename__ = 'countries'
 
     id = S.Column(S.Integer, primary_key=True)
@@ -67,7 +74,7 @@ class Country(Base):
     updated_at = S.Column(S.TIMESTAMP)
 
 
-class Institution(Base):
+class SInstitution(Base):
     __tablename__ = 'institutions'
 
     id = S.Column(S.Integer, primary_key=True)
@@ -79,14 +86,14 @@ class Institution(Base):
 
     country_id = S.Column(S.ForeignKey('countries.id'))
     country = S.orm.relation(
-        Country, backref=S.orm.backref('institutions', order_by=id,
+        SCountry, backref=S.orm.backref('institutions', order_by=id,
                                        lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
 
 
-class Contact(Base):
+class SContact(Base):
     __tablename__ = 'contacts'
 
     id = S.Column(S.Integer, primary_key=True)
@@ -102,13 +109,13 @@ class Contact(Base):
 
     institution_id = S.Column(S.ForeignKey('institutions.id'))
     institution = S.orm.relation(
-        Institution, backref=S.orm.backref('contacts', order_by=id, lazy='dynamic'))
+        SInstitution, backref=S.orm.backref('contacts', order_by=id, lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
 
 
-class Program(Base):
+class SProgram(Base):
     __tablename__ = 'programs'
 
     id = S.Column(S.Integer, primary_key=True)
@@ -121,22 +128,22 @@ class Program(Base):
 
     institution_id = S.Column(S.ForeignKey('institutions.id'))
     institution = S.orm.relation(
-        Institution, backref=S.orm.backref('programs', order_by=id,
+        SInstitution, backref=S.orm.backref('programs', order_by=id,
                                            lazy='dynamic'))
     country_id = S.Column(S.ForeignKey('countries.id'))
     country = S.orm.relation(
-        Country, backref=S.orm.backref('programs', order_by=id,
+        SCountry, backref=S.orm.backref('programs', order_by=id,
                                        lazy='dynamic'))
     contact_id = S.Column(S.ForeignKey('contacts.id'))
     contact = S.orm.relation(
-        Contact, backref=S.orm.backref('programs', order_by=id,
+        SContact, backref=S.orm.backref('programs', order_by=id,
                                        lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
 
 
-class Ship(Base):
+class SShip(Base):
     __tablename__ = 'ships'
 
     id = S.Column(S.Integer, primary_key=True)
@@ -147,7 +154,7 @@ class Ship(Base):
 
     country_id = S.Column(S.ForeignKey('countries.id'))
     country = S.orm.relation(
-        Country, backref=S.orm.backref('ships', order_by=id,
+        SCountry, backref=S.orm.backref('ships', order_by=id,
                                        lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
@@ -173,7 +180,7 @@ class TrackHolder():
         return None
 
 
-class Cruise(Base, TrackHolder):
+class SCruise(Base, TrackHolder):
     __tablename__ = 'cruises'
 
     id = S.Column(S.Integer, primary_key=True)
@@ -195,17 +202,17 @@ class Cruise(Base, TrackHolder):
 
     country_id = S.Column(S.ForeignKey('countries.id'))
     country = S.orm.relation(
-        Country, backref=S.orm.backref('cruises', order_by=id, lazy='dynamic'))
+        SCountry, backref=S.orm.backref('cruises', order_by=id, lazy='dynamic'))
     ship_id = S.Column(S.ForeignKey('ships.id'))
     ship = S.orm.relation(
-        Ship, backref=S.orm.backref('cruises', order_by=id, lazy='dynamic'))
+        SShip, backref=S.orm.backref('cruises', order_by=id, lazy='dynamic'))
 
     contacts = S.orm.relationship(
-        'Contact', secondary=contacts_cruises, backref='cruises')
+        'SContact', secondary=contacts_cruises, backref='cruises')
     institutions = S.orm.relationship(
-        'Institution', secondary=cruises_institutions, backref='cruises')
+        'SInstitution', secondary=cruises_institutions, backref='cruises')
     programs = S.orm.relationship(
-        'Program', secondary=cruises_programs, backref='cruises')
+        'SProgram', secondary=cruises_programs, backref='cruises')
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
@@ -219,7 +226,7 @@ class Alias(Base):
 
     cruise_id = S.Column(S.ForeignKey('cruises.id'))
     cruise = S.orm.relation(
-        Cruise, backref=S.orm.backref('aliases', order_by=id, lazy='dynamic'))
+        SCruise, backref=S.orm.backref('aliases', order_by=id, lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
@@ -241,7 +248,7 @@ class Resource(Base):
 
     cruise_id = S.Column(S.ForeignKey('cruises.id'))
     cruise = S.orm.relation(
-        Cruise, backref=S.orm.backref('resources', order_by=id,
+        SCruise, backref=S.orm.backref('resources', order_by=id,
                                       lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
@@ -275,294 +282,308 @@ class Suggestion(Base, TrackHolder):
 
     cruise_id = S.Column(S.ForeignKey('cruises.id'))
     cruise = S.orm.relation(
-        Cruise, backref=S.orm.backref('suggestions', order_by=id,
+        SCruise, backref=S.orm.backref('suggestions', order_by=id,
                                       lazy='dynamic'))
 
     created_at = S.Column(S.TIMESTAMP)
     updated_at = S.Column(S.TIMESTAMP)
 
 
-def _ensure_cruise(cruise, importer):
+def _ensure_cruise(cruise, updater):
     import_id = 'seahunt%s' % str(cruise.id)
-    cs = models.Cruise.get_by_attrs({'import_id': import_id},
-                                    accepted_only=False)
-    if len(cs) > 0:
-        c = cs[0]
-        implog.info('Updating Seahunt Cruise %s: %s' % (import_id, c.id))
+    ccc = Cruise.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if ccc:
+        implog.info('Updating Seahunt Cruise %s: %s' % (import_id, ccc.id))
     else:
         implog.info('Creating Seahunt Cruise %s' % import_id)
-        c = models.Cruise(importer)
-        c.save()
-    update_attr(c, 'import_id', import_id, importer)
-    return c
+        ccc = Cruise(updater.importer)
+        DBSession.add(ccc)
+        DBSession.flush()
+    updater.attr(ccc, 'import_id', import_id)
+    return ccc
 
 
-def _import_cruise(importer, cruise, sftp_goship, dl_files=True):
-    c = _ensure_cruise(cruise, importer)
-
-    c.acknowledge(importer)
+def _import_cruise(updater, cruise, sftp_goship, dl_files=True):
+    c = _ensure_cruise(cruise, updater)
+    c.acknowledge(updater.importer)
     c.creation_timestamp = cruise.created_at
     c.pending_timestamp = cruise.updated_at
-    c.save()
+    DBSession.flush()
 
     aliases = [a.alias for a in cruise.aliases.all()]
     if cruise.identifier:
-        update_attr(c, 'expocode', cruise.identifier, importer)
+        updater.attr(c, 'expocode', cruise.identifier)
     else:
         if aliases:
-            update_attr(c, 'expocode', aliases[0], importer)
+            updater.attr(c, 'expocode', aliases[0])
             aliases = aliases[1:]
     if aliases:
-        update_attr(c, 'aliases', aliases, importer)
+        updater.attr(c, 'aliases', aliases)
     if cruise.expocode:
-        update_attr(c, 'expocode', cruise.expocode, importer, accept=False)
+        updater.attr(c, 'expocode', cruise.expocode, accept=False)
     if cruise.status:
-        update_attr(c, 'statuses', [cruise.status], importer)
+        updater.attr(c, 'statuses', [cruise.status])
     if cruise.location_notes:
-        update_attr(c, 'ports', [cruise.location_notes], importer)
+        updater.attr(c, 'ports', [cruise.location_notes])
     if cruise.frequency:
-        update_attr(c, 'frequency', cruise.frequency, importer)
+        updater.attr(c, 'frequency', cruise.frequency)
     if cruise.location_key_words:
-        update_attr(c, 'ports', cruise.location_key_words, importer,
-                    accept=False)
+        updater.attr(c, 'ports', cruise.location_key_words, accept=False)
 
     if cruise.country:
-        country = _import_country(cruise.country, importer)
-        update_attr(c, 'country', country.id, importer)
+        country = _import_country(cruise.country, updater)
+        updater.attr(c, 'country', country.id)
 
     if cruise.ship:
-        ship = _import_ship(cruise.ship, importer)
-        update_attr(c, 'ship', ship.id, importer)
+        ship = _import_ship(cruise.ship, updater)
+        updater.attr(c, 'ship', ship.id)
+
+    DBSession.flush()
 
     if cruise.contacts:
         participants = []
         for contact in cruise.contacts:
-            participants.append({
-                'role': 'contact',
-                'person': _import_contact(contact, importer).id,
-                'institution': None,
-            })
+            participants.append(Participant(
+                'contact',
+                 _import_contact(contact, updater)))
         if participants:
-            update_attr(c, 'participants', participants, importer)
+            updater.attr(c, 'participants', Participants(participants))
 
     if cruise.institutions:
         institutions = []
         for inst in cruise.institutions:
-            institutions.append(_import_inst(inst, importer).id)
+            institutions.append(_import_inst(inst, updater).id)
         if institutions:
-            update_attr(c, 'institutions', institutions, importer)
+            updater.attr(c, 'institutions', institutions)
 
     collections = []
     if cruise.basin:
-        basin = _import_Collection(importer, cruise.basin, 'basin')
+        basin = import_Collection(updater, cruise.basin, 'basin')
         collections.append(basin)
+
     for program in cruise.programs:
-        collections.append(_import_program(program, importer))
+        collections.append(_import_program(program, updater))
 
     if collections:
-        update_attr(c, 'collections', [c.id for c in collections], importer)
+        updater.attr(c, 'collections', [col.id for col in collections])
 
     for resource in cruise.resources:
-        _import_resource(resource, importer, sftp_goship, dl_files)
+        _import_resource(resource, updater, sftp_goship, dl_files)
 
     ds = None
     de = None
     if cruise.date_start:
-        ds = update_attr(c, 'date_start', cruise.date_start, importer)
+        ds = updater.attr(c, 'date_start', cruise.date_start)
     if cruise.date_end:
-        de = update_attr(c, 'date_end', cruise.date_end, importer)
+        de = updater.attr(c, 'date_end', cruise.date_end)
     if cruise.cruise_dates and (ds or de):
         if ds and not de:
-            update_attr(c, 'date_end', cruise.cruise_dates, importer)
+            updater.attr(c, 'date_end', cruise.cruise_dates)
         elif de and not ds:
-            update_attr(c, 'date_start', cruise.cruise_dates, importer)
+            updater.attr(c, 'date_start', cruise.cruise_dates)
         else:
-            update_attr(c, 'date_start', cruise.cruise_dates, importer,
-                        accept=False)
-    print cruise.date_start, cruise.date_end, cruise.cruise_dates
-
-    if cruise.track:
-        update_attr(c, 'track', cruise.get_track(), importer)
+            updater.attr(c, 'date_start', cruise.cruise_dates, accept=False)
+# XXX
+#    if cruise.track:
+#        updater.attr(c, 'track', cruise.get_track())
     return c
 
 
-def _import_cruises(sftp_goship, sesh, importer, dl_files=True):
-    cruises = sesh.query(Cruise).all()
+def _import_cruises(sftp_goship, sesh, updater, dl_files=True):
+    cruises = sesh.query(SCruise).all()
     for c in cruises:
-        _import_cruise(importer, c, sftp_goship, dl_files)
+# XXX
+        if c.id != 4:
+            continue
+        _import_cruise(updater, c, sftp_goship, dl_files)
 
 
-def _import_inst(inst, importer):
-    import_id = 'seahunt%d' % inst.id
-    institutions = models.Institution.get_by_attrs({'import_id': import_id},
-                                                   accepted_only=False)
-    if len(institutions) > 0:
-        institution = institutions[0]
-        implog.info("Updating Seahunt Institution %s: %s" % (import_id,
-                                                             institution.id))
+def _ensure_inst(updater, inst_id):
+    import_id = 'seahunt%d' % inst_id
+    institution = Institution.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if institution:
+        implog.info("Updating Seahunt Institution {}: {}".format(
+            import_id, institution.id))
     else:
         implog.info("Creating Institution %s" % import_id)
-        institution = models.Institution(importer)
-        institution.save()
-        institution.set_accept('import_id', import_id, importer)
+        institution = Institution(updater.importer)
+        DBSession.add(institution)
+        DBSession.flush()
+        updater.attr(institution, 'import_id', import_id)
+    return institution
 
-    institution.acknowledge(importer)
+
+def _import_inst(inst, updater):
+    institution = _ensure_inst(updater, inst.id)
+    institution.acknowledge(updater.importer)
     institution.creation_timestamp = inst.created_at
     institution.pending_timestamp = inst.updated_at
 
     names = filter(None, [inst.name, inst.full_name])
     if names:
         implog.info(names[0])
-        update_attr(institution, 'name', names[0], importer)
+        updater.attr(institution, 'name', names[0])
         for name in names[1:]:
-            update_attr(institution, 'name', name, importer, accept=False)
+            updater.attr(institution, 'name', name, accept=False)
 
     if inst.phone:
-        update_attr(institution, 'phone', inst.phone, importer)
+        updater.attr(institution, 'phone', inst.phone)
     if inst.address:
-        update_attr(institution, 'address', inst.address, importer)
+        updater.attr(institution, 'address', inst.address)
     if inst.url:
-        update_attr(institution, 'url', inst.url, importer)
+        updater.attr(institution, 'url', inst.url)
     if inst.country:
-        country = _import_country(inst.country, importer)
-        update_attr(institution, 'country', country.id, importer)
+        country = _import_country(inst.country, updater)
+        updater.attr(institution, 'country', country.id)
     return institution
 
 
-def _import_institutions(sesh, importer):
-    institutions = sesh.query(Institution).all()
+def _import_institutions(sesh, updater):
+    institutions = sesh.query(SInstitution).all()
     for inst in institutions:
-        _import_inst(inst, importer)
+        _import_inst(inst, updater)
 
 
-def _import_country(country, importer):
-    import_id = 'seahunt%d' % country.id
-    countries = models.Country.get_by_attrs({'import_id': import_id},
-                                            accepted_only=False)
-    if len(countries) > 0:
-        c = countries[0]
+def _ensure_country(updater, country_id):
+    import_id = 'seahunt%d' % country_id
+    c= Country.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if c:
         implog.info("Updating Country %s: %s" % (import_id, c.id))
     else:
         implog.info("Creating Country %s" % import_id)
-        c = models.Country(importer)
-        c.save()
-        update_attr(c, 'import_id', import_id, importer)
-
-    update_attr(c, 'iso_3166-1', country.name, importer)
-    update_attr(c, 'iso_3166-alpha-2', country.country_code, importer)
+        c = Country(updater.importer)
+        DBSession.add(c)
+        DBSession.flush()
+        updater.attr(c, 'import_id', import_id)
     return c
 
 
-def _import_contact(contact, importer):
+def _import_country(country, updater):
+    c = _ensure_country(updater, country.id)
+    c.iso_3166_1 = country.name
+    c.iso_3166_1_alpha_2 = country.country_code
+    return c
+
+
+def _import_contact(contact, updater):
     import_id = 'seahunt%d' % contact.id
-    people = models.Person.get_by_attrs({'import_id': import_id},
-                                        accepted_only=False)
-    if len(people) > 0:
-        p = people[0]
+    p = Person.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if p:
         implog.info('Updating Seahunt Contact %s: %s' % (import_id, p.id))
     else:
         implog.info('Creating Seahunt Contact %s' % import_id)
-        p = models.Person(import_id)
+        p = import_person(updater, import_id, None, identifier=import_id)
         p.creation_timestamp = contact.created_at
-        p.save()
-        p.set_accept('import_id', import_id, importer)
+        updater.attr(p, 'import_id', import_id)
 
     if contact.first_name:
         p.name_first = contact.first_name
     if contact.last_name:
         p.name_last = contact.last_name
+    if contact.first_name or contact.last_name:
+        p.name = ' '.join(filter(None, [p.name_first, p.name_last]))
     if contact.email:
         p.email = contact.email
     if contact.institution:
-        inst = _import_inst(contact.institution, importer)
-        p.institution = inst.id
-    p.save()
+        inst = _import_inst(contact.institution, updater)
+        updater.attr(p, 'institution', inst.id)
+    DBSession.flush()
 
     if contact.title:
-        update_attr(p, 'title', contact.title, importer)
+        updater.attr(p, 'title', contact.title)
     if contact.job_title:
-        update_attr(p, 'job_title', contact.job_title, importer)
+        updater.attr(p, 'job_title', contact.job_title)
     if contact.phone:
-        update_attr(p, 'phone', contact.phone, importer)
+        updater.attr(p, 'phone', contact.phone)
     if contact.fax:
-        update_attr(p, 'fax', contact.fax, importer)
+        updater.attr(p, 'fax', contact.fax)
     if contact.address:
-        update_attr(p, 'address', contact.address, importer)
+        updater.attr(p, 'address', contact.address)
 
     programs = []
     for program in contact.programs:
-        programs.append(_import_program(program, importer))
+        programs.append(_import_program(program, updater))
     if programs:
-        update_attr(p, 'programs', [x.id for x in programs], importer)
+        updater.attr(p, 'programs', [x.id for x in programs])
 
     if contact.notes:
-        update_note(p, contact.notes, p)
+        updater.note(p, contact.notes)
     return p
 
 
-def _import_contacts(sesh, importer):
-    contacts = sesh.query(Contact).all()
+def _import_contacts(sesh, updater):
+    contacts = sesh.query(SContact).all()
     for contact in contacts:
-        _import_contact(contact, importer)
+        _import_contact(contact, updater)
 
 
-def _import_ship(ship, importer):
-    import_id = 'seahunt%d' % ship.id
-    ships = models.Ship.get_by_attrs({'import_id': import_id},
-                                     accepted_only=False)
-    if len(ships) > 0:
-        s = ships[0]
-    else:
-        s = models.Ship(importer)
-        s.creation_timestamp = _date_to_datetime(ship.created_at)
-        s.save()
-
-    if ship.full_name:
-        update_attr(s, 'name', ship.full_name, importer)
-    if ship.shipcode:
-        update_attr(s, 'nodc_platform_code', ship.shipcode, importer)
-    if ship.url:
-        update_attr(s, 'url', ship.url, importer)
-    if ship.country:
-        country = _import_country(ship.country, importer)
-        update_attr(s, 'country', country.id, importer)
+def _ensure_ship(updater, ship_id):
+    import_id = 'seahunt%d' % ship_id
+    s = Ship.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if not s:
+        s = Ship(updater.importer)
+        DBSession.add(s)
+        DBSession.flush()
     return s
 
 
-def _import_program(program, importer):
+def _import_ship(ship, updater):
+    s = _ensure_ship(updater, ship.id)
+    s.creation_timestamp = _date_to_datetime(ship.created_at)
+    if ship.full_name:
+        updater.attr(s, 'name', ship.full_name)
+    if ship.shipcode:
+        updater.attr(s, 'nodc_platform_code', ship.shipcode)
+    if ship.url:
+        updater.attr(s, 'url', ship.url)
+    if ship.country:
+        country = _import_country(ship.country, updater)
+        updater.attr(s, 'country', country.id)
+    return s
+
+
+def _import_program(program, updater):
     import_id = 'seahunt%d' % program.id
-    programs = models.Collection.get_by_attrs({'import_id': import_id},
-                                              accepted_only=False)
-    if len(programs) > 0:
-        p = programs[0]
-    else:
-        p = models.Collection(importer)
-        p.creation_timestamp = program.created_at
-        p.save()
+    col = Collection.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if not col:
+        col = updater.create_accept(Collection)
+        col.creation_timestamp = program.created_at
 
-    update_attr(p, 'names', filter(None, [program.name, program.notes]),
-                importer)
-    update_attr(p, 'date_start', program.name, importer)
-    update_attr(p, 'date_end', program.name, importer)
-    update_attr(p, 'url', program.name, importer)
-    update_attr(p, 'institution', program.name, importer)
-    update_attr(p, 'country', program.name, importer)
-    update_attr(p, 'name', program.name, importer)
-    return p
+    updater.attr(col, 'names', filter(None, [program.name, program.notes]))
+    attr = updater.attr(col, 'date_start', program.dates, accept=False)
+    attr.accept_value(program.realdate_start, updater.importer)
+    updater.attr(col, 'date_end', program.realdate_end)
+    updater.attr(col, 'url', program.url)
+
+    if program.institution_id:
+        updater.attr(
+            col, 'institution',
+            _ensure_inst(updater, program.institution_id).id)
+    if program.country_id:
+        updater.attr(
+            col, 'country', _ensure_country(updater, program.country_id).id)
+    return col
 
 
-def _import_resource(resource, importer, sftp_goship, dl_files=True):
+def _import_resource(resource, updater, sftp_goship, dl_files=True):
     if not resource.cruise:
         implog.error('Resource %s is missing cruise' % resource.id)
         return None
-    cruise = _ensure_cruise(resource.cruise, importer)
+    cruise = _ensure_cruise(resource.cruise, updater)
     if resource.type == 'URLResource':
-        a = cruise.set('link', resource.url, importer)
-        update_note(a, resource.description, importer, resource.note)
+        a = cruise.set('link', resource.url, updater.importer)
+        updater.note(a, resource.description, resource.note)
         a.creation_timestamp = resource.created_at
-        a.save()
+        DBSession.add(a)
+        DBSession.flush()
     elif resource.type == 'NoteResource':
-        update_note(cruise, resource.note, importer, resource.description)
+        updater.note(cruise, resource.note, resource.description)
     elif (resource.type == 'FileResource' or
           resource.type == 'ThumbMapResource' or
           resource.type == 'MapResource'):
@@ -576,89 +597,87 @@ def _import_resource(resource, importer, sftp_goship, dl_files=True):
             if downloaded:
                 file.file = downloaded
                 if resource.type == 'FileResource':
-                    a = update_attr(cruise, 'data_suggestion', file, importer)
+                    a = updater.attr(cruise, 'data_suggestion', file)
                 elif resource.type == 'ThumbMapResource':
-                    a = update_attr(cruise, 'map_thumb', file, importer)
+                    a = updater.attr(cruise, 'map_thumb', file)
                 elif resource.type == 'MapResource':
-                    a = update_attr(cruise, 'map_full', file, importer)
+                    a = updater.attr(cruise, 'map_full', file)
                 a.creation_timestamp = resource.file_updated_at
-                a.save()
+                DBSession.add(a)
+                DBSession.flush()
                 if resource.description or resource.note:
-                    update_note(a, resource.note, importer,
-                                resource.description)
+                    updater.note(a, resource.note, resource.description)
     else:
         implog.error('Unknown resource type %s' % resource.type)
 
 
-def _import_suggestion_contact(name, email, importer):
+def _import_suggestion_contact(name, email, updater):
     if name is None and email is None:
         return None
     if name is None:
         name = email
     import_id = 'seahunt%s' % name
-    people = models.Person.get_by_attrs({'import_id': import_id},
-                                        accepted_only=False)
-    if len(people) > 0:
-        person = people[0]
-    else:
-        person = models.Person(name_first=name, name_last='seahunt',
-                               email=email)
-        person.save()
-        update_attr(person, 'import_id', import_id, importer)
+    person = Person.get_one_by_attrs(
+        DBSession, {'import_id': import_id}, accepted_only=False)
+    if not person:
+        person = Person(name=name, email=email)
+        DBSession.add(person)
+        DBSession.flush()
+        updater.attr(person, 'import_id', import_id)
     return person
 
 
-def _import_suggestion(suggestion, importer):
+def _import_suggestion(suggestion, updater):
     if suggestion.moderated:
         return None
 
     person = _import_suggestion_contact(
-        suggestion.entry_contact, suggestion.entry_email, importer)
+        suggestion.entry_contact, suggestion.entry_email, updater)
     if not person:
-        person = importer
+        person = updater.importer
 
     suggestion.id = '_suggestion%d' % suggestion.id
-    cruise = _ensure_cruise(suggestion, person)
+    cruise = _ensure_cruise(suggestion, updater)
 
-    update_attr(cruise, 'import_id', 'seahunt%s' % str(suggestion.id), importer)
+    updater.attr(cruise, 'import_id', 'seahunt%s' % str(suggestion.id))
 
-    update_attr(cruise, 'expocode', suggestion.name, person, accept=False)
-    update_attr(cruise, 'ports', [suggestion.location], person, accept=False)
-    update_attr(cruise, 'date_start', suggestion.cruise_dates, person,
-                accept=False)
-    update_attr(cruise, 'country', suggestion.country, person, accept=False)
-    update_attr(cruise, 'ship', suggestion.ship, person, accept=False)
-    update_attr(cruise, 'url', suggestion.url, person, accept=False)
-    update_note(cruise, suggestion.notes, person)
-    update_note(cruise, suggestion.programs, person, 'programs')
-    update_note(cruise, suggestion.contacts, person, 'contacts')
+    updater.attr(cruise, 'expocode', suggestion.name, accept=False)
+    updater.attr(cruise, 'ports', [suggestion.location], accept=False)
+    updater.attr(cruise, 'date_start', suggestion.cruise_dates, accept=False)
+    updater.attr(cruise, 'country', suggestion.country, accept=False)
+    updater.attr(cruise, 'ship', suggestion.ship, accept=False)
+    updater.attr(cruise, 'link', suggestion.url, accept=False)
+    updater.note(cruise, suggestion.notes)
+    updater.note(cruise, suggestion.programs, 'programs')
+    updater.note(cruise, suggestion.contacts, 'contacts')
 
-    update_attr(cruise, 'institutions', suggestion.institutions.split(','),
-                person, accept=False)
-    if suggestion.track:
-        update_attr(cruise, 'track', suggestion.get_track(), importer,
-                    accept=False)
+    updater.attr(
+        cruise, 'institutions', suggestion.institutions.split(','),
+        accept=False)
+# XXX
+#    if suggestion.track:
+#        updater.attr(cruise, 'track', suggestion.get_track(), accept=False)
     return cruise
 
 
-def _import_suggestions(sesh, importer):
+def _import_suggestions(sesh, updater):
     suggestions = sesh.query(Suggestion).all()
     for suggestion in suggestions:
-        _import_suggestion(suggestion, importer)
+        _import_suggestion(suggestion, updater)
 
 
 def clear():
     implog.info('Clearing all Seahunt imports')
 
-    person = models.Person.get_one(
+    person = Person.get_one(
         {'name_last': 'importer', 'name_first': 'Seahunt'})
 
-    attrs = models._Attr.get_all({'key': 'import_id',
+    attrs = _Attr.get_all({'key': 'import_id',
                                   'value': re.compile('seahunt.*')})
     objs = [x.obj for x in attrs]
 
     if person:
-        objs = objs + models.Obj.get_all({'creation_person_id': person.id})
+        objs = objs + Obj.get_all({'creation_person_id': person.id})
 
     lobjs = float(len(objs))
     for i, obj in enumerate(objs):
@@ -666,7 +685,7 @@ def clear():
         if i % 10 == 0:
             implog.info('%d/%d = %f' % (i, lobjs, i / lobjs))
 
-    max_id = models.Obj.find_one(
+    max_id = Obj.find_one(
         fields=[], sort=[('creation_timestamp', models.DESCENDING)])['_id']
     if models.ObjId.peek_id() != max_id:
         models.ObjId.set_id(max_id)
@@ -678,15 +697,17 @@ def clear():
 
 def import_(dl_files=True, files_only=False):
     implog.info("Get/Create Seahunt Importer to take blame")
-    importer = _import_person(None, 'importer', 'Seahunt', 'Seahunt_importer')
+    importer = import_person(None, 'importer', 'Seahunt', 'Seahunt_importer')
+    updater = Updater(importer)
 
     implog.info('Connecting to seahunt db')
     with db_session(session()) as sesh:
-        si = (sesh, importer)
+        su = (sesh, updater)
 
         with sftp('goship.ucsd.edu') as (ssh_goship, sftp_goship):
-            _import_cruises(sftp_goship, sesh, importer, dl_files)
+            _import_cruises(sftp_goship, sesh, updater, dl_files)
         if not files_only:
-            _import_institutions(*si)
-            _import_contacts(*si)
-            _import_suggestions(*si)
+            _import_institutions(*su)
+            _import_contacts(*su)
+            _import_suggestions(*su)
+    transaction.commit()

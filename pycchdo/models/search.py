@@ -1,34 +1,40 @@
-""" Indexing/search capabilities
+"""Indexing and search capabilities.
 
-Theoretically the index should be updated each time some object or note is
-edited or removed. Fully indexing is also supported.
+The index should be updated each time some object or note is edited or removed.
+
+Fully re-indexing is also supported via rebuild_index.
 
 """
 import os
-import logging
 from contextlib import contextmanager
 
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
 from whoosh.writing import BufferedWriter
-from whoosh.qparser import QueryParser, MultifieldParser, AndGroup, FieldAliasPlugin
+from whoosh.qparser import (
+    QueryParser, MultifieldParser, AndGroup, FieldAliasPlugin,
+    )
 from whoosh.qparser.dateparse import DateParserPlugin
 
-import triggers
-import models
+from pycchdo.models import triggers
+from pycchdo.log import ColoredLogger
+from pycchdo.models import (
+    DBSession,
+    Cruise, Person, Ship, Country, Institution, Collection, Note,
+    )
 
 
-logging.basicConfig(level=logging.DEBUG)
+log = ColoredLogger(__name__)
 
 
 _name_model = {
-    'cruise': models.Cruise,
-    'person': models.Person,
-    'ship': models.Ship,
-    'country': models.Country,
-    'institution': models.Institution,
-    'collection': models.Collection,
-    'note': models.Note,
+    'cruise': Cruise,
+    'person': Person,
+    'ship': Ship,
+    'country': Country,
+    'institution': Institution,
+    'collection': Collection,
+    'note': Note,
 }
 
 
@@ -141,7 +147,7 @@ class SearchIndex(object):
             self.index_dir_checked_exists = True
         except os.error, e:
             if not os.path.isdir(self.index_dir):
-                logging.critical(
+                log.critical(
                     'Ensure that %s is writeable by you.' % self.index_dir)
                 raise e
             else:
@@ -149,12 +155,14 @@ class SearchIndex(object):
                 self.index_dir_checked_exists = True
 
     def open_or_create_index(self, name, force_create=False):
-        """ Opens or creates and opens an index in the main directory. """
-        if not force_create and index.exists_in(self.index_dir, indexname=name):
+        """Opens or creates and opens an index in the main directory."""
+        if (    not force_create and
+                index.exists_in(self.index_dir, indexname=name)):
             ix = index.open_dir(self.index_dir, indexname=name)
         else:
             try:
-                ix = index.create_in(self.index_dir, _schemas[name], indexname=name)
+                ix = index.create_in(
+                    self.index_dir, _schemas[name], indexname=name)
             except KeyError:
                 raise ValueError('Invalid index name %s' % name)
         return ix
@@ -169,7 +177,7 @@ class SearchIndex(object):
         except OSError:
             pass
         except IOError, e:
-            logging.error("Unable to access/create search index")
+            log.error("Unable to access/create search index")
             raise e
 
         for name in _schemas.keys():
@@ -210,7 +218,7 @@ class SearchIndex(object):
             doc = {}
 
             if name == 'cruise':
-                names = filter(None, [obj.expocode] + obj.get('aliases', []))
+                names = filter(None, [obj.expocode] + obj.aliases)
                 doc['names'] = u','.join(names)
                 if obj.date_start:
                     doc['date_start'] = obj.date_start
@@ -223,24 +231,25 @@ class SearchIndex(object):
                 chiscis = obj.chief_scientists
                 if chiscis:
                     doc['pis'] = u','.join(
-                        [unicode(pi['person'].full_name()) for pi in chiscis])
+                        [unicode(pi.person.full_name) for pi in chiscis])
                 if obj.collections:
                     doc['collections'] = u','.join(
                         [unicode(c.name) for c in obj.collections])
-                doc['status'] = u','.join(obj.get('statuses', []))
+                doc['status'] = u','.join(obj.statuses)
                 doc['seahunt'] = not obj.accepted
             elif name == 'person':
-                doc['name'] = unicode(obj.full_name())
-                doc['email'] = unicode(obj.get('email', None))
+                doc['name'] = unicode(obj.full_name)
+                doc['email'] = unicode(obj.email)
             elif name == 'ship':
                 doc['name'] = unicode(obj.name)
             elif name == 'country':
-                names = filter(None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
+                names = filter(
+                    None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
                 names = [name.strip() for name in names]
                 doc['names'] = u','.join(names)
             elif name == 'institution':
                 doc['name'] = unicode(obj.name)
-                doc['uri'] = unicode(obj.get('uri', None))
+                doc['uri'] = unicode(obj.get('url', None))
             elif name == 'collection':
                 doc['names'] = u','.join(filter(None, obj.names))
             else:
@@ -260,11 +269,11 @@ class SearchIndex(object):
             return
         with self.writer('note', writer) as ixw:
             ixw.update_document(
-                body=note.get('body', None),
-                action=note.get('action', None),
-                data_type=note.get('data_type', None),
-                summary=note.get('subject', None),
-                mtime=note.ctime,
+                body=note.body,
+                action=note.action,
+                data_type=note.data_type,
+                summary=note.subject,
+                mtime=note.creation_timestamp,
                 id=_model_id_to_index_id(note.id))
 
 
@@ -280,22 +289,23 @@ class SearchIndex(object):
 
 
     def rebuild_index(self, clear=False):
-        """ Indexes all Objs and Notes.
-            If clear is set, the indices are cleared and optimizations are made to
-            avoid trying to figure out which ones are already indexed and skipping.
+        """Indexes all Objs and Notes.
 
-            If an index is known to be bad, it's best to clear it and rebuild the
-            index using this function.
+        If clear is set, the indices are cleared and optimizations are made to
+        avoid trying to figure out which ones are already indexed and skipping.
+
+        If an index is known to be bad, it's best to clear it and rebuild the
+        index using this function.
 
         """
-        logging.info('Rebuilding search index')
-        logging.info('Clear index first? %r' % clear)
+        log.info('Rebuilding search index')
+        log.info('Clear index first? %r' % clear)
         schemas = _schemas.keys()
         if 'note' in schemas:
             schemas.remove('note')
             schemas.append('note')
         for name in schemas:
-            logging.debug('Indexing %s' % name)
+            log.info('Indexing %s' % name)
             with self.writer(name, clear=clear, buffered=True) as ixw:
                 model = _name_model[name]
 
@@ -303,8 +313,8 @@ class SearchIndex(object):
                 to_index = set()
 
                 if not clear:
-                    logging.info(
-                        'Cleaning index and collecting indexed docs for %s' % name)
+                    log.info((u'Cleaning index and collecting indexed docs '
+                              'for {}').format(name))
                     ixs = ixw.searcher()
 
                     # Walk each index
@@ -312,16 +322,16 @@ class SearchIndex(object):
                         indexed_id = fields['id']
                         indexed_ids.add(indexed_id)
 
-                        logging.debug('Check %s existance' % indexed_id)
+                        log.debug('Check %s existance' % indexed_id)
 
                         # for missing docs
-                        obj = model.get_id(indexed_id)
+                        obj = DBSession.query(model).get(indexed_id)
                         if not obj:
-                            logging.debug('Remove missing id %s' % indexed_id)
+                            log.debug('Remove missing id %s' % indexed_id)
                             ixw.delete_by_term('id', indexed_id)
                         # and modified docs
                         else:
-                            logging.debug('Check %s mtime' % indexed_id)
+                            log.debug('Check %s mtime' % indexed_id)
                             try:
                                 indexed_time = fields['mtime']
                                 try:
@@ -330,54 +340,54 @@ class SearchIndex(object):
                                     # Notes don't have an mtime
                                     mtime = obj.ctime
                                 if mtime > indexed_time:
-                                    logging.debug(
+                                    log.debug(
                                         '%s has been modified' % indexed_id)
                                     to_index.add(indexed_id)
                             except KeyError:
                                 to_index.add(indexed_id)
                     ixw.commit()
 
-                logging.debug(repr(indexed_ids))
-                logging.debug(repr(to_index))
+                log.debug(repr(indexed_ids))
+                log.debug(repr(to_index))
 
-                objs = model.get_all()
+                objs = DBSession.query(model).all()
 
-                logging.debug(objs)
+                #log.debug(repr(objs))
 
-                logging.info('Indexing new and modified docs for %s' % name)
+                log.info('Indexing new and modified docs for %s' % name)
                 l = float(len(objs))
                 for i, obj in enumerate(objs):
                     # Index modified and new docs
                     oid = unicode(obj.id)
                     if oid in to_index or oid not in indexed_ids:
-                        logging.debug('Indexing %s' % obj.id)
-                        if model is models.Note:
+                        log.debug('Indexing %s' % obj.id)
+                        if model is Note:
                             self.save_note(obj, ixw)
                         else:
                             self.save_obj(obj, ixw)
                     if i % 50 == 0:
-                        logging.info('%d/%d = %3.4f' % (i, l, i / l))
+                        log.info('%d/%d = %3.4f' % (i, l, i / l))
 
                 ixw.commit()
-        logging.info('Finished indexing')
+        log.info('Finished indexing')
 
     def search(self, query_string, limit=None, search_notes=False, ):
-        """ Performs search based on a query string.
+        """Performs search based on a query string.
 
-            Parameters:
-                query_string    The query string to search for.
-                limit           The maximum number of results to get. Leave as
-                                None to get all results.
-                search_notes    Whether to search Notes. Set to True to search
-                                Notes with query_string.
+        Parameters:
+            query_string    The query string to search for.
+            limit           The maximum number of results to get. Leave as None
+                            to get all results.
+            search_notes    Whether to search Notes. Set to True to search Notes
+                            with query_string.
 
-            Returns:
-                A dict with each type of index and a dict mapping a bunch of
-                Objs for each type to their cruises.
+        Returns:
+            A dict with each type of index and a dict mapping a bunch of Objs
+            for each type to their cruises.
 
-                WARNING: results IS NOT homogeneous! Cruise and Note results are
-                stored in lists, but ALL OTHER results are stored in a dict that
-                maps them to their associated cruises!
+            WARNING: results IS NOT homogeneous! Cruise and Note results are
+            stored in lists, but ALL OTHER results are stored in a dict that
+            maps them to their associated cruises!
 
         """
         results = {}
@@ -394,7 +404,7 @@ class SearchIndex(object):
             try:
                 query = model_parser.parse(query_string)
             except Exception, e:
-                logging.error(
+                log.error(
                     'Query parse failed for "%s": %s' % (query_string, e))
             index = self.open_or_create_index(model_name)
 
@@ -406,15 +416,15 @@ class SearchIndex(object):
                     # Obtain the identifier function for the model. The
                     # identifier function takes object IDs and maps them to
                     # their objects.
-                    get_ID_for = _name_model[model_name].get_id
+                    model = _name_model[model_name]
                     if model_name == 'note':
-                        get_ID_for = models.Note.get_id
+                        model = Note
 
                     # Extract the result objects from the raw search results.
                     field_numbers = range(raw.estimated_length())
                     idwrappers = map(raw.fields, field_numbers)
                     idparams = [wrapper['id'] for wrapper in idwrappers]
-                    objects = map(get_ID_for, idparams)
+                    objects = model.all_by_ids(DBSession, idparams)
 
                     if model_name is 'cruise' or model_name is 'note':
                         # Cruises and Notes are quite simple. They are not
@@ -434,7 +444,7 @@ class SearchIndex(object):
                 except AttributeError:
                     pass
                 except Exception, e:
-                    logging.error(
+                    log.error(
                         'Search failed for "%s": %s' % (query_string, e))
 
         # WARNING: results IS NOT homogeneous! (see docstring for details.)
@@ -447,30 +457,31 @@ class SearchIndex(object):
         triggers.deleted_note_actions.append(triggers.deleted_note)
 
     def unregister_triggers(self):
-        if triggers:
-            try:
-                triggers.saved_obj_actions.remove(self.save_obj)
-            except ValueError:
-                pass
-            try:
-                triggers.removed_obj_actions.remove(self.remove_obj)
-            except ValueError:
-                pass
-            try:
-                triggers.saved_note_actions.remove(self.save_note)
-            except ValueError:
-                pass
-            try:
-                triggers.removed_note_actions.remove(self.remove_note)
-            except ValueError:
-                pass
+        if not triggers:
+            return
+        try:
+            triggers.saved_obj_actions.remove(self.save_obj)
+        except ValueError:
+            pass
+        try:
+            triggers.deleted_obj_actions.remove(self.remove_obj)
+        except ValueError:
+            pass
+        try:
+            triggers.saved_note_actions.remove(self.save_note)
+        except ValueError:
+            pass
+        try:
+            triggers.deleted_note_actions.remove(self.remove_note)
+        except ValueError:
+            pass
 
     def __del__(self):
         self.unregister_triggers()
 
 
 def compile_into_cruises(results):
-    """Takes the results of a search() and turns them into a list of Cruises.
+    """Convert the results of a search() into a list of Cruises.
 
     Notes are excluded from this compilation.
 

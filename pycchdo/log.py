@@ -1,5 +1,14 @@
-"http://stackoverflow.com/questions/384076"
+"""Colored logger.
+http://stackoverflow.com/questions/384076
+
+"""
 import logging
+from logging import DEBUG, INFO, WARN, ERROR, CRITICAL
+
+
+__all__ = [
+    'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'ColoredLogger',
+    ]
 
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -12,8 +21,8 @@ RESET_SEQ = "\033[0m"
 COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ = "\033[1m"
 
-FORMAT = ("[$BOLD%(name)-20s$RESET][%(levelname)s] %(message)s "
-         "($BOLD%(filename)s$RESET:%(lineno)d)")
+FORMAT = (u"[$BOLD%(name)-20s$RESET][%(levelname)s] %(message)s "
+          "($BOLD%(filename)s$RESET:%(lineno)d)")
 
 
 def formatter_message(message, use_color = True):
@@ -52,7 +61,7 @@ class ColoredFormatter(logging.Formatter):
 class ColoredLogger(logging.Logger):
     COLOR_FORMAT = formatter_message(FORMAT, True)
     def __init__(self, name):
-        logging.Logger.__init__(self, name, logging.DEBUG)                
+        logging.Logger.__init__(self, name, DEBUG)                
 
         color_formatter = ColoredFormatter(self.COLOR_FORMAT)
 

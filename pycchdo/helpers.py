@@ -633,7 +633,7 @@ def data_uri(data):
     """ Given an _Attr with a file, provides a link to a file. """
     if not data or not data.value:
         logging.error('Cannot link to nothing')
-    if data.type != 'File':
+    if data.str_type != 'File':
         logging.error('Cannot link to a non file _Attr #%s' % data.id)
         return '/404.html'
     return '/data/b/{id}'.format(id=data.id)

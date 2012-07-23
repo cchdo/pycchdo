@@ -11,17 +11,14 @@ from pyramid import testing
 from sqlalchemy import create_engine
 
 from pycchdo.models.models import (
-    DBSession,
-    Base,
+    DBSession, Base, reset_database,
     FSFile,
     )
-import pycchdo.models as M
-from pycchdo.util import FileProxyMixin
 from pycchdo.log import ColoredLogger
 
 
 __all__ = [
-    'BaseTest', 'MockFile', 'MockFieldStorage', 'MockSession',
+    'log', 'BaseTest', 'MockFile', 'MockFieldStorage', 'MockSession',
 ]
 
 
@@ -32,20 +29,22 @@ class BaseTest(TestCase):
     @classmethod
     def setUpClass(cls):
         """Setup testing environment connections."""
-        cls.log = log
-        engine = create_engine('sqlite://')
-        DBSession.configure(bind=engine)
-        Base.metadata.create_all(engine)
+        db_uri = ('postgresql://pycchdo:pycchd0@315@'
+                  'sui.ucsd.edu:5432/dev_pycchdo')
+        echo = False
+        cls._engine = create_engine(db_uri, echo=echo)
+        DBSession.configure(bind=cls._engine)
+        reset_database(cls._engine)
 
         FSFile.reconfig_fs_storage()
 
     def setUp(self):
         self._config = testing.setUp()
-        self.session = DBSession()
 
     def tearDown(self):
-        DBSession.remove()
         del self._config
+        DBSession.flush()
+        DBSession.rollback()
         testing.tearDown()
 
     @classmethod
@@ -53,7 +52,6 @@ class BaseTest(TestCase):
         """Tear down testing environment connections."""
         fss_root = FSFile._fs.base_location
         rmtree(fss_root)
-        del cls.log
 
 
 class MockFile(pyStringIO):

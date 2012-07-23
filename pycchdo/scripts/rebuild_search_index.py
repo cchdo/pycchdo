@@ -7,10 +7,11 @@ from pyramid.paster import (
     setup_logging,
     )
 
-from pycchdo.models import Base, reset_database
+from pycchdo.models import DBSession
+from pycchdo.models.search import SearchIndex
 
 
-argparser = argparse.ArgumentParser(description='Reset database')
+argparser = argparse.ArgumentParser(description='Rebuild search index')
 argparser.add_argument(
     'config_uri', type=str, nargs='?', default='development.ini',
     help='(default: developement.ini)')
@@ -22,5 +23,5 @@ def main():
     setup_logging(args.config_uri)
     settings = get_appsettings(args.config_uri + '#pycchdo')
     engine = engine_from_config(settings)
-    reset_database(engine)
-
+    DBSession.configure(bind=engine)
+    SearchIndex(settings['db_search_index_path']).rebuild_index(clear=True)

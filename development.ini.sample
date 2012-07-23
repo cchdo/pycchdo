@@ -15,6 +15,9 @@ pyramid.includes =
 # Search index
 db_search_index_path = /Users/myshen/var/cache/pycchdo_search_index_dev
 
+# filesystem root
+fs_root = /Users/myshen/var/pycchdo_fs
+
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = synmantics+test@gmail.com
 
@@ -23,7 +26,8 @@ submission_confirmation_recipient = synmantics+test@gmail.com
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = sqlite:///%(here)s/development.db
+#sqlalchemy.url = sqlite:///%(here)s/development.db
+sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/dev_pycchdo
 
 [pipeline:main]
 pipeline =

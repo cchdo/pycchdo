@@ -69,6 +69,8 @@ setup(
         ],
         'console_scripts': [
             'pycchdo_initialize_db = pycchdo.scripts.initializedb:main',
+            ('pycchdo_rebuild_search_index = '
+             'pycchdo.scripts.rebuild_search_index:main'),
             'pycchdo_import = pycchdo.importer:do_import',
         ],
     }

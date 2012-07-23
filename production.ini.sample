@@ -1,5 +1,6 @@
 [app:pycchdo]
 use = egg:pycchdo
+
 reload_templates = false
 debug_authorization = false
 debug_notfound = false
@@ -12,7 +13,10 @@ pyramid.includes =
     pyramid_tm
 
 # Search index
-db_search_index_path = /var/cache/pycchdo_search_index
+db_search_index_path = /var/cache/pycchdo/search_index
+
+# filesystem root
+fs_root = /Users/myshen/var/pycchdo_fs
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = synmantics+test@gmail.com
@@ -22,7 +26,7 @@ submission_confirmation_recipient = synmantics+test@gmail.com
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = postgresql+psycopg2://pycchdo:pycchd0@315@sui.ucsd.edu:5432/pycchdo_dev
+sqlalchemy.url = postgresql+psycopg2://pycchdo:pycchd0@315@sui.ucsd.edu:5432/dev_pycchdo
 
 [filter:weberror]
 use = egg:WebError#error_catcher
@@ -70,6 +74,9 @@ qualname = pycchdo
 
 [logger_sqlalchemy]
 level = WARN
+# "level = INFO" logs SQL queries
+# "level = DEBUG" logs SQL queries and results
+# "level = WARN" logs neither (recommended)
 handlers = console
 qualname = sqlalchemy.engine
 

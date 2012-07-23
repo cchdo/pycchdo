@@ -21,12 +21,14 @@ from sqlalchemy import (
 from sqlalchemy.exc import StatementError
 from sqlalchemy.types import (
     TypeEngine,
-    Integer, Boolean, Enum, Text, String, Unicode, DateTime, TIMESTAMP,
+    Integer, Boolean, Enum, String, Unicode, DateTime, TIMESTAMP, DECIMAL,
     )
+import sqlalchemy.sql.util
 from sqlalchemy.sql import (
     and_, not_,
     case, select, exists,
     )
+from sqlalchemy.schema import Index
 from sqlalchemy.orm import (
     backref,
     scoped_session,
@@ -34,8 +36,12 @@ from sqlalchemy.orm import (
     composite,
     relationship,
     object_session,
+    reconstructor, 
+    mapper,
     )
-from sqlalchemy.orm.collections import collection, attribute_mapped_collection
+from sqlalchemy.orm.collections import (
+    collection, attribute_mapped_collection,
+    )
 from sqlalchemy.ext.associationproxy import (
     association_proxy, AssociationProxy, _AssociationList)
 from sqlalchemy.ext.hybrid import hybrid_property, Comparator
@@ -47,8 +53,13 @@ from sqlalchemy.ext.declarative import (
 
 from zope.sqlalchemy import ZopeTransactionExtension
 
-from geoalchemy import LineString
+from geoalchemy import (
+    GeometryColumn, 
+    LineString,
+    GeometryDDL, 
+    )
 
+import shapely.wkb
 import shapely.wkt
 import shapely.geometry
 
@@ -60,7 +71,9 @@ from pycchdo.util import (
     flatten,
     str2uni,
     FileProxyMixin,
+    is_valid_ip, 
     deprecated,
+    _sorted_tables,
     )
 import triggers as triggers
 from pycchdo.log import ColoredLogger
@@ -72,18 +85,18 @@ log = ColoredLogger(__name__)
 __all__ = [
     'data_file_human_names',
     'data_file_descriptions',
-    'DBSession', 
-    'Base', 
+    'reset_database', 'Session', 'DBSession', 'Base',
     'Stamp',
     'Note',
     'FSFile',
+    'RequestFor',
     'RequestForAttr',
-    'FileComposite',
+    'Participants',
+    'Participant',
+    'ParameterInformation', 
     'Obj',
     'Person',
     'Cruise',
-    'CruiseAssociate',
-    'CruiseParticipantAssociate',
     'Country',
     'Institution',
     'Ship',
@@ -94,9 +107,8 @@ __all__ = [
     'Parameter',
     'Unit',
     'ParameterOrder',
-    '_Change',
     '_Attr',
-]
+    ]
 
 
 data_file_human_names = {
@@ -112,7 +124,7 @@ data_file_human_names = {
     'map_full': 'Map Fullsize',
     'doc_txt': 'Documentation Text',
     'doc_pdf': 'Documentation PDF',
-}
+    }
 
 
 data_file_descriptions = {
@@ -133,22 +145,22 @@ data_file_descriptions = {
     'map_full': 'Map full size',
     'doc_txt': 'ASCII cruise and data documentation',
     'doc_pdf': 'Portable Document Format cruise and data documentation',
-}
+    }
 
 
-DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
+Session = sessionmaker(extension=ZopeTransactionExtension())
+DBSession = scoped_session(Session)
 
 
 Base = declarative_base()
 
 
-def _reset_database(engine):
+def reset_database(engine):
     """Clears the database and recreates schema."""
     meta = Base.metadata
-    meta.reflect(bind=engine)
-    for table in reversed(meta.sorted_tables):
-        table.drop()
-    Base.metadata.create_all(engine)
+    tables = meta.sorted_tables
+    meta.drop_all(bind=engine, tables=tables)
+    meta.create_all(engine)
 
 
 def timestamp_now():
@@ -174,7 +186,8 @@ class Stamp(MutableComposite):
                 timestamp = timestamp_now()
             self.timestamp = timestamp
         elif timestamp:
-            raise ValueError('Stamp must have a Person')
+            raise ValueError(
+                'Stamp must have a Person with timestamp {}'.format(timestamp))
 
     def __composite_values__(self):
         return [self.person_id, self.timestamp, ]
@@ -185,8 +198,6 @@ class Stamp(MutableComposite):
         self.changed()
 
     def __eq__(self, other):
-        if self.person_id is None and self.timestamp is None and other is None:
-            return True
         if type(other) is not Stamp:
             return False
         return (
@@ -196,8 +207,11 @@ class Stamp(MutableComposite):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __not__(self):
+        return self.person_id is None and self.timestamp is None
+
     def __unicode__(self):
-        if self.__eq__(None):
+        if not self:
             return u'Stamp(empty)'
         return u"Stamp(%s, %s)" % (
             self.person_id, self.timestamp.strftime('%FT%T'))
@@ -206,13 +220,82 @@ class Stamp(MutableComposite):
         return unicode(self)
 
 
-class Note(Base):
-    """ A Note that can be attached to any _Change
+class StampedCreation(object):
+    """Mixin to store the creation time and person."""
+#    @declared_attr
+#    def creation_timestamp(cls):
+#        return Column(DateTime, default=timestamp_now)
+#
+#    @declared_attr
+#    def creation_person_id(cls):
+#        return Column(Integer, ForeignKey('people.id'))
+#
+#    @declared_attr
+#    def creation_stamp(cls):
+#        return composite(Stamp, cls.creation_person_id, cls.creation_timestamp)
+#
+#    @declared_attr
+#    def creation_person(cls):
+#        return relationship(
+#            'Person', primaryjoin="Note.creation_person_id==Person.id")
+
+    @hybrid_property
+    def ctime(cls):
+        return cls.creation_timestamp
+
+
+class StampedModeration(object):
+    """Mixin to store the pending and judgment time and person."""
+    pass
+
+
+class Notable(object):
+    """Mixin to store notes."""
+    @declared_attr
+    def notes(cls):
+        if cls.__name__ == 'Person':
+            fk = Note.person_id
+        else:
+            fk = Note.change_id
+        return relationship(
+            'Note', primaryjoin=fk == cls.id, lazy='dynamic',
+            cascade='all, delete, delete-orphan')
+
+    @declared_attr
+    def notes_public(cls):
+        if cls.__name__ == 'Person':
+            fk = Note.person_id
+        else:
+            fk = Note.change_id
+        return relationship(
+            'Note', viewonly=True,
+            primaryjoin=and_(fk == cls.id, not_(Note.discussion)))
+
+    @declared_attr
+    def notes_discussion(cls):
+        if cls.__name__ == 'Person':
+            fk = Note.person_id
+        else:
+            fk = Note.change_id
+        return relationship(
+            'Note', viewonly=True,
+            primaryjoin=and_(fk == cls.id, Note.discussion))
+
+    @deprecated('Use _Change.notes.append(note)')
+    def add_note(self, note):
+        self.notes.append(note)
+
+    @deprecated('Use _Change.notes.remove(note)')
+    def remove_note(self, note):
+        self.notes.remove(note)
+
+
+class Note(StampedCreation, Base):
+    """A Note that can be attached to any _Change.
 
     A _Change may have many Notes.
 
     Attrs:
-        creation_stamp - creation stamp
         body - the actual note
         action - the action taken
         data_type - the type of data that was changed
@@ -226,9 +309,8 @@ class Note(Base):
     id = Column(Integer, primary_key=True)
 
     creation_timestamp = Column(DateTime, default=timestamp_now)
-    creation_person_id = Column(ForeignKey('people.id'))
+    creation_person_id = Column(Integer, ForeignKey('people.id'))
     creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
-    #creation_person = relationship('Person', primaryjoin="Note.creation_person_id==Person.id")
 
     body = Column(Unicode)
     action = Column(Unicode)
@@ -236,7 +318,9 @@ class Note(Base):
     subject = Column(Unicode)
     discussion = Column(Boolean)
 
-    change_id = Column(ForeignKey('changes.id'))
+    change_id = Column(Integer, ForeignKey('changes.id'))
+
+    import_id = Column(String)
 
     def __init__(self, person, body=None, action=None, data_type=None,
                  subject=None, discussion=False):
@@ -268,110 +352,57 @@ def _deleted_note(mapper, connection, target):
     triggers.deleted_note(target)
 
 
-class FSFile(Base, FileProxyMixin):
-    __tablename__ = 'fsfile'
-
-    id = Column(Integer, primary_key=True)
-    fsid = Column(Unicode)
-    name = Column(Unicode)
-    content_type = Column(String)
-    upload_date = Column(TIMESTAMP)
-
-    _fs = None
-
-    def __init__(self, file=None, filename=None, contentType=None):
-        if file:
-            self.file = DjangoFile(file)
-        self.name = filename
-        self.content_type = contentType
-
-    @property
-    def fs(self):
-        if not self._fs:
-            self.reconfig_fs_storage()
-        return self._fs
-    
-    @classmethod
-    def reconfig_fs_storage(cls, root=None, url='', perms=0644):
-        if not root:
-            root = mkdtemp()
-        django_settings._wrapped = empty
-        django_settings.configure(
-            MEDIA_ROOT=root,
-            MEDIA_URL=url,
-            FILE_UPLOAD_PERMISSIONS=perms,
-        )
-        cls._fs = FileSystemStorage()
-
-
-@event.listens_for(FSFile, 'before_insert')
-def _saved_file(mapper, connection, target):
-    target.fsid = target.fs.save(target.fs.get_available_name(''), target.file)
-
-
-@event.listens_for(FSFile, 'load')
-def _loaded_file(target, context):
-    target.file = target.fs.open(target.fsid)
-
-
-@event.listens_for(FSFile, 'before_delete')
-def _deleted_file(mapper, connection, target):
-    target.fs.delete(target.fsid)
-
-
-class _Change(Base):
-    """ A Change to the dataset that should be recorded along with the time and
+class _Change(StampedCreation, StampedModeration, Notable, Base):
+    """A Change to the dataset that should be recorded along with the time and
     person who changed it.
 
     Changes may be accepted or rejected. Changes may also have attached notes
-    which may themselves be public or for dicussion purposes only.
+    which may be individually public or for dicussion purposes only.
 
     """
     __tablename__ = 'changes'
     id = Column(Integer, primary_key=True)
-    accepted = Column(Boolean, default=False)
-    notes = relationship(
-        'Note', backref='change', lazy='dynamic',
-        cascade='all, delete, delete-orphan')
-    notes_public = relationship(
-        'Note', viewonly=True,
-        primaryjoin='and_(Note.change_id == _Change.id, not_(Note.discussion))')
-    notes_discussion = relationship(
-        'Note', viewonly=True,
-        primaryjoin='and_(Note.change_id == _Change.id, Note.discussion)')
-    obj_type = Column(String)
+    obj_type = Column(String, nullable=False)
 
-    ctime = creation_timestamp = Column(DateTime, default=timestamp_now)
-    creation_person_id = Column(ForeignKey('people.id'))
+    creation_timestamp = Column(DateTime, default=timestamp_now)
+    creation_person_id = Column(Integer, ForeignKey('people.id'))
     creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
-    #creation_person = relationship('Person', 
-    #    primaryjoin="_Change.creation_person_id==Person.id", post_update=True)
-
-    pending_timestamp = Column(DateTime)
-    pending_person_id = Column(ForeignKey('people.id'))
-    pending_stamp = composite(Stamp, pending_person_id, pending_timestamp)
-    #pending_person = relationship('Person', 
-    #    primaryjoin="_Change.pending_person_id==Person.id")
-
-    judgment_timestamp = Column(DateTime)
-    judgment_person_id = Column(ForeignKey('people.id'))
-    judgment_stamp = composite(Stamp, judgment_person_id, judgment_timestamp)
-    #judgment_person = relationship('Person', 
-    #    primaryjoin="_Change.judgment_person_id==Person.id")
 
     __mapper_args__ = {
         'polymorphic_on': obj_type,
-    }
+        'polymorphic_identity': 'change',
+        }
+
+    __table_args__ = (
+        Index('idx_changes_judgment_timestamp', 'judgment_timestamp'),
+        )
 
     def __init__(self, person, note=None, *args, **kwargs):
         super(_Change, self).__init__(*args, **kwargs)
-        self._set_creation_stamp(person)
-        if note:
-            self.add_note(note)
-
-    def _set_creation_stamp(self, person):
-        """Set the creation_stamp for person."""
         self.creation_stamp = Stamp(person.id)
+        if note:
+            self.notes.append(note)
+
+    def __repr__(self):
+        return u'{}({})'.format(type(self).__name__, self.id)
+
+    # Moderation attributes
+
+    pending_timestamp = Column(DateTime)
+    pending_person_id = Column(Integer, ForeignKey('people.id'))
+    pending_stamp = composite(
+        Stamp, pending_person_id, pending_timestamp)
+    #pending_person = return relationship(
+    #    'Person', primaryjoin="Note.pending_person_id==Person.id")
+
+    judgment_timestamp = Column(DateTime)
+    judgment_person_id = Column(Integer, ForeignKey('people.id'))
+    judgment_stamp = composite(
+        Stamp, judgment_person_id, judgment_timestamp)
+    #judgment_person = relationship(
+    #    'Person', primaryjoin="Note.judgment_person_id==Person.id")
+
+    accepted = Column(Boolean, default=False)
 
     def is_judged(self):
         return self.judgment_stamp != None
@@ -390,47 +421,26 @@ class _Change(Base):
         self.accepted = True
 
     def acknowledge(self, person):
-        if not self.pending_stamp:
-            self.pending_stamp = Stamp(person.id)
+        self.pending_stamp = Stamp(person.id)
 
     def reject(self, person):
         self.judgment_stamp = Stamp(person.id)
         self.accepted = False
 
-    @deprecated('Use _Change.notes.append(note)')
-    def add_note(self, note):
-        self.notes.append(note)
-
-    @deprecated('Use _Change.notes.remove(note)')
-    def remove_note(self, note):
-        self.notes.remove(note)
-
-    def __repr__(self):
-        return u'{}({})'.format(type(self).__name__, self.id)
-
-
-@event.listens_for(_Change.notes, 'append')
-def _appended_note(target, value, initiator):
-    triggers.saved_note(target)
-
-
-@event.listens_for(_Change.notes, 'remove')
-def _removed_note(target, value, initiator):
-    triggers.removed_note(target)
-
 
 class RequestFor(Base):
-    """ Information about HTTP request of another object """
+    """Information about HTTP request of another object."""
     __tablename__ = 'requests_for'
 
     id = Column(Integer, primary_key=True)
 
     dt = Column(DateTime)
+    ua = Column(String)
     ip = Column(String)
     type = Column(String)
 
     def __init__(self, request):
-        """ Takes a webob request and stores relevant information related to
+        """Takes a webob.Request and stores relevant information related to
         tracking.
 
         Parameters:
@@ -439,63 +449,105 @@ class RequestFor(Base):
         """
         try:
             self.dt = request.date
+            self.ua = request.user_agent
             self.ip = request.remote_addr
             if not type(self.dt) is datetime:
                 raise ValueError()
             if not is_valid_ip(self.ip):
                 raise ValueError()
         except (AttributeError, ValueError):
-            # Don't store request if either of these are invalid or missing
-            return False
+            pass
         try:
             self.date = request.date
         except AttributeError:
             pass
 
     __mapper_args__ = {
-        'polymorphic_identity': 'request_for',
         'polymorphic_on': type,
+        'polymorphic_identity': 'request_for',
     }
 
 
 class RequestForAttr(RequestFor):
     __tablename__ = 'requests_for_attrs'
 
-    id = Column(ForeignKey('requests_for.id'), primary_key=True)
-    attr_id = Column(ForeignKey('attrs.id'))
+    id = Column(Integer, ForeignKey('requests_for.id'), primary_key=True)
+    attr_id = Column(Integer, ForeignKey('attrs.id'))
 
     __mapper_args__ = {
         'polymorphic_identity': 'request_for_attr',
     }
 
 
-class FileComposite(object):
-    """A composite for storing files.
+class FSFile(Base, FileProxyMixin):
+    """A file record that points to the filesystem file."""
+    __tablename__ = 'fsfile'
 
-    """
-    def __init__(self, fileid):
-        self.fileid = fileid
+    id = Column(Integer, primary_key=True)
+    fsid = Column(Unicode)
+    name = Column(Unicode)
+    content_type = Column(String)
+    upload_date = Column(TIMESTAMP)
 
-    def get(self, fs):
-        return fs.get(self.fileid)
+    # Stores information used by pycchdo.importer.cchdo to correlate ArgoFiles
+    # with Documents.
+    import_id = Column(Unicode)
+    import_path = Column(Unicode)
 
+    _fs = None
+
+    def __init__(self, file=None, filename=None, contentType=None):
+        if file:
+            self.file = DjangoFile(file)
+        self.name = filename
+        self.content_type = contentType
+
+    size = property(lambda self: self.file.size)
+
+    @property
+    def fs(self):
+        cls = type(self)
+        if not cls._fs:
+            cls.reconfig_fs_storage()
+        return cls._fs
+    
     @classmethod
-    def store(cls, fs, field):
-        """ Stores the file described by field in the filesystem and keeps a
-        reference
+    def reconfig_fs_storage(cls, root=None, url='', perms=0644):
+        if not root:
+            root = mkdtemp()
+        django_settings._wrapped = empty
+        django_settings.configure(
+            MEDIA_ROOT=root,
+            MEDIA_URL=url,
+            FILE_UPLOAD_PERMISSIONS=perms,
+        )
+        cls._fs = FileSystemStorage()
 
-        Raises: AttributeError when field does not have file, filename, and type
+    @staticmethod
+    def from_fieldstorage(fs):
+        file = fs.file
+        filename = fs.filename
+        content_type = fs.type
+        fsfile = FSFile(file, filename, content_type)
 
-        """
-        file = field.file
-        filename = field.filename
-        content_type = field.type
+        # Call size while file is still in scope to cache size
+        fsfile.size
+        return fsfile
 
-        try:
-            id = fs.put(file, filename=filename, contentType=content_type)
-        except Exception, e:
-            raise e
-        return cls(id)
+
+@event.listens_for(FSFile, 'before_insert')
+def _saved_file(mapper, connection, target):
+    target.fsid = target.fs.save(target.fs.get_available_name(''), target.file)
+
+
+@event.listens_for(FSFile, 'load')
+def _loaded_file(target, context):
+    target.file = target.fs.open(target.fsid)
+
+
+@event.listens_for(FSFile, 'before_delete')
+def _deleted_file(mapper, connection, target):
+    target.fs.delete(target.fsid)
 
 
 # Types for database storage
@@ -511,7 +563,19 @@ class TextList(TypeEngine):
     pass
 
 
+class DecimalList(TypeEngine):
+    pass
+
+
 class File(TypeEngine):
+    pass
+
+
+class _Participants(TypeEngine):
+    pass
+
+
+class ParameterInformations(TypeEngine):
     pass
 
 
@@ -526,7 +590,7 @@ class _AttrValue(Base):
     type = Column(String)
 
     accepted = Column(Boolean, default=False)
-    attr_id = Column(ForeignKey('attrs.id'))
+    attr_id = Column(Integer, ForeignKey('attrs.id'))
 
     @declared_attr
     def __tablename__(cls):
@@ -550,7 +614,7 @@ class _AttrValue(Base):
 
     @value.expression
     def value(cls):
-        return '{}.{}'.format(cls.__name__, 'value')
+        return u'{}.{}'.format(cls.__name__, 'value')
 
     def __repr__(self):
         return u'{}({}, {})'.format(type(self).__name__, self.id, self.value)
@@ -569,42 +633,71 @@ def delete_attrvalue_orphans(session, ctx):
         session.delete(orphan)
 
 
-class _AttrValueNone(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
-
-    @hybrid_property
-    def value(self):
-        return None
-
-
 class _AttrValueInteger(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     value = Column(Integer)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        try:
+            int(value)
+        except Exception:
+            raise ValueError('{} is not coerceable to int'.format(value))
+
+event.listen(_AttrValueInteger.value, 'set', _AttrValueInteger.test_type)
 
 
 class _AttrValueBoolean(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     value = Column(Boolean)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        try:
+            bool(value)
+        except Exception:
+            raise ValueError('{} is not coerceable to bool'.format(value))
+
+event.listen(_AttrValueBoolean.value, 'set', _AttrValueBoolean.test_type)
 
 
 class _AttrValueUnicode(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     value = Column(Unicode)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        if type(value) is datetime:
+            raise ValueError('{} is not a string'.format(value))
+        try:
+            return unicode(value)
+        except Exception:
+            raise ValueError('{} is not coerceable to unicode'.format(value))
+
+event.listen(
+    _AttrValueUnicode.value, 'set', _AttrValueUnicode.test_type, retval=True)
 
 
 class _AttrValueDatetime(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     value = Column(DateTime)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        if type(value) is not datetime:
+            raise ValueError('{} is not a datetime'.format(value))
+
+event.listen(_AttrValueDatetime.value, 'set', _AttrValueDatetime.test_type)
 
 
 class _AttrValueLineString(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
-    value = Column(LineString)
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
+    value = GeometryColumn(LineString(2, spatial_index=False))
 
     def _verify_and_normalize_linestring(self, value):
         """Convert value into a Shapely LineString."""
         if type(value) is shapely.geometry.linestring.LineString:
-            return value
+            pass
         elif type(value) is geojson.LineString:
             value = shapely.geometry.shape(value)
         else:
@@ -626,20 +719,171 @@ class _AttrValueLineString(_AttrValue):
         value = self._verify_and_normalize_linestring(value)
         self.value = value.wkt
 
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        try:
+            shapely.wkt.loads(value)
+        except Exception:
+            raise ValueError('{} is not a WKT LineString'.format(value))
+
+event.listen(_AttrValueLineString.value, 'set', _AttrValueLineString.test_type)
+
+GeometryDDL(_AttrValueLineString.__table__)
+
 
 class _AttrValueFile(_AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     value_ = Column('value', ForeignKey('fsfile.id'))
     value = relationship(
-        'FSFile', primaryjoin='FSFile.id == _AttrValueFile.value_')
+        'FSFile', primaryjoin='FSFile.id == _AttrValueFile.value_',
+        backref='av')
 
     def __init__(self, value):
         self.value = FSFile(value.file, value.filename)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        if type(value) is not FSFile:
+            raise ValueError('{} is not an FSFile'.format(value))
+
+event.listen(_AttrValueFile.value, 'set', _AttrValueFile.test_type)
+
+
+class Participant(Base):
+    """A participant consisting of role, person, and possibly institution."""
+    __tablename__ = 'participants'
+    attrvalue_id = Column(
+        Integer, ForeignKey('_attrvalue.id'), primary_key=True)
+    role = Column(Unicode, nullable=False, primary_key=True)
+    person_id = Column(
+        ForeignKey('people.id'), nullable=False, primary_key=True)
+    person = relationship('Person')
+    institution_id = Column(Integer, ForeignKey('institutions.id'))
+    institution = relationship('Institution')
+
+    def __init__(self, role, person, institution=None):
+        self.role = role
+        self.person_id = person.id
+        if institution:
+            self.institution_id = institution.id
+    
+    def __eq__(self, other):
+        if (    hash(self) == hash(other) and
+                self.institution_id == other.institution_id):
+            return True
+        return False
+
+    def __hash__(self):
+        return hash(u'{}_{}_{}'.format(
+            self.attrvalue_id, self.role, self.person_id))
+
+    def __repr__(self):
+        return u'Participant({}, {}, {})'.format(
+            self.role, self.person_id, self.institution_id)
+        
+
+class Participants(object):
+    """A list of Participants.
+
+    All mutators will suggest a new value for 'participants' and return the
+    suggestion.
+
+    This collection will also provide Person-Institution paris when queried with
+    a role.
+
+    Participants presents a dictionary-like interface roles.
+    
+    """
+    def __init__(self, *args, **kwargs):
+        if args:
+            p = args[0]
+            if type(p) is Participants:
+                self.data = p.data
+            else:
+                self.data = p
+        else:
+            self.data = []
+
+    @collection.appender
+    def _append(self, participant):
+        """Adds a participant to the map under the given role."""
+        self.data.append(participant)
+
+    def _clear(self):
+        self.data = []
+
+    @collection.remover
+    def _remove(self, participant):
+        """Removes a participant from the map under the given role."""
+        self.data.remove(participant)
+
+    @collection.iterator
+    def __iter__(self):
+        return iter(self.data)
+
+    def _extend(self, items):
+        return self.data.extend(items)
+
+    def __len__(self):
+        return len(self.data)
+
+    def extend(self, cruise, signer, *participants):
+        """Return suggestion with participants appended."""
+        p = Participants(self)
+        p._extend(participants)
+        return cruise.set('participants', p, signer)
+
+    def remove(self, cruise, signer, *participants):
+        """Return suggestion with participants removed."""
+        p = Participants(self)
+        for participant in participants:
+            p._remove(participant)
+        return cruise.set('participants', p, signer)
+
+    def clear(self, cruise, signer):
+        """Return suggestion with no participants."""
+        p = Participants(self)
+        p._clear()
+        return cruise.set('participants', p, signer)
+
+    def replace(self, cruise, signer, *participants):
+        """Return suggestion with participants replaced."""
+        p = Participants(self)
+        p._clear()
+        p._extend(participants)
+        return cruise.set('participants', p, signer)
+
+    def __getitem__(self, role):
+        """Return Participants for role."""
+        return filter(lambda p: p.role == role, self.data)
+
+    @property
+    def roles(self, role=None):
+        """Pairs of Persons and roles present in the map."""
+        if role is None:
+            participants = self.data
+        else:
+            participants = self[role]
+        return [(p.person, p.role) for p in participants]
+
+    def __repr__(self):
+        return u'Participants({})'.format(self.data)
+        
+
+class _AttrValueParticipants(_AttrValue):
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
+    value = relationship(
+        'Participant', collection_class=Participants,
+        cascade='all, delete, delete-orphan')
 
 
 class _AttrValueElem(Base):
     """Base for _AttrValueList elements."""
     __abstract__ = True
+
+    @declared_attr
+    def __tablename__(cls):
+        return cls.__name__.lower()
 
     @declared_attr
     def id(cls):
@@ -667,15 +911,93 @@ class _AttrValueElem(Base):
 
 
 class _AttrValueElemID(_AttrValueElem):
-    __tablename__ = '_attrvalueelemid'
-    attrvalue_id = Column(ForeignKey('_attrvalue.id'))
+    attrvalue_id = Column(Integer, ForeignKey('_attrvalue.id'))
     value = Column(ID)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        _AttrValueInteger.test_type(target, value)
+        try:
+            int(value)
+        except Exception:
+            raise ValueError('{} is not coerceable to int'.format(value))
+
+event.listen(_AttrValueElemID.value, 'set', _AttrValueElemID.test_type)
 
 
 class _AttrValueElemText(_AttrValueElem):
-    __tablename__ = '_attrvalueelemtext'
-    attrvalue_id = Column(ForeignKey('_attrvalue.id'))
-    value = Column(Text)
+    attrvalue_id = Column(Integer, ForeignKey('_attrvalue.id'))
+    value = Column(Unicode)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        _AttrValueUnicode.test_type(target, value)
+
+event.listen(_AttrValueElemText.value, 'set', _AttrValueElemText.test_type)
+
+
+class _AttrValueElemDecimal(_AttrValueElem):
+    attrvalue_id = Column(Integer, ForeignKey('_attrvalue.id'))
+    value = Column(DECIMAL)
+
+    @staticmethod
+    def test_type(target, value, oldvalue=None, initiator=None):
+        try:
+            float(value)
+        except Exception:
+            raise ValueError('{} is not coerceable to int'.format(value))
+
+event.listen(_AttrValueElemText.value, 'set', _AttrValueElemText.test_type)
+
+
+class ParameterInformation(_AttrValueElem):
+    """Metadata about a parameter.
+
+    Columns:
+        parameter - the parameter
+        status - the status of the parameter; one of the following:
+            online, reformatted, submitted, not_measured, proposed,
+            no_information
+        pi - the principal investigator for the parameter on the cruise
+        inst - the institution that the pi was operating for
+        ts - some date attached to the status and PI of the parameter
+
+    """
+    attrvalue_id = Column(Integer, ForeignKey('_attrvalue.id'))
+
+    parameter_id = Column(Integer, ForeignKey('parameters.id'))
+    parameter = relationship('Parameter')
+    status = Column(
+        Enum('online', 'reformatted', 'submitted', 'not_measured', 'proposed',
+             'no_information', name='parameter_status'))
+    pi_id = Column(Integer, ForeignKey('people.id'))
+    pi = relationship('Person')
+    inst_id = Column(Integer, ForeignKey('institutions.id'))
+    inst = relationship('Institution')
+    ts = Column(DateTime)
+
+    def __init__(self, parameter, status, pi, inst, ts):
+        self.parameter_id = parameter.id
+        self.status = status
+        if pi:
+            self.pi_id = pi.id
+        if inst:
+            self.inst_id = inst.id
+        self.ts = ts
+    
+    def __eq__(self, other):
+        return (
+            self.parameter_id == other.parameter_id and
+            self.status == other.status and
+            self.pi_id == other.pi_id and
+            self.inst_id == other.inst_id and 
+            self.ts == other.ts
+            )
+
+    def __repr__(self):
+        return u'ParameterInformation({}, {}, {}, {}, {})'.format(
+            self.parameter_id, self.status, self.pi_id,
+            self.inst_id, self.ts)
 
 
 class _AttrValueList(object):
@@ -685,17 +1007,45 @@ class _AttrValueList(object):
 
 
 class _AttrValueListID(_AttrValueList, _AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    __elem_class__ = _AttrValueElemID
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     values = relationship(
-        _AttrValueElemID, cascade='all, delete, delete-orphan')
+        __elem_class__, cascade='all, delete, delete-orphan')
     value = association_proxy('values', 'value')
 
 
 class _AttrValueListText(_AttrValueList, _AttrValue):
-    id = Column(ForeignKey('_attrvalue.id'), primary_key=True)
+    __elem_class__ = _AttrValueElemText
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     values = relationship(
-        _AttrValueElemText, cascade='all, delete, delete-orphan')
+        __elem_class__, cascade='all, delete, delete-orphan')
     value = association_proxy('values', 'value')
+
+
+class _AttrValueListDecimal(_AttrValueList, _AttrValue):
+    __elem_class__ = _AttrValueElemDecimal
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
+    values = relationship(
+        __elem_class__, cascade='all, delete, delete-orphan')
+    value = association_proxy('values', 'value')
+
+
+class _AttrValueListParameterInformation(_AttrValueList, _AttrValue):
+    __elem_class__ = ParameterInformation
+    id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
+    value = relationship(
+        __elem_class__, cascade='all, delete, delete-orphan')
+
+
+@event.listens_for(_AttrValueListID, 'before_delete')
+@event.listens_for(_AttrValueListText, 'before_delete')
+@event.listens_for(_AttrValueListDecimal, 'before_delete')
+@event.listens_for(_AttrValueListParameterInformation, 'before_delete')
+def _delete_list_elems_first(mapper, connection, target):
+    elemclass = target.__class__.__elem_class__
+    delete_stmt = elemclass.__table__.delete(
+        elemclass.attrvalue_id == target.id)
+    connection.execute(delete_stmt)
 
 
 class _AttrPermission(Base):
@@ -706,8 +1056,10 @@ class _AttrPermission(Base):
 
     """
     __tablename__ = 'attrs_permissions'
-    attr_id = Column(ForeignKey('attrs.id'), primary_key=True)
-    perm_type = Column(Enum('read', 'write'), default='read', primary_key=True)
+    attr_id = Column(Integer, ForeignKey('attrs.id'), primary_key=True)
+    perm_type = Column(
+        Enum('read', 'write', name='attr_permission_type'),
+        default='read', primary_key=True)
     permission = Column(Unicode, primary_key=True)
 
     def __init__(self, perm_type, permission):
@@ -715,21 +1067,20 @@ class _AttrPermission(Base):
         self.permission = permission
 
 
-class _AttrValueTransformer(Comparator):
-    def operate(self, op, other):
-        def transform(q):
-            clause = self.__clause_element__()
-            log.debug(repr(clause) + str(clause))
-            parent_alias = aliased(clause)
-            return q.join(parent_alias, clause.parent).\
-                filter(op(parent_alias.parent, other))
-
-            #return and_(_AttrValue.attr_id == _Attr.id, _AttrValue.accepted == False)
-            #return case([
-            #    (cls.deleted == True, None),
-            #    #(exists(select(cls.v_accepted)), cls.v_accepted),
-            #], else_=cls.v)
-        return transform
+#class _AttrValueTransformer(Comparator):
+#    def operate(self, op, other):
+#        def transform(q):
+#            clause = self.__clause_element__()
+#            parent_alias = aliased(clause)
+#            return q.join(parent_alias, clause.parent).\
+#                filter(op(parent_alias.parent, other))
+#
+#            #return and_(_AttrValue.attr_id == _Attr.id, _AttrValue.accepted == False)
+#            #return case([
+#            #    (cls.deleted == True, None),
+#            #    #(exists(select(cls.v_accepted)), cls.v_accepted),
+#            #], else_=cls.v)
+#        return transform
 
 
 class _Attr(_Change):
@@ -747,10 +1098,10 @@ class _Attr(_Change):
     1. Suggested
     2. Acknowledged
     3. judged
-      a. accepted
-        i. As is
-        ii. With new value
-      b. Rejected
+        a. accepted
+            i. As is
+            ii. With new value
+        b. Rejected
 
     Accepted value
     --------------
@@ -796,12 +1147,12 @@ class _Attr(_Change):
     """
     __tablename__ = 'attrs'
 
-    id = Column(ForeignKey('changes.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('changes.id'), primary_key=True)
     key = Column(Unicode)
-    type = Column(String)
+    str_type = Column(String)
     deleted = Column(Boolean)
-    obj_id = Column(ForeignKey('objs.id'))
 
+    obj_id = Column(Integer, ForeignKey('objs.id'))
     @declared_attr
     def obj(cls):
         return relationship(
@@ -830,14 +1181,6 @@ class _Attr(_Change):
         uselist=False, single_parent=True,
         cascade='all, delete, delete-orphan')
 
-    #permissions_ = relationship(
-    #    _AttrPermission,
-    #    collection_class=attribute_mapped_collection('perm_type'),
-    #    cascade='all, delete-orphan')
-    #permissions = association_proxy(
-    #    'permissions_', 'perm_type',
-    #    creator=lambda k, v: _AttrPermission(perm_type=v, permission=k))
-
     permissions_read_ = relationship(
         _AttrPermission,
         primaryjoin='and_(_AttrPermission.attr_id == _Attr.id, '
@@ -860,15 +1203,20 @@ class _Attr(_Change):
 
     __mapper_args__ = {
         'polymorphic_identity': '_attr',
-    }
+        }
 
-    def __init__(self, person, key, type, value=None, note=None, deleted=False):
+    __table_args__ = (
+        Index('idx_attrs_obj_type_keys', key, obj_id, str_type),
+        )
+
+    def __init__(self, person, key, attr_type, value=None, note=None,
+                 deleted=False):
         """Create an _Attr _Change state.
 
         Arguments::
         person -- the person who performed the change
         key -- the attribute name that this change is for
-        type -- the type of value that this _Attr stores. This
+        attr_type -- the type of value that this _Attr stores. This
             should be an sqlalchemy type
         
         Keyword arguments::
@@ -881,8 +1229,8 @@ class _Attr(_Change):
         super(_Attr, self).__init__(person)
 
         self.key = key
-        self.type = _AttrMgr.attr_type_to_str(type)
-        self.constructor = _AttrMgr.value_class(type)
+        self._attr_type = attr_type
+        self.constructor = _AttrMgr.value_class(self._attr_type)
 
         self.deleted = deleted
         if not deleted:
@@ -890,6 +1238,40 @@ class _Attr(_Change):
 
         if note is not None:
             self.add_note(note)
+
+    @reconstructor
+    def reconstructor(self):
+        """Reconstruct state on _Attr when loading from database."""
+        self.constructor = self.obj.attr_class(self.key)
+        attr_type = self.obj.attr_type(self.key)
+        if type(attr_type) is list:
+            for at in attr_type:
+                if _AttrMgr.attr_type_to_str(at) == self.str_type:
+                    self._attr_type = at
+                    break
+        else:
+            self._attr_type = attr_type
+
+    def _construct(self, *args, **kwargs):
+        constructor = _AttrMgr.value_class(self._attr_type)
+        str_type = _AttrMgr.attr_type_to_str(self._attr_type)
+        if type(constructor) is not list:
+            constructor = [constructor]
+        if type(str_type) is not list:
+            str_type = [str_type]
+
+        constructor_str_types = zip(constructor, str_type)
+
+        for constructor, str_type in constructor_str_types:
+            try:
+                v = constructor(*args, **kwargs)
+                self.str_type = str_type
+                return v
+            except ValueError, e:
+                log.debug(
+                    u'Construct failed for {}: {}'.format(constructor, e))
+        raise ValueError(u'No constructors {} for {} matched {}'.format(
+            constructor_str_types, self.key, type(kwargs['value'])))
 
     def _set(self, value, accepted=False):
         """Set the _Attr value.
@@ -899,29 +1281,28 @@ class _Attr(_Change):
         Raises:
             TypeError when value does not match the defined type for the _Attr
         
-        Special cases::
+        Special cases:
         value -- a cgi.FieldStorage-like object
             Attempts to store the file in the filesystem and stores the id in
             the 'file' attribute.
         key -- track
             Stores the value (which must be a GeoJSON linestring coordinate
-            list) in the 'track' attribute.
-        accepted -- whether to set the value for the original or accepted state
+            list) in the 'track' attribute.  accepted -- whether to set the value for the original or accepted state
 
         """
-        cannot_be_stored_error = TypeError(
-            '{} cannot be stored as {}'.format(value, self.constructor))
-
-        if value is None and self.type == 'ID':
+        if value is None and self.str_type == 'ID':
             raise ValueError(
                 'IDs should not be None. Is the object persisted?')
 
+        cannot_be_stored_error = TypeError(
+            u'{} cannot be stored as {}'.format(value, self.constructor))
+
         try:
             if accepted:
-                self.v_accepted = self.constructor(
+                self.v_accepted = self._construct(
                     value=value, accepted=accepted)
             else:
-                self.v = self.constructor(value=value)
+                self.v = self._construct(value=value)
         except StatementError:
             raise cannot_be_stored_error
 
@@ -965,20 +1346,19 @@ class _Attr(_Change):
         value.
 
         """
-        return self.attr_value.value
+        av = self.attr_value
+        if av:
+            return av.value
+        return None
 
     @hybrid_property
     def value_original(self):
         """Return the original value of the _Attr."""
         return self.attr_value_original.value
 
-    def remove(self):
-        self.delete_file()
-        super(_Attr, self).remove()
-
     def __repr__(self):
         try:
-            mapping = u'{}, {}'.format(self.key, self.value)
+            mapping = u'{}, {}'.format(repr(self.key), repr(self.value))
         except KeyError:
             mapping = u'DEL'
         except IOError:
@@ -996,19 +1376,24 @@ class _Attr(_Change):
         try:
             attr_class = self.obj.attr_class(self.key)
         except AttributeError:
-            attr_class = '???'
+            try:
+                attr_class = self.person.attr_class(self.key)
+            except AttributeError:
+                attr_class = '???'
 
         id = self.id or '?'
         return u"_Attr({}, {}, {}, {}, {})".format(
-            mapping, state, self.type, attr_class, id)
+            mapping, state, self.str_type, attr_class, id)
 
     @classmethod
     def all_data(cls):
-        return object_session(self).query(_Attr).filter(_Attr.type == 'File').all()
+        return object_session(self).query(_Attr).\
+            filter(_Attr.str_type == 'File').all()
 
     @classmethod
     def all_track(cls):
-        return object_session(self).query(_Attr).filter(_Attr.type == 'LineString').all()
+        return object_session(self).query(_Attr).\
+            filter(_Attr.str_type == 'LineString').all()
 
     @classmethod
     def pending(cls):
@@ -1016,7 +1401,7 @@ class _Attr(_Change):
 
 
 class _AttrMgr(object):
-    """Abstract class grouping _Attr related functionality.
+    """Mixin grouping _Attr related functionality.
 
     This includes modifiying _Attrs and querying them.
 
@@ -1066,15 +1451,68 @@ class _AttrMgr(object):
       6. Store with a flag indicating whether the value is original. Filter based on current value?
         
     """
-    __allowed_attrs__ = MultiDict()
+    __allowed_attrs = {}
 
     @classmethod
-    def attr_type_to_str(cls, type):
-        return type.__name__
-
+    def _attr_type_to_str(cls, attr_type):
+        return attr_type.__name__
 
     @classmethod
-    def allow_attr(cls, key, type, name=None):
+    def attr_type_to_str(cls, attr_type):
+        if type(attr_type) is list:
+            return map(cls._attr_type_to_str, attr_type)
+        return cls._attr_type_to_str(attr_type)
+
+    @classmethod
+    def _allowed_attrs_dict(cls):
+        """Return the allowed attrs dict for this current class."""
+        try:
+            return cls.__allowed_attrs[cls]
+        except KeyError:
+            cls.__allowed_attrs[cls] = MultiDict()
+        return cls.__allowed_attrs[cls]
+
+    @classmethod
+    def _allowed_attrs(cls):
+        """Return the allowed attrs for this class based on polymorphism."""
+        allowed_attrs = cls._allowed_attrs_dict()
+        for c in cls.__bases__:
+            if issubclass(c, _AttrMgr):
+                allowed_attrs.update(c._allowed_attrs())
+        return allowed_attrs
+
+    @classmethod
+    def _update_allowed_attrs_caches(cls):
+        """Update the attr caches.
+
+        These include allowed_attrs, allowed_attrs_list, and
+        allowed_attrs_human_names. These are convenience attributes that should
+        be replaced with function calls.
+        TODO replace allowed_attrs, allowed_attrs_list, and
+        allowed_attrs_human_names with functions.
+
+        """
+        attrs = cls._allowed_attrs()
+
+        d = MultiDict()
+        for key, attr in attrs.items():
+            str_type = cls.attr_type_to_str(attr['type'])
+            if type(str_type) is list and len(str_type) > 0:
+                str_type = str_type[0]
+            try:
+                d[str_type].append(key)
+            except KeyError:
+                d[str_type] = [key]
+        cls.allowed_attrs = d
+        cls.allowed_attrs_list = attrs.keys()
+
+        d = {}
+        for key, attr in attrs.items():
+            d[key] = attr['name']
+        cls.allowed_attrs_human_names = d
+        
+    @classmethod
+    def allow_attr(cls, key, attr_type, name=None, batch=False):
         """Add an _Attr definition to the list of allowed keys.
 
         Arguments:
@@ -1084,56 +1522,49 @@ class _AttrMgr(object):
             with underscores converted to spaces)
 
         """
-        attrs = cls.__allowed_attrs__
+        attrs = cls._allowed_attrs_dict()
+
         if not name:
             name = capwords(key.replace('_', ' '))
-
-        d = {'type': type, 'name': name}
+        d = {'type': attr_type, 'name': name}
         try:
             if d != attrs[key]:
-                raise TypeError('{} already allowed for {} as {}. Clobbering '
+                raise TypeError(u'{} already allowed for {} as {}. Clobbering '
                     'with {} will cause unexpected behavior.'.format(
                     key, cls, attrs[key], d))
         except KeyError:
             pass
         attrs[key] = d
+        if not batch:
+            cls._update_allowed_attrs_caches()
 
-        d = MultiDict()
-        for key, attr in attrs.items():
-            type = cls.attr_type_to_str(attr['type'])
-            try:
-                d[type].append(key)
-            except KeyError:
-                d[type] = [key]
-        cls.allowed_attrs = d
-        cls.allowed_attrs_list = attrs.keys()
-
-        d = {}
-        for key, attr in attrs.items():
-            d[key] = attr['name']
-        cls.allowed_attrs_human_names = d
-        return d
+    @classmethod
+    def allow_attrs(cls, list):
+        """Add _Attr definitions to the list of allowed keys."""
+        for definition in list:
+            cls.allow_attr(*definition, batch=True)
+        cls._update_allowed_attrs_caches()
 
     @classmethod
     def attr_type(cls, key):
         """Return the type of data allowed for key."""
-        attrs = cls.__allowed_attrs__
+        attrs = cls._allowed_attrs()
         try:
             return attrs[key]['type']
         except KeyError:
-            raise ValueError('{} is not an allowed key'.format(key))
+            raise ValueError(u'key {} is not allowed for {}'.format(key, cls))
 
     @classmethod
-    def value_class(cls, type):
+    def _value_class(cls, type):
         """Get the _AttrValue class corresponding to the type."""
         if type is String:
             return _AttrValueUnicode
         elif type is Unicode:
             return _AttrValueUnicode
-        elif type is Text:
-            return _AttrValueUnicode
         elif type is Integer:
             return _AttrValueInteger
+        elif type is Boolean:
+            return _AttrValueBoolean
         elif type is DateTime:
             return _AttrValueDatetime
         elif type is ID:
@@ -1142,13 +1573,25 @@ class _AttrMgr(object):
             return _AttrValueListID
         elif type is TextList:
             return _AttrValueListText
+        elif type is DecimalList:
+            return _AttrValueListDecimal
         elif type is File:
             return _AttrValueFile
         elif type is LineString:
             return _AttrValueLineString
-
+        elif type is _Participants:
+            return _AttrValueParticipants
+        elif type is ParameterInformations:
+            return _AttrValueListParameterInformation
         raise TypeError(
-            'Unknown type {} cannot be stored in _Attr system.'.format(type))
+            u'Unknown type {} cannot be stored in _Attr system.'.format(type))
+
+    @classmethod
+    def value_class(cls, attr_type):
+        """Get the _AttrValue class corresponding to the type."""
+        if type(attr_type) is list:
+            return map(cls._value_class, attr_type)
+        return cls._value_class(attr_type)
 
     @classmethod
     def attr_class(cls, key):
@@ -1181,22 +1624,22 @@ class _AttrMgr(object):
         """
         attrs = self.attrs
         if key:
-            attrs = self.attrs.filter(_Attr.key == key)
+            attrs = attrs.filter(_Attr.key == key)
         if accepted_only:
             attrs = attrs.filter(_Change.accepted == True)
-        if attrs:
-            return attrs
-        else:
-            raise KeyError("No _Attr '{}' for {}".format(key, self))
+        return attrs
 
     @deprecated('Use attrsq() or attrs instead of history()')
     def history(self, key=None, **kwargs):
         return self.attrsq(key, **kwargs)
 
-    @deprecated('Use attrsq() instead of get_attr()')
     def get_attr(self, key):
         """Return the most recent accepted _Attr for key."""
-        return self.attrsq(key).first()
+        attr = self.attrsq(key).first()
+        if attr:
+            return attr
+        else:
+            raise KeyError(u"No _Attr '{}' for {}".format(key, self))
 
     def get(self, key, default=None):
         """Return the value of the most recent accepted _Attr for key.
@@ -1223,29 +1666,21 @@ class _AttrMgr(object):
             ValueError when the key is not allowed.
 
         """
-        try:
-            restrictions = self.__allowed_attrs__[key]
-        except KeyError:
-            raise ValueError("'{}' is not an allowed key".format(key))
         # TODO
-        # Don't check for type here. This can/will be done at flush time by the
-        # engine
+        # Don't check for type here. This can & will be done at flush time by
+        # the engine
         #if type(value) != restrictions['type']:
-        #    raise TypeError('expected {}, got {}'.format(
+        #    raise TypeError(u'expected {}, got {}'.format(
         #        restrictions['type'], type(value)))
-        type = restrictions['type']
-        attr = _Attr(person, key, type, value, note)
+        attr_type = self.attr_type(key)
+        attr = _Attr(person, key, attr_type, value, note)
         self.attrs.append(attr)
         return attr
 
     def delete(self, key, person, note=None):
         """Delete the value for key."""
-        try:
-            restrictions = self.__allowed_attrs__[key]
-        except KeyError:
-            raise ValueError("'{}' is not an allowed key".format(key))
-        type = restrictions['type']
-        attr = _Attr(person, key, type, note=note, deleted=True)
+        attr_type = self.attr_type(key)
+        attr = _Attr(person, key, attr_type, note=note, deleted=True)
         self.attrs.append(attr)
         return attr
 
@@ -1291,7 +1726,7 @@ class _AttrMgr(object):
 
     @hybrid_property
     def tracked_data(self):
-        return self.tracked.filter(_Attr.type == 'File')
+        return self.tracked.filter(_Attr.str_type == 'File')
 
     @hybrid_property
     def unjudged_tracked(self):
@@ -1300,7 +1735,7 @@ class _AttrMgr(object):
 
     @hybrid_property
     def unjudged_tracked_data(self):
-        return self.unjudged_tracked.filter(_Attr.type == 'File')
+        return self.unjudged_tracked.filter(_Attr.str_type == 'File')
 
     @hybrid_property
     def unacknowledged_tracked(self):
@@ -1314,7 +1749,7 @@ class _AttrMgr(object):
 
     @hybrid_property
     def pending_tracked_data(self):
-        return self.pending_tracked.filter(_Attr.type == 'File')
+        return self.pending_tracked.filter(_Attr.str_type == 'File')
 
     @hybrid_property
     def accepted_tracked(self):
@@ -1322,7 +1757,7 @@ class _AttrMgr(object):
 
     @hybrid_property
     def accepted_tracked_data(self):
-        return self.accepted_tracked.filter(_Attr.type == 'File')
+        return self.accepted_tracked.filter(_Attr.str_type == 'File')
 
     @hybrid_property
     def accepted_tracked_changed_data(self):
@@ -1375,6 +1810,7 @@ class _AttrMgr(object):
         return True
     
     @classmethod
+    @deprecated
     def _get_by_attrs_query(cls, k, v, value_key):
         value_query = str2uni(v)
         return {
@@ -1394,28 +1830,54 @@ class _AttrMgr(object):
         }
 
     @classmethod
-    def filter_by_key_value(cls, query, key, value):
-        attrclass = cls.attr_class(key)
-        query = query.join(attrclass).filter(_Attr.key == key)
+    def _filter_by_key_value(cls, query, attr_class, key, value):
+        """Produce filter for the given value and attr_class."""
+        expect_list = type(attr_class.value) == AssociationProxy
 
-        expect_list = type(attrclass.value) == AssociationProxy
+        #log.debug('{} {} {}'.format(attr_class, key, value))
+
+        q = query.filter(_Attr.key == key)
         if type(value) is list:
             for v in value:
                 if expect_list:
-                    query = query.filter(attrclass.value.contains(v))
+                    q = q.filter(attr_class.value.contains(v))
                 else:
-                    query = query.filter(attrclass.value == v)
+                    try:
+                        v = attr_class.test_type(None, v)
+                        if v != value:
+                            return query
+                    except ValueError:
+                        return query
+                    q = q.filter(attr_class.value == v)
         else:
             if expect_list:
-                query = query.filter(attrclass.value.contains(value))
+                q = q.filter(attr_class.value.contains(value))
             else:
-                query = query.filter(attrclass.value == value)
-
-        return query
+                try:
+                    v = attr_class.test_type(None, value)
+                    if v != value:
+                        return query
+                except ValueError:
+                    return query
+                q = q.filter(attr_class.value == value)
+        return q
 
     @classmethod
-    def _get_by_attrs_true_match2(cls, obj, dict, accepted_only=True):
-        """Filter resulting objs to ensure the most current values match."""
+    def filter_by_key_value(cls, query, key, value):
+        attrclass = cls.attr_class(key)
+        if type(attrclass) is list:
+            filters = []
+            for attr_class in attrclass:
+                filters.append(
+                    cls._filter_by_key_value(query, attr_class, key, value))
+            if filters:
+                return filters[0].union(*filters[1:])
+        else:
+            return cls._filter_by_key_value(query, attrclass, key, value)
+
+    @classmethod
+    def get_by_attrs_true_match2(cls, obj, dict, accepted_only=True):
+        """Test resulting objs to ensure the most current values match."""
         if obj is None or (accepted_only and not obj.accepted):
             return False
 
@@ -1469,21 +1931,31 @@ class _AttrMgr(object):
         return objs
 
     @classmethod
-    def get_by_attrs2(cls, session, dict={}, accepted_only=True):
+    def get_one_by_attrs(cls, session, dict={}, accepted_only=True):
         """Return _AttrMgr whose _Attrs values match the given dictionary.
 
         accepted_only -- (bool) limits the returned _AttrMgrs to ones whose were
             accepted.
 
         """
-        #value_key -- (str) an additional key to be appended to the value key.
-        #    This is useful for querying on sub-objects in the _Attr value e.g.
-        #    requiring a specific value for a specific element of the _Attr value
-        #    array.
-        objs = cls.get_by_attrs_query2(session, dict, accepted_only)
-        objs = objs.all()
+        query = cls.get_by_attrs_query2(session, dict, accepted_only)
+        obj = query.first()
+        if cls.get_by_attrs_true_match2(obj, dict, accepted_only):
+            return obj
+        return None
+
+    @classmethod
+    def get_by_attrs2(cls, session, dict={}, accepted_only=True):
+        """Return _AttrMgrs whose _Attrs values match the given dictionary.
+
+        accepted_only -- (bool) limits the returned _AttrMgrs to ones whose were
+            accepted.
+
+        """
+        query = cls.get_by_attrs_query2(session, dict, accepted_only)
+        objs = query.all()
         return filter(
-            lambda o: cls._get_by_attrs_true_match2(
+            lambda o: cls.get_by_attrs_true_match2(
                 o, dict, accepted_only), objs)
 
     @classmethod
@@ -1523,38 +1995,29 @@ class _AttrMgr(object):
 
         ## Filter the matched ids for the correct number of matched attrs
         #obj_ids = [oa['obj'] for oa in objs_attrs if oa['a'] >= len_query]
-        #objs = cls.get_all_by_ids(obj_ids)
+        #objs = cls.all_by_ids(session, obj_ids)
 
         #return filter(
         #    lambda o: cls._get_by_attrs_true_match(
         #        o, value_key, accepted_only, **map), objs)
 
 
-class Obj(_Change, _AttrMgr):
-    """Base object for all tracked objects in the system.
+class _IDAttrMgr(_AttrMgr):
+    """Mixin of _Attr tracking and id related methods.
 
-    Objs may have two types of attributes:
-    1. system attributes (Keys) - written directly into the object
-    2. tracked attributes (_Attrs) - written as _Attrs which are
-        _Changes themselves. These should only be edited using the provided
-        accessors/mutators.
+    This is the base for Obj and Person because linking Person to changes causes
+    a cyclical dependency that causes SQLAlchemy to attempt to insert Person
+    before Change.
 
     """
-    __tablename__ = 'objs'
-    id = Column(ForeignKey('changes.id'), primary_key=True)
-
-    __mapper_args__ = {
-        'polymorphic_identity': 'obj',
-    }
-
     @hybrid_property
     def uid(self):
         return self.id
 
     @property
     def mtime(self):
-        creation_time = super(Obj, self).ctime
-        accepted = self.accepted_tracked()
+        creation_time = self.creation_timestamp
+        accepted = self.accepted_tracked.all()
         if not accepted:
             return creation_time
         last_attr_creation_time = accepted[0].creation_timestamp
@@ -1568,9 +2031,9 @@ class Obj(_Change, _AttrMgr):
         return session.query(cls).filter(cls.id.in_(ids)).all()
 
     def to_nice_dict(self):
-        """ Returns a dict representation of the Obj.
+        """Return a dict representation of the Obj.
 
-            This ends up being used to present JSON.
+        This is used to present JSON.
 
         """
         return {
@@ -1586,6 +2049,25 @@ class Obj(_Change, _AttrMgr):
         return u'%s(%s)' % (type(self).__name__, kws)
 
 
+class Obj(_Change, _IDAttrMgr):
+    """Base object for all tracked objects in the system.
+
+    Objs may have two types of attributes:
+    1. system attributes (columns) - written directly into the object
+    2. tracked attributes (_Attrs) - written as _Attrs which are
+        _Changes themselves. These should only be edited using the _AttrMgr
+        interface.
+
+    """
+    __tablename__ = 'objs'
+    id = Column(Integer, ForeignKey('changes.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'obj',
+    }
+
+Obj.allow_attr('import_id', String, 'Import ID')
+
 @event.listens_for(Obj, 'after_insert')
 @event.listens_for(Obj, 'after_update')
 def _saved_obj(mapper, connection, target):
@@ -1595,113 +2077,6 @@ def _saved_obj(mapper, connection, target):
 @event.listens_for(Obj, 'after_delete')
 def _deleted_obj(mapper, connection, target):
     triggers.deleted_obj(target)
-
-
-class _Participants(dict):
-    """ A map of roles to sets of Persons.
-
-        Participants masquerades as a dictionary of roles but is actually stored
-        by mongodb like so: [{'role': r, 'person': p_id, 'institution': i_id}, ... ]
-    
-    """
-    def __init__(self, cruise, participants=[]):
-        self._cruise = cruise
-
-        for p in participants:
-            role = p['role']
-            doc = {'person': Person.get_id(p['person']),
-                   'institution': Institution.get_id(p['institution'])}
-            try:
-                self[role].append(doc)
-            except KeyError:
-                self[role] = [doc]
-        
-    def __getitem__(self, key):
-        """ Gives pairs of Person, Institutions for the specified role """
-        return dict.__getitem__(self, key)
-
-    def _add(self, person, role, institution=None):
-        """ Adds a participant to the map under the given role. """
-        pid = {'person': person, 'institution': institution}
-        if pid['person'] is None:
-            raise AttributeError("Only institution can be none")
-
-        try:
-            l = dict.__getitem__(self, role)
-            if pid not in l:
-                l.append(pid)
-                dict.__setitem__(self, role, l)
-                return True
-        except KeyError:
-            dict.__setitem__(self, role, [pid])
-            return True
-        return False
-
-    def _remove(self, person, role, institution=None):
-        """ Removes a participant from the map under the given role. """
-        pid = {'person': person, 'institution': institution}
-
-        try:
-            l = dict.__getitem__(self, role)
-            l.remove(pid)
-        except (KeyError, ValueError):
-            return False
-        return True
-
-    def _clear(self):
-        for key in self.keys():
-            del key
-    
-    def add(self, person, role, signer, institution=None):
-        if self._add(person, role, institution):
-            return self.save(signer)
-    
-    def remove(self, person, role, signer, institution=None):
-        if self._remove(person, role, institution):
-            return self.save(signer)
-
-    def clear(self, signer):
-        self._clear()
-        return self.save(signer)
-
-    def batch_add(self, role_person_institutions, signer):
-        for role, person, institution in role_person_institutions:
-            self._add(person, role, institution)
-        self.save(signer)
-
-    def batch_remove(self, role_person_institutions, signer):
-        for role, person, institution in role_person_institutions:
-            self._remove(person, role, institution)
-        self.save(signer)
-
-    def __len__(self):
-        return sum(len(x) for x in self.values())
-
-    @property
-    def roles(self, role=None):
-        """ Pairs of Persons and roles present in the map """
-        participants = []
-        if role is None:
-            for role, pis in self.items():
-                for pi in pis:
-                    participants.append((pi['person'], role, ))
-        else:
-            pis = dict.__getitem__(self, role)
-            for pi in pis:
-                participants.append((pi['person'], role, ))
-        return participants
-
-    def save(self, signer):
-        list = []
-        for role, pis in self.items():
-            for pi in pis:
-                pid = pi['person'].id
-                try:
-                    iid = pi['institution'].id
-                except AttributeError:
-                    iid = None
-                list.append({'role': role, 'person': pid, 'institution': iid})
-        return self._cruise.set_accept('participants', list, signer)
 
 
 class Cruise(Obj):
@@ -1759,17 +2134,10 @@ class Cruise(Obj):
 
     Attributes:
     basin - imported from "internal"
-    parameter_informations - list of documents containing
-        status - the status of the parameter; one of the following:
-            online, reformatted, submitted, not_measured, proposed,
-            no_information
-        pi - the principal investigator for the parameter on the cruise
-        inst - the institution that the pi was operating for
-        ts - some date attached to the status and PI of the parameter
 
     """
     __tablename__ = 'cruises'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'cruise',
@@ -1792,6 +2160,18 @@ class Cruise(Obj):
 
     # TODO perhaps override Obj.find_id to also find by uid to alleviate view
     # code doing the same thing
+
+    @property
+    def expocode(self):
+        return self.get('expocode', None)
+
+    @property
+    def date_start(self):
+        return self.get('date_start', None)
+
+    @property
+    def date_end(self):
+        return self.get('date_end', None)
 
     @property
     def aliases(self):
@@ -1822,13 +2202,14 @@ class Cruise(Obj):
 
     @property
     def institutions(self):
-        """ These are institutions that are directly attached to the cruise.
-            Suppose a cruise were to be done by an institution but the PI was
-            from a different one.
+        """These are institutions that are directly attached to the cruise.
+
+        Application: Suppose a cruise were to be done by an institution but the
+        PI was from a different one.
 
         """
         institution_ids = self.get('institutions', [])
-        return Institution.get_all_by_ids(institution_ids)
+        return Institution.all_by_ids(object_session(self), institution_ids)
 
     @property
     def collections_woce_line(self):
@@ -1848,13 +2229,17 @@ class Cruise(Obj):
 
     @property
     def ship(self):
-        return object_session(self).query(Ship).get(
-            self.get('ship', None))
+        id = self.get('ship', None)
+        if id:
+            return object_session(self).query(Ship).get(id)
+        return None
 
     @property
     def country(self):
-        return object_session(self).query(Country).get(
-            self.get('country', None))
+        id = self.get('country', None)
+        if id:
+            return object_session(self).query(Country).get(id)
+        return None
 
     @property
     def files(self):
@@ -1869,10 +2254,9 @@ class Cruise(Obj):
     @property
     def participants(self):
         participants = self.get('participants', None)
-        if participants:
-            return _Participants(self, participants)
-        else:
-            return _Participants(self)
+        if not participants:
+            return Participants()
+        return participants
 
     @property
     def chief_scientists(self):
@@ -1885,28 +2269,21 @@ class Cruise(Obj):
     def track(self):
         track = self.get('track', None)
         if not track:
-            return track
-        return shapely.wkt.loads(str(track.geom_wkb))
+            return None
+        return shapely.wkb.loads(str(track.geom_wkb))
 
     @classmethod
     def filter_geo(cls, fn, cruises):
         return filter(lambda x: fn(x.track), cruises)
 
     @classmethod
-    def get_by_expocode(cls, expocode):
-        attrs = sort_by_stamp(_Attr.find({'key': 'expocode',
-                                          'accepted': True}))
-        # Get Attrs that represent most current key value for objs
-        obj_expocodes = {}
-        for attr in attrs:
-            obj_id = attr['obj']
-            if obj_id not in obj_expocodes:
-                obj_expocodes[obj_id] = attr['value']
-        # Don't return a cruise if the current value of expocode isn't
-        obj_ids = [o for o, e in obj_expocodes.items() if e == expocode]
+    def get_by_expocode(cls, session, expocode):
+        """Return all Cruises that match expocode.
 
-        # 1. Multiple cruises might have the same expocode
-        return Cruise.get_all_by_ids(obj_ids)
+        Multiple Cruises *may* have the same expocode. *Yes* it has happened.
+
+        """
+        return Cruise.get_by_attrs2(session, {'expocode': expocode})
 
     @classmethod
     def updated(cls, session, limit):
@@ -1999,67 +2376,74 @@ class Cruise(Obj):
 
 # TODO move this into the class definition so it only gets called once even if
 # the module is reimported
-Cruise.allow_attr('expocode', Text, 'ExpoCode')
-Cruise.allow_attr('link', Text, 'Expedition Link')
-Cruise.allow_attr('frequency', Text)
+__cruise_allow_attrs = [
+    ('expocode', Unicode, 'ExpoCode'),
+    ('link', Unicode, 'Expedition Link'),
+    ('frequency', Unicode),
 
-Cruise.allow_attr('date_start', DateTime, 'Start Date')
-Cruise.allow_attr('date_end', DateTime, 'End Date')
+    ('date_start', [DateTime, Unicode], 'Start Date'),
+    ('date_end', [DateTime, Unicode], 'End Date'),
 
-Cruise.allow_attr('aliases', TextList)
-Cruise.allow_attr('ports', TextList)
+    ('statuses', TextList, 'Cruise statuses'),
+    ('aliases', TextList),
+    ('ports', TextList),
 
-Cruise.allow_attr('ship', ID)
-Cruise.allow_attr('country', ID)
+    ('ship', [ID, Unicode]),
+    ('country', [ID, Unicode]),
 
-Cruise.allow_attr('collections', IDList)
-Cruise.allow_attr('institutions', IDList)
+    ('collections', [IDList, Unicode]),
+    ('institutions', [IDList, Unicode]),
 
-Cruise.allow_attr('track', LineString)
+    ('track', LineString),
 
-# array of dicts
-Cruise.allow_attr('participants', String)
+    ('participants', _Participants),
 
-Cruise.allow_attr('import_id', ID, 'Import ID')
-
+    ('parameter_informations', ParameterInformations), 
+    ]
 for key, name in data_file_human_names.items():
-    Cruise.allow_attr(key, File, name)
-    Cruise.allow_attr('{}_status'.format(key), TextList)
+    __cruise_allow_attrs.extend([
+        (key, File, name),
+        ('{}_status'.format(key), TextList),
+        ])
+Cruise.allow_attrs(__cruise_allow_attrs)
 
 
-class CruiseAssociate(Obj):
-    """Provide a way to get the cruises that an Obj is associated to."""
-    __tablename__ = 'cruise_associates'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
-
-    __mapper_args__ = {
-        'polymorphic_identity': 'cruise_associate',
-    }
+class CruiseAssociate(object):
+    """Mixin that provides a way to get the cruises associated with Obj."""
 
     # Cruise associate key is the _Attr key of Cruise on which the
     # CruiseAssociate ids are stored.
     cruise_associate_key = ''
 
-    def cruises(self, value_key=None, limit=0, accepted_only=True):
+    def cruise_query_dict(self):
+        return {self.cruise_associate_key: self.id}
+
+    def cruises_query(self, limit=0, accepted_only=True):
         session = object_session(self)
         query = Cruise.get_by_attrs_query2(
-            session, {self.cruise_associate_key: self.id}, accepted_only)
-        return query.all()
+            session, self.cruise_query_dict(), accepted_only)
+        return query
+
+    def cruises(self, limit=0, accepted_only=True):
+        query = self.cruises_query(limit, accepted_only)
+        if accepted_only:
+            query = query.order_by(Cruise.judgment_timestamp)
+        else:
+            query = query.order_by(Cruise.creation_timestamp)
+
+        dict = self.cruise_query_dict()
+        return filter(
+            lambda c: Cruise.get_by_attrs_true_match2(
+                c, dict, accepted_only), query.all())
 
 
 class CruiseParticipantAssociate(CruiseAssociate):
-    """ Provide a way to get the cruises that an Participant attribute is
-        associated to
+    """Mixin that provides a way to get the cruises associated with 
+    Participant.
 
-        These are people or institutions.
+    These are people or institutions.
 
     """
-    __tablename__ = 'cruise_participant_associates'
-    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
-
-    __mapper_args__ = {
-        'polymorphic_identity': 'cruise_participant_associate',
-    }
     cruise_associate_key = 'participants'
     cruise_participant_associate_key = None
 
@@ -2068,9 +2452,9 @@ class CruiseParticipantAssociate(CruiseAssociate):
             self.cruise_participant_associate_key)
 
 
-class Country(CruiseAssociate):
+class Country(CruiseAssociate, Obj):
     __tablename__ = 'countries'
-    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     iso_3166_1 = Column(Unicode, key='name')
     iso_3166_1_alpha_2 = Column(String(2), key='iso_code_2')
@@ -2081,6 +2465,18 @@ class Country(CruiseAssociate):
     }
 
     cruise_associate_key = 'country'
+
+    @hybrid_property
+    def name(self):
+        return self.iso_3166_1
+
+    def iso_code(self, alpha=None):
+        if not alpha:
+            return self.name
+        elif alpha == 2:
+            return self.iso_3166_1_alpha_2
+        elif alpha == 3:
+            return self.iso_3166_1_alpha_3
 
     @property
     def people(self):
@@ -2110,14 +2506,15 @@ class Country(CruiseAssociate):
 class _PersonPermissions(Base):
     """Permissions associated with a Person."""
     __tablename__ = 'person_permissions'
-    person_id = Column(ForeignKey('people.id'), primary_key=True)
+    person_id = Column(
+        Integer, ForeignKey('people.id'), primary_key=True)
     permission = Column(Unicode, primary_key=True)
 
     def __init__(self, permission):
         self.permission = permission
 
 
-class Person(CruiseParticipantAssociate):
+class Person(CruiseParticipantAssociate, Obj):
     """A Person in this system.
 
     People may be either verified or not. If they are associated with an ID
@@ -2126,20 +2523,21 @@ class Person(CruiseParticipantAssociate):
     """
     __tablename__ = 'people'
     id = Column(
-        ForeignKey(
-            'cruise_participant_associates.id', use_alter=True,
-            name='cruise_participant_associate_person'),
+        Integer, ForeignKey('objs.id', use_alter=True, name='pid'),
         primary_key=True)
 
     identifier = Column(String)
-    name = Column(String)
-    institution = Column(ForeignKey('institutions.id'))
-    country = Column(ForeignKey('countries.id'))
+    name = Column(Unicode)
+
     email = Column(String)
     permissions_ = relationship(
         _PersonPermissions, single_parent=True,
         cascade='all, delete, delete-orphan')
     permissions = association_proxy('permissions_', 'permission')
+
+    # Legacy name parts
+    name_last = Column(Unicode)
+    name_first = Column(Unicode)
 
     cruise_participant_associate_key = 'person'
 
@@ -2147,15 +2545,26 @@ class Person(CruiseParticipantAssociate):
         'polymorphic_identity': 'person',
     }
 
-    def __init__(self, *args, **kwargs):
-        super(Person, self).__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(Person, self).__init__(self, **kwargs)
+        if self.name_last or self.name_first and not self.name:
+            self.name = ' '.join(
+                filter(None, (self.name_first, self.name_last)))
         if self.identifier is None and self.name is None:
             raise ValueError(
                 'Person must be initialized with either identifier or names.')
 
+    @property
+    def creation_person_id(self):
+        return self.id
+
+    @creation_person_id.setter
+    def creation_person_id(self, id):
+        pass
+
     @hybrid_property
-    def full_name(self):
-        return self.name
+    def full_name(cls):
+        return cls.name
 
     def is_verified(self):
         return self.identifier is not None
@@ -2174,16 +2583,24 @@ class Person(CruiseParticipantAssociate):
 
     @property
     def institution(self):
-        return Institution.get_id(self.institution_)
+        id = self.get('institution', None)
+        if id:
+            return object_session(self).query(Institution).get(id)
+        return None
 
     @property
     def country(self):
-        return object_session(self).query(Country).get(
-            self.get('country', None))
+        id = self.get('country', None)
+        if id:
+            return object_session(self).query(Country).get(id)
+        return None
 
     def __unicode__(self):
         return u'Person(identifier={}, name={})'.format(
             self.identifier, self.name)
+
+    def __repr__(self):
+        return unicode(self)
 
     def to_nice_dict(self):
         """ Returns a dict representation of the Person.
@@ -2197,32 +2614,38 @@ class Person(CruiseParticipantAssociate):
         })
         return rep
 
-@event.listens_for(Person, 'after_insert')
-def _insert_person_creation_person_id(mapper, connection, target):
-    """Update the Person's creation_stamp.
+    def __repr__(self):
+        return unicode(self)
 
-    """
-    target._set_creation_stamp(target)
+Person.allow_attrs([
+    ('title', Unicode),
+    ('job_title', Unicode),
+    ('phone', Unicode),
+    ('fax', Unicode),
+    ('address', Unicode),
+    
+    ('institution', ID),
+    ('country', ID),
+    
+    ('programs', IDList),
 
-Person.allow_attr('title', Text)
-Person.allow_attr('job_title', Text)
-Person.allow_attr('phone', Text)
-Person.allow_attr('fax', Text)
-Person.allow_attr('address', Text)
+    # Legacy password parts
+    ('password_hash', String),
+    ('password_salt', String),
+    ])
 
-Person.allow_attr('programs', IDList)
 
 class MultiNameObj(Obj):
-    """ MultiNameObjs have multiple possible names
+    """MultiNameObjs have multiple possible names.
 
-        The first stored name is taken as the default.
+    The first stored name is taken as the default.
 
-        TODO perhaps Institutions and Ships may also have multiple names. For
-        now let them have just one canonical name.
+    TODO perhaps Institutions and Ships may also have multiple names. For now
+    let them have just one canonical name.
 
     """
     __tablename__ = 'multi_name_objs'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'multi_name_obj',
@@ -2249,9 +2672,9 @@ class MultiNameObj(Obj):
             return u'{klass} ()'.format(klass=self.__class__.__name__)
     
 
-class Institution(CruiseParticipantAssociate):
+class Institution(CruiseParticipantAssociate, Obj):
     __tablename__ = 'institutions'
-    id = Column(ForeignKey('cruise_participant_associates.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'institution',
@@ -2264,13 +2687,14 @@ class Institution(CruiseParticipantAssociate):
         return self.get('name', None)
 
     def people(self):
-        return Person.get_all({'institution': self.id})
+        return Person.get_by_attrs2(
+            object_session(self), {'institution': self.id})
 
     @property
     def country(self):
         country = self.get('country', None)
         if country:
-            return Country.get_id(country)
+            return object_session(self).query(Country).get(country)
         return None
 
     def __unicode__(self):
@@ -2292,17 +2716,19 @@ class Institution(CruiseParticipantAssociate):
         rep.update(d)
         return rep
 
-Institution.allow_attr('name', Text)
-Institution.allow_attr('phone', Text)
-Institution.allow_attr('address', Text)
-Institution.allow_attr('url', Text, 'Link')
+Institution.allow_attrs([
+    ('name', Unicode),
+    ('phone', Unicode),
+    ('address', Unicode),
+    ('url', Unicode, 'Link'),
+    
+    ('country', ID),
+    ])
 
-Institution.allow_attr('country', ID)
 
-
-class Ship(CruiseAssociate):
+class Ship(CruiseAssociate, Obj):
     __tablename__ = 'ships'
-    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'ship',
@@ -2333,11 +2759,13 @@ class Ship(CruiseAssociate):
         })
         return rep
 
-Ship.allow_attr('name', Text)
-Ship.allow_attr('nodc_platform_code', String, 'NODC Platform Code')
-Ship.allow_attr('url', Text, 'Link')
-
-Ship.allow_attr('country', ID)
+Ship.allow_attrs([
+    ('name', Unicode),
+    ('nodc_platform_code', String, 'NODC Platform Code'),
+    ('url', Unicode, 'Link'),
+    
+    ('country', ID),
+    ])
 
 
 class Collection(CruiseAssociate, MultiNameObj):
@@ -2358,7 +2786,7 @@ class Collection(CruiseAssociate, MultiNameObj):
     
     """
     __tablename__ = 'collections'
-    id = Column(ForeignKey('cruise_associates.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('multi_name_objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'collection',
@@ -2386,6 +2814,7 @@ class Collection(CruiseAssociate, MultiNameObj):
 
     @classmethod
     def get_by_name(cls, name):
+        # TODO
         return cls.get_by_attrs({'names': name}, value_key='0')
 
     def merge_(self, mergee, signer):
@@ -2436,7 +2865,7 @@ class Collection(CruiseAssociate, MultiNameObj):
         """
         # Pass 1: same name and same type
         sames = {}
-        colls = cls.get_all()
+        colls = DBSession.query(cls).all()
         for coll in colls:
             key = '|'.join([''.join(filter(None, coll.names)), coll.type or ''])
             try:
@@ -2450,7 +2879,7 @@ class Collection(CruiseAssociate, MultiNameObj):
 
         # Pass 2: same name and similar types
         sames = {}
-        colls = cls.get_all()
+        colls = DBSession.query(cls).all()
         for coll in colls:
             key = ''.join(filter(None, coll.names))
             try:
@@ -2506,37 +2935,56 @@ class Collection(CruiseAssociate, MultiNameObj):
         })
         return rep
 
-Collection.allow_attr('type', Text)
-Collection.allow_attr('basins', TextList)
-Collection.allow_attr('names', TextList)
+Collection.allow_attrs([
+    ('type', Unicode),
+    ('basins', TextList),
+    ('names', TextList),
+    ('date_start', [DateTime, Unicode], 'Start Date'), 
+    ('date_end', [DateTime, Unicode], 'End Date'), 
+
+    ('url', Unicode), 
+
+    ('institution', ID), 
+    ('country', ID), 
+
+    ])
 
 
 class AutoAcceptingObj(Obj):
-    """ When AutoAcceptingObjs are saved, they are also accepted using the
+    """When AutoAcceptingObjs are saved, they are also accepted using the
     creator as the signer, obviating the step of accepting known good changes.
 
     """
     def save(self):
         super(AutoAcceptingObj, self).save()
         if not self.judgment_stamp:
-            self.accept(self.creation_stamp.person_id)
+            self.accept(self.creation_person)
+
+
+argo_file_requests_for = Table('argo_file_requests_for', Base.metadata,
+    Column('argo_file_id', ForeignKey('argo_files.id')),
+    Column('request_for_id', ForeignKey('requests_for.id')),
+    )
 
 
 class ArgoFile(AutoAcceptingObj):
-    """ Files that are given to the CCHDO for Argo calibration only.
+    """Files that are given to the CCHDO for Argo calibration only.
 
-        THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure
-        File Repository.
+    THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure File
+    Repository.
 
-        There are two types of ArgoFile:
+    There are two types of ArgoFile:
 
-        1. Provided files
-           These are given to us to be put online and appear nowhere else.
-        2. Linked files
-           These are actually part of the CCHDO holdings and need to exist as a
-           link to the most recent version of the data.
+    1. Provided files
 
-        Attributes:
+       These are given to us to be put online and appear nowhere else.
+
+    2. Linked files
+
+       These are actually part of the CCHDO holdings and need to exist as a
+       link to the most recent version of the data.
+
+    Attributes:
         text_identifier - some text that makes the file quickly identifiable to
                           a human
         file - either an id that is the file in the filesystem or a tuple like
@@ -2547,58 +2995,67 @@ class ArgoFile(AutoAcceptingObj):
 
     """
     __tablename__ = 'argo_files'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     text_identifier = Column(Unicode)
     description = Column(Unicode)
     display = Column(Boolean)
 
-    file_id = Column(String)
-    file = composite(FileComposite, file_id)
+    file__id = Column('file_id', Integer, ForeignKey('fsfile.id'))
+    file_ = relationship('FSFile')
+
+    link_cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    link_cruise = relationship(
+        'Cruise', primaryjoin='ArgoFile.link_cruise_id == Cruise.id')
+    link_attr_key = Column(Unicode)
+
+    requests_for = relationship(
+        'RequestFor', secondary=argo_file_requests_for, single_parent=True,
+        cascade='all, delete, delete-orphan')
 
     __mapper_args__ = {
         'polymorphic_identity': 'argo_file',
     }
 
-    def __init__(self, person):
-        super(ArgoFile, self).__init__(person)
-        self.text_identifier = None
-        self.file = None
-        self.description = None
-        self.display = None
-
     @property
     def file(self):
-        """ Gives the filesystem file that the ArgoFile refers to """
-        if type(self.file_) in (list, tuple):
-            id, attr = self.file_
-            return Obj.get_id_polymorphic(id).get(attr, None)
-        return super(ArgoFile, self).file
+        """Gives the file that the ArgoFile refers to."""
+        if self.link_cruise:
+            return self.link_cruise.get(self.link_attr_key, None)
+        return self.file_
 
-    # Cannot use @file.setter because __setattr__ will be called instead.
-    # Use store_file
+    @file.setter
+    def file(self, f):
+        self.file_ = f
 
-    def link(self, obj, attr_key):
-        """ Populates the ArgoFile as a Linked file """
+    def link(self, cruise, attr_key):
+        """Populates the ArgoFile as a linked file."""
         try:
-            obj.get(attr_key)
+            cruise.get(attr_key)
         except KeyError:
-            raise ValueError('%s does not exist for %s' % (attr_key, obj))
-        self.file_ = (obj.id, attr_key)
-        self.save()
+            raise ValueError('%s does not exist for %s' % (attr_key, cruise))
+        self.link_cruise = cruise
+        self.link_attr_key = attr_key
+
+
+old_submissions_files_table = Table('old_submission_files', Base.metadata,
+    Column('fsfile_id', ForeignKey('fsfile.id')),
+    Column('old_submission_id', ForeignKey('old_submissions.id')),
+    )
 
 
 class OldSubmission(Obj):
-    """ An old submission imported for record keeping.
+    """An old submission imported for record keeping.
 
-        Other information stored:
-        The creation timestamp is the create time for the submission record.
-        The judgment timestamp is the update time for the submission record.
+    Other information stored:
 
-        Since it appears that the submissions were created using a script, only
-        the first encountered time is recorded.
+    * The creation timestamp is the create time for the submission record.
+    * The judgment timestamp is the update time for the submission record.
+
+    Since it appears that the submissions were created using a script, only the
+    first encountered time is recorded.
     
-        Attributes:
+    Attributes:
         date - the date of the submission
         stamp - unknown
         submitter - the name of the submitter. Format varies.
@@ -2611,31 +3068,30 @@ class OldSubmission(Obj):
 
     """
     __tablename__ = 'old_submissions'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     date = Column(DateTime)
     stamp = Column(String(6))
     submitter = Column(Unicode)
     line = Column(Unicode)
     folder = Column(Integer(13))
-    files = Column(String) # TODO array of file ids
+    files = relationship(
+        'FSFile', secondary=old_submissions_files_table,
+        single_parent=True,
+        cascade='all, delete, delete-orphan')
 
     __mapper_args__ = {
         'polymorphic_identity': 'old_submission',
     }
 
-    def remove(self):
-        for file in self.files_:
-            fs().delete(file)
-        super(OldSubmission, self).remove()
-
 
 class Submission(Obj):
-    """ A Submission to the CCHDO. These interface with humans so they need
-        intervention to make everything behaves nicely before going into the
-        system.
+    """A Submission to the CCHDO.
 
-        Attributes:
+    These interface with humans so they need intervention to make everything
+    behaves nicely before going into the system.
+
+    Attributes:
         expocode
         ship_name
         line
@@ -2653,18 +3109,24 @@ class Submission(Obj):
 
     """
     __tablename__ = 'submissions'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     expocode = Column(Unicode)
     ship_name = Column(Unicode)
     line = Column(Unicode)
     action = Column(Unicode)
+    cruise_date = Column(TIMESTAMP)
     type = Column(Unicode)
-    attached_id = Column(ForeignKey('attrs.id'))
+    attached_id = Column(Integer, ForeignKey('attrs.id'))
     attached = relationship('_Attr')
 
-    file_id = Column(String)
-    file = composite(FileComposite, file_id)
+    file_id = Column(Integer, ForeignKey('fsfile.id'))
+    file = relationship('FSFile')
+
+    request_for_id = Column(Integer, ForeignKey('requests_for.id'))
+    request_for = relationship(
+        'RequestFor', uselist=False, single_parent=True,
+        cascade='all, delete, delete-orphan')
 
     __mapper_args__ = {
         'polymorphic_identity': 'submission',
@@ -2676,7 +3138,8 @@ class Submission(Obj):
 
     def cruises_from_identifier(self):
         try:
-            cruises = Cruise.get_by_attrs(expocode=self.expocode)
+            cruises = Cruise.get_by_attrs2(
+                object_session(self), {'expocode': self.expocode})
         except AttributeError:
             return []
         if len(cruises) > 0:
@@ -2697,7 +3160,7 @@ class Submission(Obj):
         """
         if self.attached_ == True:
             return True
-        return _Attr.get_id(self.attached_)
+        return object_session(self).query(_Attr).get(self.attached_)
 
     def attach(self, attr, signer):
         """ Attaches the submission to a new _Attr. The submission will be also
@@ -2714,9 +3177,9 @@ class Submission(Obj):
 
 
 class Parameter(Obj):
-    """ A parameter
+    """A parameter that is measured.
 
-        Attributes:
+    Attributes:
         name - the WOCE mnemonic
         aliases - other names for the parameter
         full_name - the full name of the parameter
@@ -2733,7 +3196,7 @@ class Parameter(Obj):
 
     """
     __tablename__ = 'parameters'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'parameter',
@@ -2744,7 +3207,7 @@ class Parameter(Obj):
 
     @property
     def unit(self):
-        return Unit.get_id(self.get('unit'))
+        return object_session(self).query(Unit).get(self.get('unit'))
 
     units = unit
 
@@ -2760,9 +3223,21 @@ class Parameter(Obj):
         # TODO
         return 0
 
+Parameter.allow_attrs([
+    ('name', Unicode, 'WOCE mnemonic'),
+    ('aliases', TextList),
+    ('full_name', Unicode),
+    ('name_netcdf', Unicode, 'WOCE NetCDF name'),
+    ('description', Unicode),
+    ('format', Unicode, 'C format string'),
+    ('bounds', DecimalList),
+    ('unit', ID),
+    ('in_groups_but_did_not_exist', Boolean), 
+    ])
+
 
 class Unit(Obj):
-    """ A unit for parameters
+    """A unit for parameters.
 
     Attributes:
     name - The name for a unit
@@ -2770,29 +3245,55 @@ class Unit(Obj):
 
     """
     __tablename__ = 'units'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'unit',
     }
     pass
 
+Unit.allow_attrs([
+    ('name', Unicode),
+    ('mnemonic', Unicode),
+    ])
+
 
 class ParameterOrder(Obj):
-    """ Defines the class that a Parameter of which it is a member.
+    """Define the class that a Parameter of which it is a member.
 
     Attributes:
-    name - the class
-    order - the list of parameters in the order they should appear
+        name - the class
+        order - the list of parameters in the order they should appear
 
     """
     __tablename__ = 'parameter_orders'
-    id = Column(ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'parameter_order',
     }
+
     @property
     def order(self):
-        order = self.get('order')
-        return [Parameter.get_id(id) for id in order]
+        order = self.get('order', [])
+        return Parameter.all_by_ids(object_session(self), order)
+
+ParameterOrder.allow_attrs([
+    ('name', Unicode),
+    ('order', IDList),
+    ])
+
+
+# Environment munging 
+
+# Fix Postgis 2.0 bad function call for WKTSpatialElement. The function name
+# changed from GeomFromText to ST_GeomFromText.
+from geoalchemy.postgis import PGSpatialDialect
+from geoalchemy.base import WKTSpatialElement
+pg_funcs = PGSpatialDialect._PGSpatialDialect__functions
+pg_funcs[WKTSpatialElement] = 'ST_GeomFromText'
+
+@event.listens_for(mapper, 'after_configured')
+def _after_mapper_configured_reorder_tables():
+    """Change the order of tables so that Person ends up behind Obj."""
+    _Change.__mapper__._sorted_tables = _sorted_tables(_Change.__mapper__)

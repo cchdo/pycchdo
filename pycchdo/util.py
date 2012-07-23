@@ -1,4 +1,9 @@
+import socket
 import warnings
+
+from sqlalchemy import util
+from sqlalchemy.sql import visitors
+from sqlalchemy.util import topological
 
 
 def flatten(l):
@@ -19,6 +24,8 @@ def is_valid_ipv4(ip):
             return socket.inet_aton(ip)
         except socket.error:
             return False
+    except TypeError:
+        return False
     except socket.error:
         return False
 
@@ -26,6 +33,8 @@ def is_valid_ipv4(ip):
 def is_valid_ipv6(ip):
     try:
         return socket.inet_pton(socket.AF_INET6, ip)
+    except TypeError:
+        return False
     except socket.error:
         return False
 
@@ -93,3 +102,65 @@ def deprecated(message=''):
         new_func.__dict__.update(func.__dict__)
         return new_func
     return deprecated
+
+
+def _sorted_tables(self):
+    """Override for sqlalchemy.orm.mapper."""
+    table_to_mapper = {}
+    for mapper in self.base_mapper.self_and_descendants:
+        for t in mapper.tables:
+            table_to_mapper[t] = mapper
+
+    sorted_ = _sort_tables(table_to_mapper.iterkeys())
+    ret = util.OrderedDict()
+    for t in sorted_:
+        ret[t] = table_to_mapper[t]
+    return ret
+
+
+def _sort_tables(tables):
+    """sort a collection of Table objects in order of their foreign-key dependency.
+
+    This is a reimplementation of sqlalchemy.sql.util.sort_tables used to force
+    _Change to come before Person in the foreign key ordering.
+
+    """
+    tables = list(tables)
+    tuples = []
+    def visit_foreign_key(fkey):
+        if fkey.use_alter:
+            return
+        parent_table = fkey.column.table
+        if parent_table in tables:
+            child_table = fkey.parent.table
+            if parent_table is not child_table:
+                tuples.append((parent_table, child_table))
+
+    for table in tables:
+        visitors.traverse(table, 
+                            {'schema_visitor':True}, 
+                            {'foreign_key':visit_foreign_key})
+
+        tuples.extend(
+            [parent, table] for parent in table._extra_dependencies
+        )
+
+    sorted_tables = list(topological.sort(tuples, tables))
+
+    table_person = None
+    table_obj = None
+    for table in tables:
+        if table.name == 'people':
+            table_person = table
+        if table.name == 'objs':
+            table_obj = table
+        if table_person is not None and table_obj is not None:
+            break
+
+    i_person = sorted_tables.index(table_person)
+    i_obj = sorted_tables.index(table_obj)
+    if i_person < i_obj:
+        sorted_tables.remove(table_person)
+        sorted_tables.insert(i_obj, table_person)
+
+    return sorted_tables

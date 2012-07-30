@@ -1977,36 +1977,39 @@ def import_(import_gid, dl_files=True, files_only=False):
     libcchdo.check_cache = False
 
     implog.info("Connecting to cchdo db")
-    with db_session(legacy.session()) as session:
-        session.autoflush = False
+    try:
+        with db_session(legacy.session()) as session:
+            session.autoflush = False
 
-        if not files_only:
-            _import_users(session, updater)
-            _import_contacts(session, updater)
-            _import_collections(session, updater)
+            if not files_only:
+                #_import_users(session, updater)
+                #_import_contacts(session, updater)
+                #_import_collections(session, updater)
 
-            _import_cruises(session, updater)
+                _import_cruises(session, updater)
 
-            _import_track_lines(session, updater)
-            _import_collections_cruises(session, updater)
-            _import_contacts_cruises(session, updater)
+                _import_track_lines(session, updater)
+                _import_collections_cruises(session, updater)
+                _import_contacts_cruises(session, updater)
 
-            _import_events(session, updater)
+                _import_events(session, updater)
 
-            _import_spatial_groups(session, updater)
-            _import_internal(session, updater)
-            _import_unused_tracks(session, updater)
+                _import_spatial_groups(session, updater)
+                _import_internal(session, updater)
+                _import_unused_tracks(session, updater)
 
-            _import_parameter_descriptions(updater)
-            _import_parameter_groups(session, updater)
-            _import_bottle_dbs(session, updater)
-            _import_parameter_status(session, updater)
-            _import_parameters(session, updater)
+                _import_parameter_descriptions(updater)
+                _import_parameter_groups(session, updater)
+                _import_bottle_dbs(session, updater)
+                _import_parameter_status(session, updater)
+                _import_parameters(session, updater)
 
-        with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
-            _import_submissions(session, updater, sftp_cchdo, dl_files)
-            _import_old_submissions(session, updater, sftp_cchdo, dl_files)
-            _import_queue_files(session, updater, sftp_cchdo, dl_files)
-            _import_documents(session, updater, import_gid, dl_files)
-            _import_argo_files(session, updater, sftp_cchdo, dl_files)
+            with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
+                _import_submissions(session, updater, sftp_cchdo, dl_files)
+                _import_old_submissions(session, updater, sftp_cchdo, dl_files)
+                _import_queue_files(session, updater, sftp_cchdo, dl_files)
+                _import_documents(session, updater, import_gid, dl_files)
+                _import_argo_files(session, updater, sftp_cchdo, dl_files)
+    except KeyboardInterrupt:
+        pass
     transaction.commit()

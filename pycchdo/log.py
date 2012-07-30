@@ -21,7 +21,7 @@ RESET_SEQ = "\033[0m"
 COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ = "\033[1m"
 
-FORMAT = (u"[$BOLD%(name)-20s$RESET][%(levelname)s] %(message)s "
+FORMAT = (u"[$BOLD%(name)-15s$RESET_%(asctime)s_%(levelname)s] %(message)s "
           "($BOLD%(filename)s$RESET:%(lineno)d)")
 
 

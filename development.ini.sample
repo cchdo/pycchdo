@@ -28,6 +28,7 @@ key_session_factory = itsaseekreet
 
 #sqlalchemy.url = sqlite:///%(here)s/development.db
 sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/dev_pycchdo
+sqlalchemy.echo = True
 
 [pipeline:main]
 pipeline =

@@ -375,6 +375,7 @@ class _Change(StampedCreation, StampedModeration, Notable, Base):
 
     __table_args__ = (
         Index('idx_changes_judgment_timestamp', 'judgment_timestamp'),
+        Index('idx_changes_obj_type', 'obj_type'),
         )
 
     def __init__(self, person, note=None, *args, **kwargs):
@@ -1206,7 +1207,7 @@ class _Attr(_Change):
         }
 
     __table_args__ = (
-        Index('idx_attrs_obj_type_keys', key, obj_id, str_type),
+        Index('idx_attrs_obj_type_keys', 'key', 'obj_id', 'str_type'),
         )
 
     def __init__(self, person, key, attr_type, value=None, note=None,
@@ -2635,8 +2636,8 @@ Person.allow_attrs([
     ])
 
 
-class MultiNameObj(Obj):
-    """MultiNameObjs have multiple possible names.
+class MultiName(object):
+    """MultiName mixin for multiple possible names in tracked _Attr.
 
     The first stored name is taken as the default.
 
@@ -2644,12 +2645,6 @@ class MultiNameObj(Obj):
     let them have just one canonical name.
 
     """
-    __tablename__ = 'multi_name_objs'
-    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
-
-    __mapper_args__ = {
-        'polymorphic_identity': 'multi_name_obj',
-    }
 
     @property
     def names(self):
@@ -2768,7 +2763,7 @@ Ship.allow_attrs([
     ])
 
 
-class Collection(CruiseAssociate, MultiNameObj):
+class Collection(CruiseAssociate, MultiName, Obj):
     """Essentially tags for Cruises.
     
     A Cruise may belong to Basin Collection, WOCE line Collection, etc.
@@ -2786,23 +2781,17 @@ class Collection(CruiseAssociate, MultiNameObj):
     
     """
     __tablename__ = 'collections'
-    id = Column(Integer, ForeignKey('multi_name_objs.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'collection',
     }
 
+    __table_args__ = (
+        Index('idx_pkey_collection_id', 'id'),
+        )
+
     cruise_associate_key = 'collections'
-
-    @classmethod
-    def get_all_by_name(cls, name):
-        """ Returns all collections that match the given name
-
-            Parameters:
-                name - either a string or a regular expression object
-        
-        """
-        return self.get_by_attrs(names=name)
 
     @property
     def type(self):
@@ -2813,9 +2802,19 @@ class Collection(CruiseAssociate, MultiNameObj):
         return self.get('basins', [])
 
     @classmethod
+    def get_all_by_name(cls, name):
+        """Returns all collections that match the given name.
+
+        Parameters:
+            name - either a string or a regular expression object
+        
+        """
+        return self.get_by_attrs2(DBSession, {'names': name})
+
+    @classmethod
     def get_by_name(cls, name):
         # TODO
-        return cls.get_by_attrs({'names': name}, value_key='0')
+        return cls.get_by_attrs2(DBSession, {'names': name}, value_key='0')
 
     def merge_(self, mergee, signer):
         """Merge two Collections together."""

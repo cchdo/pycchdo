@@ -52,8 +52,8 @@ def _arctic():
                 reverse=True)[0]
             one_away_collection_ids |= set(
                 attr['accepted_value'] or attr['value'])
-    one_away_collections = Collection.all_by_ids(
-        request.db, list(one_away_collection_ids))
+    one_away_collections = Collection.by_ids(
+        list(one_away_collection_ids)).all()
 
     woce_collections = filter(
         lambda c: c.get('type') == 'WOCE line', one_away_collections)

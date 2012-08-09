@@ -7,6 +7,7 @@ Fully re-indexing is also supported via rebuild_index.
 """
 import os
 from contextlib import contextmanager
+from datetime import datetime
 
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
@@ -222,8 +223,12 @@ class SearchIndex(object):
                 doc['names'] = u','.join(names)
                 if obj.date_start:
                     doc['date_start'] = obj.date_start
+                    if type(doc['date_start']) is not datetime:
+                        doc['date_start'] = None
                 if obj.date_end:
                     doc['date_end'] = obj.date_end
+                    if type(doc['date_end']) is not datetime:
+                        doc['date_end'] = None
                 if obj.ship:
                     doc['ship'] = unicode(obj.ship.name)
                 if obj.country:
@@ -259,6 +264,7 @@ class SearchIndex(object):
 
             doc['mtime'] = obj.mtime
             doc['id'] = _model_id_to_index_id(obj.id)
+            log.debug(u'saving {0!r}'.format(doc))
             ixw.update_document(**doc)
 
 
@@ -424,7 +430,7 @@ class SearchIndex(object):
                     field_numbers = range(raw.estimated_length())
                     idwrappers = map(raw.fields, field_numbers)
                     idparams = [wrapper['id'] for wrapper in idwrappers]
-                    objects = model.all_by_ids(DBSession, idparams)
+                    objects = model.by_ids(idparams).all()
 
                     if model_name is 'cruise' or model_name is 'note':
                         # Cruises and Notes are quite simple. They are not

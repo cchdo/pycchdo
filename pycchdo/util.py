@@ -105,7 +105,16 @@ def deprecated(message=''):
 
 
 def _sorted_tables(self):
-    """Override for sqlalchemy.orm.mapper."""
+    """Override for sqlalchemy.orm.mapper.
+
+    Make any changes in _sort_tables.
+
+    This is a direct copy from sqlalchemy.orm.mapper with the only change being
+    the call to _sort_tables to point to the one in this module. 
+    TODO safely inject _sort_tables into sqlalchemy.orm.mapper to remove code
+    duplication.
+
+    """
     table_to_mapper = {}
     for mapper in self.base_mapper.self_and_descendants:
         for t in mapper.tables:
@@ -118,11 +127,37 @@ def _sorted_tables(self):
     return ret
 
 
-def _sort_tables(tables):
-    """sort a collection of Table objects in order of their foreign-key dependency.
+def _munge_sort_order(sorted_tables):
+    """Swap _Change to come before Person.
 
-    This is a reimplementation of sqlalchemy.sql.util.sort_tables used to force
-    _Change to come before Person in the foreign key ordering.
+    Make _Change come before Person in the foreign key ordering.
+
+    """
+    table_person = None
+    table_obj = None
+    for table in sorted_tables:
+        if table.name == 'people':
+            table_person = table
+        if table.name == 'objs':
+            table_obj = table
+        if table_person is not None and table_obj is not None:
+            break
+
+    if table_person is None or table_obj is None:
+        return
+
+    i_person = sorted_tables.index(table_person)
+    i_obj = sorted_tables.index(table_obj)
+    if i_person < i_obj:
+        sorted_tables.remove(table_person)
+        sorted_tables.insert(i_obj, table_person)
+
+
+def _sort_tables(tables):
+    """Sort a collection of Table objects in order of their foreign-key dependency.
+
+    This is a copy of sqlalchemy.sql.util.sort_tables with an additional call to
+    _munge_sort_order.
 
     """
     tables = list(tables)
@@ -147,20 +182,6 @@ def _sort_tables(tables):
 
     sorted_tables = list(topological.sort(tuples, tables))
 
-    table_person = None
-    table_obj = None
-    for table in tables:
-        if table.name == 'people':
-            table_person = table
-        if table.name == 'objs':
-            table_obj = table
-        if table_person is not None and table_obj is not None:
-            break
-
-    i_person = sorted_tables.index(table_person)
-    i_obj = sorted_tables.index(table_obj)
-    if i_person < i_obj:
-        sorted_tables.remove(table_person)
-        sorted_tables.insert(i_obj, table_person)
+    _munge_sort_order(sorted_tables)
 
     return sorted_tables

@@ -6,7 +6,6 @@ from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
 import pycchdo.models as models
-from pycchdo.models import DBSession
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -58,11 +57,10 @@ tools_menu = staff_signin_required(empty_view)
 
 
 def home(request):
-    session = DBSession()
     num_updates = 4
     num_upcoming = 2
-    updated = models.Cruise.updated(session, num_updates)
-    upcoming = models.Cruise.upcoming(session, num_upcoming)
+    updated = models.Cruise.updated(num_updates)
+    upcoming = models.Cruise.upcoming(num_upcoming)
 
     return {
         'updated': updated,
@@ -136,30 +134,29 @@ def parameter_show(request):
 
 def data(request):
     """Returns data."""
-    session = DBSession()
     id = request.matchdict['data_id']
 
     try:
-        data = session.query(models._Attr).get(id)
+        data = models._Attr.query().get(id)
     except TypeError:
         raise HTTPNotFound()
 
     if not data:
         try:
-            data = session.query(models.Submission).get(id)
+            data = models.Submission.query().get(id)
         except ValueError:
             raise HTTPNotFound()
 
     if not data:
         try:
-            data = session.query(models.ArgoFile).get(id)
+            data = models.ArgoFile.query().get(id)
         except ValueError:
             raise HTTPNotFound()
 
     if not data:
         raise HTTPNotFound()
 
-    # Ensure the session is authorized to read the data
+    # Ensure the HTTP session is authorized to read the data
     perms = None
     try:
         perms = data.permissions_read

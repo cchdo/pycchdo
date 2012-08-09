@@ -21,8 +21,11 @@ RESET_SEQ = "\033[0m"
 COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ = "\033[1m"
 
-FORMAT = (u"[$BOLD%(name)-15s$RESET_%(asctime)s_%(levelname)s] %(message)s "
-          "($BOLD%(filename)s$RESET:%(lineno)d)")
+FORMAT = (
+    u"[%(asctime)s %(levelname)s\t$BOLD%(name)-15s$RESET] "
+    "%(message)s "
+    " ($BOLD%(filename)s$RESET:%(lineno)d)"
+    )
 
 
 def formatter_message(message, use_color = True):
@@ -36,9 +39,9 @@ def formatter_message(message, use_color = True):
 
 COLORS = {
     'WARNING': YELLOW,
-    'INFO': WHITE,
+    'INFO': GREEN,
     'DEBUG': BLUE,
-    'CRITICAL': YELLOW,
+    'CRITICAL': MAGENTA,
     'ERROR': RED
 }
 
@@ -55,6 +58,9 @@ class ColoredFormatter(logging.Formatter):
                 levelname + RESET_SEQ
             record.levelname = levelname_color
         return logging.Formatter.format(self, record)
+
+    def formatTime(self, record, datefmt=None):
+        return super(ColoredFormatter, self).formatTime(record, datefmt)[11:]
 
 
 # Custom logger class with multiple destinations

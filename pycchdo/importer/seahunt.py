@@ -33,7 +33,7 @@ cred = ['seahunt_web', 'll0yd315']
 rails_root = os.path.join(os.path.sep, 'srv', 'not_served', 'project_seahunt')
 
 
-url = S.engine.url.URL('postgresql', cred[0], cred[1], 'goship.ucsd.edu',
+url = S.engine.url.URL('postgresql', cred[0], cred[1], 'sui.ucsd.edu',
                        database='seahunt')
 
 
@@ -292,7 +292,7 @@ class Suggestion(Base, TrackHolder):
 def _ensure_cruise(cruise, updater):
     import_id = 'seahunt%s' % str(cruise.id)
     ccc = Cruise.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if ccc:
         implog.info('Updating Seahunt Cruise %s: %s' % (import_id, ccc.id))
     else:
@@ -384,25 +384,21 @@ def _import_cruise(updater, cruise, sftp_goship, dl_files=True):
             updater.attr(c, 'date_start', cruise.cruise_dates)
         else:
             updater.attr(c, 'date_start', cruise.cruise_dates, accept=False)
-# XXX
-#    if cruise.track:
-#        updater.attr(c, 'track', cruise.get_track())
+    if cruise.track:
+        updater.attr(c, 'track', cruise.get_track())
     return c
 
 
 def _import_cruises(sftp_goship, sesh, updater, dl_files=True):
     cruises = sesh.query(SCruise).all()
     for c in cruises:
-# XXX
-        if c.id != 4:
-            continue
         _import_cruise(updater, c, sftp_goship, dl_files)
 
 
 def _ensure_inst(updater, inst_id):
     import_id = 'seahunt%d' % inst_id
     institution = Institution.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if institution:
         implog.info("Updating Seahunt Institution {}: {}".format(
             import_id, institution.id))
@@ -449,7 +445,7 @@ def _import_institutions(sesh, updater):
 def _ensure_country(updater, country_id):
     import_id = 'seahunt%d' % country_id
     c= Country.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if c:
         implog.info("Updating Country %s: %s" % (import_id, c.id))
     else:
@@ -471,7 +467,7 @@ def _import_country(country, updater):
 def _import_contact(contact, updater):
     import_id = 'seahunt%d' % contact.id
     p = Person.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if p:
         implog.info('Updating Seahunt Contact %s: %s' % (import_id, p.id))
     else:
@@ -524,7 +520,7 @@ def _import_contacts(sesh, updater):
 def _ensure_ship(updater, ship_id):
     import_id = 'seahunt%d' % ship_id
     s = Ship.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if not s:
         s = Ship(updater.importer)
         DBSession.add(s)
@@ -550,7 +546,7 @@ def _import_ship(ship, updater):
 def _import_program(program, updater):
     import_id = 'seahunt%d' % program.id
     col = Collection.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if not col:
         col = updater.create_accept(Collection)
         col.creation_timestamp = program.created_at
@@ -618,7 +614,7 @@ def _import_suggestion_contact(name, email, updater):
         name = email
     import_id = 'seahunt%s' % name
     person = Person.get_one_by_attrs(
-        DBSession, {'import_id': import_id}, accepted_only=False)
+        {'import_id': import_id}, accepted_only=False)
     if not person:
         person = Person(name=name, email=email)
         DBSession.add(person)
@@ -654,9 +650,8 @@ def _import_suggestion(suggestion, updater):
     updater.attr(
         cruise, 'institutions', suggestion.institutions.split(','),
         accept=False)
-# XXX
-#    if suggestion.track:
-#        updater.attr(cruise, 'track', suggestion.get_track(), accept=False)
+    if suggestion.track:
+        updater.attr(cruise, 'track', suggestion.get_track(), accept=False)
     return cruise
 
 
@@ -695,10 +690,12 @@ def clear():
     return 
 
 
-def import_(dl_files=True, files_only=False):
+def import_(args):
+    dl_files = not args.skip_downloads
+
     implog.info("Get/Create Seahunt Importer to take blame")
-    importer = import_person(None, 'importer', 'Seahunt', 'Seahunt_importer')
-    updater = Updater(importer)
+    updater = Updater(
+        import_person(None, 'importer', 'Seahunt', 'Seahunt_importer'))
 
     implog.info('Connecting to seahunt db')
     with db_session(session()) as sesh:
@@ -706,7 +703,7 @@ def import_(dl_files=True, files_only=False):
 
         with sftp('goship.ucsd.edu') as (ssh_goship, sftp_goship):
             _import_cruises(sftp_goship, sesh, updater, dl_files)
-        if not files_only:
+        if not args.files_only:
             _import_institutions(*su)
             _import_contacts(*su)
             _import_suggestions(*su)

@@ -15,8 +15,8 @@ import pycchdo.models.models as models
 from pycchdo.models.models import (
     Session, DBSession,
     String, Integer, LineString, File, TextList, ID, IDList, DateTime, Unicode, 
-    Stamp, Obj, _Change, _Attr, Note, Participant,
-    Country, Cruise, Person, Collection, Ship, MultiNameObj,
+    Stamp, Obj, _Change, _Attr, Note, Participant, Participants,
+    Country, Cruise, Person, Collection, Ship,
     ArgoFile,
     FSFile,
     )
@@ -128,13 +128,24 @@ class TestModelChange(PersonBaseTest):
 
 
 class TestModelAttrs(PersonBaseTest):
+    def test_set_returns_attr(self):
+        """Setting a value on an Obj returns an _Attr."""
+        obj = Obj(self.testPerson)
+        DBSession.add(obj)
+        key = self._testMethodName
+        obj.allow_attr(key, String, 'test')
+
+        self.assertTrue(type(obj.set(key, 'v', self.testPerson)) is _Attr)
+
     def test_new(self):
         """New Attrs are instances of _Change."""
+        key = self._testMethodName
         o = Obj(self.testPerson)
+        Obj.allow_attr(key, String)
         DBSession.add(o)
         DBSession.flush()
 
-        attr = _Attr(self.testPerson, 'key', String, 'value')
+        attr = o.set(key, 'value', self.testPerson)
         self.assertTrue(isinstance(attr, _Change))
 
     def test_allow_attrs(self):
@@ -151,14 +162,18 @@ class TestModelAttrs(PersonBaseTest):
         specific class or its parents.
 
         """
-        key = self._testMethodName
-        MultiNameObj.allow_attr(key, String)
-        ccc = Collection(self.testPerson)
-        ccc.set(key, 'test', self.testPerson)
+        # This test is currently moot because there are no inherited classes
+        # between Obj and leaf Objs.
 
-        ooo = Obj(self.testPerson)
-        with self.assertRaises(ValueError):
-            ooo.set(key, 'test', self.testPerson)
+        #key = self._testMethodName
+        #Obj.allow_attr(key, String)
+        #ccc = Collection(self.testPerson)
+        #ccc.set(key, 'test', self.testPerson)
+
+        #ooo = Obj(self.testPerson)
+        #with self.assertRaises(ValueError):
+        #    ooo.set(key, 'test', self.testPerson)
+        pass
 
     def test_accepted_changes(self):
         """Accepted changes."""
@@ -214,15 +229,6 @@ class TestModelAttrs(PersonBaseTest):
         self.assertEquals(obj.get('a'), None)
         self.assertEquals(obj.get('a', 'b'), 'b')
 
-    def test_set_returns_attr(self):
-        """Setting a value on an Obj returns an _Attr."""
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        key = self._testMethodName
-        obj.allow_attr(key, String, 'test')
-
-        self.assertTrue(type(obj.set(key, 'v', self.testPerson)) is _Attr)
-
     def test_set_multi_type(self):
         """_Attrs may have multiple types."""
         ooo = Obj(self.testPerson)
@@ -249,7 +255,7 @@ class TestModelAttrs(PersonBaseTest):
         DBSession.flush()
         ooo_id = ooo.id
 
-        ppp = Obj.get_one_by_attrs(DBSession, {key: testdate})
+        ppp = Obj.get_one_by_attrs({key: testdate})
         self.assertEquals(ooo_id, ppp.id)
 
     def test_set_scalar(self):
@@ -493,7 +499,7 @@ class TestModelObj(PersonBaseTest):
 
         DBSession.delete(obj)
         DBSession.flush()
-        self.assertEqual(DBSession.query(_Attr).get(attr.id), None)
+        self.assertEqual(_Attr.query().get(attr.id), None)
 
     def test_get_by_attrs(self):
         """Retrieve objects whose current values for attrs matches the query.
@@ -515,12 +521,12 @@ class TestModelObj(PersonBaseTest):
                 ans = obj
         DBSession.flush()
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {'a': 3, 'b': 1})
+        objs_gotten = Obj.get_all_by_attrs({'a': 3, 'b': 1})
         obj = objs_gotten[0]
         self.assertEquals(len(objs_gotten), 1)
         self.assertEquals(ans.get('a'), obj.get('a'))
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {'a': 3, 'b': 0})
+        objs_gotten = Obj.get_all_by_attrs({'a': 3, 'b': 0})
         self.assertEquals(len(objs_gotten), 0)
 
     def test_get_by_attrs_list(self):
@@ -542,22 +548,22 @@ class TestModelObj(PersonBaseTest):
         DBSession.add(obj)
         DBSession.flush()
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {key: 'aaa'})
+        objs_gotten = Obj.get_all_by_attrs({key: 'aaa'})
         self.assertEquals(len(objs_gotten), 1)
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {key: 'bbb'})
+        objs_gotten = Obj.get_all_by_attrs({key: 'bbb'})
         self.assertEquals(len(objs_gotten), 1)
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {key: ['aaa', 'bbb']})
+        objs_gotten = Obj.get_all_by_attrs({key: ['aaa', 'bbb']})
         self.assertEquals(len(objs_gotten), 1)
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {key: ['bbb', 'aaa']})
+        objs_gotten = Obj.get_all_by_attrs({key: ['bbb', 'aaa']})
         self.assertEquals(len(objs_gotten), 0)
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {key0: 1})
+        objs_gotten = Obj.get_all_by_attrs({key0: 1})
         self.assertEquals(len(objs_gotten), 1)
 
-        objs_gotten = Obj.get_by_attrs2(DBSession, {key: 'aaa', key0: 3})
+        objs_gotten = Obj.get_all_by_attrs({key: 'aaa', key0: 3})
         self.assertEquals(len(objs_gotten), 1)
 
         ccc = Collection(self.testPerson)
@@ -568,25 +574,22 @@ class TestModelObj(PersonBaseTest):
         aaa = ccc.set_accept('names', ['aaa'], self.testPerson)
         bbb = ccc.set_accept('type', 'ccc', self.testPerson)
         self.assertEqual(
-            ccc, Collection.get_one_by_attrs(
-                DBSession, {'type': 'ccc'}))
+            ccc, Collection.get_one_by_attrs({'type': 'ccc'}))
         DBSession.flush()
         aaa._set(['bbb'])
         bbb._set('ddd')
         DBSession.flush()
         self.assertEqual(
-            ccc, Collection.get_one_by_attrs(
-                DBSession, {'names': 'bbb'}))
+            ccc, Collection.get_one_by_attrs({'names': 'bbb'}))
+        self.assertEqual(
+            ccc, Collection.get_one_by_attrs({'names': ['bbb']}))
         self.assertEqual(
             ccc, Collection.get_one_by_attrs(
-                DBSession, {'names': ['bbb']}))
-        self.assertEqual(
-            ccc, Collection.get_one_by_attrs(
-                DBSession, {'names': ['bbb'], 'type': 'ddd'}))
+                {'names': ['bbb'], 'type': 'ddd'}))
         self.assertEqual(
             None,
             Collection.get_one_by_attrs(
-                DBSession, {'names': ['bbb'], 'type': 'ccc'}))
+                {'names': ['bbb'], 'type': 'ccc'}))
 
     def test_get_by_attrs_accepted_value_match(self):
         """Retrieve objects whose current values for attrs matches the query.
@@ -605,25 +608,25 @@ class TestModelObj(PersonBaseTest):
         # _AttrMgr need to be accepted before it can be found
         aaa = ooo.set_accept(key, 'first', self.testPerson)
 
-        found = Obj.get_by_attrs2(DBSession, {key: 'first'})
+        found = Obj.get_all_by_attrs({key: 'first'})
         self.assertEquals(len(found), 1)
 
         aaa.accept_value('second', self.testPerson)
 
-        found = Obj.get_by_attrs2(DBSession, {key: 'second'})
+        found = Obj.get_all_by_attrs({key: 'second'})
         self.assertEquals(len(found), 1)
 
-        found = Obj.get_by_attrs2(DBSession, {key: 'first'})
+        found = Obj.get_all_by_attrs({key: 'first'})
         self.assertEquals(len(found), 0)
 
         # Make sure it finds the correct _Attr for the most recent value.
         bbb = ooo.set_accept(key, 'third', self.testPerson)
         self.assertEquals(ooo.get(key), 'third')
 
-        found = Obj.get_by_attrs2(DBSession, {key: 'first'})
+        found = Obj.get_all_by_attrs({key: 'first'})
         self.assertEquals(len(found), 0)
 
-        found = Obj.get_by_attrs2(DBSession, {key: 'third'})
+        found = Obj.get_all_by_attrs({key: 'third'})
         self.assertEquals(len(found), 1)
 
     def test_polymorphic(self):
@@ -644,7 +647,7 @@ class TestModelObj(PersonBaseTest):
 
         DBSession.flush()
 
-        objs = DBSession.query(Obj).all()
+        objs = Obj.query().all()
         self.assertEquals(type(objs[-1]), Ship)
         self.assertEquals(type(objs[-2]), Cruise)
         self.assertEquals(type(objs[-3]), Obj)
@@ -663,7 +666,7 @@ class TestModelPerson(PersonBaseTest):
         pid = ppp.id
         self.assertEqual(pid, ppp.creation_person_id)
 
-        qqq = DBSession.query(Person).get(pid)
+        qqq = Person.query().get(pid)
         self.assertEqual(qqq.id, qqq.creation_person_id)
 
     def test_new_without_id_provider(self):
@@ -786,6 +789,47 @@ class TestModelCruise(PersonBaseTest):
         c.participants.remove(c, self.testPerson, ppp).accept(self.testPerson)
         self.assertEquals([], c.participants.roles)
 
+    def test_replace_participants(self):
+        """Replace participants for a cruise."""
+        c = Cruise(self.testPerson)
+        DBSession.add(c)
+        DBSession.flush()
+
+        ppp = Participant('Chief Scientist', self.testPerson)
+
+        c.participants.extend(c, self.testPerson, ppp).accept(self.testPerson)
+        self.assertEquals(
+            [self.testPerson], [pi.person for pi in c.chief_scientists])
+
+        qqq = Participant('Co-Chief Scientist', self.testPerson)
+
+        c.participants.replace(c, self.testPerson, qqq).accept(self.testPerson)
+        self.assertEquals(
+            [(self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
+
+    def test_replace_participants_attrvalue(self):
+        """Replace the participants directly for an _AttrValue."""
+        c = Cruise(self.testPerson)
+        DBSession.add(c)
+        DBSession.flush()
+
+        ppp = Participant('Chief Scientist', self.testPerson)
+
+        c.participants.extend(c, self.testPerson, ppp).accept(self.testPerson)
+        DBSession.flush()
+
+        qqq = Participant('Co-Chief Scientist', self.testPerson)
+
+        aaa = c.get_attr('participants')
+        aaa._set(Participants([ppp, qqq]))
+        self.assertEquals(
+            [(self.testPerson, 'Chief Scientist'),
+             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
+        DBSession.flush()
+
+        self.assertEquals(
+            1, DBSession.query(models._AttrValueParticipants).count())
+
     def test_track(self):
         """Getting a Cruise's track either gives None or a
         shapely.geometry.linestring.LineString.
@@ -812,7 +856,7 @@ class TestModelCruise(PersonBaseTest):
         DBSession.add(c1)
         c1.set_accept('track', [[2, 0], [3, 1]], self.testPerson)
 
-        cs = DBSession.query(Cruise).all()
+        cs = Cruise.query().all()
 
         p0 = shapely.geometry.polygon.Polygon(
             [[-1, -1], [-1, 2], [4, 2], [4, -1], [-1, -1]])
@@ -860,16 +904,22 @@ class TestModelCruise(PersonBaseTest):
             'bottle_exchange', 'ctdzip_netcdf', 'doc_pdf', ]))
 
         # TODO why does this need to happen? copies? something
-        files['bottle_exchange'].file.read()
-        files['ctdzip_netcdf'].file.read()
-        files['doc_pdf'].file.read()
+        botexdata = files['bottle_exchange'].file.read()
+        mockbotex.file.seek(0)
+        mockbotexdata = mockbotex.file.read()
+        ctdzipncdata = files['ctdzip_netcdf'].file.read()
+        mockctdzipnc.file.seek(0)
+        mockctdzipncdata = mockctdzipnc.file.read()
+        docpdfdata = files['doc_pdf'].file.read()
+        mockdocpdf.file.seek(0)
+        mockdocpdfdata = mockdocpdf.file.read()
 
         self.assertEquals(
-            files['bottle_exchange'].read(), mockbotex.file.read())
+            botexdata, mockbotexdata)
         self.assertEquals(
-            files['ctdzip_netcdf'].read(), mockctdzipnc.file.read())
+            ctdzipncdata, mockctdzipncdata)
         self.assertEquals(
-            files['doc_pdf'].read(), mockdocpdf.file.read())
+            docpdfdata, mockdocpdfdata)
 
     def test_collections(self):
         """Collections should return all the collections associated with
@@ -983,6 +1033,9 @@ class TestModelCollection(PersonBaseTest):
         cr0.set_accept('collections', [c1.id], self.testPerson)
         cr1.set_accept('collections', [c0.id, c1.id], self.testPerson)
 
+        log.debug(repr(cr0.collections))
+        log.debug(repr(cr1.collections))
+
         c0.merge(self.testPerson, c1)
 
         self.assertEquals(
@@ -990,7 +1043,7 @@ class TestModelCollection(PersonBaseTest):
         self.assertEquals(c0.get('type'), 'group')
         self.assertEquals(cr0.get('collections'), [c0.id])
         self.assertEquals(cr1.get('collections'), [c0.id])
-        self.assertEquals(DBSession.query(Collection).get(c1.id), None)
+        self.assertEquals(Collection.query().get(c1.id), None)
         self.assertEquals(
             c0.get('basins'), ['basinA', 'basinB', 'basinC'])
 
@@ -1006,7 +1059,7 @@ class TestModelCollection(PersonBaseTest):
         self.assertEquals(c2.get('type'), 'group')
         self.assertEquals(cr0.get('collections'), [c2.id])
         self.assertEquals(cr1.get('collections'), [c2.id])
-        self.assertEquals(DBSession.query(Collection).get(c0.id), None)
+        self.assertEquals(Collection.query().get(c0.id), None)
 
 
 class TestModelFSFile(BaseTest):
@@ -1030,7 +1083,7 @@ class TestModelFSFile(BaseTest):
         DBSession.add(fsfile)
         DBSession.flush()
 
-        outfile = DBSession.query(FSFile).get(fsfile.id)
+        outfile = FSFile.query().get(fsfile.id)
         outfile.seek(0)
         file.seek(0)
         file.read()
@@ -1047,19 +1100,39 @@ class TestModelFSFile(BaseTest):
         DBSession.delete(fsfile)
         DBSession.flush()
 
+    def test_replace(self):
+        """Replace a file-like object."""
+        data = self._testMethodName
+        fsfile = FSFile.from_fieldstorage(
+            MockFieldStorage(
+                MockFile(data + '0', 'filename0.txt'), 'text/plain'))
+        DBSession.add(fsfile)
+        DBSession.flush()
+        self.assertNotEqual(fsfile.fsid, None)
+        fsid0 = fsfile.fsid
+
+        fsfile.file = MockFile(data + '1', 'filename1.txt')
+        DBSession.flush()
+        fsfile2 = DBSession.query(FSFile).get(fsfile.id)
+        self.assertEqual(data + '1', fsfile2.file.read())
+        # Make sure the previous file got deleted
+        self.assertEqual(fsid0, fsfile2.fsid)
+
 
 class TestModelArgoFile(PersonBaseTest):
     def test_file(self):
         """ArgoFiles may be given a file to store."""
         data = self._testMethodName
         fff = MockFile(data, 'test_hy1.csv')
-        # TODO figure out why this needs a seek
-        fff.seek(0)
         argo = ArgoFile(self.testPerson)
         argo.file = FSFile(fff, 'test_hy1.csv', 'text/csv')
         DBSession.add(argo)
         DBSession.flush()
-        self.assertEqual(argo.file.read(), fff.read())
+        argodata = argo.file.read()
+        # TODO make argo.file a copy of fff rather than leaving it the same
+        fff.seek(0)
+        fffdata = fff.read()
+        self.assertEqual(argodata, fffdata)
         
 
     def test_link(self):
@@ -1080,8 +1153,7 @@ class TestModelArgoFile(PersonBaseTest):
         mockfs.file.seek(0)
 
         argo_str = argo.file.read()
-        mockfs_str = mockfs.file.read()
-        self.assertEqual(argo_str, mockfs_str)
+        self.assertEqual(argo_str, data)
 
 
 class TestHelper(PersonBaseTest):
@@ -1132,7 +1204,6 @@ class TestView(PersonBaseTest):
         self._config.add_route('cruise_new', 'test')
         from pycchdo.views.cruise import cruise_show
         request = testing.DummyRequest()
-        request.db = DBSession()
         with self.assertRaises(HTTPBadRequest):
             cruise_show(request)
 
@@ -1161,7 +1232,6 @@ class TestView(PersonBaseTest):
             MockFile('', 'mockfile.txt'), 'text/plain')
 
         request = testing.DummyRequest()
-        request.db = DBSession()
         request.matchdict['cruise_id'] = ccc.id
         request.user = self.testPerson
         request.method = 'POST'

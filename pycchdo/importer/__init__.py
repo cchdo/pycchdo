@@ -1,9 +1,16 @@
 import argparse
+from pprint import pformat
 from datetime import datetime, time
 import logging
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
-from os import getcwd, chdir, unlink, geteuid, getegid, seteuid, setegid
+import shutil
+import stat
+from os import (
+    getcwd, chdir, unlink, geteuid, getegid, seteuid, setegid, lstat,
+    listdir, readlink, mkdir, chmod, chown, utime, link
+    )
+import os.path
 from pwd import getpwnam
 import sys
 
@@ -14,15 +21,16 @@ import paramiko
 from sqlalchemy import engine_from_config
 
 from pycchdo import models
-from pycchdo.models import DBSession, reset_database, _Attr, FSFile
+from pycchdo.models import DBSession, reset_database, reset_fs, _Attr, FSFile
+from pycchdo.models.models import log as model_log, DEBUG
 from pycchdo.models.search import SearchIndex
 from pycchdo.log import *
 
 
 __all__ = [
     'implog', 'db_session', 'su', 'ssh_connect', 'ssh', 'sftp', 'sftp_dl',
-    '_ustr2uni', '_date_to_datetime', 'copy_chunked', 'Updater', 'pushd',
-    'lock', ]
+    'sftp_dl_dir', 'copy_stat', 'Downloader', '_ustr2uni', '_date_to_datetime',
+    'copy_chunked', 'Updater', 'pushd', 'lock', ]
 
 
 implog = ColoredLogger(__name__)
@@ -37,10 +45,10 @@ def _drop_permissions(user):
     Need to re-escalate later when importing files.
 
     """
-    implog.info(u'Drop permissions to {} {}'.format(user.pw_gid, user.pw_uid))
-    # Group must be set first when permissions are available
+    # Group must be set first while permissions are available
     setegid(user.pw_gid)
     seteuid(user.pw_uid)
+    implog.info(u'De-escalated to {0} ({1})'.format(user.pw_gid, user.pw_uid))
 
 
 @contextmanager
@@ -69,11 +77,11 @@ def pushd(dir):
 def lock(lock=None):
     if lock:
         lock.acquire()
-        implog.warn('lock acquired')
+        implog.debug(u'{0!r} acquired'.format(lock))
         try:
             yield
         finally:
-            implog.warn('lock released')
+            implog.debug(u'{0!r} released'.format(lock))
             lock.release()
     else:
         yield
@@ -98,7 +106,8 @@ def su(uid=0, gid=0, su_lock=None):
     try:
         yield
     except Exception, e:
-        implog.error(u'Error in su(%s, %s): %s' % (uid, gid, e))
+        implog.error(u'Error while su(%s, %s)' % (uid, gid))
+        raise e
     finally:
         if uid != 0:
             seteuid(0)
@@ -116,21 +125,21 @@ def ssh_connect(ssh_host,
     with su():
         try:
             ssh_client.load_host_keys(known_hosts)
-        except IOError:
+        except IOError, e:
             implog.error(u'Need file %s with %s host key' % (known_hosts,
                                                              ssh_host))
-            raise
+            raise e
         try:
             ssh_client.connect(ssh_host, username='root',
                                key_filename=ssh_key_file)
-        except IOError:
+        except IOError, e:
             implog.error(u'Need file %s to SSH as remote root.' % ssh_key_file)
             implog.info(
                 "Please generate an SSH key and put the public key in the "
                 "remote host's root authorized keys. Remember that this will "
                 "allow anyone with the generated private key to log in as the "
                 "remote root so BE CAREFUL.")
-            raise
+            raise e
     return ssh_client
 
 
@@ -176,7 +185,7 @@ def sftp_dl(sftp, filepath, dl_files=True):
         if dl_files:
             sftp.get(filepath, temp.name)
         else:
-            implog.info('Skipping download of %s' % filepath)
+            implog.info('Skipped.')
             downloaded = None
     except IOError, e:
         implog.warn("Unable to locate file on remote %s: %s" % (filepath, e))
@@ -189,6 +198,181 @@ def sftp_dl(sftp, filepath, dl_files=True):
             unlink(temp.name)
         except OSError, e:
             implog.error('Unable to unlink tempfile: %s' % e)
+
+
+@contextmanager
+def local_dl(filepath, su_lock, dl_files=True):
+    """Download a filepath from the local filesystem.
+
+    Arguments:
+    dl_files - denotes whether the file is actually downloaded
+    hardlink - whether to hard link the file instead of copying
+
+    """
+    with su(su_lock=su_lock):
+        try:
+            implog.info('Downloading %s' % filepath)
+            downloaded = open(filepath, 'rb')
+        except IOError, e:
+            implog.warn(
+                u"Unable to locate file on local %s: %s" % (filepath, e))
+            downloaded = None
+        try:
+            yield downloaded
+        finally:
+            if downloaded:
+                downloaded.close()
+
+
+def copy_stat(downloader, stat, path):
+    with su(su_lock=downloader.su_lock):
+        try:
+            chmod(path, stat.st_mode)
+            chown(path, stat.st_uid, downloader.import_gid)
+            utime(path, (stat.st_atime, stat.st_mtime))
+        except IOError, e:
+            implog.error(
+                u'Unable to chmod downloaded path {0!r}:\n{1!r}'.format(
+                    path, e))
+
+
+def sftp_dl_dir(downloader, sftp, remotedir, localdir):
+    try:
+        with su(su_lock=downloader.su_lock):
+            mkdir(localdir)
+    except OSError, e:
+        implog.debug('Unable to create directory %s %s' %
+                     (os.path.basename(remotedir), e))
+        return
+
+    for file in sftp.listdir(remotedir):
+        remote_path = os.path.join(remotedir, file)
+        local_path = os.path.join(localdir, file)
+
+        remote_stat = sftp.lstat(remote_path)
+
+        if stat.S_ISDIR(sftp.lstat(remote_path).st_mode):
+            sftp_dl_dir(downloader, sftp, remote_path, local_path)
+        else:
+            try:
+                if downloader.dl_files:
+                    with su(su_lock=downloader.su_lock):
+                        sftp.get(remote_path, local_path)
+            except IOError, e:
+                implog.warning('Unable to download %s (%s)' % (remote_path, e))
+
+        copy_stat(downloader, remote_stat, local_path)
+
+
+def local_dl_dir(downloader, remotedir, localdir, hardlink=False):
+    """Download a directory from the local filesystem
+
+    Arguments:
+    hardlink - whether to hard link the files in the directory instead of copying
+
+    """
+    try:
+        with su(su_lock=downloader.su_lock):
+            mkdir(localdir)
+    except OSError, e:
+        implog.error('Unable to create directory %s %s' %
+                     (os.path.basename(remotedir), e))
+        return
+
+    for file in listdir(remotedir):
+        remote_path = os.path.join(remotedir, file)
+        local_path = os.path.join(localdir, file)
+
+        remote_stat = lstat(remote_path)
+
+        if stat.S_ISDIR(lstat(remote_path).st_mode):
+            local_dl_dir(downloader, remote_path, local_path, hardlink)
+        else:
+            try:
+                if downloader.dl_files:
+                    with su(su_lock=downloader.su_lock):
+                        if hardlink:
+                            link(remote_path, local_path)
+                        else:
+                            shutil.copy2(remote_path, local_path)
+            except IOError, e:
+                implog.warning('Unable to copy %s (%s)' % (remote_path, e))
+
+        copy_stat(downloader, remote_stat, local_path)
+
+
+class Downloader(object):
+    """Encapsulate the mechanics of downloading."""
+
+    def __init__(self, dl_files, ssh_sftp, import_gid, local_rewriter=None,
+                 su_lock=None, flush_lock=None):
+        self.dl_files = dl_files
+        self.set_ssh_sftp(ssh_sftp)
+        self.import_gid = import_gid
+        self.local_rewriter = local_rewriter
+        self.su_lock = su_lock
+        self.flush_lock = flush_lock
+
+    def __copy__(self):
+        return Downloader(
+            self.dl_files, (self.ssh, self.sftp), self.import_gid,
+            self.local_rewriter, self.su_lock, self.flush_lock)
+
+    def set_ssh_sftp(self, ssh_sftp):
+        self.ssh, self.sftp = ssh_sftp
+
+    @contextmanager
+    def dl(self, file_path):
+        if self.local_rewriter:
+            if not self.su_lock:
+                implog.error(
+                    u'Unable to find su lock when copying file. Cannot '
+                    'continue without risk. Skipping.')
+                yield None
+                return
+            implog.debug(
+                u'rewrite {} to{}'.format(
+                    file_path, self.local_rewriter(file_path)))
+            with local_dl(self.local_rewriter(file_path), self.su_lock,
+                          self.dl_files) as x:
+                implog.debug('downloaded')
+                yield x
+        else:
+            with sftp_dl(self.sftp, file_path, self.dl_files) as x:
+                implog.debug('downloaded')
+                yield x
+
+    def dl_dir(self, remote_dir_path, local_dir_path):
+        if not self.su_lock:
+            implog.error(
+                u'Unable to find su lock when copying directory. Cannot '
+                'continue without risk. Skipping.')
+            return
+        if self.local_rewriter:
+            local_dl_dir(self, self.local_rewriter(remote_dir_path), local_dir_path)
+        else:
+            sftp_dl_dir(self, self.sftp, remote_dir_path, local_dir_path)
+
+    def lstat(self, path):
+        if self.local_rewriter:
+            return lstat(self.local_rewriter(path))
+        else:
+            return self.sftp.lstat(path)
+
+    def mtime(self, path):
+        return datetime.fromtimestamp(self.lstat(path).st_mtime)
+
+    def listdir(self, dir_path):
+        if self.local_rewriter:
+            return listdir(self.local_rewriter(dir_path))
+        else:
+            return self.sftp.listdir(dir_path)
+
+    def readlink(self, path):
+        if self.local_rewriter:
+            return readlink(self.local_rewriter(path))
+        else:
+            return self.sftp.readlink(path)
 
 
 def _ustr2uni(s):
@@ -248,9 +432,10 @@ class Updater:
 
     def attr(self, obj, key, value, accept=True, note=None,
              note_data_type=None, creation_time=None):
-        DBSession.flush()
         attr = obj.attrsq(key, accepted_only=False).\
             order_by(_Attr.creation_timestamp).first()
+        implog.debug(
+            u'{0!r}.{1!r} ({2!r}) = {3!r}'.format(obj, key, attr, value))
         if attr:
             attr._set(value)
             attr.accepted = accept
@@ -321,12 +506,14 @@ def do_import():
         implog.error('No such user {}'.format(username))
         argparser.exit(1)
 
+    implog.setLevel(ERROR)
     if args.verbose >= 0:
         implog.setLevel(WARN)
     if args.verbose >= 1:
         implog.setLevel(INFO)
     if args.verbose >= 2:
         implog.setLevel(DEBUG)
+        model_log.setLevel(DEBUG)
     if args.verbose >= 3:
         args.sqlalchemy_echo=True
 
@@ -349,30 +536,31 @@ def do_import():
             'db_search_index_path defined for {}'.format(args.app_entry))
         argparser.exit(1)
 
-    implog.info('importing with options %s' % args)
+    implog.info(u'importing with options\n{0}'.format(pformat(vars(args))))
 
-    implog.info("connect to pycchdo (%s)" % args.settings['sqlalchemy.url'])
-    engine = engine_from_config(args.settings, echo=args.sqlalchemy_echo)
+    implog.info(u"connecting (%s)" % args.settings['sqlalchemy.url'])
+    engine = engine_from_config(args.settings, echo=args.sqlalchemy_echo,
+        pool_size=5, max_overflow=0, pool_timeout=4)
     DBSession.configure(bind=engine)
-    implog.info('fs root: {}'.format(args.settings['fs_root']))
     FSFile.reconfig_fs_storage(args.settings['fs_root'])
 
     if not args.search_index_only:
+
         if args.tabula_rasa:
-            implog.info('resetting database')
-            models.reset_database(engine)
+            implog.info('resetting database and fs')
+            reset_database(engine)
+            with su():
+                reset_fs()
 
         if args.clear_seahunt:
             seahunt.clear()
             return 0
 
         if not args.skip_cchdo:
-            cchdo.import_(wwwuser.pw_gid, dl_files=not args.skip_downloads,
-                          files_only=args.files_only)
+            cchdo.import_(wwwuser.pw_gid, args)
 
         if not args.skip_seahunt:
-            seahunt.import_(dl_files=not args.skip_downloads,
-                            files_only=args.files_only)
+            seahunt.import_(args)
 
     if not args.skip_search_index:
         SearchIndex(args.db_search_index_path).rebuild_index(

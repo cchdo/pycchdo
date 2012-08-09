@@ -8,7 +8,13 @@ import re
 import mimetypes
 import tarfile
 import shutil
-from StringIO import StringIO
+from copy import copy
+from threading import current_thread
+from StringIO import StringIO as pyStringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    StringIO = pyStringIO
 from threading import Thread, Lock
 import time
 import zipfile
@@ -49,52 +55,57 @@ from pycchdo.views import text_to_obj
 __all__ = ['import_Collection', 'import_person']
 
 
+remote_host = 'ghdc.ucsd.edu'
+
+        
+def rewrite_dl_path_to_local(path):
+    """Rewrite paths to reference the correct local path."""
+    leader_data = '/data/'
+    leader_submissions0 = (
+        '/Library/Webserver/Documents/cchdo/public/submissions/')
+    leader_submissions1 = (
+        '/Library/WebServer/Documents/cchdo/public/submissions/')
+    leader_submissions2 = (
+        '/Library/WebServer/Documents/cchdo/submissions/')
+    leader_old_submissions = (
+        '/incoming_data/old_sys/')
+    if path.startswith(leader_data):
+        # data
+        return '/var/cchdo-data/data/' + \
+            path[len(leader_data):]
+    elif path.startswith(leader_submissions0):
+        # Submissions
+        return '/var/cchdo-data/submissions/' + \
+            path[len(leader_submissions0):]
+    elif path.startswith(leader_submissions1):
+        # Submissions
+        return '/var/cchdo-data/submissions/' + \
+            path[len(leader_submissions1):]
+    elif path.startswith(leader_submissions2):
+        # Submissions
+        return '/var/cchdo-data/submissions/' + \
+            path[len(leader_submissions2):]
+    elif path.startswith(leader_old_submissions):
+        # OldSubmissions
+        return '/var/cchdo-data/submissions/old_sys/' + \
+            path[len(leader_old_submissions):]
+    return path
+
+
 def import_Collection(updater, name, type):
     """A Collection also will include a type as part of its identifier to
     differentiate between the fields it came from in the original database.
 
     """
-    collection = Collection.get_one_by_attrs(
-        DBSession, {'names': [name], 'type': type})
+    collection = Collection.get_one_by_attrs({'names': name, 'type': type})
     if collection:
-        implog.info('Updating Collection %s %s' % (name, type))
+        implog.info(u'Updating Collection {!r} {!r}'.format(name, type))
     else:
-        implog.info('Creating Collection %s %s' % (name, type))
+        implog.info(u'Creating Collection {!r} {!r}'.format(name, type))
         collection = updater.create_accept(Collection)
-    updater.attr(collection, 'names', [name])
-    updater.attr(collection, 'type', type)
+        updater.attr(collection, 'names', [name])
+        updater.attr(collection, 'type', type)
     return collection
-
-
-def sftp_dl_dir(sftp, remotedir, localdir, import_gid, su_lock=None, dl_files=True):
-    try:
-        with su(su_lock=su_lock):
-            os.mkdir(localdir)
-    except OSError, e:
-        implog.debug('Unable to create directory %s %s' %
-                     (os.path.basename(remotedir), e))
-        return
-
-    for file in sftp.listdir(remotedir):
-        remote_path = os.path.join(remotedir, file)
-        local_path = os.path.join(localdir, file)
-
-        remote_stat = sftp.lstat(remote_path)
-
-        if stat.S_ISDIR(sftp.lstat(remote_path).st_mode):
-            sftp_dl_dir(sftp, remote_path, local_path, import_gid, su_lock, dl_files)
-        else:
-            try:
-                if dl_files:
-                    with su(su_lock=su_lock):
-                        sftp.get(remote_path, local_path)
-            except IOError, e:
-                implog.warning('Unable to download %s (%s)' % (remote_path, e))
-
-        with su(su_lock=su_lock):
-            os.chmod(local_path, remote_stat.st_mode)
-            os.chown(local_path, remote_stat.st_uid, import_gid)
-            os.utime(local_path, (remote_stat.st_atime, remote_stat.st_mtime))
 
 
 def _namesonly(names):
@@ -380,7 +391,7 @@ def _find_person_with_qlastn_name_first(qlastn, name_first):
 
 
 def _name_to_person(updater, cruise, name):
-    qlastn = DBSession.query(Person).filter(Person.name_last == name)
+    qlastn = Person.query().filter(Person.name_last == name)
     people = qlastn.all()
     if len(people) == 1:
         return people[0]
@@ -521,7 +532,9 @@ def _cchdo_pi_to_person_insts(pi, cruise, updater):
 
 
 def _import_inst(updater, name):
-    inst = Institution.get_one_by_attrs(DBSession, {'name': name})
+    if not name:
+        return None
+    inst = Institution.get_one_by_attrs({'name': name})
     if inst:
         implog.info(u"Updating Institution {}".format(name))
     else:
@@ -548,12 +561,13 @@ def _import_person_inst(updater,
     return (person, institution)
 
 
-def _import_users(session, updater):
+def _import_users(session):
     implog.info("Importing users")
     users = session.query(legacy.User).all()
+    updater = _get_updater()
     for user in users:
-        person = DBSession.query(Person).\
-            filter(Person.identifier == user.username).first()
+        person = Person.query().filter(
+            Person.identifier == user.username).first()
         if not person:
             implog.info('Creating User %s' % user.username)
             person = import_person(
@@ -562,18 +576,19 @@ def _import_users(session, updater):
             implog.info('Updating User %s' % user.username)
         updater.attr(person, 'password_hash', user.password_hash)
         updater.attr(person, 'password_salt', user.password_salt)
-        updater.attr(person, 'import_id', user.id)
+        updater.attr(person, 'import_id', str(user.id))
 
 
-def _import_contacts(session, updater):
+def _import_contacts(session):
     implog.info("Importing Contacts")
     contacts = session.query(legacy.Contact).all()
+    updater = _get_updater()
     for contact in contacts:
         person, inst = _import_person_inst(
             updater, _ustr2uni(contact.LastName), _ustr2uni(contact.FirstName),
             _ustr2uni(contact.Institute), _ustr2uni(contact.email))
         # Since CCHDO currently has no concept of an Institution separate from
-        # a contact, make them here.
+        # a contact, differentiate them here.
         if contact.Address:
             updater.attr(person, 'address', _ustr2uni(contact.Address))
         if contact.telephone:
@@ -582,12 +597,12 @@ def _import_contacts(session, updater):
             updater.attr(person, 'fax', contact.fax)
         if contact.title:
             updater.attr(person, 'title', contact.title)
-        updater.attr(person, 'import_id', contact.id)
+        updater.attr(person, 'import_id', str(contact.id))
     DBSession.flush()
 
 
 def _import_ship(updater, ship_name):
-    ship = Ship.get_one_by_attrs(DBSession, {'name': ship_name})
+    ship = Ship.get_one_by_attrs({'name': ship_name})
     if ship:
         implog.info('Updating Ship %s' % ship_name)
     else:
@@ -598,7 +613,7 @@ def _import_ship(updater, ship_name):
 
 
 def _import_country(updater, country_name):
-    country = DBSession.query(Country).filter(
+    country = Country.query().filter(
         Country.iso_3166_1 == country_name).first()
     if country:
         implog.info('Updating Country %s' % country_name)
@@ -609,17 +624,17 @@ def _import_country(updater, country_name):
     return country
 
 
-def _import_cruise(updater, cruise, flushlock):
-    fcruise = Cruise.get_one_by_attrs(
-        DBSession, {'import_id': cruise.id})
-    if fcruise:
-        implog.info('Updating Cruise %s %s' % (cruise.id, cruise.ExpoCode))
-        c = fcruise
+def _import_cruise(cruise):
+    updater = _get_updater()
+    import_id = str(cruise.id)
+    c = Cruise.get_one_by_attrs({'import_id': import_id})
+    if c:
+        implog.info('Updating Cruise %s %s' % (import_id, cruise.ExpoCode))
     else:
-        implog.info('Creating Cruise %s %s' % (cruise.id, cruise.ExpoCode))
+        implog.info('Creating Cruise %s %s' % (import_id, cruise.ExpoCode))
         c = updater.create_accept(Cruise)
 
-    updater.attr(c, 'import_id', cruise.id)
+    updater.attr(c, 'import_id', import_id)
     updater.attr(c, 'expocode', cruise.ExpoCode)
 
     if cruise.Begin_Date:
@@ -671,71 +686,101 @@ def _import_cruise(updater, cruise, flushlock):
         if c.participants:
             implog.debug(
                 'Participants for cruise %s: %s' % (cruise.id, c.participants))
-    DBSession.flush()
+
+    implog.debug('imported cruise %s' % cruise.id)
+    transaction.commit()
+    DBSession.close()
 
 
 class CruisesImporter(Thread):
-    def __init__(self, cruise, flushlock, updater):
+    def __init__(self, cruise):
         Thread.__init__(self)
-        self.updater = updater
+        self.daemon = True
         self.cruise = cruise
-        self.flushlock = flushlock
 
     def run(self):
-        _import_cruise(self.updater, self.cruise, self.flushlock)
-        implog.debug('imported cruise %s' % self.cruise.id)
+        _import_cruise(self.cruise)
 
 
-def _run_importers(importers, nthreads=1, sftp=False, sleep=0.5):
-    implog.info("Importing with %d threads" % nthreads)
+def _log_progress(i, total):
+    implog.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, i / total))
+    
+
+def _run_importers(importers, nthreads=4, sleep=0.5):
+    num_importers = float(len(importers))
+    implog.info("Importing %d with %d threads" % (num_importers, nthreads))
+    i = 0
+
     if nthreads > 1:
+        implog.info("opening %d sftp connections" % nthreads)
+        sftp_pool = []
+        for i in range(nthreads):
+            try:
+                ssh = ssh_connect(remote_host)
+                sftp = ssh.open_sftp()
+            except SSHException, e:
+                implog.error(repr(e))
+            sftp_pool.append((ssh, sftp))
+
         active_importers = []
-        i = 0
         while importers:
+            # Clean up importers that have finished
             for imp in active_importers:
                 if not imp.is_alive():
+                    implog.debug('importer finished')
                     active_importers.remove(imp)
-                    if sftp:
+                    if sftp_pool is not None:
                         sftp_pool.append(imp.ssh_sftp)
                     i += 1
                     if i % nthreads == 0:
-                        implog.info('{:d} / {:d} = {:f}'.format(
-                            i, len(importers), i / len(importers)))
-            while len(active_importers) < nthreads and importers:
-                t = importers.pop()
-                if sftp:
-                    t.ssh_sftp = sftp_pool.pop()
-                active_importers.append(t)
-                t.start()
+                        _log_progress(i, num_importers)
+            # Start new importers when resources become available
+            while ( len(active_importers) < nthreads and importers and
+                    (sftp_pool is None or sftp_pool)):
+                imp = importers.pop()
+                if sftp_pool is not None:
+                    imp.ssh_sftp = sftp_pool.pop()
+                    imp.downloader = copy(imp.downloader)
+                    imp.downloader.set_ssh_sftp(imp.ssh_sftp)
+                active_importers.append(imp)
+                implog.debug('importer start')
+                imp.start()
             time.sleep(sleep)
+
+        # Wait for remaining importers to finish
         for imp in active_importers:
             if imp.is_alive():
                 imp.join()
+        _log_progress(i, num_importers)
+
+        implog.debug(u'closing sftp connections')
+        for ssh, sftp in sftp_pool:
+            sftp.close()
+            ssh.close()
     else:
+        # Run them one by one
         for imp in importers:
             imp.run()
+            i += 1
+            _log_progress(i, num_importers)
 
 
-def _import_cruises(session, updater):
+def _import_cruises(session):
     implog.info("Importing Cruises")
 
     cruises = session.query(legacy.Cruise).all()
     len_cruises = float(len(cruises))
 
-    flushlock = Lock()
-
     importers = []
     for cruise in cruises:
-        #XXX
-        #if cruise.id < 1309:
-        #    continue
-        importers.append(CruisesImporter(cruise, flushlock, updater))
+        importers.append(CruisesImporter(cruise))
 
     _run_importers(importers)
 
 
-def _import_track_lines(session, updater):
+def _import_track_lines(session):
     tls = session.query(legacy.TrackLine).all()
+    updater = _get_updater()
     for tl in tls:
         try:
             wkt = session.scalar(tl.Track.wkt)
@@ -751,10 +796,8 @@ def _import_track_lines(session, updater):
             pt_list = [point, point]
             linestring = LineString(pt_list)
 
-        cruises = Cruise.get_by_attrs(expocode=tl.ExpoCode)
-        if len(cruises) > 0:
-            cruise = cruises[0]
-        else:
+        cruise = Cruise.get_one_by_attrs({'expocode': tl.ExpoCode})
+        if not cruise:
             implog.warn('Unable to import track_line %s because the cruise '
                         '%s does not exist' % (tl.id, tl.ExpoCode))
             continue
@@ -766,7 +809,7 @@ def _import_track_lines(session, updater):
 def import_person(updater, name_last, name_first,
                   identifier=None, institution=None, email=None):
     query = {}
-    dbquery = DBSession.query(Person)
+    dbquery = Person.query()
     if name_last:
         query['name_last'] = _ustr2uni(name_last)
         dbquery = dbquery.filter(Person.name_last == query['name_last'])
@@ -823,44 +866,114 @@ def import_person(updater, name_last, name_first,
     return person
 
 
-def _import_collections(session, updater):
-    implog.info("Importing Collections")
-    collections = session.query(legacy.Collection).all()
-    for collection in collections:
-        imported_collection = Collection.get_by_attrs(
-            import_id=collection.id)
-        if imported_collection:
-            implog.info("Updating Collection %s" % collection.id)
+def _collections_merge(signer):
+    """Merge all collections that are the same together."""
+    cls = Collection
+
+    # Pass 1: same name and same type
+    implog.info('Collection merge pass 1: same name, same type')
+    sames = {}
+    colls = cls.query().all()
+    for coll in colls:
+        key = '|'.join([''.join(filter(None, coll.names)), coll.type or ''])
+        try:
+            sames[key].append(coll)
+        except KeyError:
+            sames[key] = [coll]
+    for same in sames.values():
+        if len(same) < 2:
+            continue
+        implog.debug(u'Merging {} with {}'.format(same[0], same[1:]))
+        same[0].merge(signer, *same[1:])
+
+    # Pass 2: same name and similar types
+    implog.info('Collection merge pass 2: same name, similar type')
+    sames = {}
+    colls = cls.query().all()
+    for coll in colls:
+        key = ''.join(filter(None, coll.names))
+        try:
+            sames[key].append(coll)
+        except KeyError:
+            sames[key] = [coll]
+    for same in sames.values():
+        if len(same) < 2:
             continue
 
-        implog.info("Creating Collection %s" % collection.id)
-        import_collection = updater.create_accept(Collection)
-        updater.attr(import_collection, 'names', [collection.Name])
-        updater.attr(import_collection, 'import_id', collection.id)
-    Collection.merge_same(updater.importer)
+        types = {}
+        for s in same:
+            key = s.type or ''
+            try:
+                types[key].append(s)
+            except KeyError:
+                types[key] = [s]
+
+        if '' in types:
+            s = types['']
+            if 'group' in types:
+                g = types['group'][0]
+                g.merge(signer, *s)
+            elif 'program' in types:
+                p = types['program'][0]
+                p.merge(signer, *s)
+            elif 'WOCE line' in types:
+                w = types['WOCE line'][0]
+                w.merge(signer, *s)
+        if 'group' in types:
+            g = types['group']
+            if 'WOCE line' in types:
+                w = types['WOCE line'][0]
+                w.merge(signer, *g)
+            elif 'program' in types:
+                p = types['program'][0]
+                p.merge(signer, *g)
+        if 'spatial_group' in types:
+            s = types['spatial_group']
+            if 'WOCE line' in types:
+                w = types['WOCE line'][0]
+                w.merge(signer, *s)
 
 
-def _import_collections_cruises(session, updater):
+def _import_collections(session):
+    implog.info("Importing Collections")
+    collections = session.query(legacy.Collection).all()
+    updater = _get_updater()
+    for collection in collections:
+        import_id = str(collection.id)
+        coll = Collection.get_one_by_attrs({'import_id': import_id})
+        if coll:
+            implog.info("Updating Collection %s %s" % (
+                import_id, collection.Name))
+        else:
+            implog.info("Creating Collection %s %s" % (
+                import_id, collection.Name))
+            coll = updater.create_accept(Collection)
+        updater.attr(coll, 'names', [collection.Name])
+        updater.attr(coll, 'import_id', import_id)
+
+    implog.info('Merging same collections')
+    _collections_merge(updater.importer)
+
+
+def _import_collections_cruises(session):
     implog.info("Importing CollectionsCruises")
+    updater = _get_updater()
     collections_cruises = session.query(legacy.CollectionsCruise).all()
     for cc in collections_cruises:
-        if cc.collection is None or cc.cruise is None :
+        if cc.collection is None or cc.cruise is None:
             implog.warn(
                 'CollectionCruises pair (cruise %d, collection %d) is bad' % (
                     cc.cruise_id, cc.collection_id))
             continue
 
-        cruises = Cruise.get_by_attrs(import_id=cc.cruise.id)
-        if len(cruises) > 0:
-            cruise = cruises[0]
-        else:
+        cruise = Cruise.get_one_by_attrs({'import_id': str(cc.cruise.id)})
+        if not cruise:
             implog.warn('Bad cruise %d' % cc.cruise.id)
             continue
 
-        collections = Collection.get_by_attrs(import_id=cc.collection.id)
-        if len(collections) > 0:
-            collection = collections[0]
-        else:
+        collection = Collection.get_one_by_attrs(
+            {'import_id': str(cc.collection.id)})
+        if not collection:
             implog.warn('Bad collections %d' % cc.collection.id)
             continue
 
@@ -875,8 +988,9 @@ def _import_collections_cruises(session, updater):
                 cruise, 'collections', cruise_collections + [collection.id])
 
 
-def _import_contacts_cruises(session, updater):
+def _import_contacts_cruises(session):
     implog.info("Importing ContactsCruises")
+    updater = _get_updater()
     contacts_cruises = session.query(legacy.ContactsCruise).all()
     for cc in contacts_cruises:
         if not cc.cruise:
@@ -886,18 +1000,18 @@ def _import_contacts_cruises(session, updater):
             implog.info("Bad Contact ID %s" % (cc.contact_id))
             continue
 
-        cruise = Cruise.get_one_by_attrs(
-            DBSession, {'import_id': cc.cruise_id})
+        import_id = str(cc.cruise_id)
+        cruise = Cruise.get_one_by_attrs({'import_id': import_id})
         if not cruise:
             implog.warn("Could not import ContactsCruise pair because cruise "
-                        '%s does not exist.' % cc.cruise_id)
+                        '%s does not exist.' % import_id)
             continue
 
-        person = Person.get_one_by_attrs(
-            DBSession, {'import_id': cc.contact.id})
+        import_id = str(cc.contact.id)
+        person = Person.get_one_by_attrs({'import_id': import_id})
         if not person:
             implog.warn("Could not import ContactsCruise pair because person "
-                        '%s does not exist.' % cc.contact.id)
+                        '%s does not exist.' % import_id)
             continue
 
         role = cc.function
@@ -913,11 +1027,14 @@ def _import_contacts_cruises(session, updater):
         implog.info(
             "Adding participant %s to cruise %s as %s" % (
                 person, cruise.id, role))
-        cruise.participants.add(person, role, updater.importer)
+        cruise.participants.extend(
+            cruise, updater.importer, Participant(role, person))
 
 
-def _import_events(session, updater):
+def _import_events(session):
     implog.info("Importing Events")
+
+    updater = _get_updater()
 
     events = session.query(legacy.Event).all()
     len_events = len(events)
@@ -926,7 +1043,7 @@ def _import_events(session, updater):
             implog.info('{:d}/{:d} = {:f}'.format(
                 i, len_events, float(i) / len_events))
         event_id = str(event.ID)
-        note = DBSession.query(Note).filter(Note.import_id == event_id).first()
+        note = Note.query().filter(Note.import_id == event_id).first()
         if note:
             implog.info("Updating Event %s" % event_id)
         else:
@@ -951,15 +1068,36 @@ def _import_events(session, updater):
             DBSession.add(note)
             DBSession.flush()
 
-            cruises = Cruise.get_by_expocode(DBSession, event.ExpoCode)
+            cruises = Cruise.get_by_expocode(event.ExpoCode)
             for cruise in cruises:
                 implog.info("Creating Event %s for cruise %s" % (
                     event_id, cruise.get('import_id')))
                 cruise.notes.append(note)
 
 
-def _import_old_submissions(session, updater, sftp_cchdo, dl_files=True):
+_known_bad_old_submissions = [
+    # File seems to be missing
+    '/incoming_data/old_sys/20041214.085723_STEINFELDT_CARIBINFLOW/20041214.085723_STEINFELDT_CARIBINFLOW_TMP.zip',
+    # File seems to be missing
+    '/incoming_data/old_sys/20041214.084855_STEINFELDT_METEOR53_3/20041214.084855_STEINFELDT_METEOR53_3_ctd.zip',
+    # File seems to be missing; maybe can regenerate from gzipped flat files?
+    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_Archive.zip',
+    # File seems to be missing
+    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_00_README.gz',
+    # File seems to be missing; maybe can regenerate from gzipped flat files?
+    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_Archive.zip',
+    # File seems to be missing
+    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_00_README.gz',
+    # File seems to be missing; maybe can regenerate from gzipped flat files?
+    '/incoming_data/old_sys/20030304.000001_MCTAGGART_PR15/20030304.000001_MCTAGGART_PR15_Archive.zip',
+    # File seems to be missing; maybe can regenerate from gzipped flat files?
+    '/incoming_data/old_sys/20030304.000000_MCTAGGART_PR16/20030304.000000_MCTAGGART_PR16_Archive.zip',
+]
+
+
+def _import_old_submissions(session, downloader):
     implog.info("Importing Old Submissions")
+    updater = _get_updater()
     subs = session.query(legacy.OldSubmission).all()
 
     # Group submissions by folder
@@ -968,16 +1106,16 @@ def _import_old_submissions(session, updater, sftp_cchdo, dl_files=True):
         try:
             submission = map_submissions[sub.Folder]
         except KeyError:
-            submissions = OldSubmission.get_by_attrs(folder=sub.Folder)
-            if len(submissions) > 0:
+            submission = OldSubmission.query().filter(
+                OldSubmission.folder == sub.Folder).first()
+            if submission:
                 implog.info('Updating OldSubmission %s' % sub.Folder)
-                submission = submissions[0]
             else:
                 implog.info('Creating OldSubmission %s' % sub.Folder)
                 submission = updater.create_accept(OldSubmission)
                 submission.creation_timestamp = sub.created_at
                 submission.judgment_timestamp = sub.updated_at
-                submission.folderfolder = sub.Folder
+                submission.folder = sub.Folder
                 submission.date = _date_to_datetime(sub.Date)
                 submission.stamp = sub.Stamp
                 submission.line = sub.Line
@@ -986,32 +1124,17 @@ def _import_old_submissions(session, updater, sftp_cchdo, dl_files=True):
                 DBSession.flush()
             map_submissions[sub.Folder] = submission
 
-        files = submission.files
-
-        with sftp_dl(sftp_cchdo, sub.Location, dl_files) as file:
-            if file is None and dl_files:
-                if sub.Location in (
-                    # File seems to be missing
-                    '/incoming_data/old_sys/20041214.085723_STEINFELDT_CARIBINFLOW/20041214.085723_STEINFELDT_CARIBINFLOW_TMP.zip',
-                    # File seems to be missing
-                    '/incoming_data/old_sys/20041214.084855_STEINFELDT_METEOR53_3/20041214.084855_STEINFELDT_METEOR53_3_ctd.zip',
-                    # File seems to be missing; maybe can regenerate from gzipped flat files?
-                    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_Archive.zip',
-                    # File seems to be missing
-                    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_00_README.gz',
-                    # File seems to be missing; maybe can regenerate from gzipped flat files?
-                    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_Archive.zip',
-                    # File seems to be missing
-                    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_00_README.gz',
-                    # File seems to be missing; maybe can regenerate from gzipped flat files?
-                    '/incoming_data/old_sys/20030304.000001_MCTAGGART_PR15/20030304.000001_MCTAGGART_PR15_Archive.zip',
-                    # File seems to be missing; maybe can regenerate from gzipped flat files?
-                    '/incoming_data/old_sys/20030304.000000_MCTAGGART_PR16/20030304.000000_MCTAGGART_PR16_Archive.zip',
-                    ):
+        with downloader.dl(sub.Location) as file:
+            if file is None and downloader.dl_files:
+                if sub.Location in _known_bad_old_submissions:
+                    implog.info(
+                        u'Skipping known bad Old Submission: {0}'.format(
+                            sub.Location))
                     continue
                 else:
-                    raise ValueError('Unable to find file for old submission: '
-                                     '%s' % sub.Location)
+                    raise ValueError(
+                        u'Unable to find file for old submission: {}'.format(
+                            sub.Location))
             if (    file and
                     not any(f.name == sub.Filename for f in submission.files)):
                 submission.files.append(FSFile(file, sub.Filename))
@@ -1019,8 +1142,9 @@ def _import_old_submissions(session, updater, sftp_cchdo, dl_files=True):
             DBSession.flush()
 
 
-def _import_spatial_groups(session, updater):
+def _import_spatial_groups(session):
     implog.info("Importing Spatial groups")
+    updater = _get_updater()
     sgs = session.query(legacy.SpatialGroup).all()
     for sg in sgs:
         collection = import_Collection(updater, sg.area, 'group')
@@ -1037,90 +1161,90 @@ def _import_spatial_groups(session, updater):
             basins.append('southern')
         updater.attr(collection, 'basins', basins)
 
-        cruises = Cruise.get_by_attrs(expocode=sg.expocode)
-        if len(cruises) > 0:
+        cruise = Cruise.get_one_by_attrs({'expocode': sg.expocode})
+        if cruise:
             implog.info("Updating Cruise %s for spatial_groups" % sg.expocode)
-            cruise = cruises[0]
             collections = uniquify(cruise.collections + [collection])
             if cruise.collections != collections:
                 ids = [c.id for c in collections]
                 updater.attr(cruise, 'collections', ids)
 
 
-def _import_internal(session, updater):
-    """Internal maps a cruise to a basin."""
+def _import_internal(session):
+    """The internal table maps a cruise to a basin."""
     implog.info("Importing Internal")
+    updater = _get_updater()
     internals = session.query(legacy.Internal).all()
     for i in internals:
-        # TODO
-        cruises = Cruise.get_by_attrs(expocode=i.expocode)
-        if len(cruises) > 0:
+        cruise = Cruise.get_one_by_attrs({'expocode': i.expocode})
+        if cruise:
             implog.info("Updating Cruise %s for internal" % i.expocode)
-            cruise = cruises[0]
         else:
             implog.info("Creating Cruise %s for internal" % i.expocode)
             cruise = updater.create_accept(Cruise)
         updater.attr(cruise, 'expocode', i.expocode)
-        updater.attr(cruise, 'import_id', 'internal')
+        #updater.attr(
+        #    cruise, 'import_id', '_'.join(
+        #        [cruise.get('import_id', ''), 'internal']))
+
         # TODO it may be better to map the cruise to the collection and let
         # basin attribute on collection figure out the rest.
         collection = import_Collection(updater, i.Basin, 'basin')
-
-        collections = cruise.collections + [collection.id]
+        collections = cruise.get('collections', []) + [collection.id]
         collections = uniquify(collections)
         updater.attr(cruise, 'collections', collections)
 
 
-def _import_unused_tracks(session, updater):
+def _import_unused_tracks(session):
     implog.info("Importing unused tracks")
+    updater = _get_updater()
     ts = session.query(legacy.UnusedTrack).all()
     for t in ts:
-        # TODO
-        cruises = Cruise.get_by_attrs(expocode=t.expocode)
-        if len(cruises) > 0:
+        cruise = Cruise.get_one_by_attrs({'expocode': t.expocode})
+        if cruise:
             implog.info("Updating Cruise %s for unused track" % t.expocode)
-            cruise = cruises[0]
         else:
             implog.info("Creating Cruise %s for unused track" % t.expocode)
             cruise = updater.create_accept(Cruise)
         updater.attr(cruise, 'expocode', t.expocode)
-        updater.attr(cruise, 'import_id', 'unused_track')
-        collection = import_Collection(updater, t.Basin, 'basin')
+        #updater.attr(cruise, 'import_id', '_'.join(
+        #    cruise.get('import_id', ''), 'unused_track']))
 
-        collections = cruise.collections + [collection.id]
+        collection = import_Collection(updater, t.Basin, 'basin')
+        collections = cruise.get('collections', []) + [collection.id]
         collections = uniquify(collections)
         updater.attr(cruise, 'collections', collections)
 
 
 def _import_unit(updater, unit):
-    us = Unit.get_by_attrs(import_id=unit.id)
-    if len(us) > 0:
-        return us[0]
-    else:
+    import_id = str(unit.id)
+    u = Unit.get_one_by_attrs({'import_id': import_id})
+    if not u:
         u = updater.create_accept(Unit)
         DBSession.add(u)
         DBSession.flush()
+        updater.attr(u, 'import_id', import_id)
     updater.attr(u, 'name', unit.name)
     updater.attr(u, 'mnemonic', unit.mnemonic)
     return u
 
 
-def _import_parameter_descriptions(updater):
+def _import_parameter_descriptions(session):
     implog.info("Importing parameter descriptions")
+    updater = _get_updater()
     std_session = std.session()
     std_session.autoflush = False
     try:
-        parameters = lcconvert.all_parameters(std_session)
+        parameters = lcconvert.all_parameters(session, std_session)
     except OperationalError, e:
         implog.error("unable to convert parameters: %s" % e)
         parameters = []
     finally:
         std_session.close()
     for parameter in parameters:
-        parameters = Parameter.get_by_attrs(name=parameter.name)
-        if len(parameters) > 0:
+        p = Parameter.get_one_by_attrs({'name': parameter.name})
+        if p:
             implog.info("Updating Parameter %s" % parameter.name)
-            p = parameters[0]
         else:
             implog.info("Creating Parameter %s" % parameter.name)
             p = updater.create_accept(Parameter)
@@ -1138,15 +1262,14 @@ def _import_parameter_descriptions(updater):
         updater.attr(p, 'aliases', aliases)
 
 
-def _import_parameter_groups(session, updater):
+def _import_parameter_groups(session):
     std_session = std.session()
+    updater = _get_updater()
     groups = session.query(legacy.ParameterGroup).all()
     std_session.close()
     for group in groups:
-        gs = ParameterOrder.get_by_attrs(name=group.group)
-        if len(gs) > 0:
-            g = gs[0]
-        else:
+        g = ParameterOrder.get_one_by_attrs({'name': group.group})
+        if not g:
             g = ParameterOrder(updater.importer)
             g.accept(updater.importer)
             DBSession.add(g)
@@ -1155,36 +1278,32 @@ def _import_parameter_groups(session, updater):
             order = group.ordered_parameters
             porder = []
             for p in order:
-                parameters = Parameter.get_by_attrs(name=p)
-                if len(parameters) < 1:
+                parameter = Parameter.get_one_by_attrs({'name': p})
+                if not parameter:
                     implog.warn("Could not find parameter %s for order" % p)
-                    parameter = Parameter(updater.importer)
-                    parameter.accept(updater.importer)
-                    DBSession.add(parameter)
-                    DBSession.flush()
+                    parameter = updater.create_accept(Parameter)
                     updater.attr(parameter, 'name', p)
                     updater.attr(
                         parameter, 'in_groups_but_did_not_exist', True)
-                else:
-                    parameter = parameters[0]
                 porder.append(parameter.id)
             updater.attr(g, 'order', porder)
 
 
-def _import_bottle_dbs(session, updater):
+def _import_bottle_dbs(session):
     implog.info("Importing Bottle DBs")
     # TODO regenerate bottle parameter information cache
     implog.info("Omitting import in favor of regenerating this information")
 
 
-def _import_parameter_status(session, updater):
+def _import_parameter_status(session):
     implog.info("Importing parameter statuses")
     implog.info("Omitting import because information is never used in site "
                  "and probably is replaced by documents.preliminary")
 
 
-def _import_parameters(session, updater):
+def _import_parameters(session):
     implog.info("Importing parameters (chiscis responsible)")
+    updater = _get_updater()
 
     codes = {}
     for code in session.query(legacy.Codes).all():
@@ -1192,7 +1311,7 @@ def _import_parameters(session, updater):
 
     parameters = {}
     for param in legacy.CruiseParameterInfo._PARAMETERS:
-        parameter = Parameter.get_one_by_attrs(DBSession, {'name': param})
+        parameter = Parameter.get_one_by_attrs({'name': param})
         if parameter:
             implog.info("Found Parameter %s for CPI" % param)
         else:
@@ -1207,7 +1326,7 @@ def _import_parameters(session, updater):
     DBSession.flush()
 
     for p in session.query(legacy.CruiseParameterInfo).all():
-        cruise = Cruise.get_one_by_attrs(DBSession, {'expocode': p.ExpoCode})
+        cruise = Cruise.get_one_by_attrs({'expocode': p.ExpoCode})
         if cruise:
             implog.info("Found Cruise %s for CPI" % p.ExpoCode)
         else:
@@ -1267,42 +1386,73 @@ argo_action_str = \
     'Non-public data for Argo calibration (proprietary, rapid-delivery)'
 
 
-def _import_submissions(session, updater, sftp_cchdo, dl_files=True):
+def submission_public_to_type(p, argo_action):
+    """Convert CCHDO submission public and action to submission type."""
+    # 2011-09-16 myshen
+    # cberys has determined "assigned" corroborates
+    # non-public status and is generally redundant. More importantly it
+    # is not used anywhere in the application.
+    if p is None:
+        # Assume that no response means public data as long the submission
+        # is not for Argo
+        if argo_action:
+            return 'argo'
+        return 'public'
+
+    p = p.lower()
+    if p == 'public':
+        return 'public'
+    elif p == 'argo':
+        return 'argo'
+    else:
+        return 'non-public'
+
+
+_KNOWN_MISSING_SUBMISSIONS = [
+    '/Library/WebServer/Documents/cchdo/public/submissions/20071026_12_17_Huang__Pien/1 - I8S Argo Video (Quicktime)',
+    '/Library/WebServer/Documents/cchdo/public/submissions/20071129_04_25_Shibata_Fuyuki/',
+    '/Library/Webserver/Documents/cchdo/public/submissions/20080222_09_21_oz/',
+
+    '/Library/Webserver/Documents/cchdo/public/submissions/20080417_01_07_j_kappa/',
+    '/Library/Webserver/Documents/cchdo/public/submissions/20090119_05_22_widodo/',
+    ]
+
+
+def _import_submissions(session, downloader):
     implog.info("Importing Submissions")
 
-    submissions = DBSession.query(Submission).all()
+    updater = _get_updater()
+
+    submissions = Submission.query().all()
     imported_submissions = set([s.get('import_id') for s in submissions])
 
-    def submission_public_to_type(p, argo_action):
-        """Convert CCHDO submission public and action to submission type."""
-        # 2011-09-16 myshen
-        # cberys has determined "assigned" corroborates
-        # non-public status and is generally redundant. More importantly it
-        # is not used anywhere in the application.
-        if p is None:
-            # Assume that no response means public data as long the submission
-            # is not for Argo
-            if argo_action:
-                return 'argo'
-            return 'public'
-
-        p = p.lower()
-        if p == 'public':
-            return 'public'
-        elif p == 'argo':
-            return 'argo'
-        else:
-            return 'non-public'
+    # Assimilated cruise
+    # We need to create a cruise that does not appear for "assimilated"
+    # submissions to be attached to it. This allows them to be marked
+    # assimilated.
+    cruise = Cruise.get_one_by_attrs({'import_id': 'submissions_assimilated'})
+    if not cruise:
+        cruise = Cruise(updater.importer)
+        DBSession.add(cruise)
+        DBSession.flush()
+        cruise.set_accept(
+            'import_id', 'submissions_assimilated', updater.importer)
+        fs_assimilated = FieldStorage()
+        fs_assimilated.filename = 'assimilated'
+        fs_assimilated.file = pyStringIO('')
+        fs_assimilated.file.name = fs_assimilated.filename
+        attr = cruise.set_accept(
+            'data_suggestion', fs_assimilated, updater.importer)
+    else:
+        attr = cruise.get_attr('data_suggestion')
 
     for sub in session.query(legacy.Submission).all():
-        # XXX
-        if sub.id < 670:
-            continue
-        if sub.id in imported_submissions:
-            implog.info("Updating Submission %d" % sub.id)
+        import_id = str(sub.id)
+        if import_id in imported_submissions:
+            implog.info("Updating Submission %s" % import_id)
             continue
         else:
-            implog.info("Creating Submission %d" % sub.id)
+            implog.info("Creating Submission %s" % import_id)
             submission = Submission(updater.importer)
 
             submission.creation_timestamp = \
@@ -1344,7 +1494,7 @@ def _import_submissions(session, updater, sftp_cchdo, dl_files=True):
             if ship_name:
                 submission.ship_name_ = _ustr2uni(ship_name)
             if line:
-                submission.line_ = _ustr2uni(line)
+                submission.line = _ustr2uni(line)
             if action:
                 # Remove Argo import string from list of actions and set the
                 # argo bit
@@ -1353,29 +1503,36 @@ def _import_submissions(session, updater, sftp_cchdo, dl_files=True):
                     if argo_action_str in action:
                         removed = action.replace(argo_action_str, '')
                         action = ','.join(filter(None, removed.split(',')))
-                submission.action_ = _ustr2uni(action)
+                submission.action = _ustr2uni(action)
             if notes:
                 submission.notes.append(
                     Note(submitter, _ustr2uni(notes)))
 
-            file = None
-            with sftp_dl(sftp_cchdo, file_path, dl_files) as file:
+            if file_path in _KNOWN_MISSING_SUBMISSIONS:
+                implog.info(
+                    u'Skipped known missing submission: %s', file_path)
+                continue
+
+            with downloader.dl(file_path) as file:
                 if not file:
                     DBSession.delete(submission)
-                    implog.warn('unable to get file for Submission %s', sub.id)
+                    implog.warn(
+                        u'unable to get file for Submission %s', import_id)
                     continue
 
                 file_name = os.path.basename(file_path)
                 actual_file = FieldStorage()
                 actual_file.filename = file_name
+                actual_file.file = file
 
-                # ZipFile.open will clobber a file object so make a copy.
+                # ZipFile.open will clobber the file object so make a copy.
                 temp = StringIO()
                 copy_chunked(file, temp)
                 file.seek(0)
 
-                if file_name.startswith('multiple_files') and file_name.endswith('.zip'):
-                    # unzip multiple_files zips that are actually just one file
+                # unzip multiple_files*.zips that are actually just one file
+                if (    file_name.startswith('multiple_files') and
+                        file_name.endswith('.zip')):
                     with zipfile.ZipFile(temp) as zf:
                         infos = zf.infolist()
                         if len(infos) == 1:
@@ -1384,54 +1541,50 @@ def _import_submissions(session, updater, sftp_cchdo, dl_files=True):
                             copy_chunked(zippedf, tempzipf)
                             actual_file.filename = infos[0].filename
                             actual_file.file = tempzipf
-                            submission.file = FSFile.from_fieldstorage(
-                                actual_file)
-                else:   
-                    actual_file.file = file
-                    submission.file = FSFile.from_fieldstorage(actual_file)
+                submission.file = FSFile.from_fieldstorage(actual_file)
                 DBSession.flush()
 
-            submission.type_ = submission_public_to_type(
+            submission.type = submission_public_to_type(
                 sub.public, argo_action)
+
             # "assimilated" is used to color code the submission table according
             # to whether submission has been put in the queue.
             assimilated = bool(sub.assimilated)
-            submission.attached_ = assimilated
+            if assimilated:
+                submission.attached = attr
+
             DBSession.flush()
             try:
                 submission.cruise_date = _date_to_datetime(sub.cruise_date)
             except TypeError:
                 pass
 
-            updater.attr(submission, 'import_id', sub.id)
+            updater.attr(submission, 'import_id', import_id)
 
 
-def _get_mtime(sftp_cchdo, filepath):
-    lstat = sftp_cchdo.lstat(filepath)
-    return datetime.datetime.fromtimestamp(lstat.st_mtime)
-
-
-def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
+def _import_queue_files(session, downloader):
     implog.info("Importing queue files")
+    updater = _get_updater()
 
     re_docs = re.compile('Cruise (report|information)', re.IGNORECASE)
 
     queue_files = session.query(legacy.QueueFile).all()
     for qfile in queue_files:
-        cruises = Cruise.get_by_attrs(expocode=qfile.expocode)
-        if not cruises:
-            implog.warn("Missing cruise for queue file %s" % qfile.expocode)
+        cruise = Cruise.get_one_by_attrs({'expocode': qfile.expocode})
+        if not cruise:
+            implog.warn(
+                u"Missing cruise for queue file %s. Skip" % qfile.expocode)
             continue
-        else:
-            cruise = cruises[0]
 
-        queue_file = models._Attr.get_one({'import_id': qfile.id,
-                                           'key': 'data_suggestion'})
         unprocessed_input = qfile.unprocessed_input.strip()
-        if not queue_file:
-            implog.info('Creating Queue File %s' % qfile.id)
 
-            with sftp_dl(sftp_cchdo, unprocessed_input, dl_files) as file:
+        import_id = str(qfile.id)
+        qf_file = FSFile.query().filter(
+            FSFile.import_id == import_id).first()
+        if not qf_file:
+            implog.info('Creating Queue File %s' % import_id)
+
+            with downloader.dl(unprocessed_input) as file:
                 if file is None:
                     implog.warn(
                         "Missing queue file %s" % unprocessed_input)
@@ -1445,9 +1598,15 @@ def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
                         actual_file.type = 'application/octet-stream'
                     actual_file.file = file
 
-            queue_file = cruise.set(
-                'data_suggestion', actual_file, updater.importer)
-            queue_file.import_id = qfile.id
+                # A file in the "queue" is a file that has been attached to a
+                # cruise and no more. We can't really guess the data type
+                # correctly 100% with the given information so attach it as a
+                # data_suggestion.
+                queue_file = updater.attr(
+                    cruise, 'data_suggestion', actual_file)
+                # Set the import id on the FSFile
+                queue_file.attr_value.value.import_id = import_id
+                DBSession.flush()
 
             name = qfile.contact
             if not name:
@@ -1456,19 +1615,20 @@ def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
                 submitter, inst = _import_person_inst(
                     updater, name, '', '', '')
 
-            queue_file.creation_stamp['person'] = submitter.id
+            queue_file.creation_person_id = submitter.id
             date_received = None
             if qfile.date_received:
                 date_received = _date_to_datetime(qfile.date_received)
             else:
-                date_received = _get_mtime(sftp_cchdo, unprocessed_input)
-            queue_file.creation_stamp['timestamp'] = date_received
+                date_received = downloader.mtime(unprocessed_input)
+            queue_file.creation_timestamp = date_received
             DBSession.flush()
         else:
-            implog.info('Updating Queue File %s' % qfile.id)
+            implog.info('Updating Queue File %s' % import_id)
+            queue_file = qf_file.attr_value.attr
 
         if qfile.cchdo_contact:
-            contact = DBSession.query(Person).\
+            contact = Person.query().\
                 filter(Person.identifier == qfile.cchdo_contact).first()
             if contact:
                 queue_file.acknowledge(contact)
@@ -1487,7 +1647,7 @@ def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
             if not date_merged:
                 implog.warn('No date merged for merged file. Obtaining from '
                             'file timestamp')
-                date_merged = _get_mtime(sftp_cchdo, unprocessed_input)
+                date_merged = downloader.mtime(unprocessed_input)
             else:
                 date_merged = _date_to_datetime(date_merged)
             queue_file.judgment_timestamp = date_merged
@@ -1501,13 +1661,13 @@ def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            queue_file.notes.append(Note(updater.importer,
-                                            _ustr2uni(qfile.notes)))
+            queue_file.notes.append(
+                Note(updater.importer, _ustr2uni(qfile.notes)))
 
         if qfile.action:
-            queue_file.notes.append(Note(updater.importer, _ustr2uni(qfile.action),
-                                            data_type='Action',
-                                            discussion=True))
+            queue_file.notes.append(
+                Note(updater.importer, _ustr2uni(qfile.action),
+                    data_type='Action', discussion=True))
 
         if qfile.parameters or qfile.documentation:
             parameters = qfile.parameters
@@ -1516,8 +1676,8 @@ def _import_queue_files(session, updater, sftp_cchdo, dl_files=True):
             if qfile.documentation:
                 if not re_docs.match(parameters):
                     parameters = u','.join([parameters, 'Documentation'])
-            queue_file.notes.append(Note(updater.importer, parameters,
-                                            data_type='Parameters',
+            queue_file.notes.append(
+                Note(updater.importer, parameters, data_type='Parameters',
                                             discussion=True))
 
         if qfile.merge_notes:
@@ -1568,7 +1728,7 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
     'NetCDF Bottle': 'bottlezip_netcdf',
     'NetCDF CTD': 'ctdzip_netcdf',
     'SEA file': 'sea',
-    'Sum File': 'sum',
+    'Sum File': 'sum_woce',
     'WCT CTD File': 'ctd_wct',
     'Woce Bottle': 'bottle_woce',
     'Woce CTD (Zipped)': 'ctdzip_woce',
@@ -1586,87 +1746,92 @@ def parse_dt(s):
         return s
 
 
-def _import_documents_for_cruise(updater, sftp_cchdo, docs, cruise, import_gid,
-                                 su_lock, dl_files=True):
-    expocode = cruise.get('expocode')
+_ignorable_document_types = ['ExpoCode', '.passwd', '.password', 'error_File', ]
+
+
+def _import_documents_for_cruise(downloader, docs, cruise_id):
+    with lock(downloader.flush_lock):
+        updater = _get_updater()
+        cruise = Cruise.query().get(cruise_id)
+        expocode = cruise.get('expocode')
     if docs:
         implog.info("Importing documents for %s" % expocode)
     else:
+        implog.info("No docs to import for %s" % expocode)
         return
 
-    implog.setLevel(INFO)
+    # Map the list of legacy Documents to keys that pycchdo recognizes
     mapped_docs = {}
     for doc in docs:
         if doc.FileType in _DOCS_TYPE_IGNORE:
-            implog.debug('Ignoring doc of type %s: %s' % (doc.FileType,
-                                                          doc.FileName))
+            implog.debug(
+                u'Ignoring doc of type %s: %s' % (doc.FileType, doc.FileName))
             continue
 
         try:
             pycchdo_type = _DOCS_TYPE_TO_PYCCHDO_TYPE[doc.FileType]
         except KeyError:
             basename = os.path.basename(doc.FileName)
-            if doc.FileType == 'Unrecognized' and \
-                (basename == 'ExpoCode' or 
-                 basename == '.passwd' or
-                 basename == '.password' or
-                 basename == 'error_File'):
+            if (    doc.FileType == 'Unrecognized' and 
+                    basename in _ignorable_document_types):
                 pycchdo_type = 'ignore'
             else:
-                implog.warn('Unmapped doc type %s: %s' % (doc.FileType,
-                                                          doc.FileName))
+                implog.warn(
+                    u'Unmapped doc type %s: %s' % (doc.FileType, doc.FileName))
                 continue
         if pycchdo_type == 'bottle_exchange':
             if doc.FileName.endswith('lv_hy1.csv'):
                 pycchdo_type = 'large_volume_samples_exchange'
 
         try:
-            if doc.LastModified > mapped_docs[pycchdo_type].LastModified:
+            mapped_doc = mapped_docs[pycchdo_type]
+            if doc.LastModified > mapped_doc.LastModified:
                 implog.warning('%s already exists: old %s new %s' % (
-                    pycchdo_type, mapped_docs[pycchdo_type].FileName,
-                    doc.FileName))
+                    pycchdo_type, mapped_doc.FileName, doc.FileName))
                 mapped_docs[pycchdo_type] = doc
-        except KeyError:
+        except (KeyError, TypeError):
             mapped_docs[pycchdo_type] = doc
             implog.debug('Mapped %s %s' % (pycchdo_type, doc.FileName))
-    implog.setLevel(DEBUG)
 
+    # Add the cruise's directory entry as import record
     try:
         dir = mapped_docs['directory'].FileName
         del mapped_docs['directory']
+        with lock(downloader.flush_lock):
+            updater.attr(cruise, 'data_dir', dir)
     except KeyError:
-        implog.error('%s has no directory registered' % expocode)
+        implog.error(
+            '%s has no directory registered. Cannot import.' % expocode)
         return
 
-    updater.attr(cruise, 'data_dir', dir)
-
+    # Import all files that have been mapped to the cruise
     accounted_files = []
-    for type, doc in mapped_docs.items():
-        if type == 'ignore':
+    for data_type, doc in mapped_docs.items():
+        if data_type == 'ignore':
             continue
 
-        id = doc.id
-        if cruise.find_attrs({'key': type, 'import_id': id}).count() > 0:
-            implog.info('%s already imported' % id)
+        doc_import_id = str(doc.id)
+        with lock(downloader.flush_lock):
+            attr = cruise.attr_by_file_import_id(data_type, doc_import_id)
+        if attr:
+            implog.info('%s already imported' % doc_import_id)
             continue
 
         preliminary = bool(doc.Preliminary)
         if preliminary:
-            implog.info('Marking file %s for %s preliminary' % (type, expocode))
-            status_key = '%s_status' % type
-            if cruise.find_attrs({'key': status_key,
-                                  'import_id': id}).count() < 1:
-                statuses = cruise.get(status_key, [])
-                if 'preliminary' not in statuses:
-                    statuses.extend(['preliminary'])
-                    attr = cruise.set_accept(
-                        status_key, statuses, updater.importer)
-                    attr.import_id = id
-                    DBSession.flush()
+            implog.info(
+                'Marking file %s for %s preliminary' % (data_type, expocode))
+            # Nothing else makes changes to <key>_status es so it is safe to
+            # assume the only <key>_status is the one we want to change.
+            status_key = '%s_status' % data_type
+            statuses = uniquify(cruise.get(status_key, []) + ['preliminary'])
+            with lock(downloader.flush_lock):
+                updater.attr(cruise, status_key, statuses)
 
+        # Check that the file to download is the same size as recorded in db.
         size = int(doc.Size)
         try:
-            lstat = sftp_cchdo.lstat(doc.FileName)
+            lstat = downloader.lstat(doc.FileName)
             if lstat.st_size != size:
                 implog.warn(
                     'File %s has mismatched size. Expected %s got %s' % (
@@ -1675,19 +1840,24 @@ def _import_documents_for_cruise(updater, sftp_cchdo, docs, cruise, import_gid,
             implog.error('Missing file %s' % doc.FileName)
             continue
 
+        # We don't care about these stamps. Regenerate later.
         stamps = doc.Stamp
 
         field = FieldStorage()
         field.filename = os.path.basename(doc.FileName)
         field.type = mimetypes.guess_type(doc.FileName)[0]
 
-        with sftp_dl(sftp_cchdo, doc.FileName, dl_files) as file:
-            field.file = file
-        if not field.file:
-            implog.error('Unable to download %s. Skipping' % doc.FileName)
-            continue
+        with downloader.dl(doc.FileName) as file:
+            if not file:
+                implog.error('Unable to download %s. Skipping' % doc.FileName)
+                continue
 
-        attr = cruise.set_accept(type, field, updater.importer)
+            field.file = file
+            with lock(downloader.flush_lock):
+                attr = updater.attr(cruise, data_type, field)
+                attr.attr_value.import_path = doc.FileName
+                attr.attr_value.import_id = doc_import_id
+                DBSession.flush()
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
@@ -1699,50 +1869,50 @@ def _import_documents_for_cruise(updater, sftp_cchdo, docs, cruise, import_gid,
             if len(creations) > 1:
                 date_creations = map(str, sorted(map(parse_dt, creations)))
                 date_creation = date_creations[0]
-                updater.note(
-                    attr, ','.join(date_creations), 'dates_updated')
+                with lock(downloader.flush_lock):
+                    updater.note(
+                        attr, ','.join(date_creations), 'dates_updated')
             else:
                 attr.creation_timestamp = date_creation
         if date_accepted:
             attr.judgment_timestamp = parse_dt(date_accepted)
 
-        attr.v.import_path = doc.FileName
-        attr.v.import_id = id
-        DBSession.flush()
-
         accounted_files.append(field.filename)
+        with lock(downloader.flush_lock):
+            DBSession.flush()
     accounted_files.extend(_DOCS_FILES_IGNORE)
 
-    if cruise.find_attrs({'key': 'unaccounted',
-                          'import_id': cruise.id}).count() > 0:
-        implog.info('%s unaccounted already imported' % cruise.id)
+    # Import unaccounted files as an archive
+    archive_import_id = str(cruise.id)
+    with lock(downloader.flush_lock):
+        archive_attr = cruise.attrsq('archive').first()
+    if archive_attr:
+        implog.info('%s archive already imported' % archive_import_id)
         return
 
-    any_unaccounted = False
-    remote_dir = os.path.dirname(doc.FileName)
-    # Use a shorter temp root so long path names don't get too long. Mac OS
-    # X limits to 1024 bytes.
-    with lock(su_lock):
+    # Use a shorter temp root so long path names don't get too long. Mac OS X
+    # limits to 1024 bytes.
+    with lock(downloader.su_lock):
         local_dir = tempfile.mkdtemp(dir='/tmp')
-    implog.debug('allocated local tempdir %s' % local_dir)
+    implog.debug(
+        'allocated local tempdir to collect unaccounted %s' % local_dir)
+
+    remote_dir = os.path.dirname(doc.FileName)
     try:
-        dirlist = sftp_cchdo.listdir(remote_dir)
+        dirlist = downloader.listdir(remote_dir)
     except IOError:
         implog.error(
             'Could not list remote dir %s to find unaccounted files' % 
             remote_dir)
         return
+
+    any_unaccounted = False
     for entry in dirlist:
         if entry in _DOCS_FILES_IGNORE:
             continue
         if entry in accounted_files:
             continue
-        accounted = False
-        for regexp in _DOCS_RE_IGNORE:
-            if regexp.match(entry):
-                accounted = True
-                continue
-        if accounted:
+        if any(regexp.match(entry) for regexp in _DOCS_RE_IGNORE):
             continue
 
         any_unaccounted = True
@@ -1751,107 +1921,93 @@ def _import_documents_for_cruise(updater, sftp_cchdo, docs, cruise, import_gid,
         remote_path = os.path.join(remote_dir, entry)
         local_path = os.path.join(local_dir, entry)
 
-        remote_stat = sftp_cchdo.lstat(remote_path)
+        implog.debug(
+            u'Downloading directory {0} to {1}'.format(remote_path, local_path))
 
-        if stat.S_ISDIR(remote_stat.st_mode):
+        r_lstat = downloader.lstat(remote_path)
+        if stat.S_ISDIR(r_lstat.st_mode):
             try:
-                sftp_dl_dir(sftp_cchdo, remote_path, local_path, import_gid,
-                            su_lock, dl_files)
+                downloader.dl_dir(remote_path, local_path)
             except IOError, e:
                 implog.error('Unable to download unaccounted dir %s' %
-                               remote_path)
+                             remote_path)
                 implog.error(repr(e))
         else:
             try:
-                sftp_cchdo.get(remote_path, local_path)
+                with downloader.dl(remote_path) as file:
+                    with open(local_path, 'wb') as ostream:
+                        copy_chunked(file, ostream) 
+                    file.seek(0)
             except IOError, e:
                 implog.error('Unable to download unaccounted file %s' %
-                               remote_path)
+                             remote_path)
                 implog.error(repr(e))
-
-        with su(su_lock=su_lock):
-            try:
-                os.chmod(local_path, remote_stat.st_mode)
-                os.chown(local_path, remote_stat.st_uid, import_gid)
-                os.utime(local_path, (remote_stat.st_atime,
-                                      remote_stat.st_mtime))
-            except Exception, e:
-                implog.error("Unable to chmod downloaded file: %s %s" %
-                             (local_path, e))
-
-    unaccounted_archive = StringIO()
-    ua_tar = tarfile.open(mode='w:bz2', fileobj=unaccounted_archive)
-    with su(su_lock=su_lock):
-        with pushd(local_dir):
-            ua_tar.add('.')
-        ua_tar.close()
-        shutil.rmtree(local_dir)
-    unaccounted_archive.seek(0)
+        copy_stat(downloader, r_lstat, local_path)
 
     if any_unaccounted:
-        field = FieldStorage()
-        field.filename = 'unaccounted.tar.bz2'
-        field.type = mimetypes.guess_type(field.filename)
-        field.file = unaccounted_archive
-        attr = cruise.set_accept('unaccounted', field, updater.importer)
-        attr.permissions = {'read': ['staff', ]}
-        attr.import_id = cruise.id
-        DBSession.flush()
+        unaccounted_archive = StringIO()
+        ua_tar = tarfile.open(mode='w:bz2', fileobj=unaccounted_archive)
+        with su(su_lock=downloader.su_lock):
+            with pushd(local_dir):
+                ua_tar.add('.')
+            ua_tar.close()
+            shutil.rmtree(local_dir)
+        unaccounted_archive.seek(0)
 
-    unaccounted_archive.close()
+        fs_archive = FieldStorage()
+        fs_archive.filename = 'archive.tar.bz2'
+        fs_archive.type = mimetypes.guess_type(fs_archive.filename)
+        fs_archive.file = unaccounted_archive
+
+        with lock(downloader.flush_lock):
+            archive_attr = updater.attr(cruise, 'archive', fs_archive)
+            archive_attr.attr_value.import_id = archive_import_id
+            archive_attr.permissions_read = ['staff', ]
+
+            DBSession.flush()
+        unaccounted_archive.close()
+
+    implog.debug('Imported docs for %s' % cruise.get('expocode', ''))
+    DBSession.close()
 
 
 class DocumentsImporter(Thread):
-    def __init__(self, docs, updater, cruise, import_gid, su_lock, dl_files):
+    def __init__(self, *args):
         Thread.__init__(self)
-        self.updater = updater
-        self.cruise = cruise
-        self.docs = docs
-        self.ssh_sftp = (None, None)
-        self.import_gid = import_gid
-        self.su_lock = su_lock
-        self.dl_files = dl_files
+        self.daemon = True
+        self.args = args
+        self.downloader = args[0]
 
     def run(self):
-        _import_documents_for_cruise(
-            self.updater, self.ssh_sftp[1], self.docs, self.cruise,
-            self.import_gid, self.su_lock, self.dl_files)
-        implog.debug('imported docs for %s' % self.cruise.get('expocode', ''))
+        _import_documents_for_cruise(*self.args)
 
 
-def _import_documents(session, updater, import_gid, dl_files=True):
+def _import_documents(session, downloader):
     implog.info("Importing documents")
 
     # Instead of importing the documents table, go the other way around and
     # import documents for each cruise
-    cruises = DBSession.query(Cruise).all()
+    # TODO FIXME what about the files with no ExpoCode? or ExpoCode == 'NULL'?
+    # package those up?
+    cruises = Cruise.query().all()
     len_cruises = float(len(cruises))
 
-    su_lock = Lock()
+    previous_su_lock = downloader.su_lock
+    previous_flush_lock = downloader.flush_lock
+    downloader.su_lock = Lock()
+    downloader.flush_lock = Lock()
 
     importers = []
     for cruise in cruises:
         docs = session.query(legacy.Document).filter(
-            legacy.Document.ExpoCode==cruise.get('expocode')).order_by(
+            legacy.Document.ExpoCode == cruise.get('expocode')).order_by(
             legacy.Document.LastModified.desc()).all()
-        importers.append(DocumentsImporter(
-            docs, updater, cruise, import_gid, su_lock, dl_files))
+        importers.append(DocumentsImporter(downloader, docs, cruise.id))
 
-    nthreads = 1
-    sftp_pool = []
-    implog.info("Opening %d SSH connections" % nthreads)
-    for i in range(nthreads):
-        try:
-            ssh_cchdo = ssh_connect('cchdo.ucsd.edu')
-            sftp_cchdo = ssh_cchdo.open_sftp()
-        except SSHException, e:
-            implog.error(repr(e))
-        sftp_pool.append((ssh_cchdo, sftp_cchdo))
+    _run_importers(importers, 3)
 
-    _run_importers(importers, nthreads, sftp=True)
-    for ssh, sftp in sftp_pool:
-        sftp.close()
-        ssh.close()
+    downloader.flush_lock = previous_flush_lock
+    downloader.su_lock = previous_su_lock
 
 
 class FakeWebObRequest(object):
@@ -1860,102 +2016,95 @@ class FakeWebObRequest(object):
         self.remote_addr = remote_addr
 
 
-def _import_argo_files(session, updater, sftp_cchdo, dl_files=True):
+def _import_argo_files(session, downloader):
     implog.info("Importing Argo files")
+    updater = _get_updater()
     argo_files = session.query(legacy.ArgoFile).all()
 
-    sftp_cchdo.chdir('/data/argo/files')
-
     for file in argo_files:
-        argo_file = DBSession.query(ArgoFile).\
+        filename = file.filename
+
+        argo_file = ArgoFile.query().\
             filter(ArgoFile.creation_timestamp == file.created_at).first()
         if not argo_file:
             implog.info(
-                u'Creating Argo File ({}, {})'.format(
-                    file.filename, file.created_at))
-            user = Person.get_one_by_attrs(
-                DBSession, {'import_id': file.user.id})
+                u'Creating Argo File ({0}, {1})'.format(
+                    filename, file.created_at))
+            user = Person.get_one_by_attrs({'import_id': str(file.user.id)})
             if not user:
                 user = updater.importer
-            argo_file = ArgoFile(updater.importer)
-            argo_file.creation_person_id = user.id
+            argo_file = ArgoFile(user)
             argo_file.creation_timestamp = file.created_at
+            argo_file.accept(user)
             DBSession.add(argo_file)
             DBSession.flush()
         else:
-            implog.info('Updating Argo File (%s, %s)' % (file.filename,
-                                                         file.created_at))
-
+            implog.info(u'Updating Argo File (%s, %s)' % (
+                filename, file.created_at))
         argo_file.text_identifier = file.expocode
         argo_file.description = file.description
         argo_file.display = file.display
 
+        remote_path = os.path.join('/data/argo/files', filename)
+        implog.debug(remote_path)
+
         # Special case for missing.txt because there is no actual file.
-        if file.filename != 'missing.txt':
-            lstat = sftp_cchdo.lstat(file.filename)
+        if filename != 'missing.txt':
+            lstat = downloader.lstat(remote_path)
+            fs_argo = FieldStorage()
+            fs_argo.filename = filename
+            fs_argo.type = mimetypes.guess_type(filename)[0]
             if stat.S_ISLNK(lstat.st_mode):
                 # Attempt to find the cruise and corresponding file type to link
-                symlink_target = sftp_cchdo.readlink(file.filename)
-                implog.debug(u'ArgoFile is link to {}'.format(symlink_target))
+                symlink_target = downloader.readlink(remote_path)
+                implog.debug(u'ArgoFile {0} is link to {1}'.format(
+                    file.id, symlink_target))
 
                 # Get the ExpoCode from the symlink target's directory
                 expopath = os.path.join(
                     os.path.dirname(symlink_target), 'ExpoCode')
                 expocode = None
-                with sftp_dl(sftp_cchdo, expopath, dl_files) as expo:
+                with downloader.dl(expopath) as expo:
                     if expo:
                         expocode = expo.read().strip()
+                    else:
+                        implog.error(
+                            u'Unable to get ExpoCode for linked ArgoFile {0}. '
+                            'Skip.'.format(file.id))
+                        continue
 
-                cruise = Cruise.get_one_by_attrs(
-                    DBSession, {'expocode': expocode})
+                cruise = Cruise.get_one_by_attrs({'expocode': expocode})
                 if expocode and cruise:
                     file_type = libcchdo.fns.guess_file_type(symlink_target)
                     if file_type:
+                        implog.debug(u'Guessed file type to be {}'.format(
+                            file_type))
                         argo_file.link(cruise, file_type)
                         continue
                     else:
                         implog.debug(
-                            u'Attempting to find file in imported documents')
-                        # Attempt to find the file in documents to figure out
-                        # the file type.
-                        # TODO
-                        fsfile = DBSession.query(FSFile).filter(
+                            u'Finding file in imported documents to link')
+                        fsfile = FSFile.query().filter(
                             FSFile.import_path == symlink_target).first()
                         if fsfile:
-                            av = fsfile.av
-                            implog.debug(av)
-                        a = models._Attr.get_one({
-                            'import_filepath': symlink_target})
-                        if a:
-                            argo_file.link(cruise, a.key)
-                            continue
+                            attr = fsfile.attr_value.attr
+                            if attr:
+                                argo_file.link(cruise, attr.key)
+                                continue
                 implog.warn(
-                    u'Unable to find cruise {} to link ArgoFile {} to. '
-                    'Attempting download of file.'.format(
-                        expocode, file.created_at))
-                with sftp_dl(sftp_cchdo, symlink_target, dl_files) as f:
-                    if f:
-                        downloaded = FieldStorage()
-                        downloaded.filename = os.path.basename(
-                            file.filename)
-                        downloaded.type = mimetypes.guess_type(
-                            downloaded.filename)[0]
-                        downloaded.file = f
-                        argo_file.file = FSFile.from_fieldstorage(downloaded)
-                    else:
-                        implog.error(
-                            u'Unable to attach argo file by download')
-            else:
-                # File is not a link so just download and attach
-                with sftp_dl(sftp_cchdo, file.filename, dl_files) as f:
-                    if f:
-                        actual_file = FieldStorage()
-                        actual_file.filename = file.filename
-                        actual_file.type = mimetypes.guess_type(
-                            file.filename)[0]
-                        actual_file.file = f
-                        argo_file.file = FSFile.from_fieldstorage(actual_file)
-            DBSession.flush()
+                    u'Unable to find cruise {0} to link ArgoFile {1} to. '
+                    'Attaching actual file.'.format(expocode, file.id))
+
+            # File is not a link or was unable to find cruise so just download
+            # and attach the file
+            with downloader.dl(remote_path) as f:
+                if f:
+                    fs_argo.file = f
+                    argo_file.file = FSFile.from_fieldstorage(fs_argo)
+                else:
+                    implog.error(u'Unable to attach argo file by download')
+
+                DBSession.flush()
 
         if file.downloads:
             requests = []
@@ -1967,11 +2116,12 @@ def _import_argo_files(session, updater, sftp_cchdo, dl_files=True):
         DBSession.flush()
 
 
-def import_(import_gid, dl_files=True, files_only=False):
+def _get_updater():
     implog.info("Get/Create CCHDO Importer to take blame")
-    importer = import_person(None, 'importer', 'CCHDO', 'CCHDO_importer')
-    updater = Updater(importer)
+    return Updater(import_person(None, 'importer', 'CCHDO', 'CCHDO_importer'))
 
+
+def import_(import_gid, args):
     # libcchdo does not need a local cache of parameter information. That will
     # be done during the import
     libcchdo.check_cache = False
@@ -1981,35 +2131,39 @@ def import_(import_gid, dl_files=True, files_only=False):
         with db_session(legacy.session()) as session:
             session.autoflush = False
 
-            if not files_only:
-                #_import_users(session, updater)
-                #_import_contacts(session, updater)
-                #_import_collections(session, updater)
+            if not args.files_only:
+                _import_users(session)
+                _import_contacts(session)
+                _import_collections(session)
 
-                _import_cruises(session, updater)
+                _import_cruises(session)
 
-                _import_track_lines(session, updater)
-                _import_collections_cruises(session, updater)
-                _import_contacts_cruises(session, updater)
+                _import_track_lines(session)
+                _import_collections_cruises(session)
+                _import_contacts_cruises(session)
 
-                _import_events(session, updater)
+                _import_events(session)
 
-                _import_spatial_groups(session, updater)
-                _import_internal(session, updater)
-                _import_unused_tracks(session, updater)
+                _import_spatial_groups(session)
+                _import_internal(session)
+                _import_unused_tracks(session)
 
-                _import_parameter_descriptions(updater)
-                _import_parameter_groups(session, updater)
-                _import_bottle_dbs(session, updater)
-                _import_parameter_status(session, updater)
-                _import_parameters(session, updater)
+                _import_parameter_descriptions(session)
+                _import_parameter_groups(session)
+                _import_bottle_dbs(session)
+                _import_parameter_status(session)
+                _import_parameters(session)
 
-            with sftp('cchdo.ucsd.edu') as (ssh_cchdo, sftp_cchdo):
-                _import_submissions(session, updater, sftp_cchdo, dl_files)
-                _import_old_submissions(session, updater, sftp_cchdo, dl_files)
-                _import_queue_files(session, updater, sftp_cchdo, dl_files)
-                _import_documents(session, updater, import_gid, dl_files)
-                _import_argo_files(session, updater, sftp_cchdo, dl_files)
+            with sftp(remote_host) as ssh_sftp:
+                dl_files = not args.skip_downloads
+                downloader = Downloader(
+                    dl_files, ssh_sftp, import_gid,
+                    local_rewriter=rewrite_dl_path_to_local, su_lock=Lock())
+                _import_submissions(session, downloader)
+                _import_old_submissions(session, downloader)
+                _import_queue_files(session, downloader)
+                _import_documents(session, downloader)
+                _import_argo_files(session, downloader)
     except KeyboardInterrupt:
-        pass
+        implog.warn('CCHDO import interrupted. Interrupt again to quit import.')
     transaction.commit()

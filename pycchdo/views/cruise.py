@@ -41,11 +41,11 @@ def _cruises(request):
     seahunt = request.params.get('seahunt_only', False)
     allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
-        cruises = Cruise.all_only_accepted(request.db, False)
+        cruises = Cruise.only_if_accepted_is(False).all()
     elif allow_seahunt:
-        cruises = request.db.query(Cruise).all()
+        cruises = Cruise.query().all()
     else:
-        cruises = Cruise.all_only_accepted(request.db, True)
+        cruises = Cruise.only_if_accepted_is(True).all()
     cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
     return cruises
 
@@ -57,18 +57,18 @@ def cruises_index(request):
 
 def cruises_index_json(request):
     if request.params.get('pending_years'):
-        return Cruise.pending_years(request.db)
+        return Cruise.pending_years()
     elif request.params.get('id'):
         id = request.params.get('id')
         try:
-            cruise = _get_cruise(request.db, id)
+            cruise = _get_cruise(id)
         except ValueError:
             raise HTTPBadRequest()
         return _cruise_to_json(cruise)
     elif request.params.get('ids'):
         ids = [x.strip() for x in request.params.get('ids').split(',')]
         try:
-            cruises = [_get_cruise(request.db, cruise_id) for cruise_id in ids]
+            cruises = [_get_cruise(cruise_id) for cruise_id in ids]
         except ValueError:
             raise HTTPBadRequest()
         return [_cruise_to_json(cruise) for cruise in cruises]
@@ -296,7 +296,7 @@ def _add_note_to_attr(request):
     except KeyError:
         public = False
 
-    attr_obj = request.db.query(_Attr).get(attr_id)
+    attr_obj = _Attr.query().get(attr_id)
     if not attr_obj:
         request.response_status = '404 Not Found'
         request.session.flash(
@@ -322,7 +322,7 @@ def _add_note_to_file(request):
     except KeyError:
         public = False
 
-    file_obj = request.db.query(_Attr).get(file_id)
+    file_obj = _Attr.query().get(file_id)
     if not file_obj:
         request.response_status = '404 Not Found'
         request.session.flash(
@@ -354,10 +354,10 @@ def _add_note(request, cruise_obj):
         Note(request.user.id, note, action, data_type, summary, not public))
 
 
-def _get_cruise(session, cruise_id):
+def _get_cruise(cruise_id):
     try:
         if cruise_id:
-            cruise_obj = session.query(Cruise).get(cruise_id)
+            cruise_obj = Cruise.query().get(cruise_id)
         else:
             cruise_obj = None
     except ValueError:
@@ -365,10 +365,8 @@ def _get_cruise(session, cruise_id):
 
     # If the id is not an ObjectId, try searching based on ExpoCode
     if not cruise_obj:
-        cruises = Cruise.get_by_attrs2(session, {'expocode': cruise_id})
-        if len(cruises) > 0:
-            cruise_obj = cruises[0]
-        else:
+        cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
+        if not cruise:
             raise ValueError()
     return cruise_obj
 
@@ -379,7 +377,7 @@ def cruise_show(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(request.db, cruise_id)
+        cruise_obj = _get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -486,7 +484,7 @@ def cruise_show_json(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(request.db, cruise_id)
+        cruise_obj = _get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -512,7 +510,7 @@ def map_full(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(request.db, cruise_id)
+        cruise_obj = _get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -529,7 +527,7 @@ def map_thumb(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(request.db, cruise_id)
+        cruise_obj = _get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -565,7 +563,7 @@ def kml(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise = _get_cruise(request.db, cruise_id)
+        cruise = _get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -733,7 +731,7 @@ def kml(request):
 
 
 def _contributions(request):
-    pending_cruises = Cruise.all_only_accepted(request.db, False)
+    pending_cruises = Cruise.only_if_accepted_is(False).all()
     def has_track(c):
         try:
             c.get_attr('track')

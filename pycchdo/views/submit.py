@@ -15,7 +15,7 @@ def _send_confirmation(request, d):
             request.registry.settings.get('submission_confirmation_recipient',
                                           request.user.email), cchdo_email]
 
-        d['user_name'] = request.user.full_name()
+        d['user_name'] = request.user.full_name
         d['file_noun'] = h.whtext.plural(
             len(d['file_names']), 'file', 'files', False)
 

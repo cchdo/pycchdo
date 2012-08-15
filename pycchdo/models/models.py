@@ -21,7 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Table,
     )
-from sqlalchemy.exc import StatementError
+from sqlalchemy.exc import StatementError, DataError
 from sqlalchemy.types import (
     TypeEngine,
     Integer, Boolean, Enum, String, Unicode, DateTime, TIMESTAMP, DECIMAL,
@@ -350,6 +350,7 @@ class Note(StampedCreation, DBQueryable, Base):
 
     creation_timestamp = Column(DateTime, default=timestamp_now)
     creation_person_id = Column(Integer, ForeignKey('people.id'))
+    creation_person = relationship('Person', primaryjoin='Person.id == Note.creation_person_id')
     creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
 
     body = Column(Unicode)
@@ -588,7 +589,6 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
 
     @file.setter
     def file(self, f):
-        log.debug('set file to {0!r}'.format(f))
         if f:
             if type(f) is not DjangoFile:
                 self.file_ = DjangoFile(f)
@@ -597,42 +597,46 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
         else:
             self.file_ = None
         flag_modified(self, 'fsid')
+        log.debug('set file to {0!r}'.format(self.file_))
 
 
 @event.listens_for(FSFile, 'before_insert')
 @event.listens_for(FSFile, 'before_update')
 def _saved_file(mapper, connection, target):
-    log.debug(u'saving file for {0!r}: {1!r}'.format(target, target.file))
+    save_me = target.file
+    log.debug(u'saving file for {0!r}: {1!r}'.format(target, save_me))
 
     # Delete the old file
     _deleted_file(mapper, connection, target)
 
-    if target.file is None:
+    if save_me is None:
         return
 
-    # TODO This shouldn't be needed anymore becasue @file.setter ensures the
-    # file is either None or a DjangoFile
-    ## Attempt to set file._size appropriately for Django FS to work.
-    #if not hasattr(target.file, '_size'):
-    #    if hasattr(target.file, 'size'):
-    #        target.file._size = target.file.size
-    #    elif os.path.exists(target.file.name):
-    #        target.file._size = os.path.getsize(target.file.name)
-    #    else:
-    #        try:
-    #            cpos = target.file.tell()
-    #            target.file.seek(0, 2)
-    #            size = target.file.tell()
-    #            target.file.seek(cpos)
-    #            target.file._size = size
-    #        except IOError:
-    #            pass
+    cpos = save_me.tell()
 
-    cpos = target.file.tell()
-    target.fsid = unicode(
-        target.fs.save(target.fs.get_available_name(''), target.file))
-    if not target.file.isatty():
-        target.file.seek(cpos)
+    # Attempt to set file._size appropriately for Django FS to work.
+    if not hasattr(save_me, '_size'):
+        if hasattr(save_me, 'size'):
+            save_me._size = save_me.size
+        elif os.path.exists(save_me.name):
+            save_me._size = os.path.getsize(save_me.name)
+        else:
+            try:
+                save_me.seek(0, 2)
+                size = save_me.tell()
+                if not save_me.isatty():
+                    save_me.seek(cpos)
+                save_me._size = size
+            except IOError:
+                pass
+
+    # Do not use the same name for every file or this method will become *very*
+    # slow.
+    available_name = target.fs.get_available_name(str(hash(target.file)))
+    target.fsid = unicode(target.fs.save(available_name, save_me))
+
+    if not save_me.isatty():
+        save_me.seek(cpos)
 
 
 @event.listens_for(FSFile, 'load')
@@ -979,6 +983,12 @@ class _AttrValueParticipants(_AttrValue):
         'Participant', collection_class=Participants,
         cascade='all, delete, delete-orphan')
 
+    @staticmethod
+    def _coerce(target, value, oldvalue=None, initiator=None):
+        if type(value) is not Participant:
+            raise TypeError('{0!r} is not a Participant'.format(value))
+        return value
+
 
 class _AttrValueElem(DBQueryable, Base):
     """Base for _AttrValueList elements."""
@@ -1085,6 +1095,14 @@ class ParameterInformation(_AttrValueElem):
             self.inst_id = inst.id
         self.ts = ts
     
+    def is_empty(self):
+        """Return whether ParameterInformation has no details about parameter.
+
+        """
+        return (
+            self.status is None and self.pi_id is None and
+            self.inst_id is None and self.ts is None)
+
     def __eq__(self, other):
         return (
             self.parameter_id == other.parameter_id and
@@ -2183,7 +2201,16 @@ class _IDAttrMgr(_AttrMgr):
 
     @classmethod
     def by_ids(cls, ids):
-        return cls.query().filter(cls.id.in_(ids))
+        if ids:
+            return cls.query().filter(cls.id.in_(ids))
+        return cls.query()
+
+    @classmethod
+    def get_by_id(cls, id):
+        try:
+            return cls.query().filter(cls.id == id).first()
+        except DataError, e:
+            raise ValueError(unicode(e))
 
     def to_nice_dict(self):
         """Return a dict representation of the Obj.
@@ -2335,6 +2362,10 @@ class Cruise(Obj):
     @property
     def statuses(self):
         return self.get('statuses', [])
+
+    @property
+    def ports(self):
+        return self.get('ports', [])
 
     @property
     def preliminary(self):
@@ -2601,13 +2632,18 @@ class CruiseParticipantAssociate(CruiseAssociate):
 
     These are people or institutions.
 
+    cruise_participant_associate_key should be set to 'person' or 'institution'
+    by the subclass.
+
     """
     cruise_associate_key = 'participants'
     cruise_participant_associate_key = None
 
     def cruises(self):
-        return super(CruiseParticipantAssociate, self).cruises(
-            self.cruise_participant_associate_key)
+        cruises = super(CruiseParticipantAssociate, self).cruises()
+        return cruises
+    # FIXME
+        #self.cruise_participant_associate_key)
 
 
 class Country(CruiseAssociate, Obj):

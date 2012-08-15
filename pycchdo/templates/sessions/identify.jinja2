@@ -6,7 +6,7 @@
 {% block content %}
   {% call h.boxed(whh.literal('&nbsp;')) -%}
     {%- if request.user %}
-      <p>Welcome {{ request.user.full_name() }}!</p>
+      <p>Welcome {{ request.user.full_name }}!</p>
     {%- else %}
       <div id="options">
         <div class="left"><div id="janrainEngageEmbed"></div></div>

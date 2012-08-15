@@ -13,6 +13,7 @@ from os import (
 import os.path
 from pwd import getpwnam
 import sys
+from threading import current_thread
 
 from pyramid.paster import get_appsettings
 
@@ -77,11 +78,13 @@ def pushd(dir):
 def lock(lock=None):
     if lock:
         lock.acquire()
-        implog.debug(u'{0!r} acquired'.format(lock))
+        #implog.debug(u'{0!r} acquired by {1!r}'.format(
+        #    lock, current_thread().name))
         try:
             yield
         finally:
-            implog.debug(u'{0!r} released'.format(lock))
+            #implog.debug(u'{0!r} released by {1!r}'.format(
+            #    lock, current_thread().name))
             lock.release()
     else:
         yield
@@ -90,31 +93,28 @@ def lock(lock=None):
 @contextmanager
 def su(uid=0, gid=0, su_lock=None):
     """Temporarily switch effective uid and gid to provided values."""
-    if su_lock:
-        su_lock.acquire()
-    try:
-        seuid = geteuid()
-        segid = getegid()
-        if uid != 0 and seuid != 0:
-            seteuid(0)
-        setegid(gid)
-        seteuid(uid)
-    except OSError, e:
-        implog.error('You must run this program as root because file '
-                     'permissions need to be set.')
-        argparser.exit(1)
-    try:
-        yield
-    except Exception, e:
-        implog.error(u'Error while su(%s, %s)' % (uid, gid))
-        raise e
-    finally:
-        if uid != 0:
-            seteuid(0)
-        setegid(segid)
-        seteuid(seuid)
-    if su_lock:
-        su_lock.release()
+    with lock(su_lock):
+        try:
+            seuid = geteuid()
+            segid = getegid()
+            if uid != 0 and seuid != 0:
+                seteuid(0)
+            setegid(gid)
+            seteuid(uid)
+        except OSError, e:
+            implog.error('You must run this program as root because file '
+                         'permissions need to be set.')
+            argparser.exit(1)
+        try:
+            yield
+        except Exception, e:
+            implog.error(u'Error while su(%s, %s)' % (uid, gid))
+            raise e
+        finally:
+            if uid != 0:
+                seteuid(0)
+            setegid(segid)
+            seteuid(seuid)
 
 
 def ssh_connect(ssh_host,
@@ -330,11 +330,10 @@ class Downloader(object):
                     'continue without risk. Skipping.')
                 yield None
                 return
+            rewritten_path = self.local_rewriter(file_path)
             implog.debug(
-                u'rewrite {} to{}'.format(
-                    file_path, self.local_rewriter(file_path)))
-            with local_dl(self.local_rewriter(file_path), self.su_lock,
-                          self.dl_files) as x:
+                u'rewrite {} to {}'.format(file_path, rewritten_path))
+            with local_dl(rewritten_path, self.su_lock, self.dl_files) as x:
                 implog.debug('downloaded')
                 yield x
         else:
@@ -487,7 +486,8 @@ argparser.add_argument(
 argparser.add_argument(
     '-v', '--verbose', action='count', default=0,
     help='Verbosity by logging level.')
-argparser.set_defaults(app_entry='app:pycchdo', sqlalchemy_echo=False)
+argparser.set_defaults(
+    app_entry='app:pycchdo', sqlalchemy_pool_echo=False,sqlalchemy_echo=False)
 
 
 def _read_config(args):
@@ -515,6 +515,8 @@ def do_import():
         implog.setLevel(DEBUG)
         model_log.setLevel(DEBUG)
     if args.verbose >= 3:
+        args.sqlalchemy_pool_echo=True
+    if args.verbose >= 4:
         args.sqlalchemy_echo=True
 
     if not args.skip_downloads:
@@ -540,7 +542,13 @@ def do_import():
 
     implog.info(u"connecting (%s)" % args.settings['sqlalchemy.url'])
     engine = engine_from_config(args.settings, echo=args.sqlalchemy_echo,
-        pool_size=5, max_overflow=0, pool_timeout=4)
+        pool_size=6, max_overflow=0, pool_timeout=4, strategy='threadlocal')
+
+    if args.sqlalchemy_pool_echo:
+        pool_logger = logging.getLogger('sqlalchemy.pool')
+        pool_logger.addHandler(implog.handlers[0])
+        pool_logger.setLevel(logging.DEBUG)
+
     DBSession.configure(bind=engine)
     FSFile.reconfig_fs_storage(args.settings['fs_root'])
 

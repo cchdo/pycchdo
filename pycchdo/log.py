@@ -22,7 +22,7 @@ COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ = "\033[1m"
 
 FORMAT = (
-    u"[%(asctime)s %(levelname)s\t$BOLD%(name)-15s$RESET] "
+    u"[%(asctime)s %(levelname)-4s $BOLD%(name)-15s$RESET] "
     "%(message)s "
     " ($BOLD%(filename)s$RESET:%(lineno)d)"
     )
@@ -47,7 +47,11 @@ COLORS = {
 
 
 class ColoredFormatter(logging.Formatter):
-    def __init__(self, msg, use_color=True):
+    COLOR_FORMAT = formatter_message(FORMAT, True)
+
+    def __init__(self, msg=None, use_color=True):
+        if msg is None:
+            msg = self.COLOR_FORMAT
         logging.Formatter.__init__(self, msg)
         self.use_color = use_color
 
@@ -65,11 +69,10 @@ class ColoredFormatter(logging.Formatter):
 
 # Custom logger class with multiple destinations
 class ColoredLogger(logging.Logger):
-    COLOR_FORMAT = formatter_message(FORMAT, True)
     def __init__(self, name):
         logging.Logger.__init__(self, name, DEBUG)                
 
-        color_formatter = ColoredFormatter(self.COLOR_FORMAT)
+        color_formatter = ColoredFormatter()
 
         console = logging.StreamHandler()
         console.setFormatter(color_formatter)

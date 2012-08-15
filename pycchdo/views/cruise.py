@@ -357,7 +357,7 @@ def _add_note(request, cruise_obj):
 def _get_cruise(cruise_id):
     try:
         if cruise_id:
-            cruise_obj = Cruise.query().get(cruise_id)
+            cruise_obj = Cruise.get_by_id(cruise_id)
         else:
             cruise_obj = None
     except ValueError:
@@ -366,7 +366,7 @@ def _get_cruise(cruise_id):
     # If the id is not an ObjectId, try searching based on ExpoCode
     if not cruise_obj:
         cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
-        if not cruise:
+        if not cruise_obj:
             raise ValueError()
     return cruise_obj
 
@@ -534,7 +534,7 @@ def map_thumb(request):
     a = cruise_obj.get_attr('map_thumb')
     if not a:
         raise HTTPNotFound()
-    return file_response(request, a.file)
+    return file_response(request, a.value)
 
 
 def _cruise_to_json(cruise):

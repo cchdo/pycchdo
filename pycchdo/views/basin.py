@@ -20,44 +20,29 @@ def _sorted_by_name(collections):
 
 
 def _arctic():
+    """Provide a list of collections with cruises in the Arctic circle.
+
+    """
     default = []
-    collections = Collection.get_by_attrs(
-        names=re.compile('.*arctic.*', re.IGNORECASE))
+    collections = Collection.get_all_by_attrs({
+        'names': re.compile('.*arctic.*', re.IGNORECASE)
+        })
 
     coll_cruises = set()
     for coll in collections:
         coll_cruises |= set(coll.cruises())
-
     coll_cruise_ids = [c.id for c in coll_cruises]
-    query = {
-        'accepted': True,
-        'key': 'collections',
-        'obj': {'$in': coll_cruise_ids}
-    }
-    try:
-        obj_attrs = models._Attr._mongo_collection().group(
-            ['obj'],
-            query,
-            {'attrs': []},
-            'function (x, o) { o.attrs.push(x); }',
-        )
-    except IOError:
-        obj_attrs = []
+
     one_away_collection_ids = set()
-    for oa in obj_attrs:
-        if oa['attrs']:
-            attr = sorted(
-                oa['attrs'],
-                key=lambda a: a['judgment_stamp']['timestamp'],
-                reverse=True)[0]
-            one_away_collection_ids |= set(
-                attr['accepted_value'] or attr['value'])
+    for coll_cruise in coll_cruises:
+        one_away_collection_ids |= set(coll_cruise.get('collections'))
+
     one_away_collections = Collection.by_ids(
         list(one_away_collection_ids)).all()
-
     woce_collections = filter(
         lambda c: c.get('type') == 'WOCE line', one_away_collections)
     collections = _sorted_by_name(woce_collections)
+
     return {'default': collections}
 
 
@@ -66,9 +51,9 @@ def _indian():
     sou = []
     atl = []
     # Currently, only indian basin page is generated from spatial groups
-    colls = Collection.get_by_attrs(basins='indian') + \
-            Collection.get_by_attrs(basins='southern') + \
-            Collection.get_by_attrs(basins='atlantic')
+    colls = Collection.get_all_by_attrs({'basins': 'indian'}) + \
+            Collection.get_all_by_attrs({'basins': 'southern'}) + \
+            Collection.get_all_by_attrs({'basins': 'atlantic'})
     for sgs in colls:
         basins = sgs.get('basins')
         if 'indian' not in basins:
@@ -108,18 +93,22 @@ def _filter_for_southern(collections):
 
 
 def _southern():
-    sou = Collection.get_by_attrs(
-        type='WOCE line',
-        names=re.compile('S.*', re.IGNORECASE))
-    atl = Collection.get_by_attrs(
-        type='WOCE line',
-        names=re.compile('A(R|J|__).*', re.IGNORECASE))
-    ind = Collection.get_by_attrs(
-        type='WOCE line',
-        names=re.compile('(I|AIS).*', re.IGNORECASE))
-    pac = Collection.get_by_attrs(
-        type='WOCE line',
-        names=re.compile('(P|AAI).*', re.IGNORECASE))
+    sou = Collection.get_all_by_attrs({
+        'type': 'WOCE line',
+        'names': re.compile('S.*', re.IGNORECASE)
+        })
+    atl = Collection.get_all_by_attrs({
+        'type': 'WOCE line',
+        'names': re.compile('A(R|J|__).*', re.IGNORECASE)
+        })
+    ind = Collection.get_all_by_attrs({
+        'type': 'WOCE line',
+        'names': re.compile('(I|AIS).*', re.IGNORECASE)
+        })
+    pac = Collection.get_all_by_attrs({
+        'type': 'WOCE line',
+        'names': re.compile('(P|AAI).*', re.IGNORECASE)
+        })
 
     sou = _filter_for_southern(sou)
     atl = _filter_for_southern(atl)

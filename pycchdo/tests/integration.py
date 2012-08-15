@@ -14,7 +14,7 @@ class TestView(BaseTest):
         self.assertEqual(result, {'updated': [], 'upcoming': []})
 
     def test_data_permissions(self):
-        """ When accessing data, make sure the session is authorized to see it.
+        """When accessing data, make sure the session is authorized to see it.
 
         Data permissions may be specified read or write.
 
@@ -29,17 +29,20 @@ class TestView(BaseTest):
         from pycchdo.views.toplevel import data
         request = testing.DummyRequest()
 
-        person = request.user = Person(identifier='person')
-        cruise = Cruise(person)
+
+        person = request.user = Person(identifier=u'person')
         DBSession.add(person)
+        DBSession.flush()
+
+        cruise = Cruise(person)
         DBSession.add(cruise)
+        DBSession.flush()
 
         data_attr = cruise.set_accept(
-            'bottle_exchange',
+            u'bottle_exchange',
             MockFieldStorage(MockFile('botex', 'bot_hy1.csv'), 'text/csv'),
             person)
         data_attr.permissions = {}
-
         DBSession.flush()
 
         request.matchdict['data_id'] = data_attr.id
@@ -59,8 +62,8 @@ class TestView(BaseTest):
         except HTTPNoContent:
             pass
 
-        data_attr.permissions_read = ['argo']
-        data_attr.permissions_write = ['notargo']
+        data_attr.permissions_read = [u'argo']
+        data_attr.permissions_write = [u'notargo']
         DBSession.flush()
 
         # argo group required, no user -> unauthorized
@@ -74,7 +77,7 @@ class TestView(BaseTest):
             data(request)
 
         # argo group required, has argo permission -> ok
-        person.permissions = ['argo']
+        person.permissions = [u'argo']
         try:
             data(request)
         except HTTPNoContent:
@@ -82,7 +85,7 @@ class TestView(BaseTest):
         
         # Staff users have super powers
         # argo group required, has staff permission -> ok
-        person.permissions = ['staff']
+        person.permissions = [u'staff']
         try:
             data(request)
         except HTTPNoContent:

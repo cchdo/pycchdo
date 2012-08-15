@@ -1,7 +1,7 @@
 {%- extends "templates/base.jinja2" %}
 {%- set description = "No one is signed in" %}
 {%- if person %}
-  {%- set description = person.full_name() + " is signed in" %}
+  {%- set description = person.full_name + " is signed in" %}
 {%- endif %}
 {% block title %}{{ description }}{% endblock %}
 {% block content %}

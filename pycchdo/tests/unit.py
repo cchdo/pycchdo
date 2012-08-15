@@ -464,8 +464,6 @@ class TestModelAttrs(PersonBaseTest):
         key = self._testMethodName
         obj.allow_attr(key, LineString, 'Test Track')
 
-        log.debug(DBSession.get_bind().dialect)
-
         aaa = obj.set(key, [[32, -117], [33, 118]], self.testPerson)
         DBSession.flush()
         aaa = obj.set(
@@ -1033,9 +1031,6 @@ class TestModelCollection(PersonBaseTest):
         cr0.set_accept('collections', [c1.id], self.testPerson)
         cr1.set_accept('collections', [c0.id, c1.id], self.testPerson)
 
-        log.debug(repr(cr0.collections))
-        log.debug(repr(cr1.collections))
-
         c0.merge(self.testPerson, c1)
 
         self.assertEquals(
@@ -1115,8 +1110,9 @@ class TestModelFSFile(BaseTest):
         DBSession.flush()
         fsfile2 = DBSession.query(FSFile).get(fsfile.id)
         self.assertEqual(data + '1', fsfile2.file.read())
+
         # Make sure the previous file got deleted
-        self.assertEqual(fsid0, fsfile2.fsid)
+        self.assertNotEqual(fsid0, fsfile2.fsid)
 
 
 class TestModelArgoFile(PersonBaseTest):

@@ -31,10 +31,11 @@ engine = None
 
 def setUpModule():
     global engine
-    engine = create_engine(db_uri, echo=db_echo)
-    DBSession.configure(bind=engine)
-    reset_database(engine)
-    FSFile.reconfig_fs_storage()
+    if engine is None:
+        engine = create_engine(db_uri, echo=db_echo)
+        DBSession.configure(bind=engine)
+        reset_database(engine)
+        FSFile.reconfig_fs_storage()
 
 
 def tearDownModule():

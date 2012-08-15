@@ -358,10 +358,10 @@ def cruise_history_rows(change, i, hl):
     if type(change) == models.Note:
         time = date(change.creation_timestamp, '%Y-%m-%d')
         person = link_person(change.creation_person)
-        data_type = change['data_type']
-        action = change['action']
-        summary = change['subject']
-        body = change['body']
+        data_type = change.data_type
+        action = change.action
+        summary = change.subject
+        body = change.body
         if change.discussion:
             baseclass += ' discussion'
     else:
@@ -509,7 +509,7 @@ def link_obj_polymorph(obj):
 def link_file_holder(fh, full=False):
     if not fh:
         return ''
-    name = fh.file.name
+    name = fh.value.name
     if not full:
         name = os.path.basename(name)
     return tags.link_to(name, data_uri(fh))
@@ -525,7 +525,7 @@ def link_cruise(c):
 def link_person(p):
     if not p:
         return ''
-    name = p.full_name().strip()
+    name = p.full_name.strip()
     if not name or len(name) < 1:
         name = p.id
     return tags.link_to(name, u'/person/%s' % p.id)
@@ -541,11 +541,11 @@ def link_person_institutions(pis):
     strings = []
     for pi in pis:
         try:
-            p = pi['person']
+            p = pi.person
         except KeyError:
             continue
         try:
-            i = pi['institution']
+            i = pi.institution
         except KeyError:
             i = None
         name = link_person(p)
@@ -622,7 +622,7 @@ def change_pretty(change):
     status = ' %s ' % status
     span = H.span
     return H.p(
-        span(person.full_name(), class_='person'), status,
+        span(person.full_name, class_='person'), status,
         span(change['key'], class_='key'), ' to ',
         span(change['value'], class_='value'), ' at ',
         span(change['creation_stamp']['timestamp'], class_='date'),

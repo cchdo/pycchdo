@@ -707,4 +707,4 @@ def import_(args):
             _import_institutions(*su)
             _import_contacts(*su)
             _import_suggestions(*su)
-    transaction.commit()
+        transaction.commit()

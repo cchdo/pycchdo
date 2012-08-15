@@ -64,7 +64,7 @@ class RequestFactory(Request):
 
     @reify
     def db(self):
-        return DBSession()
+        return DBSession
 
 
 def _add_renderer_globals(event):
@@ -192,6 +192,7 @@ def _configure_routes(config):
     route_path(config, 'session_delete', '/session/delete',
                'pycchdo.views.session.session_delete')
 
+    # TODO REMOVE
     route_path(config, 'objs', '/objs',
                'pycchdo.views.obj.objs', 'objs/index.jinja2')
     route_path(config, 'obj_new', '/objs/new',

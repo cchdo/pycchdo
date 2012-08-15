@@ -47,6 +47,7 @@ from pycchdo.models import (
     Submission, OldSubmission, Unit, Ship, Parameter, ParameterOrder, 
     RequestFor,
     ParameterInformation, 
+    _Attr,
     )
 from pycchdo.importer import * 
 from pycchdo.views import text_to_obj
@@ -382,11 +383,11 @@ def _find_person_with_qlastn_name_first(qlastn, name_first):
         return people[0]
     elif len(people) > 1:
         implog.error(
-            u'More than one person for %s' % (name, name_first))
+            u'Multiple people for {0!r} {1!r}'.format(qlastn, name_first))
     else:
         implog.error(
-            u'No person found for last: {} first: {}'.format(
-                name, name_first))
+            u'No person for {0!r} {1!r}'.format(
+                qlastn, name_first))
     return None
 
 
@@ -688,8 +689,6 @@ def _import_cruise(cruise):
                 'Participants for cruise %s: %s' % (cruise.id, c.participants))
 
     implog.debug('imported cruise %s' % cruise.id)
-    transaction.commit()
-    DBSession.close()
 
 
 class CruisesImporter(Thread):
@@ -701,68 +700,10 @@ class CruisesImporter(Thread):
     def run(self):
         _import_cruise(self.cruise)
 
-
-def _log_progress(i, total):
-    implog.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, i / total))
-    
-
-def _run_importers(importers, nthreads=4, sleep=0.5):
-    num_importers = float(len(importers))
-    implog.info("Importing %d with %d threads" % (num_importers, nthreads))
-    i = 0
-
-    if nthreads > 1:
-        implog.info("opening %d sftp connections" % nthreads)
-        sftp_pool = []
-        for i in range(nthreads):
-            try:
-                ssh = ssh_connect(remote_host)
-                sftp = ssh.open_sftp()
-            except SSHException, e:
-                implog.error(repr(e))
-            sftp_pool.append((ssh, sftp))
-
-        active_importers = []
-        while importers:
-            # Clean up importers that have finished
-            for imp in active_importers:
-                if not imp.is_alive():
-                    implog.debug('importer finished')
-                    active_importers.remove(imp)
-                    if sftp_pool is not None:
-                        sftp_pool.append(imp.ssh_sftp)
-                    i += 1
-                    if i % nthreads == 0:
-                        _log_progress(i, num_importers)
-            # Start new importers when resources become available
-            while ( len(active_importers) < nthreads and importers and
-                    (sftp_pool is None or sftp_pool)):
-                imp = importers.pop()
-                if sftp_pool is not None:
-                    imp.ssh_sftp = sftp_pool.pop()
-                    imp.downloader = copy(imp.downloader)
-                    imp.downloader.set_ssh_sftp(imp.ssh_sftp)
-                active_importers.append(imp)
-                implog.debug('importer start')
-                imp.start()
-            time.sleep(sleep)
-
-        # Wait for remaining importers to finish
-        for imp in active_importers:
-            if imp.is_alive():
-                imp.join()
-        _log_progress(i, num_importers)
-
-        implog.debug(u'closing sftp connections')
-        for ssh, sftp in sftp_pool:
-            sftp.close()
-            ssh.close()
-    else:
-        # Run them one by one
-        for imp in importers:
-            imp.run()
-            i += 1
-            _log_progress(i, num_importers)
+        # Close out the transaction for this thread. This is done here in case
+        # of fast return from import method.
+        transaction.commit()
+        DBSession.remove()
 
 
 def _import_cruises(session):
@@ -778,7 +719,74 @@ def _import_cruises(session):
     _run_importers(importers)
 
 
+def _log_progress(i, total):
+    implog.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, i / total))
+    
+
+def _run_importers(importers, nthreads=6, remote_downloads=False, sleep=0.5):
+    num_importers = float(len(importers))
+    implog.info(    
+        "Running %d importers with %d threads" % (num_importers, nthreads))
+    i = 0
+
+    if nthreads > 1:
+        if remote_downloads:
+            implog.info("opening %d sftp connections" % nthreads)
+            sftp_pool = []
+            for i in range(nthreads):
+                try:
+                    ssh = ssh_connect(remote_host)
+                    sftp = ssh.open_sftp()
+                except SSHException, e:
+                    implog.error(repr(e))
+                sftp_pool.append((ssh, sftp))
+
+        active_importers = []
+        while importers:
+            # Clean up importers that have finished
+            for imp in active_importers:
+                if not imp.is_alive():
+                    implog.info('importer finished %s' % imp.name)
+                    active_importers.remove(imp)
+                    if remote_downloads:
+                        sftp_pool.append(imp.ssh_sftp)
+                    i += 1
+                    if i % nthreads == 0:
+                        _log_progress(i, num_importers)
+            # Start new importers when resources become available
+            while ( len(active_importers) < nthreads and importers and
+                    (not remote_downloads or sftp_pool)):
+                imp = importers.pop()
+                if remote_downloads:
+                    imp.ssh_sftp = sftp_pool.pop()
+                    imp.downloader = copy(imp.downloader)
+                    imp.downloader.set_ssh_sftp(imp.ssh_sftp)
+                active_importers.append(imp)
+                imp.start()
+                implog.info('importer started %s' % imp.name)
+            time.sleep(sleep)
+
+        # Wait for remaining importers to finish
+        for imp in active_importers:
+            if imp.is_alive():
+                imp.join()
+        _log_progress(i, num_importers)
+
+        implog.debug(u'closing sftp connections')
+        if remote_downloads:
+            for ssh, sftp in sftp_pool:
+                sftp.close()
+                ssh.close()
+    else:
+        # Run them one by one
+        for imp in importers:
+            imp.run()
+            i += 1
+            _log_progress(i, num_importers)
+
+
 def _import_track_lines(session):
+    implog.info(u'Importing track lines')
     tls = session.query(legacy.TrackLine).all()
     updater = _get_updater()
     for tl in tls:
@@ -1161,6 +1169,10 @@ def _import_spatial_groups(session):
             basins.append('southern')
         updater.attr(collection, 'basins', basins)
 
+        if not sg.expocode:
+            implog.info("Skipping non Cruise for spatial_groups")
+            continue
+
         cruise = Cruise.get_one_by_attrs({'expocode': sg.expocode})
         if cruise:
             implog.info("Updating Cruise %s for spatial_groups" % sg.expocode)
@@ -1176,6 +1188,9 @@ def _import_internal(session):
     updater = _get_updater()
     internals = session.query(legacy.Internal).all()
     for i in internals:
+        if not i.expocode:
+            implog.info("Skipping internal, no expocode")
+            continue
         cruise = Cruise.get_one_by_attrs({'expocode': i.expocode})
         if cruise:
             implog.info("Updating Cruise %s for internal" % i.expocode)
@@ -1200,6 +1215,10 @@ def _import_unused_tracks(session):
     updater = _get_updater()
     ts = session.query(legacy.UnusedTrack).all()
     for t in ts:
+        if not t.expocode:
+            implog.info(
+                u"Skipping unused track {0!r}, no expocode.".format(t.id))
+            continue
         cruise = Cruise.get_one_by_attrs({'expocode': t.expocode})
         if cruise:
             implog.info("Updating Cruise %s for unused track" % t.expocode)
@@ -1233,33 +1252,33 @@ def _import_parameter_descriptions(session):
     implog.info("Importing parameter descriptions")
     updater = _get_updater()
     std_session = std.session()
-    std_session.autoflush = False
     try:
         parameters = lcconvert.all_parameters(session, std_session)
+        for parameter in parameters:
+            p = Parameter.get_one_by_attrs({'name': parameter.name})
+            if p:
+                implog.info("Updating Parameter %s" % parameter.name)
+            else:
+                implog.info("Creating Parameter %s" % parameter.name)
+                p = updater.create_accept(Parameter)
+            updater.attr(p, 'name', parameter.name)
+            updater.attr(p, 'full_name', parameter.full_name)
+            updater.attr(p, 'name_netcdf', parameter.name_netcdf)
+            updater.attr(p, 'description', parameter.description)
+            updater.attr(p, 'format', parameter.format)
+            if parameter.units:
+                updater.attr(
+                    p, 'unit', _import_unit(updater, parameter.units).id)
+            updater.attr(
+                p, 'bounds', (parameter.bound_lower, parameter.bound_upper))
+            aliases = [a.name for a in parameter.aliases]
+            updater.attr(p, 'aliases', aliases)
     except OperationalError, e:
         implog.error("unable to convert parameters: %s" % e)
         parameters = []
     finally:
+        std_session.rollback()
         std_session.close()
-    for parameter in parameters:
-        p = Parameter.get_one_by_attrs({'name': parameter.name})
-        if p:
-            implog.info("Updating Parameter %s" % parameter.name)
-        else:
-            implog.info("Creating Parameter %s" % parameter.name)
-            p = updater.create_accept(Parameter)
-        updater.attr(p, 'name', parameter.name)
-        updater.attr(p, 'full_name', parameter.full_name)
-        updater.attr(p, 'name_netcdf', parameter.name_netcdf)
-        updater.attr(p, 'description', parameter.description)
-        updater.attr(p, 'format', parameter.format)
-        if parameter.units:
-            updater.attr(
-                p, 'unit', _import_unit(updater, parameter.units).id)
-        updater.attr(
-            p, 'bounds', (parameter.bound_lower, parameter.bound_upper))
-        aliases = [a.name for a in parameter.aliases]
-        updater.attr(p, 'aliases', aliases)
 
 
 def _import_parameter_groups(session):
@@ -1308,6 +1327,7 @@ def _import_parameters(session):
     codes = {}
     for code in session.query(legacy.Codes).all():
         codes[int(code.Code)] = codes_name_to_param_info_code[code.Status]
+    codes[0] = None
 
     parameters = {}
     for param in legacy.CruiseParameterInfo._PARAMETERS:
@@ -1348,12 +1368,14 @@ def _import_parameters(session):
                 status = codes[int(status)]
             except (TypeError, ValueError):
                 if status != None:
-                    implog.warn("Bad Status while importing 'parameters' row "
-                                "%d parameter %s" % (p.id, param))
+                    implog.warn(
+                        u"Bad Status %r while importing 'parameters' row "
+                        "%d parameter %s" % (status, p.id, param))
                 status = None
             except KeyError:
-                implog.warn("Unrecognized status while importing 'parameters' "
-                            "row %d parameter %s" % (p.id, param))
+                implog.warn(
+                    u"Unrecognized status %r while importing 'parameters' "
+                    "row %d parameter %s" % (status, p.id, param))
                 status = None
 
             try:
@@ -1378,6 +1400,8 @@ def _import_parameters(session):
             if not pis:
                 param_infos.append(
                     ParameterInformation(parameter, status, None, None, ts))
+
+        param_infos = filter(lambda x: not x.is_empty(), param_infos)
         updater.attr(cruise, 'parameter_informations', param_infos)
         DBSession.flush()
 
@@ -1749,11 +1773,13 @@ def parse_dt(s):
 _ignorable_document_types = ['ExpoCode', '.passwd', '.password', 'error_File', ]
 
 
-def _import_documents_for_cruise(downloader, docs, cruise_id):
+def _import_documents_for_cruise(downloader, docs, expocode, cruise_id):
     with lock(downloader.flush_lock):
         updater = _get_updater()
         cruise = Cruise.query().get(cruise_id)
-        expocode = cruise.get('expocode')
+        if not cruise:
+            implog.error('Could not find cruise {0}'.format(cruise_id))
+            return
     if docs:
         implog.info("Importing documents for %s" % expocode)
     else:
@@ -1836,7 +1862,7 @@ def _import_documents_for_cruise(downloader, docs, cruise_id):
                 implog.warn(
                     'File %s has mismatched size. Expected %s got %s' % (
                         doc.FileName, size, lstat.st_size))
-        except IOError:
+        except (OSError, IOError):
             implog.error('Missing file %s' % doc.FileName)
             continue
 
@@ -1900,7 +1926,7 @@ def _import_documents_for_cruise(downloader, docs, cruise_id):
     remote_dir = os.path.dirname(doc.FileName)
     try:
         dirlist = downloader.listdir(remote_dir)
-    except IOError:
+    except (OSError, IOError):
         implog.error(
             'Could not list remote dir %s to find unaccounted files' % 
             remote_dir)
@@ -1932,12 +1958,20 @@ def _import_documents_for_cruise(downloader, docs, cruise_id):
                 implog.error('Unable to download unaccounted dir %s' %
                              remote_path)
                 implog.error(repr(e))
+            except OSError, e:
+                implog.error('Unable to download unaccounted dir %s' %
+                             remote_path)
+                implog.error(repr(e))
         else:
             try:
                 with downloader.dl(remote_path) as file:
                     with open(local_path, 'wb') as ostream:
                         copy_chunked(file, ostream) 
                     file.seek(0)
+            except OSError, e:
+                implog.error('Unable to download unaccounted file %s' %
+                             remote_path)
+                implog.error(repr(e))
             except IOError, e:
                 implog.error('Unable to download unaccounted file %s' %
                              remote_path)
@@ -1968,7 +2002,6 @@ def _import_documents_for_cruise(downloader, docs, cruise_id):
         unaccounted_archive.close()
 
     implog.debug('Imported docs for %s' % cruise.get('expocode', ''))
-    DBSession.close()
 
 
 class DocumentsImporter(Thread):
@@ -1981,6 +2014,11 @@ class DocumentsImporter(Thread):
     def run(self):
         _import_documents_for_cruise(*self.args)
 
+        # Close out the transaction for this thread. This is done here in case
+        # of fast return from import method.
+        transaction.commit()
+        DBSession.remove()
+
 
 def _import_documents(session, downloader):
     implog.info("Importing documents")
@@ -1989,8 +2027,24 @@ def _import_documents(session, downloader):
     # import documents for each cruise
     # TODO FIXME what about the files with no ExpoCode? or ExpoCode == 'NULL'?
     # package those up?
-    cruises = Cruise.query().all()
-    len_cruises = float(len(cruises))
+    expocode_attrs = _Attr.query().filter(_Attr.key == 'expocode').\
+        filter(_Attr.accepted == True).all()
+    expocode_cruise_ids = [(a.value, a.obj_id) for a in expocode_attrs]
+
+    implog.debug(u'Found {0} expocodes; Initializing threads'.format(
+        len(expocode_cruise_ids)))
+
+    docs_by_expocode = {}
+    docs = session.query(legacy.Document).\
+        order_by(legacy.Document.LastModified.desc()).all()
+    for doc in docs:
+        if doc.ExpoCode:
+            try:
+                docs_by_expocode[doc.ExpoCode].append(doc)
+            except KeyError:
+                docs_by_expocode[doc.ExpoCode] = [doc]
+
+    DBSession.remove()
 
     previous_su_lock = downloader.su_lock
     previous_flush_lock = downloader.flush_lock
@@ -1998,13 +2052,14 @@ def _import_documents(session, downloader):
     downloader.flush_lock = Lock()
 
     importers = []
-    for cruise in cruises:
-        docs = session.query(legacy.Document).filter(
-            legacy.Document.ExpoCode == cruise.get('expocode')).order_by(
-            legacy.Document.LastModified.desc()).all()
-        importers.append(DocumentsImporter(downloader, docs, cruise.id))
-
-    _run_importers(importers, 3)
+    for expocode, cruise_id in expocode_cruise_ids:
+        try:
+            docs = docs_by_expocode[expocode]
+        except KeyError:
+            continue
+        importers.append(
+            DocumentsImporter(downloader, docs, expocode, cruise_id))
+    _run_importers(importers, remote_downloads=False)
 
     downloader.flush_lock = previous_flush_lock
     downloader.su_lock = previous_su_lock
@@ -2122,48 +2177,43 @@ def _get_updater():
 
 
 def import_(import_gid, args):
-    # libcchdo does not need a local cache of parameter information. That will
-    # be done during the import
+    # libcchdo does not need to generate its local cache of parameter
+    # information. That will be done during the import. Saves a bit of time.
     libcchdo.check_cache = False
 
     implog.info("Connecting to cchdo db")
-    try:
-        with db_session(legacy.session()) as session:
-            session.autoflush = False
+    with db_session(legacy.session()) as session:
+        if not args.files_only:
+            _import_users(session)
+            _import_contacts(session)
+            _import_collections(session)
 
-            if not args.files_only:
-                _import_users(session)
-                _import_contacts(session)
-                _import_collections(session)
+            _import_cruises(session)
 
-                _import_cruises(session)
+            _import_track_lines(session)
+            _import_collections_cruises(session)
+            _import_contacts_cruises(session)
 
-                _import_track_lines(session)
-                _import_collections_cruises(session)
-                _import_contacts_cruises(session)
+            _import_events(session)
 
-                _import_events(session)
+            _import_spatial_groups(session)
+            _import_internal(session)
+            _import_unused_tracks(session)
 
-                _import_spatial_groups(session)
-                _import_internal(session)
-                _import_unused_tracks(session)
+            _import_parameter_descriptions(session)
+            _import_parameter_groups(session)
+            _import_bottle_dbs(session)
+            _import_parameter_status(session)
+            _import_parameters(session)
 
-                _import_parameter_descriptions(session)
-                _import_parameter_groups(session)
-                _import_bottle_dbs(session)
-                _import_parameter_status(session)
-                _import_parameters(session)
-
-            with sftp(remote_host) as ssh_sftp:
-                dl_files = not args.skip_downloads
-                downloader = Downloader(
-                    dl_files, ssh_sftp, import_gid,
-                    local_rewriter=rewrite_dl_path_to_local, su_lock=Lock())
-                _import_submissions(session, downloader)
-                _import_old_submissions(session, downloader)
-                _import_queue_files(session, downloader)
-                _import_documents(session, downloader)
-                _import_argo_files(session, downloader)
-    except KeyboardInterrupt:
-        implog.warn('CCHDO import interrupted. Interrupt again to quit import.')
-    transaction.commit()
+        with sftp(remote_host) as ssh_sftp:
+            dl_files = not args.skip_downloads
+            downloader = Downloader(
+                dl_files, ssh_sftp, import_gid,
+                local_rewriter=rewrite_dl_path_to_local, su_lock=Lock())
+            _import_submissions(session, downloader)
+            _import_old_submissions(session, downloader)
+            _import_queue_files(session, downloader)
+            _import_documents(session, downloader)
+            _import_argo_files(session, downloader)
+        transaction.commit()

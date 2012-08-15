@@ -256,7 +256,7 @@ def _info(id_cruises):
             id = str(id)
             infos[id] = {
                 'name': cruise.expocode or '',
-                'contacts': ', '.join([pi['person'].full_name() for pi in
+                'contacts': ', '.join([pi['person'].full_name for pi in
                                        cruise.chief_scientists]) or '',
                 'cruise_dates': h.cruise_dates(cruise)[2],
             }

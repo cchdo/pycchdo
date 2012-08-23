@@ -43,30 +43,41 @@ port = 6543
 # Begin logging configuration
 
 [loggers]
-keys = root, pycchdo, sqlalchemy
+keys = root, pycchdo, pycchdo_models, sqlalchemy
 
 [handlers]
-keys = console, console_root
+keys = null, console
 
 [formatters]
-keys = generic, generic_root
+keys = generic
 
 [logger_root]
-level = INFO
-handlers = console_root
+level = WARN
+handlers = null
 
 [logger_pycchdo]
 level = DEBUG
 handlers = console
 qualname = pycchdo
 
+[logger_pycchdo_models]
+level = DEBUG
+handlers = console
+qualname = pycchdo.models.models
+
 [logger_sqlalchemy]
-level = WARN
+level = INFO
 # "level = INFO" logs SQL queries
 # "level = DEBUG" logs SQL queries and results
 # "level = WARN" logs neither (recommended)
 handlers = console
 qualname = sqlalchemy.engine
+
+[handler_null]
+class = NullHandler
+args = ()
+level = NOTSET
+formatter = generic
 
 [handler_console]
 class = StreamHandler
@@ -74,16 +85,7 @@ args = (sys.stderr,)
 level = NOTSET
 formatter = generic
 
-[handler_console_root]
-class = StreamHandler
-args = (sys.stderr,)
-level = NOTSET
-formatter = generic_root
-
 [formatter_generic]
-format = %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s
-
-[formatter_generic_root]
-format = ROOT %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s
+format = [1;37m%(asctime)s [1;33m%(levelname)-5s [1;37m[%(name)s|%(threadName)s] [0m%(message)s
 
 # End logging configuration

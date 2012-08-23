@@ -263,7 +263,7 @@ def cruise_nice_name(cruise):
 
 
 def cruise_summary(cruise):
-    """ Provide an English summary of the cruise's salient facts.
+    """Provide an English summary of the cruise's salient facts.
 
     """
     sentences = []

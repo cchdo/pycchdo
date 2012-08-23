@@ -19,6 +19,7 @@ from lxml import etree
 from webhelpers import text as whtext
 
 from pycchdo.models import (
+    DBSession,
     data_file_descriptions, _Attr, Cruise, Note, Person, Institution)
 import pycchdo.helpers as h
 
@@ -46,6 +47,7 @@ def _cruises(request):
         cruises = Cruise.query().all()
     else:
         cruises = Cruise.only_if_accepted_is(True).all()
+
     cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
     return cruises
 
@@ -362,6 +364,7 @@ def _get_cruise(cruise_id):
             cruise_obj = None
     except ValueError:
         cruise_obj = None
+        DBSession.close()
 
     # If the id is not an ObjectId, try searching based on ExpoCode
     if not cruise_obj:

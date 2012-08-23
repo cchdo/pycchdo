@@ -5,6 +5,7 @@ import re
 import os
 import os.path
 from shutil import rmtree
+import logging as log
 
 from webob.multidict import MultiDict
 
@@ -197,6 +198,15 @@ def timestamp_now():
     """Create a datetime.datetime representing Now."""
     # FIXME This needs to make a datetime that is timezone aware
     return datetime.utcnow()
+
+
+def listlike(x):
+    try:
+        len(x)
+        x.append
+        return True
+    except (TypeError, AttributeError):
+        return False
 
 
 class Stamp(MutableComposite):
@@ -706,6 +716,10 @@ class _AttrValue(DBQueryable, Base):
             return {
                 'polymorphic_identity': cls.__name__,
             }
+
+    __table_args__ = (
+        Index('idx_attrvalue', 'accepted', 'attr_id'),
+        )
 
     @hybrid_property
     def value(self):
@@ -2037,14 +2051,6 @@ class _AttrMgr(object):
                 obj, dict, accepted_only))
         if obj is None or (accepted_only and not obj.accepted):
             return False
-
-        def listlike(x):
-            try:
-                len(x)
-                x.append
-                return True
-            except (TypeError, AttributeError):
-                return False
             
         for k, v in dict.items():
             key = k
@@ -2097,8 +2103,8 @@ class _AttrMgr(object):
         if len(objs) > 4:
             log.warn(
                 u'{} {} found with attrs query {}. True match will take '
-                'a long time. Something is wrong the query produced by '
-                'get_by_attrs_query.\n{!r}'.format(
+                'a long time. Something is probably wrong the query produced '
+                'by get_by_attrs_query.\n{!r}'.format(
                     len(objs), cls, dict, objs))
         return objs
 
@@ -2143,7 +2149,7 @@ class _AttrMgr(object):
 
         """
         # TODO get decorator to work
-        log.warn('DEPRECATED: Use get_all_by_attrs and remove kwargs')
+        log.warn('DEPRECATED(get_by_attrs): Use get_all_by_attrs and remove kwargs')
         return []
         #map = d
         #if not map:
@@ -2203,7 +2209,7 @@ class _IDAttrMgr(_AttrMgr):
     def by_ids(cls, ids):
         if ids:
             return cls.query().filter(cls.id.in_(ids))
-        return cls.query()
+        return cls.query().filter(cls.id.in_([]))
 
     @classmethod
     def get_by_id(cls, id):
@@ -2475,10 +2481,12 @@ class Cruise(Obj):
     def updated(cls, limit):
         file_types = data_file_descriptions.keys()
 
+        # TODO remove map updates from file_types
+
         skip = 0
         step = limit * 4
         updated = []
-        cruises = set()
+        cruise_ids = set()
 
         while len(updated) < limit:
             attrs = _Attr.query().\
@@ -2489,9 +2497,9 @@ class Cruise(Obj):
             if not attrs:
                 break
             for attr in attrs:
-                cruise = attr.obj
-                if cruise not in cruises:
-                    cruises.add(cruise)
+                cruise_id = attr.obj_id
+                if cruise_id not in cruise_ids:
+                    cruise_ids.add(cruise_id)
                     updated.append(attr)
                 if len(updated) >= limit:
                     break
@@ -2674,7 +2682,7 @@ class Country(CruiseAssociate, Obj):
 
     @property
     def people(self):
-        return Person.get_all({'country': self.id})
+        return Person.get_all_by_attrs({'country': self.id})
 
     def __unicode__(self):
         try:
@@ -2978,10 +2986,6 @@ class Collection(CruiseAssociate, MultiName, Obj):
     __mapper_args__ = {
         'polymorphic_identity': 'collection',
     }
-
-    __table_args__ = (
-        Index('idx_pkey_collection_id', 'id'),
-        )
 
     cruise_associate_key = 'collections'
 

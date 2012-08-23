@@ -24,8 +24,8 @@ __all__ = [
 log = ColoredLogger(__name__)
 
 
-db_uri = 'postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/dev_pycchdo'
-db_echo = False
+db_uri = 'postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/test_pycchdo'
+db_echo = True
 engine = None
 
 

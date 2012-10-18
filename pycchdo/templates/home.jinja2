@@ -6,17 +6,13 @@
 {%- block content_attrs %} class="home"{%- endblock %}
 {%- macro show_thumb(cruise) %}
   {%- if cruise.get('map_thumb') %}
-    {{ whh.tags.link_to(whh.tags.image(
-        request.route_path(
-          'cruise_map_thumb', cruise_id=cruise.uid),
-        '%s thumbnail' % cruise.expocode),
-      h.path_cruise(cruise)) }}
+    {% set src = request.route_path('cruise_map_thumb', cruise_id=cruise.uid) %}
+    {% set alt = '%s thumbnail' % cruise.expocode %}
   {%- else %}
-    {{ whh.tags.link_to(whh.tags.image(
-        '/static/img/etopo_static/etopo_thumb_no_track.png',
-        'No track available'),
-      h.path_cruise(cruise)) }}
+    {% set src = '/static/img/etopo_static/etopo_thumb_no_track.png' %}
+    {% set alt = 'No track available' %}
   {%- endif %}
+  {{ whh.tags.link_to(whh.tags.image(src, alt), h.path_cruise(cruise)) }}
 {%- endmacro %}
 {% block content %}
   {% call h.boxed('Welcome to the CCHDO', id='intro', class='left') %}

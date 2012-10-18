@@ -2,11 +2,12 @@
 {%- block head %}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
 {%- endblock %}
-{% block title %}Person {{ person.full_name }}{% endblock %}
+{% block title %}Person {{ person.name }}{% endblock %}
 {% block content -%}
-  {% call h.boxed('Person ' + (person.full_name or '')) -%}
+  {% call h.boxed('Person ' + (person.name or '')) -%}
     <table class="info nofill">
       <tr><th>Identifier</th><td>{{ person.identifier }}</td></tr>
+      <tr><th>Name</th><td>{{ person.name }}</td></tr>
       <tr><th>Name first</th><td>{{ person.name_first }}</td></tr>
       <tr><th>Name last</th><td>{{ person.name_last }}</td></tr>
       <tr><th>Institution</th><td>{{ h.link_institution(person.institution) }}</td></tr>

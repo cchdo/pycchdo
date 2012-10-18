@@ -7,20 +7,20 @@ from pycchdo.views import staff
 
 
 def institutions_index(request):
-    institutions = sorted(request.db.query(Institution).all(), key=lambda x: x.name)
+    institutions = sorted(Institution.query().all(), key=lambda x: x.name)
     institutions = paged(request, institutions)
     return {'institutions': institutions}
 
 
 def institutions_index_json(request):
-    institutions = sorted(request.db.query(Institution).all(), key=lambda x: x.name)
+    institutions = sorted(Institution.query().all(), key=lambda x: x.name)
     institutions = [i.to_nice_dict() for i in institutions]
     return institutions
 
 
 def _get_institution(request):
     institution_id = request.matchdict.get('institution_id')
-    return request.db.query(Institution).get(institution_id)
+    return Institution.query().get(institution_id)
 
 
 def _redirect_response(request, id):
@@ -32,7 +32,8 @@ def institution_show(request):
     institution = _get_institution(request)
     if not institution:
         raise HTTPNotFound()
-    return {'institution': institution}
+    cruises = institution.cruises(accepted_only=False)
+    return {'institution': institution, 'cruises': cruises}
 
 
 def institution_archive(request):
@@ -73,7 +74,7 @@ def institution_merge(request):
     except KeyError:
         request.session.flash('No mergee institution given', 'help')
         return redirect_response
-    mergee = request.db.query(Institution).get(mergee_id)
+    mergee = Institution.query().get(mergee_id)
     if not mergee:
         request.session.flash(
             'Invalid mergee institution %s given' % mergee_id, 'help')

@@ -211,7 +211,7 @@ def file_response(request, file, disposition='inline'):
         resp.app_iter.read(1)
         resp.app_iter.seek(0)
     except gridfs.errors.CorruptGridFile:
-        log.error('Missing file %s' % file._id)
+        log.error('Missing file %s' % file.id)
         raise HTTPNotFound()
 
     return resp

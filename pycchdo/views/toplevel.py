@@ -6,6 +6,7 @@ from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
 import pycchdo.models as models
+from pycchdo.models import Cruise, Parameter
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -57,10 +58,10 @@ tools_menu = staff_signin_required(empty_view)
 
 
 def home(request):
-    num_updates = 4
+    num_updates = 8
     num_upcoming = 2
-    updated = models.Cruise.updated(num_updates)
-    upcoming = models.Cruise.upcoming(num_upcoming)
+    updated = Cruise.updated(num_updates)
+    upcoming = Cruise.upcoming(num_upcoming)
 
     return {
         'updated': updated,
@@ -79,7 +80,7 @@ def project_carina(request):
 def parameters(request):
     def get_params_for_order(order):
         try:
-            return models.ParameterOrder.get_by_attrs({'name': order})[0].order
+            return models.ParameterOrder.get_all_by_attrs({'name': order})
         except IndexError:
             return []
     primary = get_params_for_order('CCHDO Primary Parameters')
@@ -101,9 +102,9 @@ def parameter_show(request):
     except KeyError:
         raise HTTPBadRequest()
 
-    parameter = models.Parameter.get_id(parameter_id)
+    parameter = Parameter.query().get(parameter_id)
     if not parameter:
-        parameters = models.Parameter.get_by_attrs(name=parameter_id)
+        parameters = Parameter.get_all_by_attrs({'name': parameter_id})
         if len(parameters) > 0:
             parameter = parameters[0]
         else:

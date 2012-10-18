@@ -320,7 +320,7 @@ def dumps_sqlite(request):
                 avail_netcdf = bool(files['netcdf'])
 
                 filename = file.name
-                id = str(file._id)
+                id = str(file.id)
                 date_update = file.upload_date
 
                 cur.execute(

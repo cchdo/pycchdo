@@ -438,7 +438,7 @@
           <th>Suggested</th>
           <th>Actions</th>
         </tr>
-        {%- for attr in cruise.unacknowledged_tracked()[::-1] %}
+        {%- for attr in cruise.unacknowledged_tracked.all()[::-1] %}
           <tr>
             <th>{{ attr.key }}</th>
             {%- if attr.deleted %}
@@ -470,7 +470,7 @@
           <th>Pending</th>
           <th>Actions</th>
         </tr>
-        {%- for attr in cruise.pending_tracked()[::-1] %}
+        {%- for attr in cruise.pending_tracked.all()[::-1] %}
           <tr>
             <th>{{ attr.key }}</th>
             {%- if attr.deleted %}
@@ -505,7 +505,7 @@
           <th>Suggested</th>
           <th>Accepted</th>
         </tr>
-        {%- for attr in cruise.accepted_tracked()[::-1] %}
+        {%- for attr in cruise.accepted_tracked.all()[::-1] %}
           <tr class="{{loop.cycle('even', 'odd')}}">
             <th><a href="/obj/{{ attr.obj.id }}/a/{{ attr.id }}">{{ attr.id }}</a></th>
             <th>{{ attr.key }}</th>

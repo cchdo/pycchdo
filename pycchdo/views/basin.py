@@ -5,9 +5,15 @@ from pyramid.request import Request
 from pyramid.renderers import render_to_response
 from pyramid.httpexceptions import HTTPNotFound
 
+from sqlalchemy import distinct
+
 from pycchdo.views.toplevel import catchall_static
 import pycchdo.models as models
 from pycchdo.models import Collection
+from pycchdo.log import ColoredLogger
+
+
+log = ColoredLogger(__name__)
 
 
 static_basins = ['atlantic', 'pacific', ]

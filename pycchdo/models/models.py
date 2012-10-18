@@ -30,17 +30,13 @@ from sqlalchemy.types import (
 import sqlalchemy.sql.util
 from sqlalchemy.sql import (
     and_, not_,
-    case, select, exists,
+    case, select, exists, distinct,
     )
 from sqlalchemy.schema import Index
 from sqlalchemy.orm import (
-    backref,
-    scoped_session,
-    sessionmaker,
-    composite,
-    relationship,
-    reconstructor, 
-    mapper,
+    backref, scoped_session, sessionmaker, composite, relationship,
+    reconstructor, mapper, joinedload, subqueryload, dynamic_loader,
+    joinedload_all, subqueryload_all,
     )
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm.collections import (
@@ -69,6 +65,7 @@ import shapely.geometry
 
 import geojson
 
+from libcchdo import memoize
 from libcchdo.fns import uniquify
 
 from pycchdo.util import (
@@ -84,7 +81,7 @@ from pycchdo.log import ColoredLogger, INFO, DEBUG
 
 
 log = ColoredLogger(__name__)
-log.setLevel(INFO)
+log.setLevel(DEBUG)
 
 
 __all__ = [
@@ -210,12 +207,15 @@ def listlike(x):
 
 
 class Stamp(MutableComposite):
-    def __init__(self, person_id, timestamp=None):
+    def __init__(self, person_id, timestamp=None, allow_blank=True):
         """Create a Stamp representing a Person and a time.
 
         Arguments::
         person_id -- the Person id
         timestamp -- the time (default: now)
+        allow_blank -- allows the Stamp to be created with neither person nor
+            timestamp. This is the default because Stamps are created when
+            SQLAlchemy loads the instance.
 
         """
         self.person_id = None
@@ -228,6 +228,9 @@ class Stamp(MutableComposite):
         elif timestamp:
             raise ValueError(
                 'Stamp must have a Person with timestamp {}'.format(timestamp))
+        else:
+            if not allow_blank:
+                raise ValueError(u'Stamp must have at least a Person')
 
     def __composite_values__(self):
         return [self.person_id, self.timestamp, ]
@@ -237,7 +240,12 @@ class Stamp(MutableComposite):
         object.__setattr__(self, key, value)
         self.changed()
 
+    def __nonzero__(self):
+        return not (self.person_id is None and self.timestamp is None)
+
     def __eq__(self, other):
+        if other is None:
+            return not bool(self)
         if type(other) is not Stamp:
             return False
         return (
@@ -247,13 +255,12 @@ class Stamp(MutableComposite):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __not__(self):
-        return self.person_id is None and self.timestamp is None
-
     def __unicode__(self):
         if not self:
             return u'Stamp(empty)'
-        return u"Stamp(%s, %s)" % (
+        if not self.timestamp:
+            return u'Stamp({0})'.format(self.person_id)
+        return u"Stamp({0}, {1})".format(
             self.person_id, self.timestamp.strftime('%FT%T'))
 
     def __repr__(self):
@@ -262,23 +269,6 @@ class Stamp(MutableComposite):
 
 class StampedCreation(object):
     """Mixin to store the creation time and person."""
-#    @declared_attr
-#    def creation_timestamp(cls):
-#        return Column(DateTime, default=timestamp_now)
-#
-#    @declared_attr
-#    def creation_person_id(cls):
-#        return Column(Integer, ForeignKey('people.id'))
-#
-#    @declared_attr
-#    def creation_stamp(cls):
-#        return composite(Stamp, cls.creation_person_id, cls.creation_timestamp)
-#
-#    @declared_attr
-#    def creation_person(cls):
-#        return relationship(
-#            'Person', primaryjoin="Note.creation_person_id==Person.id")
-
     @hybrid_property
     def ctime(cls):
         return cls.creation_timestamp
@@ -308,7 +298,7 @@ class Notable(object):
         else:
             fk = Note.change_id
         return relationship(
-            'Note', primaryjoin=fk == cls.id, lazy='dynamic',
+            'Note', primaryjoin=fk == cls.id,
             cascade='all, delete, delete-orphan')
 
     @declared_attr
@@ -427,11 +417,12 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     __table_args__ = (
         Index('idx_changes_judgment_timestamp', 'judgment_timestamp'),
         Index('idx_changes_obj_type', 'obj_type'),
+        Index('idx_changes_accepted', 'accepted'),
         )
 
-    def __init__(self, person, note=None, *args, **kwargs):
+    def __init__(self, person, note=None, allow_blank=False, *args, **kwargs):
         super(_Change, self).__init__(*args, **kwargs)
-        self.creation_stamp = Stamp(person.id)
+        self.creation_stamp = Stamp(person.id, allow_blank=allow_blank)
         if note:
             self.notes.append(note)
 
@@ -460,10 +451,10 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     accepted = Column(Boolean, default=False)
 
     def is_judged(self):
-        return self.judgment_stamp != None
+        return bool(self.judgment_stamp)
 
     def is_acknowledged(self):
-        return self.pending_stamp != None
+        return bool(self.pending_stamp)
 
     def is_accepted(self):
         return self.is_judged() and self.accepted
@@ -561,6 +552,10 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
         self.name = unicode(filename)
         self.content_type = unicode(contentType)
 
+    @reconstructor
+    def init_on_load(self):
+        self._fsid_dirty = False
+
     size = property(lambda self: self.file.size)
 
     @property
@@ -607,14 +602,18 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
         else:
             self.file_ = None
         flag_modified(self, 'fsid')
-        log.debug('set file to {0!r}'.format(self.file_))
+        self._fsid_dirty = True
+        log.debug('set file for {0!r} to {1!r}'.format(self, self.file_))
 
 
 @event.listens_for(FSFile, 'before_insert')
 @event.listens_for(FSFile, 'before_update')
 def _saved_file(mapper, connection, target):
     save_me = target.file
-    log.debug(u'saving file for {0!r}: {1!r}'.format(target, save_me))
+
+    if not target._fsid_dirty:
+        log.debug(u'no actual change. skipping file save')
+        return
 
     # Delete the old file
     _deleted_file(mapper, connection, target)
@@ -647,6 +646,8 @@ def _saved_file(mapper, connection, target):
 
     if not save_me.isatty():
         save_me.seek(cpos)
+    log.debug(u'saved file {0!r}'.format(save_me))
+    target._fsid_dirty = False
 
 
 @event.listens_for(FSFile, 'load')
@@ -659,7 +660,7 @@ def _deleted_file(mapper, connection, target):
     target.fs.delete(target.fsid)
 
 
-# Types for database storage
+# Types for  database storage
 class ID(Integer):
     pass
 
@@ -700,6 +701,14 @@ class _AttrValue(DBQueryable, Base):
 
     accepted = Column(Boolean, default=False)
     attr_id = Column(Integer, ForeignKey('attrs.id'))
+
+    attr = relationship(
+        '_Attr', primaryjoin='_AttrValue.attr_id == _Attr.id',
+        single_parent=True,
+        backref=backref('vs',
+            lazy='joined',
+            collection_class=attribute_mapped_collection('accepted'),
+        ), cascade='all, delete, delete-orphan')
 
     @declared_attr
     def __tablename__(cls):
@@ -829,7 +838,8 @@ class _AttrValueLineString(_AttrValue):
             value = shapely.geometry.linestring.LineString(value)
         return value
 
-    def __init__(self, value):
+    def __init__(self, value, *args, **kwargs):
+        super(_AttrValueLineString, self).__init__(*args, **kwargs)
         value = self._verify_and_normalize_linestring(value)
         self.value = value.wkt
 
@@ -850,12 +860,14 @@ class _AttrValueFile(_AttrValue):
     value_ = Column('value', ForeignKey('fsfile.id'))
     value = relationship(
         'FSFile', primaryjoin='FSFile.id == _AttrValueFile.value_',
-        backref='attr_value')
+        lazy='joined', single_parent=True,
+        backref='attr_value', cascade='all, delete, delete-orphan')
 
-    def __init__(self, value):
+    def __init__(self, value, *args, **kwargs):
         """Create an _AttrValueFile reference to an FSFile from a FieldStorage.
 
         """
+        super(_AttrValueFile, self).__init__(*args, **kwargs)
         self.value = FSFile(value.file, value.filename)
 
     @staticmethod
@@ -874,7 +886,7 @@ class Participant(DBQueryable, Base):
         Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     attrvalue = relationship(
         '_AttrValue', single_parent=True, uselist=False,
-        cascade='all, delete, delete-orphan')
+        lazy='joined', cascade='all, delete, delete-orphan')
     role = Column(Unicode, nullable=False, primary_key=True)
     person_id = Column(
         ForeignKey('people.id'), nullable=False, primary_key=True)
@@ -988,7 +1000,7 @@ class Participants(object):
         return [(p.person, p.role) for p in participants]
 
     def __repr__(self):
-        return u'Participants({})'.format(self.data)
+        return u'Participants({0!r})'.format(self.data)
         
 
 class _AttrValueParticipants(_AttrValue):
@@ -1142,7 +1154,9 @@ class _AttrValueListID(_AttrValueList, _AttrValue):
     __elem_class__ = _AttrValueElemID
     id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     values = relationship(
-        __elem_class__, cascade='all, delete, delete-orphan')
+        __elem_class__,
+        lazy='joined',
+        cascade='all, delete, delete-orphan')
     value = association_proxy('values', 'value')
 
 
@@ -1150,7 +1164,9 @@ class _AttrValueListText(_AttrValueList, _AttrValue):
     __elem_class__ = _AttrValueElemText
     id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     values = relationship(
-        __elem_class__, cascade='all, delete, delete-orphan')
+        __elem_class__,
+        lazy='joined',
+        cascade='all, delete, delete-orphan')
     value = association_proxy('values', 'value')
 
 
@@ -1158,7 +1174,9 @@ class _AttrValueListDecimal(_AttrValueList, _AttrValue):
     __elem_class__ = _AttrValueElemDecimal
     id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     values = relationship(
-        __elem_class__, cascade='all, delete, delete-orphan')
+        __elem_class__,
+        lazy='joined',
+        cascade='all, delete, delete-orphan')
     value = association_proxy('values', 'value')
 
 
@@ -1166,7 +1184,9 @@ class _AttrValueListParameterInformation(_AttrValueList, _AttrValue):
     __elem_class__ = ParameterInformation
     id = Column(Integer, ForeignKey('_attrvalue.id'), primary_key=True)
     value = relationship(
-        __elem_class__, cascade='all, delete, delete-orphan')
+        __elem_class__,
+        lazy='joined',
+        cascade='all, delete, delete-orphan')
 
 
 @event.listens_for(_AttrValueListID, 'before_delete')
@@ -1285,32 +1305,24 @@ class _Attr(_Change):
     deleted = Column(Boolean)
 
     obj_id = Column(Integer, ForeignKey('objs.id'))
+
     @declared_attr
     def obj(cls):
         return relationship(
             'Obj', primaryjoin='_Attr.obj_id == Obj.id',
             single_parent=True,
-            backref=backref(
-                'attrs',
-                lazy='dynamic',
-                order_by=_Change.judgment_timestamp.desc,
-                cascade='all, delete, delete-orphan',
-                ),
+            lazy='subquery',
             )
 
-    vs = relationship(
-        _AttrValue, primaryjoin='and_(_AttrValue.attr_id == _Attr.id)',
-        uselist=False, single_parent=True,
-        backref='attr', cascade='all, delete, delete-orphan')
     v = relationship(
         '_AttrValue', primaryjoin='and_(_AttrValue.attr_id == _Attr.id, '
                                   '_AttrValue.accepted == False)',
-        uselist=False, single_parent=True,
+        uselist=False, single_parent=True, 
         cascade='all, delete, delete-orphan')
     v_accepted = relationship(
         '_AttrValue', primaryjoin='and_(_AttrValue.attr_id == _Attr.id, '
                                   '_AttrValue.accepted == True)',
-        uselist=False, single_parent=True,
+        uselist=False, single_parent=True, 
         cascade='all, delete, delete-orphan')
 
     permissions_read_ = relationship(
@@ -1434,13 +1446,27 @@ class _Attr(_Change):
             u'{} cannot be stored as {}'.format(value, self._constructors))
 
         try:
-            if accepted:
-                self.v_accepted = self._construct(
-                    value=value, accepted=accepted)
-            else:
-                self.v = self._construct(value=value)
+            # there are two possibilities for storage based on the accepted bit
+            # of the _AttrValue. Replace if it exists, otherwise add.
+            self.vs[accepted] = self._construct(value=value, accepted=accepted)
         except StatementError:
             raise cannot_be_stored_error
+
+    def accept(self, person):
+        if not self.obj:
+            raise ValueError(
+                'Cannot accept _Attr for no Obj. Check that the Obj is in the '
+                'current session and has an id. The Obj must be flushed.')
+        super(_Attr, self).accept(person)
+        self.obj._clear_cache_attrs_current()
+
+    def reject(self, person):
+        if not self.obj:
+            raise ValueError(
+                'Cannot rejct _Attr for no Obj. Check that the Obj is in the '
+                'current session and has an id. The Obj must be flushed.')
+        super(_Attr, self).reject(person)
+        self.obj._clear_cache_attrs_current()
 
     def accept_value(self, value, person):
         """Accept the _Attr with a new value.
@@ -1463,9 +1489,22 @@ class _Attr(_Change):
         """
         if self.deleted:
             raise KeyError(self.key)
-        if self.v_accepted:
-            return self.v_accepted
-        return self.v
+
+        try:
+            return self.vs[True]
+        except KeyError:
+            pass
+        try:
+            return self.vs[False]
+        except KeyError, e:
+            LOG.error('Somehow there is an _Attr with no _AttrValue that have '
+                'accepted set to True or False')
+            LOG.error(repr(self.vs))
+            raise e
+
+        #if self.v_accepted:
+        #    return self.v_accepted
+        #return self.v
 
     @hybrid_property
     def attr_value_original(self):
@@ -1506,9 +1545,8 @@ class _Attr(_Change):
                 state = 'NEW'
             else:
                 state = 'ASIS'
-        elif self.pending_stamp != None:
+        elif self.pending_stamp:
             state = 'ACK'
-
         try:
             attr_class = self.obj.attr_class(self.key)
         except AttributeError:
@@ -1519,7 +1557,7 @@ class _Attr(_Change):
 
         obj_id = self.obj_id
         id = self.id or '?'
-        return u"_Attr({}, {}, {}, {}, {}, {})".format(
+        return u"_Attr({}, {}, {}, {}, obj_id={}, id={})".format(
             mapping, state, self.str_type, attr_class, obj_id, id)
 
     @classmethod
@@ -1587,6 +1625,26 @@ class _AttrMgr(object):
         
     """
     __allowed_attrs = {}
+
+    # Relationship cannot be declared on _AttrMgr.
+    @declared_attr
+    def attrs(cls):
+        return relationship(
+            '_Attr', primaryjoin='_Attr.obj_id == Obj.id',
+            lazy='joined',
+            order_by=_Change.judgment_timestamp.desc,
+            cascade='all, delete, delete-orphan',
+            )
+
+    @declared_attr
+    def attrs_accepted(cls):
+        return relationship(
+            '_Attr', primaryjoin='and_(_Attr.obj_id == Obj.id, '
+                                 '_Change.accepted == True)',
+            order_by=_Change.judgment_timestamp.desc,
+            lazy='joined',
+            cascade='all, delete, delete-orphan',
+            )
 
     @classmethod
     def _attr_type_to_str(cls, attr_type):
@@ -1733,20 +1791,6 @@ class _AttrMgr(object):
         """Return the class for the type allowed for key."""
         return cls.value_class(cls.attr_type(key))
 
-    #def _do_attr_query(self, finder, query={}, **kwargs):
-    #    q = {'obj': self.id}
-    #    if query:
-    #        q.update(query)
-    #        return finder(q, **kwargs)
-    #    else:
-    #        q.update(**kwargs)
-    #        return finder(q)
-
-    #@deprecated('attempt to use attrsq')
-    #def find_attrs(self, query={}, **kwargs):
-    #    log.warn('find_attrs is deprecated')
-    #    return self._do_attr_query(_Attr.find, query, **kwargs)
-
     def attrsq(self, key=None, accepted_only=True):
         """Return a query for _Attrs in the _AttrMgr with key.
 
@@ -1756,24 +1800,21 @@ class _AttrMgr(object):
             True)
 
         """
-        attrs = self.attrs
+        attrs = _Attr.query().filter(_Attr.obj_id == self.id).\
+            order_by(_Change.judgment_timestamp.desc())
         if key:
             attrs = attrs.filter(_Attr.key == key)
         if accepted_only:
             attrs = attrs.filter(_Change.accepted == True)
         return attrs
 
-    #@deprecated('Use attrsq() or attrs instead of history()')
-    #def history(self, key=None, **kwargs):
-    #    return self.attrsq(key, **kwargs)
-
     def get_attr(self, key):
         """Return the most recent accepted _Attr for key."""
-        attr = self.attrsq(key).first()
-        if attr:
-            return attr
-        else:
-            raise KeyError(u"No _Attr '{}' for {}".format(key, self))
+        key = unicode(key)
+        try:
+            return self.attrs_current[key]
+        except KeyError:
+            raise KeyError(u"No such _Attr {0!r}".format(key))
 
     def get(self, key, default=None):
         """Return the value of the most recent accepted _Attr for key.
@@ -1784,13 +1825,18 @@ class _AttrMgr(object):
 
         """
         try:
-            attr = self.attrsq(key).first()
+            attr = self.get_attr(key)
             value = attr.value
+            log.debug('{0}.{1!r} = {2!r}'.format(self.id, key, value))
             if type(value) is _AssociationList:
                 # AssociationList goes out of scope after return; get value now
+                # and copy to list
                 return list(value)
             return value
-        except (AttributeError, KeyError):
+        except (AttributeError, KeyError), e:
+            log.debug(
+                '{0}.{1!r} defaulted: {2!r}'.format(self.id, key, default))
+            log.debug(e)
             return default
 
     def set(self, key, value, person, note=None):
@@ -1800,15 +1846,11 @@ class _AttrMgr(object):
             ValueError when the key is not allowed.
 
         """
-        # TODO
-        # Don't check for type here. This can & will be done at flush time by
-        # the engine
-        #if type(value) != restrictions['type']:
-        #    raise TypeError(u'expected {}, got {}'.format(
-        #        restrictions['type'], type(value)))
         attr_type = self.attr_type(key)
         attr = _Attr(person, key, attr_type, value, note)
         self.attrs.append(attr)
+        # Populate attr.obj
+        DBSession.flush()
         return attr
 
     def delete(self, key, person, note=None):
@@ -1816,6 +1858,8 @@ class _AttrMgr(object):
         attr_type = self.attr_type(key)
         attr = _Attr(person, key, attr_type, note=note, deleted=True)
         self.attrs.append(attr)
+        # Populate attr.obj
+        DBSession.flush()
         return attr
 
     def set_accept(self, key, value, person, note=None):
@@ -1830,18 +1874,35 @@ class _AttrMgr(object):
         attr.accept(person)
         return attr
 
+    def _clear_cache_attrs_current(self, expire=True):
+        log.debug('cleared attrs current')
+        try:
+            del self._cache_attrs_current
+            DBSession.expire(self, ['attrs', 'attrs_accepted'])
+        except AttributeError:
+            pass
+
     @property
     def attrs_current(self):
         """Return a map of the most current _Attrs on the _AttrMgr by key."""
+        try:
+            return self._cache_attrs_current
+        except AttributeError:
+            pass
+            
         curr = {}
         deleted = set()
-        for attr in self.attrs.filter(_Change.accepted == True).all():
+        log.debug('all current attrs for obj {0}'.format(self.id))
+        attrs = self.attrs_accepted
+        for attr in attrs:
             k = attr.key
             if k not in curr and k not in deleted:
                 if attr.deleted:
                     deleted.add(k)
                 else:
                     curr[k] = attr
+
+        self._cache_attrs_current = curr
         return curr
 
     @property
@@ -1856,7 +1917,7 @@ class _AttrMgr(object):
 
     @hybrid_property
     def tracked(self, *args, **kwargs):
-        return self.attrs
+        return self.attrsq(accepted_only=False)
 
     @hybrid_property
     def tracked_data(self):
@@ -1985,8 +2046,16 @@ class _AttrMgr(object):
             # This means that at least one of the List (attr_class) values must
             # match
             query = query.\
-                filter(attr_class.id == elem_class.attrvalue_id).\
-                filter(elem_class.value == value)
+                filter(attr_class.id == elem_class.attrvalue_id)
+            try:
+                value.match
+                op = '~'
+                if value.flags & re.IGNORECASE == re.IGNORECASE:
+                    op = '~*'
+                query = query.filter(elem_class.value.op(op)(value.pattern))
+            except AttributeError:
+                query = query.\
+                    filter(elem_class.value == value)
         else:
             try:
                 v = attr_class._coerce(None, value)
@@ -1997,7 +2066,15 @@ class _AttrMgr(object):
                 raise TypeError(
                     u'Coerced value {!r} for {} != {!r}'.format(
                         v, attr_class, value))
-            query = query.filter(attr_class.value == value)
+            try:
+                value.match
+                op = '~'
+                if value.flags & re.IGNORECASE == re.IGNORECASE:
+                    op = '~*'
+                query = query.filter(attr_class.value.op(op)(value.pattern))
+            except AttributeError:
+                query = query.filter(attr_class.value == value)
+        log.debug(query)
         return query
 
     @classmethod
@@ -2005,7 +2082,8 @@ class _AttrMgr(object):
         """Produce filter for the given value and attr_class."""
         expect_list = type(attr_class.value) == AssociationProxy
 
-        #log.debug('{} {} {}'.format(attr_class, key, value))
+        log.debug(u'filtering for {0!r} {1!r} = {2!r}'.format(
+            attr_class, key, value))
 
         q = query.filter(_Attr.key == key)
         if type(value) is list:
@@ -2026,6 +2104,7 @@ class _AttrMgr(object):
                     expect_list, q, attr_class, value)
             except TypeError, e:
                 log.debug(e)
+                return None
         return q
 
     @classmethod
@@ -2038,10 +2117,33 @@ class _AttrMgr(object):
             for attr_class in attrclass:
                 filters.append(
                     cls._filter_by_key_value(query, attr_class, key, value))
+            filters = filter(None, filters)
             if filters:
                 return filters[0].union(*filters[1:])
 
         return cls._filter_by_key_value(query, attrclass, key, value)
+
+    @classmethod
+    def _true_match(cls, obj_v, v):
+        if listlike(obj_v):
+            if listlike(v):
+                if obj_v != v:
+                    return False
+            else:
+                try:
+                    if not any(v.match(x) for x in obj_v):
+                        return False
+                except AttributeError:
+                    if v not in obj_v:
+                        return False
+        else:
+            try:
+                if not v.match(obj_v):
+                    return False
+            except AttributeError:
+                if obj_v != v:
+                    return False
+        return True
 
     @classmethod
     def get_by_attrs_true_match(cls, obj, dict, accepted_only=True):
@@ -2054,26 +2156,19 @@ class _AttrMgr(object):
             
         for k, v in dict.items():
             key = k
-            obj_v = obj.get(k)
+            if key.find('.') >= 0:
+                key, subkey = key.split('.', 1)
+                obj_v = obj.get(key)
 
-            if listlike(obj_v):
-                if listlike(v):
-                    if obj_v != v:
-                        return False
-                else:
-                    try:
-                        if not any(v.match(x) for x in obj_v):
-                            return False
-                    except AttributeError:
-                        if v not in obj_v:
-                            return False
+                if type(obj_v) == Participants:
+                    for p in obj_v:
+                        if vars(p)[subkey] == v:
+                            return True
+                return False
             else:
-                try:
-                    if not v.match(obj_v):
-                        return False
-                except AttributeError:
-                    if obj_v != v:
-                        return False
+                obj_v = obj.get(key)
+                if not cls._true_match(obj_v, v):
+                    return False
         return True
     
     @classmethod
@@ -2088,12 +2183,13 @@ class _AttrMgr(object):
         filters = []
         for k, v in dict.items():
             filters.append(cls.filter_by_key_value(base_filter_query, k, v))
+        filters = filter(None, filters)
         if filters:
+            log.debug(filters)
             intersection = filters[0].intersect(*filters[1:])
             objs = base_query.filter(_Change.id.in_(intersection))
         else:
             objs = base_query
-
         return objs
 
     @classmethod
@@ -2117,6 +2213,8 @@ class _AttrMgr(object):
 
         """
         objs = cls._get_all_by_attrs(dict, accepted_only)
+        log.debug('-' * 80)
+        log.debug(len(objs))
         for obj in objs:
             if cls.get_by_attrs_true_match(obj, dict, accepted_only):
                 return obj
@@ -2253,6 +2351,12 @@ class Obj(_Change, _IDAttrMgr):
     __mapper_args__ = {
         'polymorphic_identity': 'obj',
     }
+
+    @classmethod
+    def query(cls, *args):
+        """Return a query for this class on the global database session."""
+        return super(Obj, cls).query(*args).\
+            options(joinedload_all('attrs_accepted'))
 
 Obj.allow_attr('import_id', String, 'Import ID')
 
@@ -2469,7 +2573,7 @@ class Cruise(Obj):
         return filter(lambda x: fn(x.track), cruises)
 
     @classmethod
-    def get_by_expocode(cls, expocode):
+    def get_all_by_expocode(cls, expocode):
         """Return all Cruises that match expocode.
 
         Multiple Cruises *may* have the same expocode. *Yes* it has happened.
@@ -2479,9 +2583,10 @@ class Cruise(Obj):
 
     @classmethod
     def updated(cls, limit):
+        """Provide list of _Attrs that have been recently approved."""
         file_types = data_file_descriptions.keys()
-
-        # TODO remove map updates from file_types
+        file_types.remove('map_thumb')
+        file_types.remove('map_full')
 
         skip = 0
         step = limit * 4
@@ -2490,6 +2595,7 @@ class Cruise(Obj):
 
         while len(updated) < limit:
             attrs = _Attr.query().\
+                options(subqueryload(_Attr.obj)).\
                 filter(_Attr.accepted==True).\
                 filter(_Attr.key.in_(file_types)).\
                 order_by(_Attr.judgment_timestamp.desc()).\
@@ -2507,14 +2613,20 @@ class Cruise(Obj):
         return updated
 
     @classmethod
-    def pending_with_date_starts(cls):
+    def pending_with_date_starts(cls, limit=None):
         """Gives a list of all pending cruises that have start dates"""
-        pending = Cruise.query().filter(Cruise.accepted==False).all()
-        return filter(lambda c: c.date_start, pending)
+        pending = Cruise.query().filter(Cruise.accepted==False).\
+            filter(Cruise.id.in_(_Attr.query(_Attr.obj_id).\
+                filter(_Attr.key == 'date_start').\
+                filter(not_(_Attr.accepted))
+            ))
+        if limit:
+            pending = pending.limit(limit)
+        return pending.all()
 
     @classmethod
     def upcoming(cls, limit):
-        upcoming = Cruise.pending_with_date_starts()
+        upcoming = Cruise.pending_with_date_starts(limit)
         now = datetime.utcnow()
         try:
             upcoming = sorted(upcoming, key=lambda c: c.date_start)
@@ -2627,7 +2739,19 @@ class CruiseAssociate(object):
         query = query.order_by(order_by)
         if limit:
             query = query.limit(limit)
-        cruises = query.all()
+        #options(subqueryload('attrs.v'), subqueryload('attrs.v_accepted')).\
+        cruises = query.\
+            options(
+                joinedload_all('attrs_accepted'),
+                subqueryload_all('attrs_accepted.vs')).\
+            all()
+        #cruises = query.all()
+        log.debug(kvs)
+        log.debug(len(cruises))
+
+        if len(cruises) > 500:
+            log.error('Too many cruises')
+            cruises = []
 
         return filter(
             lambda c: Cruise.get_by_attrs_true_match(c, kvs, accepted_only),
@@ -2647,11 +2771,23 @@ class CruiseParticipantAssociate(CruiseAssociate):
     cruise_associate_key = 'participants'
     cruise_participant_associate_key = None
 
-    def cruises(self):
-        cruises = super(CruiseParticipantAssociate, self).cruises()
-        return cruises
-    # FIXME
-        #self.cruise_participant_associate_key)
+    def _cruise_query_dict(self):
+        key = '{0}.{1}'.format(
+            self.cruise_associate_key, self.cruise_participant_associate_key)
+        return {key: self.id}
+
+    def _cruises_query(self, accepted_only=True):
+        kvs = self._cruise_query_dict()
+        query = Cruise.get_by_attrs_query({}, accepted_only)
+        attrvalue_ids = Participant.query(distinct(Participant.attrvalue_id)).\
+            filter(Participant.__dict__[
+                       self.cruise_participant_associate_key] == self.id)
+        attr_ids = _AttrValue.query(_AttrValue.attr_id).\
+            filter(_AttrValue.id.in_(attrvalue_ids))
+        query = query.\
+            filter(_Attr.obj_id == Obj.id).\
+            filter(_Attr.id.in_(attr_ids))
+        return (query, kvs)
 
 
 class Country(CruiseAssociate, Obj):
@@ -2734,6 +2870,7 @@ class Person(CruiseParticipantAssociate, Obj):
     email = Column(String)
     permissions_ = relationship(
         _PersonPermissions, single_parent=True,
+        lazy='joined',
         cascade='all, delete, delete-orphan')
     permissions = association_proxy('permissions_', 'permission')
 
@@ -2741,14 +2878,14 @@ class Person(CruiseParticipantAssociate, Obj):
     name_last = Column(Unicode)
     name_first = Column(Unicode)
 
-    cruise_participant_associate_key = 'person'
+    cruise_participant_associate_key = 'person_id'
 
     __mapper_args__ = {
         'polymorphic_identity': 'person',
     }
 
     def __init__(self, **kwargs):
-        super(Person, self).__init__(self, **kwargs)
+        super(Person, self).__init__(self, allow_blank=True, **kwargs)
         if self.name_last or self.name_first and not self.name:
             self.name = ' '.join(
                 filter(None, (self.name_first, self.name_last)))
@@ -2876,7 +3013,7 @@ class Institution(CruiseParticipantAssociate, Obj):
         'polymorphic_identity': 'institution',
     }
 
-    cruise_participant_associate_key = 'institution'
+    cruise_participant_associate_key = 'institution_id'
 
     @property
     def name(self):
@@ -3431,9 +3568,10 @@ ParameterOrder.allow_attrs([
 # Fix Postgis 2.0 bad function call for WKTSpatialElement. The function name
 # changed from GeomFromText to ST_GeomFromText.
 from geoalchemy.postgis import PGSpatialDialect
-from geoalchemy.base import WKTSpatialElement
+from geoalchemy.base import WKTSpatialElement, WKBSpatialElement
 pg_funcs = PGSpatialDialect._PGSpatialDialect__functions
 pg_funcs[WKTSpatialElement] = 'ST_GeomFromText'
+pg_funcs[WKBSpatialElement] = 'ST_GeomFromBinary'
 
 @event.listens_for(mapper, 'after_configured')
 def _after_mapper_configured_reorder_tables():

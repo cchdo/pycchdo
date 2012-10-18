@@ -152,7 +152,7 @@ def ids(request):
         def get_by_id_or_expo(id):
             c = models.Cruise.get_id(id)
             if not c:
-                c = models.Cruise.get_by_expocode(id)
+                c = models.Cruise.get_all_by_expocode(id)
                 if len(c) > 0:
                     c = c[0]
                 else:

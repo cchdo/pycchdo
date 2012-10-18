@@ -30,10 +30,12 @@
       {{ whh.tags.end_form() }}
     </div>
     {%- endif %}
-    <div class="subsection">
-      <h2>Cruises</h2>
-      {{ h.cruise_listing(ship.cruises()) }}
-    </div>
+    {%- if cruises %}
+      <div class="subsection">
+        <h2>Cruises</h2>
+        {{ h.cruise_listing(cruises) }}
+      </div>
+    {%- endif %}
   {%- endcall %}
 {%- endblock %}
 {% block js %}

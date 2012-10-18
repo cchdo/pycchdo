@@ -47,19 +47,19 @@ function eventTarget(e) {
   return target;
 }
 
-(function menuMods() {
-  function has_class(e, c) {
-    return e.className.indexOf(c) >= 0;
+function has_class(e, c) {
+  return e.className.indexOf(c) >= 0;
+}
+function add_class(e, c) {
+  if (!has_class(e, c)) {
+    e.className = e.className + ' ' + c;
   }
-  function add_class(e, c) {
-    if (!has_class(e, c)) {
-      e.className = e.className + ' ' + c;
-    }
-  }
-  function remove_class(e, c) {
-    e.className = e.className.replace(new RegExp(' ' + c, 'g'), '');
-  }
+}
+function remove_class(e, c) {
+  e.className = e.className.replace(new RegExp(' ' + c, 'g'), '');
+}
 
+(function menuMods() {
   var menu_expand_ack = 'menu_expand_acknowledged';
   var menu_prefer_more = 'menu_prefer_more';
 

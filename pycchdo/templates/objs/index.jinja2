@@ -4,7 +4,7 @@
   {% call h.boxed('Objs') -%}
     <ul>
     {% for obj in objs -%}
-      <li><a href="/obj/{{ obj['_id'] }}">Go</a> {{obj}}</li>
+      <li><a href="/obj/{{ obj.id }}">Go</a> {{obj}}</li>
     {%- endfor %}
     </ul>
 

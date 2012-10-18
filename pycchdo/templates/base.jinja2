@@ -45,8 +45,8 @@
     {%- include 'templates/_base_footer.html' %}
   </div>
   <div id="scripts">
-    {%- block js %}{%- endblock %}
     {{- whh.tags.javascript_link('/static/js/base.js') }}
+    {%- block js %}{%- endblock %}
     {%- include 'templates/_track.html' ignore missing %}
     {%- include 'templates/_ie6.html' ignore missing %}
   </div>

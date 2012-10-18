@@ -7,20 +7,20 @@ from pycchdo.views import staff
 
 
 def collections_index(request):
-    collections = sorted(request.db.query(Collection).all(), key=lambda c: c.name)
+    collections = sorted(Collection.query().all(), key=lambda c: c.name)
     collections = paged(request, collections)
     return {'collections': collections}
 
 
 def collections_index_json(request):
-    collections = sorted(request.db.query(Collection).all(), key=lambda c: c.name)
+    collections = sorted(Collection.query().all(), key=lambda c: c.name)
     collections = [c.to_nice_dict() for c in collections]
     return collections
 
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    return request.db.query(Collection).get(coll_id)
+    return Collection.query().get(coll_id)
 
 
 def _redirect_response(request, id):
@@ -32,7 +32,8 @@ def collection_show(request):
     collection = _get_collection(request)
     if not collection:
         raise HTTPNotFound()
-    return {'collection': collection}
+    cruises = collection.cruises(accepted_only=False)
+    return {'collection': collection, 'cruises': cruises}
 
 
 def collection_archive(request):
@@ -99,7 +100,7 @@ def collection_merge(request):
     except KeyError:
         request.session.flash('No mergee collection given', 'help')
         return redirect_response
-    mergee = request.db.query(Collection).get(mergee_id)
+    mergee = Collection.query().get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee collection %s given' % mergee_id,
                               'help')

@@ -1,32 +1,37 @@
+from pyramid import testing
+
 from jinja2 import Template as Jinja2Template
 
 from . import *
-
-from pyramid import testing
-
 import pycchdo
 
 
 # TODO Planning on figuring out how to render the jinja2 templates and search
 # them for expected results.
-class ViewIntegrationTests(BaseTest):
+class TestView(PersonBaseTest):
     def setUp(self):
-        """This sets up the application registry with the registrations your
-        application declares in its ``includeme`` function.
+        super(TestView, self).setUp()
+        self.request = testing.DummyRequest()
+        self.request.registry = self.config.registry
+        self.request.user = self.testPerson
 
-        """
-        super(ViewIntegrationTests, self).setUp()
-        self.config = testing.setUp()
-#        self.config.include('pycchdo.home')
+    def test_home(self):
+        from pycchdo.views.toplevel import home
+        result = home(self.request)
+        self.assertEqual(result, {'updated': [], 'upcoming': []})
 
-    def tearDown(self):
-        """Clear out the application registry."""
-        super(ViewIntegrationTests, self).tearDown()
-        testing.tearDown()
+    def test_cruise_show(self):
+        from pycchdo.views.cruise import cruise_show
+        from pycchdo.models import DBSession, Cruise
 
-    def test_show_cruise(self):
-        pass
+        expocode = '33RR20090320'
 
-    def test_empty_login_redirects(self):
-        from pycchdo.views import session
-        pass
+        ccc = Cruise(self.testPerson)
+        DBSession.add(ccc)
+        DBSession.flush()
+        ccc.set_accept('expocode', expocode, self.testPerson)
+
+        self.config.add_route('submit_menu', '/submit.html')
+        self.config.add_route('cruise_new', '/cruises/{cruise_id}/new')
+        self.request.matchdict['cruise_id'] = str(ccc.id)
+        result = cruise_show(self.request)

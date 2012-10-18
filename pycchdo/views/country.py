@@ -9,22 +9,22 @@ from pycchdo.views import staff
 
 def countries_index(request):
     countries = sorted(
-        request.db.query(Country).all(), key=lambda x: x.name)
+        Country.query().all(), key=lambda x: x.name)
     return {'countries': countries}
 
 
 def countries_index_json(request):
     countries = sorted(
-        request.db.query(Country).all(), key=lambda x: x.name)
+        Country.query().all(), key=lambda x: x.name)
     countries = [c.to_nice_dict() for c in countries]
     return countries
 
 
 def _get_country(request):
     c_id = request.matchdict.get('country_id')
-    country = request.db.query(Country).get(c_id)
+    country = Country.query().get(c_id)
     if not country:
-        countries = Country.get_by_attrs({'iso_3166-1': c_id})
+        countries = Country.get_all_by_attrs({'iso_3166-1': c_id})
         if len(countries) > 0:
             country = countries[0]
     return country
@@ -39,7 +39,8 @@ def country_show(request):
     country = _get_country(request)
     if not country:
         raise HTTPNotFound()
-    return {'country': country}
+    cruises = country.cruises(accepted_only=False)
+    return {'country': country, 'cruises': cruises}
 
 
 def country_archive(request):
@@ -86,7 +87,7 @@ def country_merge(request):
     except KeyError:
         request.session.flash('No mergee country given', 'help')
         return redirect_response
-    mergee = request.db.query(Country).get(mergee_id)
+    mergee = Country.query().get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee country %s given' % mergee_id, 'help')
         return redirect_response

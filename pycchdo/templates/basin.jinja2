@@ -27,8 +27,8 @@
       </tr>
       {%- for cruise in h.cruises_sort_by_date_start(cruises) %}
         <tr class="body mb-link{{ loopi }} {{ hl }} {{ loop.cycle('even1', 'odd1') }}{%- if not cruise.track %} no_plot{%- endif %}">
-          <td></td>
-          <td>{{whh.tags.link_to(cruise.date_start.year or h.cruise_nice_name(cruise), h.path_cruise(cruise))}}</td>
+          <td>{{whh.tags.link_to(cruise.expocode, h.path_cruise(cruise))}}</td>
+          <td>{{cruise.date_start.year or h.cruise_nice_name(cruise)}}</td>
           <td>{{h.link_ship(cruise.ship)}}</td>
           <td>
             {%- set css = cruise.chief_scientists %}

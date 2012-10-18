@@ -521,7 +521,7 @@ def map_full(request):
     a = cruise_obj.get_attr('map_full')
     if not a:
         raise HTTPNotFound()
-    return file_response(request, a.file)
+    return file_response(request, a.value)
 
 
 def map_thumb(request):
@@ -546,8 +546,9 @@ def _cruise_to_json(cruise):
         'id': str(cruise.id),
         'obj_url': h.path_cruise(cruise), 
     }
-    for attr_key in cruise.allowed_attrs_list:
-        v = cruise.__getattr__(attr_key)
+    for attr_key, value in cruise._allowed_attrs_dict().items():
+        print value
+        v = cruise.get(attr_key)
         if v:
             if type(v) is not list:
                 obj[attr_key] = unicode(v)

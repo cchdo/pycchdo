@@ -1,12 +1,12 @@
 {% extends "templates/base.jinja2" %}
 {% block title %}Obj Attrs{% endblock %}
 {% block content %}
-  {% call h.boxed('Obj %s attrs' % obj['_id']) -%}
+  {% call h.boxed('Obj %s attrs' % obj.id) -%}
     <p>{{obj}}</p>
 
     <h2>Attrs</h2>
     <table>
-    {% for k, v in obj.current_attrs().items() %}
+    {% for k, v in obj.attrs_current.items() %}
       <tr>
         <th>{{ k }}</th>
         <td>{{ v }}</td>
@@ -81,16 +81,16 @@
 
     <h2>Unacknowledged changes</h2>
     <ul>
-    {% for change in obj.unacknowledged_tracked() %}
+    {% for change in obj.unacknowledged_tracked.all() %}
     <li>
       <code>{{ change }}</code>
-      <form action="{{ request.url }}/{{ change['_id'] }}" method="POST"><input type="submit" name="action" value="Accept"></form>
-      <form action="{{ request.url }}/{{ change['_id'] }}" method="POST"><input type="submit" name="action" value="Acknowledge"></form>
-      <form action="{{ request.url }}/{{ change['_id'] }}" method="POST"><input type="submit" name="action" value="Reject"></form>
+      <form action="{{ request.url }}/{{ change.id }}" method="POST"><input type="submit" name="action" value="Accept"></form>
+      <form action="{{ request.url }}/{{ change.id }}" method="POST"><input type="submit" name="action" value="Acknowledge"></form>
+      <form action="{{ request.url }}/{{ change.id }}" method="POST"><input type="submit" name="action" value="Reject"></form>
     </li>
     {% endfor %}
     </ul>
 
-    <p><a href="../{{ obj['_id'] }}">Back to obj</a>
+    <p><a href="../{{ obj.id }}">Back to obj</a>
   {%- endcall %}
 {% endblock %}

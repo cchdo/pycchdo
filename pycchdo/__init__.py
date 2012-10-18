@@ -51,7 +51,7 @@ class RequestFactory(Request):
         userid = unauthenticated_userid(self)
         if userid is not None:
             # this should return None if the user doesn't exist
-            p = models.Person.get_id(userid)
+            p = models.Person.query().get(userid)
             return p
 
     @reify
@@ -342,6 +342,13 @@ def _configure_routes(config):
                'pycchdo.views.toplevel.catchall_static')
 
 
+def _configure(config):
+    _configure_bindings(config)
+    _configure_renderers(config)
+    _configure_error_views(config)
+    _configure_routes(config)
+    
+
 def main(global_config, **settings):
     """This function returns a Pyramid WSGI application."""
     engine = engine_from_config(settings, 'sqlalchemy.')
@@ -349,8 +356,5 @@ def main(global_config, **settings):
     FSFile.reconfig_fs_storage(settings['fs_root'])
 
     config = create_config(settings)
-    _configure_bindings(config)
-    _configure_renderers(config)
-    _configure_error_views(config)
-    _configure_routes(config)
+    _configure(config)
     return config.make_wsgi_app()

@@ -11,6 +11,7 @@ pyramid.includes =
     pyramid_jinja2
     pyramid_mailer
     pyramid_tm
+    pyramid_debugtoolbar
 
 # Search index
 db_search_index_path = /Users/myshen/var/cache/pycchdo_search_index_dev
@@ -37,7 +38,8 @@ pipeline =
 
 [server:main]
 use = egg:waitress#main
-host = 0.0.0.0
+#host = 0.0.0.0
+host = 127.0.0.1
 port = 6543
 
 # Begin logging configuration

@@ -1,3 +1,5 @@
+import transaction
+
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
                                    HTTPUnauthorized
@@ -5,6 +7,7 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
 import pycchdo.models as models
 
 from . import *
+from pycchdo.models import DBSession
 from pycchdo.helpers import has_mod
 from pycchdo.views.staff import staff_signin_required
 from session import require_signin
@@ -12,7 +15,7 @@ from session import require_signin
 
 @staff_signin_required
 def objs(request):
-    objs = models.Obj.get_all()
+    objs = models.Obj.query().all()
     objs = paged(request, objs)
     return {'objs': objs}
 
@@ -33,14 +36,15 @@ def obj_new(request):
 
     try:
         obj = models.__dict__[obj_type](request.user)
-        obj.save()
+        DBSession.add(obj)
+        DBSession.flush()
     except KeyError:
         raise ValueError('No such obj type (%s) allowed' % obj_type)
     if attributes:
         for k, v in attributes.items():
             if k in obj.allowed_untracked_keys:
                 obj[k] = v
-        obj.save()
+        DBSession.flush()
     if attrs:
         for k, v in attrs.items():
             if k == 'track' and isinstance(obj, models.Cruise):
@@ -51,6 +55,8 @@ def obj_new(request):
                 else:
                     obj.set(k, v, request.user)
 
+    transaction.commit()
+
     if isinstance(obj, models.Cruise):
         raise HTTPSeeOther(location=request.route_path('cruise_show',
                                                         cruise_id=obj.id))
@@ -60,7 +66,7 @@ def obj_new(request):
 @staff_signin_required
 def obj_show(request):
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.get_id(obj_id)
+    obj = models.Obj.query().get(obj_id)
     if not obj:
         raise HTTPNotFound()
 
@@ -68,7 +74,8 @@ def obj_show(request):
     method = http_method(request)
     if method == 'DELETE':
         if obj:
-            obj.remove()
+            DBSession.delete(obj)
+            transaction.commit()
             obj = None
             request.session.flash('Removed Obj %s' % obj_id, 'action_taken')
             raise HTTPSeeOther(location='/objs')
@@ -79,7 +86,6 @@ def obj_show(request):
             raise HTTPUnauthorized()
         try:
             action = request.params['action']
-            obj = obj.polymorph()
             if action == 'Accept':
                 obj.accept(request.user)
                 request.session.flash(
@@ -102,8 +108,8 @@ def obj_show(request):
 
     return {
         'id': obj_id,
-        'obj': obj.polymorph(),
-        'asdict': dict(obj),
+        'obj': obj,
+        'asdict': obj.to_nice_dict(),
         'link': link,
     }
 
@@ -113,7 +119,7 @@ def obj_attrs(request):
     method = http_method(request)
 
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.get_id(obj_id)
+    obj = models.Obj.query().get(obj_id)
     if not obj:
         raise HTTPNotFound()
 
@@ -149,9 +155,9 @@ def obj_attrs(request):
         elif type == 'list':
             value = [_unescape(x) for x in value.split(',')]
         elif type == 'id':
-            value = models.Obj.get_id(value)
+            value = models.Obj.query().get(value)
             if value:
-                value = value['_id']
+                value = value.id
         else:
             # file upload should send the FieldStorage unchanged
             # notes should not change anything either
@@ -166,7 +172,7 @@ def obj_attrs(request):
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
     key = request.matchdict['key']
-    attr = models._Attr.get_id(key)
+    attr = models._Attr.query().get(key)
     if not attr:
         raise HTTPNotFound('No attr with key %s' % key)
     if not str(attr['obj']) == obj_id:

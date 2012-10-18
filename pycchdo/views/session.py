@@ -2,10 +2,16 @@ import urllib
 import urllib2
 import json
 
+import transaction
+
 from pyramid.security import remember, forget
 from pyramid.httpexceptions import HTTPSeeOther, HTTPInternalServerError
 
-import pycchdo.models as models
+from pycchdo.models import DBSession, Person
+from pycchdo.log import ColoredLogger
+
+
+log = ColoredLogger(__name__)
 
 
 _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'
@@ -38,12 +44,17 @@ def _profile_to_person(profile):
     name = profile.get('name')
     email = profile.get('email')
 
-    person = models.Person.get_one({'identifier': identifier})
+    person = Person.query().filter(Person.identifier == identifier).first()
+    log.info(person)
     if not person:
-        person = models.Person(
-            identifier=identifier, name_first=name['givenName'],
-            name_last=name['familyName'], email=email)
-        person.save()
+        person = Person(
+            identifier=identifier, name=name['formatted'], email=email)
+        log.info(person)
+        DBSession.add(person)
+        DBSession.flush()
+        pid = person.id
+        transaction.commit()
+        person = Person.query().get(pid)
     return person
 
 
@@ -65,6 +76,8 @@ def session_show(request):
 
 
 def session_identify(request):
+    if request.user:
+        raise HTTPSeeOther(location=request.route_url('session'))
     if not request.session.get('skip_save_signin_return_uri', False):
         _save_request(request)
         try:
@@ -77,7 +90,8 @@ def session_identify(request):
 def _sign_in_user(request, person):
     try:
         return remember(request, str(person.id))
-    except AttributeError:
+    except AttributeError, e:
+        log.error(e)
         request.session.flash('Currently unable to sign in', 'help')
         return []
 
@@ -91,10 +105,14 @@ def session_new(request):
         direct_email = request.params.get('direct_email')
         if not direct_email:
             raise HTTPSeeOther(location=_redirect_uri(request))
-        person = models.Person(name_first=direct_name_first,
-                               name_last=direct_name_last,
-                               email=direct_email)
-        person.save()
+        person = Person(
+            name=u'{0} {1}'.format(direct_name_first, direct_name_last),
+            email=direct_email)
+        DBSession.add(person)
+        DBSession.flush(person)
+        pid = person.id
+        transaction.commit()
+        person = Person.query().get(pid)
         return _do_signin(request, person)
 
     # Sign in a user for real from Janrain

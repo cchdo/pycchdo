@@ -1,12 +1,11 @@
 {%- extends "templates/base.jinja2" %}
 {%- set description = "No one is signed in" %}
 {%- if person %}
-  {%- set description = person.full_name + " is signed in" %}
+  {%- set description = h.link_person(person) + " is signed in" %}
 {%- endif %}
 {% block title %}{{ description }}{% endblock %}
 {% block content %}
   {% call h.boxed(description) -%}
-    <h2>{{person['identifier']}}</h2>
     <p>{{person or ''}}</p>
     <p>{{person.id}}</p>
   {%- endcall %}

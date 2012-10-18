@@ -1,5 +1,7 @@
 from unittest import TestCase
+import logging
 from StringIO import StringIO as pyStringIO
+import transaction
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -10,14 +12,14 @@ from pyramid import testing
 from sqlalchemy import create_engine
 
 from pycchdo.models.models import (
-    DBSession, Base, reset_database, reset_fs, FSFile,
+    DBSession, Base, reset_fs, FSFile, Person, 
     )
-from pycchdo.log import ColoredLogger
+from pycchdo.log import ColoredLogger, ColoredFormatter
 
 
 __all__ = [
-    'log', 'BaseTest', 'MockFile', 'MockFieldStorage', 'MockSession',
-    'setUpModule', 'tearDownModule',
+    'log', 'BaseTest', 'PersonBaseTest', 'MockFile', 'MockFieldStorage',
+    'MockSession', 'setUpModule', 'tearDownModule',
     ]
 
 
@@ -32,10 +34,18 @@ engine = None
 def setUpModule():
     global engine
     if engine is None:
-        engine = create_engine(db_uri, echo=db_echo)
+        log.info('connecting')
+        engine = create_engine(db_uri)
         DBSession.configure(bind=engine)
-        reset_database(engine)
         FSFile.reconfig_fs_storage()
+
+        if db_echo:
+            sqlalchemy_logger = logging.getLogger('sqlalchemy.engine')
+            color_formatter = ColoredFormatter()
+            console = logging.StreamHandler()
+            console.setFormatter(color_formatter)
+            sqlalchemy_logger.addHandler(console)
+            sqlalchemy_logger.setLevel(logging.DEBUG)
 
 
 def tearDownModule():
@@ -45,13 +55,26 @@ def tearDownModule():
 
 class BaseTest(TestCase):
     def setUp(self):
-        self._config = testing.setUp()
+        self.config = testing.setUp()
+        transaction.get().doom()
 
     def tearDown(self):
-        del self._config
+        del self.config
         DBSession.flush()
         DBSession.rollback()
         testing.tearDown()
+
+
+class PersonBaseTest(BaseTest):
+    def setUp(self):
+        super(PersonBaseTest, self).setUp()
+        self.testPerson = Person(identifier='testperson')
+        DBSession.add(self.testPerson)
+        DBSession.flush()
+        self.testPerson.accept(self.testPerson)
+
+    def tearDown(self):
+        super(PersonBaseTest, self).tearDown()
 
 
 class MockFile(pyStringIO):

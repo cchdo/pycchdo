@@ -1,17 +1,29 @@
+from pyramid import testing
 from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
-from pyramid import testing
 
 from . import *
 from pycchdo.models import DBSession, Cruise, Person
 
 
-class TestView(BaseTest):
-    def test_home_view(self):
-        from pycchdo.views.toplevel import home
-        request = testing.DummyRequest()
-        result = home(request)
-        self.assertEqual(result, {'updated': [], 'upcoming': []})
+class ViewIntegrationTests(BaseTest):
+    def setUp(self):
+        """This sets up the application registry with the registrations your
+        application declares in its ``includeme`` function.
+
+        """
+        super(ViewIntegrationTests, self).setUp()
+        self.config = testing.setUp()
+#        self.config.include('pycchdo.home')
+
+    def tearDown(self):
+        """Clear out the application registry."""
+        super(ViewIntegrationTests, self).tearDown()
+        testing.tearDown()
+
+    def test_empty_login_redirects(self):
+        from pycchdo.views import session
+        pass
 
     def test_data_permissions(self):
         """When accessing data, make sure the session is authorized to see it.
@@ -28,7 +40,6 @@ class TestView(BaseTest):
         """
         from pycchdo.views.toplevel import data
         request = testing.DummyRequest()
-
 
         person = request.user = Person(identifier=u'person')
         DBSession.add(person)

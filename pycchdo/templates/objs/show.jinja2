@@ -4,8 +4,7 @@
   {% call h.boxed('Obj {id}'.format(id=id)) -%}
     {{ h.link_obj_polymorph(obj) }}
 
-    <p>{{obj}}</p>
-
+    <h2>Keys</h2>
     <table>
       {%- for key in obj.allowed_keys|sort %}
         <tr><th>{{ key }}</th><td>{{ obj[key] }}</td></tr>
@@ -21,12 +20,12 @@
       </table>
     {%- endif %}
     <p>
-      <a href="/obj/{{ obj['_id'] }}/a">Edit attributes</a>
+      <a href="/obj/{{ obj.id }}/a">Edit attributes</a>
     </p>
 
     <h2>Actions</h2>
     <p>
-      <form action="/obj/{{ obj['_id'] }}" method="DELETE">
+      <form action="/obj/{{ obj.id }}" method="DELETE">
         <input type="hidden" name="_method" value="DELETE">
         <input type="submit" value="Delete">
       </form>

@@ -7,17 +7,17 @@ from pycchdo.views import staff
 
 
 def ships_index(request):
-    return {'ships': sorted(request.db.query(Ship).all(), key=lambda s: s.name)}
+    return {'ships': sorted(Ship.query().all(), key=lambda s: s.name)}
 
 
 def ships_index_json(request):
-    ships = sorted(request.db.query(Ship).all(), key=lambda s: s.name)
+    ships = sorted(Ship.query().all(), key=lambda s: s.name)
     return [s.to_nice_dict() for s in ships]
 
 
 def _get_ship(request):
     ship_id = request.matchdict.get('ship_id')
-    return request.db.query(Ship).get(ship_id)
+    return Ship.query().get(ship_id)
 
 
 def _redirect_response(request, id):
@@ -28,7 +28,8 @@ def ship_show(request):
     ship = _get_ship(request)
     if not ship:
         raise HTTPNotFound()
-    return {'ship': ship}
+    cruises = ship.cruises(accepted_only=False)
+    return {'ship': ship, 'cruises': cruises}
 
 
 def ship_archive(request):
@@ -69,7 +70,7 @@ def ship_merge(request):
     except KeyError:
         request.session.flash('No mergee ship given', 'help')
         return redirect_response
-    mergee = request.db.query(Ship).get(mergee_id)
+    mergee = Ship.query().get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee ship %s given' % mergee_id, 'help')
         return redirect_response

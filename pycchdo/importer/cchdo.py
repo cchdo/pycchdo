@@ -891,7 +891,7 @@ def _collections_merge(signer):
     for same in sames.values():
         if len(same) < 2:
             continue
-        implog.debug(u'Merging {} with {}'.format(same[0], same[1:]))
+        implog.info(u'Merging {} with {}'.format(same[0], same[1:]))
         same[0].merge(signer, *same[1:])
 
     # Pass 2: same name and similar types
@@ -946,18 +946,26 @@ def _import_collections(session):
     implog.info("Importing Collections")
     collections = session.query(legacy.Collection).all()
     updater = _get_updater()
-    for collection in collections:
-        import_id = str(collection.id)
-        coll = Collection.get_one_by_attrs({'import_id': import_id})
-        if coll:
+    new_collections = Collection.query().all()
+
+    imported_id_colls = {}
+    for coll in new_collections:
+        imported_id_colls[coll.get('import_id', None)] = coll
+
+    for coll in collections:
+        import_id = str(coll.id)
+        if import_id in imported_id_colls:
             implog.info("Updating Collection %s %s" % (
-                import_id, collection.Name))
+                import_id, coll.Name))
+            newcoll = imported_id_colls[import_id]
         else:
             implog.info("Creating Collection %s %s" % (
-                import_id, collection.Name))
-            coll = updater.create_accept(Collection)
-        updater.attr(coll, 'names', [collection.Name])
-        updater.attr(coll, 'import_id', import_id)
+                import_id, coll.Name))
+            newcoll = updater.create_accept(Collection)
+            implog.info(newcoll.id)
+        updater.attr(newcoll, 'names', [coll.Name])
+        updater.attr(newcoll, 'import_id', import_id)
+    DBSession.flush()
 
     implog.info('Merging same collections')
     _collections_merge(updater.importer)
@@ -1076,7 +1084,7 @@ def _import_events(session):
             DBSession.add(note)
             DBSession.flush()
 
-            cruises = Cruise.get_by_expocode(event.ExpoCode)
+            cruises = Cruise.get_all_by_expocode(event.ExpoCode)
             for cruise in cruises:
                 implog.info("Creating Event %s for cruise %s" % (
                     event_id, cruise.get('import_id')))
@@ -1626,8 +1634,17 @@ def _import_queue_files(session, downloader):
                 # cruise and no more. We can't really guess the data type
                 # correctly 100% with the given information so attach it as a
                 # data_suggestion.
+                # Since there could be multiple queued files on a cruise, we
+                # don't really want to overwrite previous ones.
+                attrs = cruise.attrsq('data_suggestion', accepted_only=False).\
+                    order_by(_Attr.creation_timestamp).all()
+                attr = None
+                for a in attrs:
+                    if a.attr_value.value.import_id == import_id:
+                        attr = a
+                        break
                 queue_file = updater.attr(
-                    cruise, 'data_suggestion', actual_file)
+                    cruise, 'data_suggestion', actual_file, attr=attr)
                 # Set the import id on the FSFile
                 queue_file.attr_value.value.import_id = import_id
                 DBSession.flush()
@@ -2183,36 +2200,36 @@ def import_(import_gid, args):
 
     implog.info("Connecting to cchdo db")
     with db_session(legacy.session()) as session:
-        if not args.files_only:
-            _import_users(session)
-            _import_contacts(session)
-            _import_collections(session)
+        #if not args.files_only:
+        #    _import_users(session)
+        #    _import_contacts(session)
+        #    _import_collections(session)
 
-            _import_cruises(session)
+        #    _import_cruises(session)
 
-            _import_track_lines(session)
-            _import_collections_cruises(session)
-            _import_contacts_cruises(session)
+        #    _import_track_lines(session)
+        #    _import_collections_cruises(session)
+        #    _import_contacts_cruises(session)
 
-            _import_events(session)
+        #    _import_events(session)
 
-            _import_spatial_groups(session)
-            _import_internal(session)
-            _import_unused_tracks(session)
+        #    _import_spatial_groups(session)
+        #    _import_internal(session)
+        #    _import_unused_tracks(session)
 
-            _import_parameter_descriptions(session)
-            _import_parameter_groups(session)
-            _import_bottle_dbs(session)
-            _import_parameter_status(session)
-            _import_parameters(session)
+        #    _import_parameter_descriptions(session)
+        #    _import_parameter_groups(session)
+        #    _import_bottle_dbs(session)
+        #    _import_parameter_status(session)
+        #    _import_parameters(session)
 
         with sftp(remote_host) as ssh_sftp:
             dl_files = not args.skip_downloads
             downloader = Downloader(
                 dl_files, ssh_sftp, import_gid,
                 local_rewriter=rewrite_dl_path_to_local, su_lock=Lock())
-            _import_submissions(session, downloader)
-            _import_old_submissions(session, downloader)
+            #_import_submissions(session, downloader)
+            #_import_old_submissions(session, downloader)
             _import_queue_files(session, downloader)
             _import_documents(session, downloader)
             _import_argo_files(session, downloader)

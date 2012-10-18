@@ -1,7 +1,7 @@
 {% extends "templates/base.jinja2" %}
 {% block title %}Attr{% endblock %}
 {% block content %}
-  {% call h.boxed('attr %s' % attr['_id']) -%}
+  {% call h.boxed('attr %s' % attr.id) -%}
     {%- if attr.deleted %}
       <p>del {{ attr.key }}
     {%- else %}
@@ -10,7 +10,7 @@
 
     <table>
       {%- for k, v in attr.items() %}
-        {%- if not k.endswith('_stamp') and k not in ['key', '_id', 'obj'] %}
+        {%- if not k.endswith('_stamp') and k not in ['key', 'obj'] %}
           {%- if k == 'notes' %}
             <tr>
               <th>{{ k }}</th>

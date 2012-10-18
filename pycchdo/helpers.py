@@ -217,7 +217,11 @@ def attr_value(a):
         v.read
         return 'file(%s)' % v.name
     except AttributeError:
-        return v
+        # TODO how to get track to return WKT
+        try:
+            return str(v)
+        except TypeError:
+            return repr(v)
 
 
 def cruise_dates(cruise):
@@ -525,7 +529,7 @@ def link_cruise(c):
 def link_person(p):
     if not p:
         return ''
-    name = p.full_name.strip()
+    name = p.name.strip()
     if not name or len(name) < 1:
         name = p.id
     return tags.link_to(name, u'/person/%s' % p.id)

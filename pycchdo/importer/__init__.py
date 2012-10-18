@@ -430,11 +430,12 @@ class Updater:
                     self.importer, _ustr2uni(note), data_type=data_type))
 
     def attr(self, obj, key, value, accept=True, note=None,
-             note_data_type=None, creation_time=None):
-        attr = obj.attrsq(key, accepted_only=False).\
-            order_by(_Attr.creation_timestamp).first()
-        implog.debug(
-            u'{0!r}.{1!r} ({2!r}) = {3!r}'.format(obj, key, attr, value))
+             note_data_type=None, creation_time=None, attr=None):
+        if attr is None:
+            attr = obj.attrsq(key, accepted_only=False).\
+                order_by(_Attr.creation_timestamp).first()
+            implog.debug(
+                u'{0!r}.{1!r} ({2!r}) = {3!r}'.format(obj, key, attr, value))
         if attr:
             attr._set(value)
             attr.accepted = accept

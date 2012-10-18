@@ -664,27 +664,29 @@ def _import_suggestions(sesh, updater):
 def clear():
     implog.info('Clearing all Seahunt imports')
 
-    person = Person.get_one(
-        {'name_last': 'importer', 'name_first': 'Seahunt'})
+    person = Person.query().\
+        filter(Person.name_last == 'importer').\
+        filter(Person.name_first == 'Seahunt').first()
 
-    attrs = _Attr.get_all({'key': 'import_id',
-                                  'value': re.compile('seahunt.*')})
+    attrs = _Attr.get_all_by_attrs(
+        {'key': 'import_id', 'value': re.compile('seahunt.*')})
     objs = [x.obj for x in attrs]
 
     if person:
-        objs = objs + Obj.get_all({'creation_person_id': person.id})
+        objs = objs + Obj.query().filter(
+            Obj.creation_person_id == person.id).all()
 
     lobjs = float(len(objs))
     for i, obj in enumerate(objs):
-        obj.polymorph().remove()
+        obj.remove()
         if i % 10 == 0:
             implog.info('%d/%d = %f' % (i, lobjs, i / lobjs))
 
-    max_id = Obj.find_one(
-        fields=[], sort=[('creation_timestamp', models.DESCENDING)])['_id']
-    if models.ObjId.peek_id() != max_id:
-        models.ObjId.set_id(max_id)
-        implog.info('Reset max ObjId to %d' % max_id)
+    max_id = Obj.query().order(Obj.creation_timestamp.desc()).first().id
+
+    #if models.ObjId.peek_id() != max_id:
+    #    models.ObjId.set_id(max_id)
+    #    implog.info('Reset max ObjId to %d' % max_id)
 
     implog.info('Cleared Seahunt imports')
     return 

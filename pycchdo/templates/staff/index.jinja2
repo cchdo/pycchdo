@@ -1,7 +1,7 @@
 {% extends "templates/staff.jinja2" %}
 {% block title %}Home | Staff{% endblock %}
 {% block content -%}
-  {% call h.boxed('Hi %s!' % request.user.name_first) -%}
-    <a href="http://goship.ucsd.edu:8080">CCHDO Operations Manual</a>
+  {% call h.boxed('Hi %s!' % request.user.name) -%}
+    <a href="http://bitbucket.org/ghdc/cchdo/wiki">CCHDO Operations Manual</a>
   {%- endcall %}
 {%- endblock %}

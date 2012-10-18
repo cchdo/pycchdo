@@ -15,25 +15,13 @@ import pycchdo.models.models as models
 from pycchdo.models.models import (
     Session, DBSession,
     String, Integer, LineString, File, TextList, ID, IDList, DateTime, Unicode, 
-    Stamp, Obj, _Change, _Attr, Note, Participant, Participants,
+    Institution, Stamp, Obj, _Change, _Attr, Note, Participant, Participants,
     Country, Cruise, Person, Collection, Ship,
     ArgoFile,
     FSFile,
     )
 
 from . import *
-
-
-class PersonBaseTest(BaseTest):
-    def setUp(self):
-        super(PersonBaseTest, self).setUp()
-        self.testPerson = Person(identifier='testperson')
-        self.testPerson.accept(self.testPerson)
-        DBSession.add(self.testPerson)
-        DBSession.flush()
-
-    def tearDown(self):
-        super(PersonBaseTest, self).tearDown()
 
 
 class TestModelChange(PersonBaseTest):
@@ -43,12 +31,13 @@ class TestModelChange(PersonBaseTest):
 
         change = _Change(self.testPerson)
         DBSession.add(change)
+        DBSession.flush()
 
         after = datetime.utcnow()
         self.assertTrue(change.creation_stamp.timestamp >= before)
         self.assertTrue(change.creation_stamp.timestamp <= after)
-        self.assertTrue(change.pending_stamp == None)
-        self.assertTrue(change.judgment_stamp == None)
+        self.assertFalse(bool(change.pending_stamp))
+        self.assertFalse(bool(change.judgment_stamp))
         self.assertFalse(change.accepted)
 
         change1 = _Change(
@@ -57,6 +46,7 @@ class TestModelChange(PersonBaseTest):
                 self.testPerson, 'body', 'action', 'data_type', 'subject'))
 
         DBSession.add(change1)
+        DBSession.flush()
 
         note = change1.notes[0]
         self.assertEqual(note.action, 'action')
@@ -86,6 +76,7 @@ class TestModelChange(PersonBaseTest):
         """The stamps should only be available depending on object state."""
         ccc = _Change(self.testPerson)
         DBSession.add(ccc)
+        DBSession.flush()
         self.assertTrue(ccc.creation_stamp != None)
         self.assertTrue(ccc.pending_stamp == None)
         self.assertTrue(ccc.judgment_stamp == None)
@@ -98,6 +89,7 @@ class TestModelChange(PersonBaseTest):
         """Test _Change state checkers."""
         ccc = _Change(self.testPerson)
         DBSession.add(ccc)
+        DBSession.flush()
         self.assertFalse(ccc.is_acknowledged())
         self.assertFalse(ccc.is_judged())
         self.assertFalse(ccc.is_accepted())
@@ -121,17 +113,28 @@ class TestModelChange(PersonBaseTest):
         """
         obj = _Change(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
 
         self.assertTrue(hasattr(obj, 'notes'))
         note = obj.add_note(Note(self.testPerson, 'test note'))
-        self.assertEqual(obj.notes.count(), 1)
+        self.assertEqual(len(obj.notes), 1)
 
 
-class TestModelAttrs(PersonBaseTest):
+class TestModelAttrValue(PersonBaseTest):
+    def test_attrvalue(self):
+        iii = Institution(self.testPerson)
+        DBSession.add(iii)
+        DBSession.flush()
+        iii.set_accept('name', 'hello', self.testPerson)
+        self.assertEqual('hello', iii.get('name', None))
+
+
+class TestModelAttr(PersonBaseTest):
     def test_set_returns_attr(self):
         """Setting a value on an Obj returns an _Attr."""
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         key = self._testMethodName
         obj.allow_attr(key, String, 'test')
 
@@ -180,6 +183,7 @@ class TestModelAttrs(PersonBaseTest):
         o = Obj(self.testPerson)
         o.allow_attr(self._testMethodName, String, 'test')
         DBSession.add(o)
+        DBSession.flush()
         self.assertEquals([], o.accepted_tracked.all())
         aaa = o.set(self._testMethodName, 'b', self.testPerson)
         self.assertEquals([], o.accepted_tracked.all())
@@ -191,6 +195,7 @@ class TestModelAttrs(PersonBaseTest):
         o = Obj(self.testPerson)
         o.allow_attr(self._testMethodName, String, 'test')
         DBSession.add(o)
+        DBSession.flush()
         self.assertEquals([], o.attr_keys)
         aaa = o.set(self._testMethodName, 'b', self.testPerson)
         aaa.accept(self.testPerson)
@@ -202,6 +207,7 @@ class TestModelAttrs(PersonBaseTest):
         obj = Obj(self.testPerson)
         obj.allow_attr(key, String, 'test')
         DBSession.add(obj)
+        DBSession.flush()
 
         aaa = obj.set(key, '0', self.testPerson)
         bbb = obj.set(key, '1', self.testPerson)
@@ -226,14 +232,18 @@ class TestModelAttrs(PersonBaseTest):
         """Getting a non-existant value should return default."""
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         self.assertEquals(obj.get('a'), None)
         self.assertEquals(obj.get('a', 'b'), 'b')
 
     def test_set_multi_type(self):
         """_Attrs may have multiple types."""
-        ooo = Obj(self.testPerson)
         key = self._testMethodName
         Obj.allow_attr(key, [DateTime, Unicode])
+
+        ooo = Obj(self.testPerson)
+        DBSession.add(ooo)
+        DBSession.flush()
 
         aaa = ooo.set_accept(key, 'testunicode', self.testPerson)
         self.assertEqual(aaa.value, 'testunicode')
@@ -249,6 +259,9 @@ class TestModelAttrs(PersonBaseTest):
         testdate = datetime.utcnow()
 
         ooo = Obj(self.testPerson)
+        DBSession.add(ooo)
+        DBSession.flush()
+
         ooo.accept(self.testPerson)
         aaa = ooo.set_accept(key, testdate, self.testPerson)
         DBSession.add(ooo)
@@ -267,6 +280,7 @@ class TestModelAttrs(PersonBaseTest):
         """
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
 
         key = self._testMethodName
         key0 = self._testMethodName + '0'
@@ -286,6 +300,7 @@ class TestModelAttrs(PersonBaseTest):
         value1 = '1'
         obj.set(key, value1, self.testPerson)
         self.assertEquals(obj.get(key), value)
+
         obj.unacknowledged_tracked.first().accept(self.testPerson)
         self.assertEquals(obj.get(key), value1)
 
@@ -301,6 +316,7 @@ class TestModelAttrs(PersonBaseTest):
         """Setting a list on an Obj's attrs stores a list."""
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         key0 = self._testMethodName + '0'
         key1 = self._testMethodName + '1'
         obj.allow_attr(key0, TextList, 'test')
@@ -332,13 +348,14 @@ class TestModelAttrs(PersonBaseTest):
 
     def test_set_accept(self):
         """Set accept is syntax sugar for immediately accepting the change."""
+        key = self._testMethodName
+        value = '0'
+        Obj.allow_attr(key, String, 'test')
+
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
 
-        key = self._testMethodName
-        obj.allow_attr(key, String, 'test')
-
-        value = '0'
         aaa = obj.set_accept(key, value, self.testPerson)
         self.assertEquals(value, obj.get(key))
 
@@ -351,14 +368,16 @@ class TestModelAttrs(PersonBaseTest):
         value and deletion.
 
         """
+        key = self._testMethodName
+        Obj.allow_attr(key, String, 'test')
+
         obj = Obj(self.testPerson)
         DBSession.add(obj)
-        key = self._testMethodName
-        obj.allow_attr(key, String, 'test')
+        DBSession.flush()
 
-        obj.set(key, 'b', self.testPerson).accept(self.testPerson)
+        obj.set_accept(key, 'b', self.testPerson)
         self.assertTrue(key in obj.attr_keys)
-        obj.delete(key, self.testPerson).accept(self.testPerson)
+        obj.delete_accept(key, self.testPerson)
         self.assertFalse(key in obj.attr_keys)
 
     def test_persistence_delete(self):
@@ -368,8 +387,8 @@ class TestModelAttrs(PersonBaseTest):
         Person.allow_attr(key1, IDList)
         p = Person(identifier=key0)
         DBSession.add(p)
-        aaa = p.set_accept(key0, 1, self.testPerson)
         DBSession.flush()
+        aaa = p.set_accept(key0, 1, self.testPerson)
 
         bbb = p.set_accept(key1, [1, 2], self.testPerson)
         DBSession.flush()
@@ -383,7 +402,6 @@ class TestModelAttrs(PersonBaseTest):
         DBSession.delete(p)
         DBSession.flush()
 
-
     def test_accepted_value(self):
         """Accepting an _Attr with an accepted value will change the returned
         value of the Attribute.
@@ -391,6 +409,7 @@ class TestModelAttrs(PersonBaseTest):
         """
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         key = self._testMethodName
         obj.allow_attr(key, Integer, 'test')
 
@@ -407,31 +426,28 @@ class TestModelAttrs(PersonBaseTest):
             MockFile('this is a mult-line test file\nwith \xe6\xb0\xb4',
                      'testfile.txt'), 'text/plain')
 
-        session = Session()
         with transaction.manager:
             testPerson = Person(identifier='testid')
-            session.add(testPerson)
-            session.flush()
+            DBSession.add(testPerson)
+            DBSession.flush()
 
             ooo = Obj(testPerson)
-            session.add(ooo)
+            DBSession.add(ooo)
+            DBSession.flush()
+
             ooo.set_accept(key, mockfs, testPerson)
-            session.flush()
             ooo_id = ooo.id
-        session.close()
 
-        session = Session()
-        ooo = session.query(Obj).get(ooo_id)
-        aaa_value = ooo.get(key)
-        aaa_value = aaa_value.read()
-        # TODO have the copy method seek
-        mockfs.file.seek(0)
-        mock_value = mockfs.file.read()
-        self.assertEquals(aaa_value, mock_value)
+        with transaction.manager:
+            ooo = Obj.query().get(ooo_id)
+            aaa_value = ooo.get(key)
+            aaa_value = aaa_value.read()
+            # TODO have the copy method seek
+            mockfs.file.seek(0)
+            mock_value = mockfs.file.read()
+            self.assertEquals(aaa_value, mock_value)
 
-        session.delete(ooo)
-        transaction.commit()
-        session.close()
+            DBSession.delete(ooo)
 
     def test_file_suggesting(self):
         """Setting an _Attr to some binary data.
@@ -442,6 +458,7 @@ class TestModelAttrs(PersonBaseTest):
         """
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         key = self._testMethodName
         obj.allow_attr(key, File, 'testfile')
 
@@ -461,21 +478,19 @@ class TestModelAttrs(PersonBaseTest):
         """
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         key = self._testMethodName
         obj.allow_attr(key, LineString, 'Test Track')
 
         aaa = obj.set(key, [[32, -117], [33, 118]], self.testPerson)
-        DBSession.flush()
         aaa = obj.set(
             key,
             shapely.geometry.linestring.LineString([[32, -117], [33, 118]]),
             self.testPerson)
-        DBSession.flush()
         aaa = obj.set(
             key,
             geojson.LineString([[32, -117], [33, 118]]),
             self.testPerson)
-        DBSession.flush()
 
 
 class TestModelObj(PersonBaseTest):
@@ -483,12 +498,14 @@ class TestModelObj(PersonBaseTest):
         """New Objs are instances of _Change."""
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         self.assertTrue(isinstance(obj, _Change))
 
     def test_remove(self):
         """Removing an Obj also removes all Attrs it is associated with."""
         obj = Obj(self.testPerson)
         DBSession.add(obj)
+        DBSession.flush()
         key = self._testMethodName
         obj.allow_attr(key, String, 'test')
 
@@ -511,13 +528,13 @@ class TestModelObj(PersonBaseTest):
         for i in range(0, num + 1):
             obj = Obj(self.testPerson)
             DBSession.add(obj)
+            DBSession.flush()
             obj.accept(self.testPerson)
             obj.set_accept('a', i, self.testPerson)
             obj.set_accept('b', num - i, self.testPerson)
             objs.append(obj)
             if i == 3:
                 ans = obj
-        DBSession.flush()
 
         objs_gotten = Obj.get_all_by_attrs({'a': 3, 'b': 1})
         obj = objs_gotten[0]
@@ -540,11 +557,11 @@ class TestModelObj(PersonBaseTest):
         Obj.allow_attr(key0, IDList)
 
         obj = Obj(self.testPerson)
+        DBSession.add(obj)
+        DBSession.flush()
         obj.accept(self.testPerson)
         obj.set_accept(key, ['aaa', 'bbb'], self.testPerson)
         obj.set_accept(key0, [1, 2, 3], self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
 
         objs_gotten = Obj.get_all_by_attrs({key: 'aaa'})
         self.assertEquals(len(objs_gotten), 1)
@@ -602,6 +619,7 @@ class TestModelObj(PersonBaseTest):
         Obj.allow_attr(key, String, 'test')
         ooo.accept(self.testPerson)
         DBSession.add(ooo)
+        DBSession.flush()
 
         # _AttrMgr need to be accepted before it can be found
         aaa = ooo.set_accept(key, 'first', self.testPerson)
@@ -646,9 +664,12 @@ class TestModelObj(PersonBaseTest):
         DBSession.flush()
 
         objs = Obj.query().all()
-        self.assertEquals(type(objs[-1]), Ship)
-        self.assertEquals(type(objs[-2]), Cruise)
-        self.assertEquals(type(objs[-3]), Obj)
+
+        types = map(type, objs)
+
+        self.assertTrue(Obj in types)
+        self.assertTrue(Cruise in types)
+        self.assertTrue(Ship in types)
 
 
 class TestModelPerson(PersonBaseTest):
@@ -717,6 +738,7 @@ class TestModelPerson(PersonBaseTest):
         """
         p = Person(identifier='person')
         DBSession.add(p)
+        DBSession.flush()
 
         self.assertTrue(p.is_authorized([]))
 
@@ -836,6 +858,7 @@ class TestModelCruise(PersonBaseTest):
         coords = [(0.0, 0.0), (1.0, 1.0)]
         c = Cruise(self.testPerson)
         DBSession.add(c)
+        DBSession.flush()
         t = c.track
         self.assertTrue(t is None)
         c.set_accept('track', coords, self.testPerson)
@@ -848,10 +871,13 @@ class TestModelCruise(PersonBaseTest):
         """Filter a list of Cruises by a geo function."""
         c0 = Cruise(self.testPerson)
         DBSession.add(c0)
-        c0.set_accept('track', [[0, 0], [0, 1]], self.testPerson)
 
         c1 = Cruise(self.testPerson)
         DBSession.add(c1)
+
+        DBSession.flush()
+
+        c0.set_accept('track', [[0, 0], [0, 1]], self.testPerson)
         c1.set_accept('track', [[2, 0], [3, 1]], self.testPerson)
 
         cs = Cruise.query().all()
@@ -862,7 +888,11 @@ class TestModelCruise(PersonBaseTest):
             [[1, -1], [1, 2], [4, 2], [4, -1], [1, -1]])
 
         self.assertEquals(Cruise.filter_geo(p0.intersects, cs), cs)
-        self.assertEquals(Cruise.filter_geo(p1.intersects, cs), [cs[1]])
+
+        self.assertEquals(
+            Cruise.filter_geo(
+                lambda t: p1.intersects(t) or p1.contains(t), cs),
+            [c1])
 
     def test_pending_tracked_data(self):
         """Retrieve a list of files that make up the data suggestion history for
@@ -872,6 +902,7 @@ class TestModelCruise(PersonBaseTest):
         """
         c = Cruise(self.testPerson)
         DBSession.add(c)
+        DBSession.flush()
 
         self.assertEquals(c.tracked_data.all(), [])
 
@@ -887,6 +918,7 @@ class TestModelCruise(PersonBaseTest):
         """
         c = Cruise(self.testPerson)
         DBSession.add(c)
+        DBSession.flush()
 
         mockbotex = MockFieldStorage(MockFile('botex', 'botex_hy1.csv'))
         mockctdzipnc = MockFieldStorage(
@@ -925,8 +957,8 @@ class TestModelCruise(PersonBaseTest):
 
         """
         c0 = Collection(self.testPerson)
-        cr0 = Cruise(self.testPerson)
         DBSession.add(c0)
+        cr0 = Cruise(self.testPerson)
         DBSession.add(cr0)
         DBSession.flush()
 
@@ -1014,6 +1046,7 @@ class TestModelCollection(PersonBaseTest):
         c1 = Collection(self.testPerson)
         DBSession.add(c0)
         DBSession.add(c1)
+        DBSession.flush()
 
         c0.set_accept('names', [u'collnameA', u'collnameB'], self.testPerson)
         c1.set_accept('names', [u'collnameC', u'collnameB'], self.testPerson)
@@ -1044,6 +1077,7 @@ class TestModelCollection(PersonBaseTest):
 
         c2 = Collection(self.testPerson)
         DBSession.add(c2)
+        DBSession.flush()
 
         c2.set_accept('names', ['collnameC'], self.testPerson)
 
@@ -1057,7 +1091,7 @@ class TestModelCollection(PersonBaseTest):
         self.assertEquals(Collection.query().get(c0.id), None)
 
 
-class TestModelFSFile(BaseTest):
+class TestModelFSFile(PersonBaseTest):
     def test_put(self):
         """Putting a file-like object with attributes into the fs returns an id
         to refer to the data.
@@ -1068,6 +1102,44 @@ class TestModelFSFile(BaseTest):
         DBSession.add(fsfile)
         DBSession.flush()
         self.assertNotEqual(fsfile.fsid, None)
+
+    def test_multiple_files(self):
+        """Multiple files in the same transaction.
+
+        Ensure files that are already saved do not try to save again (file may
+        be closed already).
+
+        """
+        ccc = Cruise(self.testPerson)
+        DBSession.add(ccc)
+        DBSession.flush()
+
+        key = 'data_suggestion'
+
+        file0 = MockFieldStorage(MockFile('f0', 'f0.txt'))
+        attr0 = ccc.attrsq(key, accepted_only=False).\
+            order_by(_Attr.creation_timestamp).first()
+        if attr0:
+            attr0._set(file0)
+        else:
+            attr0 = ccc.set_accept(key, file0, self.testPerson)
+        attr0.attr_value.value.import_id = '0'
+        DBSession.flush()
+        file0.file.close()
+    
+        file1 = MockFieldStorage(MockFile('f1', 'f1.txt'))
+        attr1 = ccc.attrsq(key, accepted_only=False).\
+            order_by(_Attr.creation_timestamp).first()
+        if attr1:
+            attr1._set(file1)
+        else:
+            attr1 = ccc.set_accept(key, file1, self.testPerson)
+        attr1.attr_value.value.import_id = '1'
+        DBSession.flush()
+        file1.file.close()
+
+        self.assertEqual(attr0, attr1)
+        self.assertEqual(attr1.attr_value.value.file.name, 'f1.txt')
     
     def test_get(self):
         """Get a file-like object with attributes from the fs."""
@@ -1137,13 +1209,18 @@ class TestModelArgoFile(PersonBaseTest):
         """
         data = self._testMethodName
         mockfs = MockFieldStorage(MockFile(data, 'test_hy1.csv'), 'text/csv')
+
         ccc = Cruise(self.testPerson)
-        ccc.set_accept('bottle_exchange', mockfs, self.testPerson)
         DBSession.add(ccc)
+        DBSession.flush()
+
+        ccc.set_accept('bottle_exchange', mockfs, self.testPerson)
 
         argo = ArgoFile(self.testPerson)
-        argo.link(ccc, 'bottle_exchange')
         DBSession.add(argo)
+        DBSession.flush()
+
+        argo.link(ccc, 'bottle_exchange')
 
         # TODO figure out why this needs a seek
         mockfs.file.seek(0)
@@ -1197,7 +1274,7 @@ class TestView(PersonBaseTest):
 
     def test_cruise_show(self):
         # XXX HACK because route_url doesn't work without route config
-        self._config.add_route('cruise_new', 'test')
+        self.config.add_route('cruise_new', 'test')
         from pycchdo.views.cruise import cruise_show
         request = testing.DummyRequest()
         with self.assertRaises(HTTPBadRequest):
@@ -1215,7 +1292,7 @@ class TestView(PersonBaseTest):
 
     def test_cruise_show_suggest_file(self):
         # XXX HACK because route_url doesn't work without route config
-        self._config.add_route('cruise_new', 'test')
+        self.config.add_route('cruise_new', 'test')
 
         from pycchdo.views.cruise import cruise_show
         from pyramid.renderers import render_to_response

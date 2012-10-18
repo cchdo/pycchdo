@@ -1,5 +1,9 @@
 from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
 
+from sqlalchemy.orm import joinedload_all
+
+import transaction
+
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Person
@@ -8,20 +12,21 @@ from pycchdo.views import staff
 
 
 def people_index(request):
-    people = sorted(request.db.query(Person).all(), key=lambda x: x.name_last)
+    people = sorted(Person.query().all(), key=lambda x: x.name_last)
     people = paged(request, people)
     return {'people': people}
 
 
 def people_index_json(request):
-    people = sorted(request.db.query(Person).all(), key=lambda x: x.name_last)
+    people = Person.query().all()
+    people = sorted(people, key=lambda x: x.name_last)
     people = [p.to_nice_dict() for p in people]
     return people
 
 
 def _get_person(request):
     person_id = request.matchdict.get('person_id')
-    return request.db.query(Person).get(person_id)
+    return Person.query().get(person_id)
 
 
 def _redirect_response(request, id):
@@ -33,7 +38,8 @@ def person_show(request):
     person = _get_person(request)
     if not person:
         raise HTTPNotFound()
-    return {'person': person}
+    cruises = person.cruises(accepted_only=False)
+    return {'person': person, 'cruises': cruises}
 
 
 def person_archive(request):
@@ -46,6 +52,7 @@ def person_archive(request):
 @staff_signin_required
 def person_edit(request):
     person = _get_person(request)
+    person_id = person.id
     if not person:
         raise HTTPNotFound()
 
@@ -84,9 +91,8 @@ def person_edit(request):
     if permissions:
         person.permissions = permissions
 
-    person.save()
-
-    return _redirect_response(request, person.id)
+    transaction.commit()
+    return _redirect_response(request, person_id)
 
 
 @staff_signin_required
@@ -108,7 +114,7 @@ def person_merge(request):
     except KeyError:
         request.session.flash('No mergee person given', 'help')
         return redirect_response
-    mergee = request.db.query(Person).get(mergee_id)
+    mergee = Person.query().get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee person %s given' % mergee_id,
                               'help')
@@ -128,7 +134,8 @@ def person_merge(request):
         person.email = mergee.email
     if not person.permissions:
         person.permissions = mergee.permissions
-    person.save()
+
+    DBSession.flush()
 
     cruises = set(person.cruises()).union(mergee.cruises())
     for cruise in cruises:
@@ -138,7 +145,9 @@ def person_merge(request):
                 p['person'] = person.id
         cruise.set_accept(Person.cruise_associate_key, participants,
                           request.user)
-    request.session.flash('Merged person with %s' % mergee, 'action_taken')
-    mergee.remove()
 
+    request.session.flash('Merged person with %s' % mergee, 'action_taken')
+    DBSession.delete(mergee)
+
+    transaction.commit()
     return redirect_response

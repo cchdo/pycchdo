@@ -720,7 +720,7 @@ def data_file_link(request, type, data):
         preliminary_marker = ' *'
 
     items = [
-        H.th(H.abbr(tags.link_to(data_type + preliminary_marker, link), title=description)),
+        H.th(H.abbr(tags.link_to(data_type + preliminary_marker, link), title=description, expocode=data.obj.expocode)),
     ]
 
     classes = [type.replace('_', ' ')]

@@ -47,6 +47,7 @@
   <div id="scripts">
     {%- block js %}{%- endblock %}
     {{- whh.tags.javascript_link('/static/js/base.js') }}
+    {{- whh.tags.javascript_link('/static/js/click_tracker.js') }}
     {%- include 'templates/_track.html' ignore missing %}
     {%- include 'templates/_ie6.html' ignore missing %}
   </div>

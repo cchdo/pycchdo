@@ -271,3 +271,32 @@
 .boxed.find ul {
   margin-bottom: 0.5em;
 }
+
+/* find */
+.boxed.find .sub-section {
+  width: 50%;
+}
+.boxed.find #search ul,
+.boxed.find #basin ul {
+  margin-bottom: 2em;
+}
+.boxed.find #search li,
+.boxed.find #basin li {
+  list-style: none;
+  float: left;
+  margin-left: 1em;
+}
+.boxed.find #basin {
+  position: absolute;
+  left: 50%;
+  top: 0;
+}
+.boxed.find #time-series {
+  float: left;
+}
+.boxed.find #project {
+  float: right;
+}
+.boxed.find #list {
+  clear: both;
+}

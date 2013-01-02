@@ -8,10 +8,10 @@
   <div id="search" class="sub-section first">
     <h2>Search</h2>
 
-    <p>{{ whh.tags.link_to('Advanced search', request.route_path('advanced_search')) }}</p>
-    <p>
-      {{ whh.tags.link_to('Map search', request.route_path('search_map')) }}
-    </p>
+    <ul>
+      <li>{{ whh.tags.link_to('Advanced search', request.route_path('advanced_search')) }}</li>
+      <li>{{ whh.tags.link_to('Map search', request.route_path('search_map')) }}</li>
+    </ul>
     <p id="search_map_ad">
       {{ whh.tags.link_to(whh.tags.image('/static/img/cchdo_search_map.png', 'Map Search'),
                           request.route_path('search_map')) }}
@@ -20,7 +20,6 @@
 
   <div id="basin" class="sub-section">
     <h2>Basins</h2>
-    {%- include "templates/_basin_selector.jinja2" %}
     <ul>
       {{ whh.HTML.li(whh.tags.link_to('Arctic', '/arctic.html')) }}
       {{ whh.HTML.li(whh.tags.link_to('Atlantic', '/atlantic.html')) }}
@@ -28,6 +27,7 @@
       {{ whh.HTML.li(whh.tags.link_to('Indian', '/indian.html')) }}
       {{ whh.HTML.li(whh.tags.link_to('Southern', '/southern.html')) }}
     </ul>
+    {%- include "templates/_basin_selector.jinja2" %}
   </div>
 
   <div id="time-series" class="sub-section">

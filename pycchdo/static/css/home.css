@@ -35,11 +35,11 @@
   padding-top: 0.8em;
   padding-bottom: 0.8em;
 }
-#geo_search #basin {
+#geo_search #search_map_ad {
   float: left;
   margin-left: 0.5em;
 }
-#geo_search #search_map_ad {
+#geo_search #basin {
   float: right;
   margin-right: 0.5em;
 }

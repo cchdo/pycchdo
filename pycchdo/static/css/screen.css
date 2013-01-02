@@ -525,9 +525,6 @@ input[type="submit"]:active {
 
 .boxed { 
   background: #FEFEFE;
-  border: 1px solid #F0F0F0;
-  border-top: 0;
-  border-bottom: 1.5em solid #F0F0F0;
   line-height: 1.5em;
   position: relative;
   margin-bottom: 1em;

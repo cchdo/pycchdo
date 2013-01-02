@@ -39,15 +39,15 @@
     </p>
   {% endcall %}
   
-  {% call h.boxed('Search for Data Geographically', id='geo_search', class='left') %}
+  {% call h.boxed('Find Data Geographically', id='geo_search', class='left') %}
     <ul>
-      <li id="basin">
-        <h2>Click on a basin</h2>
-        {%- include "templates/_basin_selector.jinja2" %}
-      </li>
       <li id="search_map_ad">
         <h2><a href="/search/map">Search interactively</a></h2>
         <a href="/search/map"><img src="/static/img/cchdo_search_map.png"></a>
+      </li>
+      <li id="basin">
+        <h2>Click on a basin</h2>
+        {%- include "templates/_basin_selector.jinja2" %}
       </li>
     </ul>
     <div class="clear"></div>

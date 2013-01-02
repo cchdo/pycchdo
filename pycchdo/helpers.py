@@ -4,16 +4,24 @@ from json import dumps
 import logging
 import os.path
 import os
-from os.path import sep as pthsep
-from os.path import join as pthjoin
+import re
+from os.path import (
+    sep as pthsep, join as pthjoin,
+    )
+
+import transaction
 
 import webhelpers.html as whh
 H = whh.HTML
-import webhelpers.html.tags as tags
-import webhelpers.html.tools as whhtools
-import webhelpers.text as whtext
+from webhelpers.html import tags, tools as whhtools
+from webhelpers import text as whtext
 
+from pycchdo.log import ColoredLogger, INFO, DEBUG
 import models
+
+
+log = ColoredLogger(__name__)
+log.setLevel(DEBUG)
 
 
 GAPI_keys = {
@@ -83,6 +91,71 @@ def has_staff(request):
         if 'staff' in request.user.permissions:
             return True
     return False
+
+
+_re_expocode_usa_ship = re.compile('^3[1-3]')
+def is_expocode_usa_ship(expocode):
+    return _re_expocode_usa_ship.match(expocode)
+
+
+def is_usa_ship(ship):
+    ship_code = ship.nodc_platform_code
+    if ship_code:
+        return _re_expocode_usa_ship.match(ship_code)
+    return False
+
+
+def needs_specifics_reduction(cruise, date):
+    """Determine whether a cruise needs its date and port specifics reduced to
+    comply with UNOLS and Navy security regulations.
+
+    """
+    if not cruise:
+        return False
+
+    if (    (   (cruise.expocode and is_expocode_usa_ship(cruise.expocode) or
+                (cruise.ship and is_usa_ship(cruise.ship)))
+            ) and 
+            (date and (
+                (cruise.date_start and 
+                 type(cruise.date_start) == dt.datetime and
+                 cruise.date_start > date) or
+                (cruise.date_end and type(cruise.date_end) == dt.datetime and
+                 cruise.date_end > date)))):
+        return True
+    return False
+
+
+def reduce_specificity(request, *cruises):
+    """Comply with federal security regulations and remove specifics.
+
+    regarding USA ships in the future
+    specifics include ports of call and departure/arrival dates
+    It is allowed to specify year and season, however.
+
+    """
+    if not cruises:
+        return
+
+    # Password protected does not require reduction.
+    if has_edit(request):
+        return
+
+    now = dt.datetime.now()
+    for cruise in cruises:
+        if needs_specifics_reduction(cruise, now):
+            log.info(
+                u'Reducing specifics for cruise {0}'.format(cruise))
+            attr = cruise.get_attr('date_start')
+            if attr:
+                av = attr.attr_value
+                av.value = Date.new(av.value.year)
+                transaction.doom()
+            attr = cruise.get_attr('date_end')
+            if attr:
+                av = attr.attr_value
+                av.value = Date.new(av.value.year)
+                transaction.doom()
 
 
 def get_visible_notes(request, attr):
@@ -193,7 +266,7 @@ def boxed(title='', **attrs):
 # Pretty printers
 
 
-def date(d, format='%F'):
+def pdate(d, format='%F'):
     if not d:
         return ''
     try:
@@ -202,7 +275,7 @@ def date(d, format='%F'):
         return str(d)
 
 
-def datetime(dt, format='%F %T'):
+def pdatetime(dt, format='%F %T'):
     if not dt:
         return ''
     try:
@@ -224,13 +297,53 @@ def attr_value(a):
             return repr(v)
 
 
+def is_reduced(d):
+    try:
+        return (
+            d.year >= dt.date.today().year and d.month == 1 and d.day == 1)
+    except AttributeError:
+        return False
+
+
+def date_to_nice(d):
+    """Convert datetime or string to a nice date.
+
+    seahunt cruises may have a string date. Comply with security restrictions 
+    by cutting short dates in the future of USA ships. If a string date has
+    extra precision, we have no way of knowing and can't comply yet.
+
+    """
+    try:
+        if is_reduced(d):
+            d = d.year
+        d = pdate(d)
+    except TypeError, e:
+        pass
+    return d
+
+
+def ports_to_nice(ports, cruise=None):
+    """Convert list of ports to a nice string.
+
+    In order to comply with security restrictions, ports of call for a USA ship
+    cannot be shown. Since there is currently no simple way to get the country
+    of the port of call, the ports will be omitted.
+
+    """
+    if not ports:
+        return ports
+    if cruise and needs_specifics_reduction(cruise):
+        return u''
+    return u' to '.join(ports)
+
+
 def cruise_dates(cruise):
     try:
-        start = date(cruise.date_start)
+        start = date_to_nice(cruise.date_start)
     except AttributeError:
         start = None
     try:
-        end = date(cruise.date_end)
+        end = date_to_nice(cruise.date_end)
     except AttributeError:
         end = None
     combined = '/'.join(map(str, filter(None, (start, end))))
@@ -243,11 +356,11 @@ def cruise_date_summary(cruise):
     """
     text = ''
     if cruise.date_start:
-        text += 'starting %s ' % date(cruise.date_start)
+        text += 'starting %s ' % date_to_nice(cruise.date_start)
         if cruise.date_end:
-            text += 'and ending %s' % date(cruise.date_end)
+            text += 'and ending %s' % date_to_nice(cruise.date_end)
     elif cruise.date_end:
-        text += 'ending %s' % date(cruise.date_end)
+        text += 'ending %s' % date_to_nice(cruise.date_end)
     return text
 
 
@@ -360,7 +473,7 @@ def cruise_history_rows(change, i, hl):
     baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
 
     if type(change) == models.Note:
-        time = date(change.creation_timestamp, '%Y-%m-%d')
+        time = pdate(change.creation_timestamp, '%Y-%m-%d')
         person = link_person(change.creation_person)
         data_type = change.data_type
         action = change.action
@@ -369,7 +482,7 @@ def cruise_history_rows(change, i, hl):
         if change.discussion:
             baseclass += ' discussion'
     else:
-        time = date(change.creation_timestamp, '%Y-%m-%d')
+        time = pdate(change.creation_timestamp, '%Y-%m-%d')
         person = link_person(change.creation_person)
         data_type = change['key']
         if change['deleted']:

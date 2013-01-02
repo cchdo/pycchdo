@@ -51,6 +51,7 @@ def _cruises(request):
     cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
     return cruises
 
+    h.reduce_specificity(request, *cruises)
 
 def cruises_index(request):
     cruises = paged(request, _cruises(request))
@@ -663,7 +664,7 @@ def kml(request):
     append_data_if_exists('image', image_url)
     append_data_if_exists('website', cruise.link)
     if cruise.ports:
-        append_data_if_exists('ports', ' to '.join(cruise.ports))
+        append_data_if_exists('ports', h.ports_to_nice(cruise.ports, cruise))
     append_data_if_exists('dates', '/'.join(h.cruise_dates(cruise)[:2]))
     append_data_if_exists('country', h.link_country(cruise.country))
     append_data_if_exists('ship', h.link_ship(cruise.ship))

@@ -12,7 +12,7 @@ except ImportError:
 
 from pyramid.httpexceptions import HTTPUnauthorized
 
-from pycchdo.helpers import link_cruise, date, link_person, whtext
+from pycchdo.helpers import link_cruise, pdate, link_person, whtext
 import pycchdo.models as models
 
 from pycchdo.views import *
@@ -66,7 +66,7 @@ def index(request):
 def _submission_short_text(submission):
     return 'submission by %s on %s called %s' % (
                 link_person(submission.creation_stamp.person),
-                date(submission.creation_stamp.timestamp),
+                pdate(submission.creation_stamp.timestamp),
                 submission.identifier)
 
 

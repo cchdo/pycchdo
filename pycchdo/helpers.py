@@ -149,12 +149,12 @@ def reduce_specificity(request, *cruises):
             attr = cruise.get_attr('date_start')
             if attr:
                 av = attr.attr_value
-                av.value = Date.new(av.value.year)
+                av.value = dt.datetime(av.value.year, 1, 1)
                 transaction.doom()
             attr = cruise.get_attr('date_end')
             if attr:
                 av = attr.attr_value
-                av.value = Date.new(av.value.year)
+                av.value = dt.datetime(av.value.year, 1, 1)
                 transaction.doom()
 
 

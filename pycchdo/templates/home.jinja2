@@ -73,7 +73,7 @@
             {%- if dates %}
               <p><strong>Dates:</strong> <span class="date-cruise" title="{{ dates }}">{{ dates }}</span></p>
             {%- endif %}
-            <p><strong>Updated:</strong> <span class="date-updated">{{ h.date(update.judgment_stamp.timestamp) }}</span></p>
+            <p><strong>Updated:</strong> <span class="date-updated">{{ h.pdate(update.judgment_stamp.timestamp) }}</span></p>
             <p><strong>Type:</strong> <span class="key-updated">{{ update.key }}</span></p>
           </div>
         </li>

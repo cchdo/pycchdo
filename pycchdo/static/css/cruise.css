@@ -14,11 +14,11 @@
 .cruise-page #data .box_content {
   height: 26.8em;
 }
-.cruise-page #history {
+.cruise-page .upper-left {
   float: left;
   width: 543px;
 }
-.cruise-page #history .box_content {
+.cruise-page .upper-left .box_content {
   height: 46.8em;
 }
 
@@ -117,6 +117,7 @@
 
 #updates table { width: 100%; }
 #updates .file_date { width: 14em; }
+#updates .suggested_by { width: 14em; }
 #updates #merged .even { background-color: #D9EAED; }
 #updates #merged .odd { background-color: #C9DADD; }
 #updates #merged .even.open { background-color: #D1E2E5; }

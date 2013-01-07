@@ -301,49 +301,81 @@
         </div>
       {%- endcall %}
     </div>
-    {% call h.boxed('History and Notes', id='history', class='upper', box_content_class='scrollable-y') -%}
-      <div class="subsection">
-        {%- if h.has_edit(request) %}
-          {{ whh.tags.form('', 'POST') }}
-            <input type="hidden" name="action" value="add_note">
+    {%- if updates %}
+      {%- call h.boxed('Files As Received', id="updates", class='upper upper-left', box_content_class='scrollable-y') %}
+        {%- if updates['attrs'] %}
+          <div class="subsection">
+            <h2>Attributes</h2>
+            <div id="attrs">
+              <table class="has-meta-bodies{%- if history|length < 10 %} pre-expand{%- endif %}">
+                <tr class="header">
+                  <th>Attribute</th>
+                  <th>Suggested by</th>
+                  <th class="date">Suggested at</th>
+                </tr>
+                {%- for attr in updates['attrs'] %}
+                  {%- set hl = loop.cycle('even', 'odd') %}
+                  <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
+                    <td>{{ attr.key }}</td>
+                    <td>{{ h.link_person(attr.creation_stamp.person) }}</td>
+                    <td class="date">{{ h.pdatetime(attr.creation_stamp.timestamp) }}</td>
+                  </tr>
+                  <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
+                    <td class="change">
+                      {%- if attr.deleted %}
+                        delete <span class="key">{{ attr.key }}</span>
+                      {%- else %}
+                        <span class="value">{{ attr.value }}</span>
+                      {%- endif %}
+                      {%- if attr.pending_stamp %}
+                        <span class="pending">(Under review as of {{ h.pdatetime(attr.pending_stamp.timestamp) }})</span>
+                      {%- endif %}
+                    </td>
+                    <td colspan="2">
+                      {%- if h.has_mod(request) %}
+                        {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
+                          <table>
+                            <tr>
+                              <td>
+                                <label for="attr_{{ loop.index0 }}_accept_value">Accept a different value</label>
+                                <input id="attr_{{ loop.index0 }}_accept_value" type="text" name="accept_value">
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <input type="submit" name="action" value="Accept">
+                                {%- if not attr.pending_stamp %}
+                                  <input type="submit" name="action" value="Acknowledge">
+                                {%- endif %}
+                                <input type="submit" name="action" value="Reject">
+                              </td>
+                            </tr>
+                          </table>
+                        {{ whh.tags.end_form() }}
+                      {%- endif %}
+                    </td>
+                  </tr>
+                  {%- if attr or h.has_edit(request) %}
+                    <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
+                      <td colspan="4">
+                        {{ show_notes_with_editor(request, loop.index0, attr, 'attr') }}
+                      </td>
+                    </tr>
+                  {%- endif %}
+                {%- endfor %}
+              </table>
+            </div>
+          </div>
         {%- endif %}
-        {% if history or h.has_edit(request) %}
-          <table class="has-meta-bodies{%- if history|length < 10 %} pre-expand{%- endif %}">
-            <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
-            {%- if h.has_edit(request) %}
-              {%- set i = "new" %}
-              {%- set hl="new" %}
-              <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
-                <td>Add note</td>
-                <td><input type="text" name="note_data_type"></td>
-                <td><input type="text" name="note_action"></td>
-                <td><input type="text" name="note_summary"></td>
-              </tr>
-              <tr class="mb-link{{ i }} body {{ hl }} editor continued">
-                <td colspan="4">
-                  <p>
-                    <label for="note_discussion_{{ i }}">Public</label>
-                    <input id="note_discussion_{{ i }}" type="checkbox"
-                           name="note_discussion" value="public" checked="checked">
-                  </p>
-                  <textarea name="note_note"></textarea>
-                </td>
-              <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
-                <td colspan="4" class="submit">
-                  <input type="submit" value="Add note">
-                </td>
-              </tr>
-            {%- endif %}
-            {%- for change in history|reverse %}
-              {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
-            {%- endfor %}
-          </table>
-          {%- if h.has_edit(request) %}
-            </form>
-          {%- endif %}
+        {# TODO need to show files not acknowledged #}
+        {%- if updates['as_received'] %}
+          {{ file_subsection('Data as received', 'as_received') }}
         {%- endif %}
-      </div>
-    {%- endcall %}
+        {%- if updates['merged'] %}
+          {{ file_subsection('Merged Data', 'merged') }}
+        {%- endif %}
+      {%- endcall %}
+    {%- endif %}
   </div>
   {%- if cruise.track %}
     {%- call h.boxed('Plot', id='plot') %}
@@ -352,81 +384,49 @@
       <textarea>{{ h.track_as_string(cruise.track)}}</textarea>
     {%- endcall %}
   {%- endif %}
-  {%- if updates %}
-    {%- call h.boxed('Updates', id="updates") %}
-      {%- if updates['attrs'] %}
-        <div class="subsection">
-          <h2>Attributes</h2>
-          <div id="attrs">
-            <table class="has-meta-bodies">
-              <tr class="header">
-                <th>Attribute</th>
-                <th>Suggested by</th>
-                <th class="date">Suggested at</th>
-              </tr>
-              {%- for attr in updates['attrs'] %}
-                {%- set hl = loop.cycle('even', 'odd') %}
-                <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
-                  <td>{{ attr.key }}</td>
-                  <td>{{ h.link_person(attr.creation_stamp.person) }}</td>
-                  <td class="date">{{ h.datetime(attr.creation_stamp.timestamp) }}</td>
-                </tr>
-                <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
-                  <td class="change">
-                    {%- if attr.deleted %}
-                      delete <span class="key">{{ attr.key }}</span>
-                    {%- else %}
-                      <span class="value">{{ attr.value }}</span>
-                    {%- endif %}
-                    {%- if attr.pending_stamp %}
-                      <span class="pending">(Under review as of {{ h.datetime(attr.pending_stamp.timestamp) }})</span>
-                    {%- endif %}
-                  </td>
-                  <td colspan="2">
-                    {%- if h.has_mod(request) %}
-                      {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
-                        <table>
-                          <tr>
-                            <td>
-                              <label for="attr_{{ loop.index0 }}_accept_value">Accept a different value</label>
-                              <input id="attr_{{ loop.index0 }}_accept_value" type="text" name="accept_value">
-                            </td>
-                          </tr>
-                          <tr>
-                            <td>
-                              <input type="submit" name="action" value="Accept">
-                              {%- if not attr.pending_stamp %}
-                                <input type="submit" name="action" value="Acknowledge">
-                              {%- endif %}
-                              <input type="submit" name="action" value="Reject">
-                            </td>
-                          </tr>
-                        </table>
-                      {{ whh.tags.end_form() }}
-                    {%- endif %}
-                  </td>
-                </tr>
-                {%- if attr or h.has_edit(request) %}
-                  <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
-                    <td colspan="4">
-                      {{ show_notes_with_editor(request, loop.index0, attr, 'attr') }}
-                    </td>
-                  </tr>
-                {%- endif %}
-              {%- endfor %}
-            </table>
-          </div>
-        </div>
+  {% call h.boxed('Data History', id='history') -%}
+    <div class="subsection">
+      {%- if h.has_edit(request) %}
+        {{ whh.tags.form('', 'POST') }}
+          <input type="hidden" name="action" value="add_note">
       {%- endif %}
-      {# TODO need to show files not acknowledged #}
-      {%- if updates['as_received'] %}
-        {{ file_subsection('Data as received', 'as_received') }}
+      {% if history or h.has_edit(request) %}
+        <table class="has-meta-bodies pre-expand">
+          <tr class="header"><th>Date</th><th>Data Type</th><th>Action</th><th>Summary</th></tr>
+          {%- if h.has_edit(request) %}
+            {%- set i = "new" %}
+            {%- set hl="new" %}
+            <tr class="mb-link{{ i }} meta {{ hl }} editor continued-top">
+              <td>Add note</td>
+              <td><input type="text" name="note_data_type"></td>
+              <td><input type="text" name="note_action"></td>
+              <td><input type="text" name="note_summary"></td>
+            </tr>
+            <tr class="mb-link{{ i }} body {{ hl }} editor continued">
+              <td colspan="4">
+                <p>
+                  <label for="note_discussion_{{ i }}">Public</label>
+                  <input id="note_discussion_{{ i }}" type="checkbox"
+                         name="note_discussion" value="public" checked="checked">
+                </p>
+                <textarea name="note_note"></textarea>
+              </td>
+            <tr class="mb-link{{ i }} body {{ hl }} editor continued-bottom">
+              <td colspan="4" class="submit">
+                <input type="submit" value="Add note">
+              </td>
+            </tr>
+          {%- endif %}
+          {%- for change in history|reverse %}
+            {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
+          {%- endfor %}
+        </table>
+        {%- if h.has_edit(request) %}
+          </form>
+        {%- endif %}
       {%- endif %}
-      {%- if updates['merged'] %}
-        {{ file_subsection('Merged Data', 'merged') }}
-      {%- endif %}
-    {%- endcall %}
-  {%- endif %}
+    </div>
+  {%- endcall %}
   {%- if h.has_mod(request) %}
     {%- call h.boxed('Suggestions') %}
       <div class="subsection">

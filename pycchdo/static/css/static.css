@@ -248,12 +248,20 @@
   text-align: right;
 }
 
-.submit h2#seahunt {
+.submit .box_content div {
+  float: left;
+  width: 50%;
+  margin-bottom: 1em;
+}
+.submit .submit a {
+  font-size: 2em;
+}
+.submit #seahunt h2 {
   font-size: 1.2em;
   margin: 0.2em 0;
 }
 .boxed.find ul li,
-.submit ul.seahunt li {
+.submit .seahunt ul li {
   list-style: disc;
   margin-left: 2em;
 }

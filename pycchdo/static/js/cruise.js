@@ -412,7 +412,7 @@ $(function () {
   (function plotCruiseTrack() {
     if (window.CCHDO.cruise.track) {
       var mapdiv = $('#plot_map').css({height: 300, width: '78.5%'});
-      var coordstr = $('#plot textarea').css({height: mapdiv.outerHeight(), width: '20%'});
+      var coordstr = $('#plot textarea').css({height: mapdiv.outerHeight(), width: '19.5%'});
 
       var opts = {
         zoom: 2,

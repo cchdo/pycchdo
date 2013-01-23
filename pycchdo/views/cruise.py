@@ -18,9 +18,15 @@ from lxml import etree
 
 from webhelpers import text as whtext
 
+from sqlalchemy.orm import noload, lazyload, joinedload
+from sqlalchemy.ext.associationproxy import _AssociationList
+
 from pycchdo.models import (
     DBSession,
-    data_file_descriptions, _Attr, Cruise, Note, Person, Institution)
+    data_file_descriptions, _Attr, Cruise, Note, Person, Institution, FSFile, )
+from pycchdo.models.models import (
+    preload_cached_avs, disjoint_load_cruise_attrs,
+    )
 import pycchdo.helpers as h
 
 from . import *
@@ -38,23 +44,28 @@ def allowed_attrs_select(cls):
 CRUISE_ATTRS_SELECT = allowed_attrs_select(Cruise)
 
 
-def _cruises(request):
+def _cruises(request, defer_load=False):
     seahunt = request.params.get('seahunt_only', False)
     allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
-        cruises = Cruise.only_if_accepted_is(False).all()
+        query = Cruise.only_if_accepted_is(False)
     elif allow_seahunt:
-        cruises = Cruise.query().all()
+        query = Cruise.query()
     else:
-        cruises = Cruise.only_if_accepted_is(True).all()
+        query = Cruise.only_if_accepted_is(True)
 
-    cruises = sorted(cruises, key=lambda c: c.expocode or c.id)
+    cruises = preload_cached_avs(Cruise, query).all()
+    cruises = sorted(cruises, key=lambda c: c.uid)
+    if not defer_load:
+        disjoint_load_cruise_attrs(cruises)
+        h.reduce_specificity(request, *cruises)
     return cruises
 
-    h.reduce_specificity(request, *cruises)
 
 def cruises_index(request):
-    cruises = paged(request, _cruises(request))
+    cruises = paged(request, _cruises(request, defer_load=True))
+    disjoint_load_cruise_attrs(cruises)
+    h.reduce_specificity(request, *cruises)
     return {'cruises': cruises}
 
 
@@ -165,7 +176,7 @@ def _edit_attr(request, cruise_obj):
         return
 
     try:
-        note = Note(request.user.id, request.params['notes'])
+        note = Note(request.user, request.params['notes'])
     except KeyError:
         note = None
 
@@ -357,7 +368,7 @@ def _add_note(request, cruise_obj):
         Note(request.user.id, note, action, data_type, summary, not public))
 
 
-def _get_cruise(cruise_id):
+def _get_cruise(cruise_id, load_attrs=True):
     try:
         if cruise_id:
             cruise_obj = Cruise.get_by_id(cruise_id)
@@ -372,6 +383,8 @@ def _get_cruise(cruise_id):
         cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
         if not cruise_obj:
             raise ValueError()
+    if load_attrs:
+        disjoint_load_cruise_attrs([cruise_obj])
     return cruise_obj
 
 
@@ -453,7 +466,7 @@ def cruise_show(request):
         else:
             history = cruise_obj.notes_public
 
-        unjudged = cruise_obj.unjudged_tracked.all()
+        unjudged = cruise_obj.unjudged_tracked_not_data.all()
         suggested_attrs = []
         for attr in unjudged:
             if attr.key in Cruise.allowed_attrs_list:
@@ -514,15 +527,15 @@ def map_full(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = _get_cruise(cruise_id, load_attrs=False)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
-    a = cruise_obj.get_attr('map_full')
+    a = cruise_obj.get('map_full', None)
     if not a:
         raise HTTPNotFound()
-    return file_response(request, a.value)
+    return file_response(request, a)
 
 
 def map_thumb(request):
@@ -531,14 +544,14 @@ def map_thumb(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = _get_cruise(cruise_id, load_attrs=False)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
-    a = cruise_obj.get_attr('map_thumb')
+    a = cruise_obj.get('map_thumb', None)
     if not a:
         raise HTTPNotFound()
-    return file_response(request, a.value)
+    return file_response(request, a)
 
 
 def _cruise_to_json(cruise):
@@ -548,13 +561,18 @@ def _cruise_to_json(cruise):
         'obj_url': h.path_cruise(cruise), 
     }
     for attr_key, value in cruise._allowed_attrs_dict().items():
-        print value
         v = cruise.get(attr_key)
         if v:
-            if type(v) is not list:
-                obj[attr_key] = unicode(v)
+            if isinstance(v, FSFile):
+                obj[attr_key] = v.id
             else:
-                obj[attr_key] = map(unicode, v)
+                if isinstance(v, _AssociationList):
+                    try:
+                        obj[attr_key] = map(unicode, v)
+                    except TypeError:
+                        obj[attr_key] = unicode(v)
+                else:
+                    obj[attr_key] = unicode(v)
 
     track = cruise.track
     if track:

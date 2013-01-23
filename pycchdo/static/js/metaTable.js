@@ -1,8 +1,37 @@
-function metaTable(table) {
+function metaTable() {
+  var table = $(this);
+
+  // Hide all the body rows
+  table.find('> tbody > tr.body, > tr.body').hide();
+
+  function attachExpanderArrow(expander, callback, title_expand, title_collapse) {
+    var button = $('<a href="javascript:void(0);" title="' + title_expand + '"></a>');
+    button.click(function() {
+      if (button.attr('title') == title_expand) {
+        button.attr('title', title_collapse);
+      } else {
+        button.attr('title', title_expand);
+      }
+    });
+    button.click(callback);
+    expander.append(button);
+    return expander;
+  }
+
+  // When the header row is double clicked, toggle all rows
+  var header = table.find('.header');
+  header.dblclick(toggleAll);
+
   var batchOpen = false;
-  function openAll() {
-    var open = !$(this).data('open');
-    $(this).data('open', open);
+  function toggleAll() {
+    var open = !header.data('open');
+    header.data('open', open);
+    if (open) {
+      header.addClass('open');
+    } else {
+      header.removeClass('open');
+    }
+
     batchOpen = true;
     table.find('> tbody > tr.meta, > tr.meta').each(function () {
       var row = $(this);
@@ -11,21 +40,24 @@ function metaTable(table) {
       }
     });
     batchOpen = false;
+    return false;
   }
 
-  table.find('.header').dblclick(openAll);
-  table.find('> tbody > tr.body, > tr.body').hide();
+  var header_expander = $('<th class="expander"></th>');
+  attachExpanderArrow(header_expander, toggleAll, 'Expand all', 'Collapse all');
+  header.prepend(header_expander);
+
+  // Prepend expander cells for each non-meta row
   table.find('> tbody > tr, > tr').each(function () {
     var prepend = '';
-    if ($(this).hasClass('header')) {
-      prepend = $('<th class="expander"></th>');
-      prepend.click(openAll);
-    } else {
-      if (!$(this).hasClass('meta')) {
+    var row = $(this);
+    if (!row.hasClass('header')) {
+      // Prepend in empty cell for all non-meta rows to keep alignment
+      if (!row.hasClass('meta')) {
         prepend = $('<td class="expander"></td>');
       }
     }
-    $(this).prepend(prepend);
+    row.prepend(prepend);
   });
   var re_class = new RegExp('(mb-link\\w+)');
   table.find('> tbody > tr.meta, > tr.meta').each(function () {
@@ -33,20 +65,17 @@ function metaTable(table) {
     var rowClass = re_class.exec(row.attr('class'));
     var body = table.find('.body.' + rowClass);
 
+    var expander = $('<td class="expander"></td>');
     if (body.length > 0) {
-      $(this).prepend($('<td class="expander"></td>').append(
-        $('<a href="javascript:void(0);" title="Expand"></a>')
-          .click(function () { react(); return false; }))
-        .css({cursor: 'pointer'}));
+      attachExpanderArrow(expander, react, 'Expand', 'Collapse').css({cursor: 'pointer'});
       row.click(function (event) {
         var tagname = event.target.tagName;
         if (tagname == 'TR' || tagname == 'TH' || tagname == 'TD') {
           react();
         }
       });
-    } else {
-      $(this).prepend($('<td class="expander"></td>'));
     }
+    $(this).prepend(expander);
 
     function open() {
       row.addClass('open');
@@ -76,8 +105,10 @@ function metaTable(table) {
       } else {
         close();
       }
+      return false;
     }
 
+    // Make sure tabbing through focus elements will keep the row open
     var exa = row.find('.expander a');
     var focusable = row.find(':input')
       .add(body.find(':input'))
@@ -112,9 +143,10 @@ function metaTable(table) {
       exa.focus(open);
       exa.blur(close);
     }
-    if (table.hasClass('pre-expand')) {
-      exa.click();
-    }
   });
+
+  if (table.hasClass('pre-expand')) {
+    table.find('.header .expander a').click();
+  }
 }
-$('table.has-meta-bodies').each(function () { metaTable($(this)); });
+$('table.has-meta-bodies').each(metaTable);

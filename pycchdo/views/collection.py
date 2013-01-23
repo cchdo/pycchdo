@@ -1,26 +1,40 @@
 from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
 
+import transaction
+
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Collection
+from pycchdo.models.models import (
+    preload_cached_avs, disjoint_load_collection_attrs, )
 from pycchdo.views import staff
+from pycchdo.log import ColoredLogger
+
+
+log = ColoredLogger(__name__)
 
 
 def collections_index(request):
-    collections = sorted(Collection.query().all(), key=lambda c: c.name)
+    collections = preload_cached_avs(Collection, Collection.query()).all()
+    disjoint_load_collection_attrs(collections)
+    collections = sorted(collections, key=lambda c: c.name)
     collections = paged(request, collections)
     return {'collections': collections}
 
 
 def collections_index_json(request):
-    collections = sorted(Collection.query().all(), key=lambda c: c.name)
+    collections = preload_cached_avs(Collection, Collection.query()).all()
+    disjoint_load_collection_attrs(collections)
+    collections = sorted(collections, key=lambda c: c.name)
     collections = [c.to_nice_dict() for c in collections]
     return collections
 
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    return Collection.query().get(coll_id)
+    collection =  preload_cached_avs(Collection, Collection.query()).get(coll_id)
+    disjoint_load_collection_attrs([collection])
+    return collection
 
 
 def _redirect_response(request, id):
@@ -56,7 +70,7 @@ def collection_edit(request):
             'help')
         return {'collection': collection}
 
-    if collection.names != names:
+    if collection.get('names') != names:
         collection.set_accept('names', names, request.user)
 
     try:
@@ -79,6 +93,7 @@ def collection_edit(request):
     if collection.get('basins') != basins:
         collection.set_accept('basins', basins, request.user)
 
+    transaction.commit()
     return _redirect_response(request, collection.id)
 
 
@@ -100,7 +115,8 @@ def collection_merge(request):
     except KeyError:
         request.session.flash('No mergee collection given', 'help')
         return redirect_response
-    mergee = Collection.query().get(mergee_id)
+    mergee = preload_cached_avs(Collection, Collection.query()).get(mergee_id)
+    disjoint_load_collection_attrs([mergee])
     if not mergee:
         request.session.flash('Invalid mergee collection %s given' % mergee_id,
                               'help')

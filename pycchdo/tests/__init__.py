@@ -1,16 +1,17 @@
+import os
 from unittest import TestCase
 import logging
-from StringIO import StringIO as pyStringIO
-import transaction
-try:
-    from cStringIO import StringIO
-except ImportError:
-    StringIO = pyStringIO
+from ConfigParser import SafeConfigParser
 
 from pyramid import testing
+from pyramid.paster import bootstrap
 
-from sqlalchemy import create_engine
+import transaction
 
+from sqlalchemy import engine_from_config
+from sqlalchemy.exc import InvalidRequestError
+
+from pycchdo.util import StringIO, pyStringIO, MemFile as MockFile
 from pycchdo.models.models import (
     DBSession, Base, reset_fs, FSFile, Person, 
     )
@@ -26,8 +27,7 @@ __all__ = [
 log = ColoredLogger(__name__)
 
 
-db_uri = 'postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/test_pycchdo'
-db_echo = True
+db_echo = False
 engine = None
 
 
@@ -35,7 +35,9 @@ def setUpModule():
     global engine
     if engine is None:
         log.info('connecting')
-        engine = create_engine(db_uri)
+        env = bootstrap(os.path.join(os.getcwd(), 'test.ini'))
+        settings = env['registry'].settings
+        engine = engine_from_config(settings, 'sqlalchemy.')
         DBSession.configure(bind=engine)
         FSFile.reconfig_fs_storage()
 
@@ -70,28 +72,18 @@ class PersonBaseTest(BaseTest):
         super(PersonBaseTest, self).setUp()
         self.testPerson = Person(identifier='testperson')
         DBSession.add(self.testPerson)
-        DBSession.flush()
+        try:
+            DBSession.flush()
+        except InvalidRequestError:
+            transaction.begin()
+            transaction.get().doom()
         self.testPerson.accept(self.testPerson)
 
     def tearDown(self):
         super(PersonBaseTest, self).tearDown()
 
 
-class MockFile(pyStringIO):
-    def __init__(self, content, filename):
-        pyStringIO.__init__(self, content)
-        self.name = filename
-        self.flush()
-
-    @property
-    def size(self):
-        return len(self.getvalue())
-
-    def __repr__(self):
-        return u'MockFile({0!r:<10}, {1!r})'.format(self.getvalue(), self.name)
-
-
-class MockFieldStorage:
+class MockFieldStorage():
     def __init__(self, file, filename='mockfile.txt',
                  contentType='application/octet-stream'):
         self.filename = filename

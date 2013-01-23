@@ -51,7 +51,8 @@ class RequestFactory(Request):
         userid = unauthenticated_userid(self)
         if userid is not None:
             # this should return None if the user doesn't exist
-            p = models.Person.query().get(userid)
+            p = models.preload_person(
+                models.Person, models.Person.query()).get(userid)
             return p
 
     @reify
@@ -160,6 +161,8 @@ def _configure_routes(config):
                'pycchdo.views.toplevel.favicon')
     route_path(config, 'robots', '/robots.txt',
                'pycchdo.views.toplevel.robots')
+    route_path(config, 'transparent', '/transparent.gif',
+               'pycchdo.views.toplevel.transparent')
 
     config.add_static_view(
         'static', 'pycchdo:static', cache_max_age=60 * 60 * 24 * 30)
@@ -191,6 +194,8 @@ def _configure_routes(config):
                'pycchdo.views.session.session_new')
     route_path(config, 'session_delete', '/session/delete',
                'pycchdo.views.session.session_delete')
+    route_path(config, 'session_adminify', '/session/adminify',
+               'pycchdo.views.session.session_adminify')
 
     # TODO REMOVE
     route_path(config, 'objs', '/objs',
@@ -237,6 +242,8 @@ def _configure_routes(config):
                'pycchdo.views.argo.new', 'argo/new.jinja2')
     route_path(config, 'argo_entity', '/argo/{id}',
                'pycchdo.views.argo.entity', 'argo/show.jinja2')
+    route_path(config, 'argo_file', '/argo/{id}/file',
+               'pycchdo.views.argo.file')
 
     # Basin lists
     basins_re = '|'.join(basins)
@@ -322,8 +329,16 @@ def _configure_routes(config):
                'pycchdo.views.staff.index', 'staff/index.jinja2')
     route_path(config, 'staff_submissions', '/staff/submissions.html',
                'pycchdo.views.staff.submissions', 'staff/submissions.jinja2')
+    route_path(config, 'legacy_submissions', '/submissions',
+               'pycchdo.views.legacy.submissions')
+    route_path(config, 'legacy_submissions.html', '/submissions.html',
+               'pycchdo.views.legacy.submissions')
     route_path(config, 'staff_moderation', '/staff/moderation.html',
                'pycchdo.views.staff.moderation', 'staff/moderation.jinja2')
+    route_path(config, 'legacy_queue', '/queue',
+               'pycchdo.views.legacy.queue')
+    route_path(config, 'legacy_queue.html', '/queue.html',
+               'pycchdo.views.legacy.queue')
 
     # dynamic static pages
     route_path(config, 'project_carina', '/project_carina.html',

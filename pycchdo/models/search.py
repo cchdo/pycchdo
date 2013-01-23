@@ -18,7 +18,7 @@ from whoosh.qparser import (
 from whoosh.qparser.dateparse import DateParserPlugin
 
 from pycchdo.models import triggers
-from pycchdo.log import ColoredLogger
+from pycchdo.log import ColoredLogger, ERROR, DEBUG
 from pycchdo.models import (
     DBSession,
     Cruise, Person, Ship, Country, Institution, Collection, Note,
@@ -26,6 +26,7 @@ from pycchdo.models import (
 
 
 log = ColoredLogger(__name__)
+log.setLevel(DEBUG)
 
 
 _name_model = {
@@ -84,7 +85,7 @@ _schemas = {
         body=TEXT,
         action=TEXT,
         data_type=TEXT,
-        summary=TEXT,
+        subject=TEXT,
         mtime=STORED,
         id=ID(stored=True, unique=True),
         ),
@@ -165,7 +166,7 @@ class SearchIndex(object):
                 ix = index.create_in(
                     self.index_dir, _schemas[name], indexname=name)
             except KeyError:
-                raise ValueError('Invalid index name %s' % name)
+                raise ValueError('No schema defined for index name %s' % name)
         return ix
 
     def ensure_index(self, name):
@@ -189,7 +190,10 @@ class SearchIndex(object):
         if not writer:
             try:
                 ix = self.open_or_create_index(index_name, clear)
-            except ValueError:
+            except ValueError, e:
+                log.error(u'Unable to open index {0}: {1!r}'.format(
+                    index_name, e))
+                yield None
                 return
             if buffered:
                 ixw = BufferedWriter(ix, period=60, limit=2**14)
@@ -215,7 +219,14 @@ class SearchIndex(object):
         except AttributeError:
             return
         name = obj.obj_type.lower()
+        if name not in _schemas.keys():
+            return
         with self.writer(name, writer) as ixw:
+            if ixw is None:
+                log.warn(
+                    u'Unable to index obj {0!r}, could not open index {1}'.format(
+                    obj, name))
+                return
             doc = {}
 
             if name == 'cruise':
@@ -274,23 +285,37 @@ class SearchIndex(object):
         except AttributeError:
             return
         with self.writer('note', writer) as ixw:
-            ixw.update_document(
-                body=note.body,
-                action=note.action,
-                data_type=note.data_type,
-                summary=note.subject,
-                mtime=note.creation_timestamp,
-                id=_model_id_to_index_id(note.id))
+            if ixw is None:
+                log.warn(u'Unable to index note {0!r}'.format(note))
+                return
+            doc = {}
+            if note.body:
+                doc['body'] = unicode(note.body)
+            if note.action:
+                doc['action'] = unicode(note.action)
+            if note.data_type:
+                doc['data_type'] = unicode(note.data_type)
+            if note.subject:
+                doc['subject'] = unicode(note.subject)
+            doc['mtime'] = note.creation_timestamp
+            doc['id'] = _model_id_to_index_id(note.id)
+            ixw.update_document(**doc)
 
 
     def remove_obj(self, obj, writer=None):
         name = obj.obj_type.lower()
         with self.writer(name, writer) as ixw:
+            if ixw is None:
+                log.warn(u'Unable to unindex obj {0!r}'.format(obj))
+                return
             ixw.delete_by_term('id', _model_id_to_index_id(obj.id))
 
 
     def remove_note(self, note, writer=None):
         with self.writer('note', writer) as ixw:
+            if ixw is None:
+                log.warn(u'Unable to unindex note {0!r}'.format(note))
+                return
             ixw.delete_by_term('id', _model_id_to_index_id(note.id))
 
 
@@ -313,6 +338,9 @@ class SearchIndex(object):
         for name in schemas:
             log.info('Indexing %s' % name)
             with self.writer(name, clear=clear, buffered=True) as ixw:
+                if ixw is None:
+                    log.warn(u'Unable to index {0!r}'.format(name))
+                    continue
                 model = _name_model[name]
 
                 indexed_ids = set()
@@ -323,34 +351,39 @@ class SearchIndex(object):
                               'for {}').format(name))
                     ixs = ixw.searcher()
 
-                    # Walk each index
-                    for fields in ixs.all_stored_fields():
-                        indexed_id = fields['id']
-                        indexed_ids.add(indexed_id)
+                    try:
+                        # Walk each index
+                        for fields in ixs.all_stored_fields():
+                            indexed_id = fields['id']
+                            indexed_ids.add(indexed_id)
 
-                        log.debug('Check %s existance' % indexed_id)
+                            log.debug('Check %s existance' % indexed_id)
 
-                        # for missing docs
-                        obj = DBSession.query(model).get(indexed_id)
-                        if not obj:
-                            log.debug('Remove missing id %s' % indexed_id)
-                            ixw.delete_by_term('id', indexed_id)
-                        # and modified docs
-                        else:
-                            log.debug('Check %s mtime' % indexed_id)
-                            try:
-                                indexed_time = fields['mtime']
+                            # for missing docs
+                            obj = DBSession.query(model).get(indexed_id)
+                            if not obj:
+                                log.debug('Remove missing id %s' % indexed_id)
+                                ixw.delete_by_term('id', indexed_id)
+                            # and modified docs
+                            else:
+                                log.debug('Check %s mtime' % indexed_id)
                                 try:
-                                    mtime = obj.mtime
-                                except AttributeError:
-                                    # Notes don't have an mtime
-                                    mtime = obj.ctime
-                                if mtime > indexed_time:
-                                    log.debug(
-                                        '%s has been modified' % indexed_id)
+                                    indexed_time = fields['mtime']
+                                    try:
+                                        mtime = obj.mtime
+                                    except AttributeError:
+                                        # Notes don't have an mtime
+                                        pass
+                                    if not mtime:
+                                        mtime = obj.ctime
+                                    if mtime > indexed_time:
+                                        log.debug(
+                                            '%s has been modified' % indexed_id)
+                                        to_index.add(indexed_id)
+                                except (KeyError, TypeError):
                                     to_index.add(indexed_id)
-                            except KeyError:
-                                to_index.add(indexed_id)
+                    finally:
+                        ixs.close()
                     ixw.commit()
 
                 log.debug(repr(indexed_ids))
@@ -457,10 +490,12 @@ class SearchIndex(object):
         return results
 
     def register_triggers(self):
-        triggers.saved_obj_actions.append(triggers.saved_obj)
-        triggers.deleted_obj_actions.append(triggers.deleted_obj)
-        triggers.saved_note_actions.append(triggers.saved_note)
-        triggers.deleted_note_actions.append(triggers.deleted_note)
+        # !!! Careful not to set these to trigger's eponymous functions or you
+        # will infinite recurse.
+        triggers.saved_obj_actions.append(self.save_obj)
+        triggers.deleted_obj_actions.append(self.remove_obj)
+        triggers.saved_note_actions.append(self.save_note)
+        triggers.deleted_note_actions.append(self.remove_note)
 
     def unregister_triggers(self):
         if not triggers:

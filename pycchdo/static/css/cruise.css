@@ -1,11 +1,11 @@
 .cruise-page #upper {
   overflow: hidden;
 }
-.cruise-page #info {
+.cruise-page #info.updates-available {
   float: left;
   margin-right: 11px;
 }
-.cruise-page #info .boxed {
+.cruise-page #info.updates-available .boxed {
   width: 466px;
 }
 .cruise-page #info .box_content {
@@ -14,11 +14,11 @@
 .cruise-page #data .box_content {
   height: 26.8em;
 }
-.cruise-page .upper-left {
+.cruise-page .upper-right {
   float: left;
-  width: 543px;
+  width: 547px;
 }
-.cruise-page .upper-left .box_content {
+.cruise-page .upper-right .box_content {
   height: 46.8em;
 }
 
@@ -53,7 +53,7 @@
   font-size: 1.2em;
   margin: 0 0 0.5em 0;
 }
-.cruise-page .updates-available {
+.cruise-page a.updates-available {
   display: block;
   color: #ff5960;
   margin: 0.5em 0;
@@ -87,15 +87,12 @@
 }
 
 #data-pending {
-  padding: 0.2em;
-  background: rgba(228, 228, 228, 0.5) url('http://developer.gnome.org/gtk/2.24/dialog-information.png') no-repeat -0.5em 0.5em;
-  padding-left: 3em;
+  padding: 0.5em;
+  background: #EEEEEE;
 }
 #data-pending h4 {
   font-size: 1.2em;
-}
-#data-pending form {
-  margin-top: 1em;
+  margin: 0;
 }
 
 #history table {

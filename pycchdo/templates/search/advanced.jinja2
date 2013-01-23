@@ -7,7 +7,7 @@
 {% block content %}
   {%- call h.boxed('Advanced Search') %}
     <h2>Find cruises that contain</h2>
-    <form name="advanced_search" action="/search" method="POST">
+    <form name="advanced_search" action="{{request.route_path('search')}}" method="POST">
       <table class="nofill">
         <tr>
           <td><label for="search_line">Line Number</label></td>

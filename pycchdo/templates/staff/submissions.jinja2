@@ -5,7 +5,7 @@
     <tr><th>{{ t }}</th><td>{{ x }}</td></tr>
   {%- endif %}
 {%- endmacro %}
-{% block title -%}Staff | Submissions{%- endblock %}
+{% block title -%}Submissions | Staff{%- endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/staff/submissions.css') }}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
@@ -43,13 +43,13 @@
         {%- set hl = loop.cycle('even', 'odd') %}
         {%- set attached = submission.attached or None %}
         <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
-          {%- set ident = submission.get('expocode') or ' ' %}
+          {%- set ident = submission.expocode or ' ' %}
           <td class="identifier">{{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}</td>
-          <td class="actions">{{ submission.get('action') or '' }}</td>
-          <td class="person">{{ h.link_person(submission.creation_stamp.person) }}</td>
+          <td class="actions">{{ submission.action or '' }}</td>
+          <td class="person">{{ h.link_person(submission.creation_person) }}</td>
           <td class="file">{{ h.link_file_holder(submission) }}</td>
-          <td class="date_submitted">{{ h.pdate(submission.creation_stamp.timestamp) }}</td>
-          <td class="type">{{ submission.get('type') }}</td>
+          <td class="date_submitted">{{ h.pdate(submission.creation_timestamp) }}</td>
+          <td class="type">{{ submission.type }}</td>
           <td class="attached">
             {# TODO attached can be either None, True, or _Attr. True is when the submission was imported. #}
             {%- if attached %}
@@ -67,11 +67,11 @@
           <td colspan="4">
             <table class="info">
               {{ row_if_exists('ID', h.link_obj(submission)) }}
-              {{ row_if_exists('Acknowledged by', h.link_person(submission.pending_stamp.person)) }}
-              {{ row_if_exists('Acknowledged on', h.pdate(submission.pending_stamp.timestamp)) }}
-              {{ row_if_exists('Cruise dates', h.pdate(submission.get('cruise_date'))) }}
-              {{ row_if_exists('Ship', submission.get('ship_name') or '') }}
-              {{ row_if_exists('WOCE Line', submission.get('line') or '') }}
+              {{ row_if_exists('Acknowledged by', h.link_person(submission.pending_person)) }}
+              {{ row_if_exists('Acknowledged on', h.pdate(submission.pending_timestamp)) }}
+              {{ row_if_exists('Cruise dates', h.pdate(submission.cruise_date)) }}
+              {{ row_if_exists('Ship', submission.ship_name or '') }}
+              {{ row_if_exists('WOCE Line', submission.line or '') }}
             </table>
           </td>
           <td colspan="3">

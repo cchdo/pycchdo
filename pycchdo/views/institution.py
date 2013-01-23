@@ -3,24 +3,28 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Institution
+from pycchdo.models.models import preload_cached_avs
 from pycchdo.views import staff
 
 
 def institutions_index(request):
-    institutions = sorted(Institution.query().all(), key=lambda x: x.name)
+    institutions = preload_cached_avs(Institution, Institution.query()).all()
+    institutions = sorted(institutions, key=lambda x: x.name)
     institutions = paged(request, institutions)
     return {'institutions': institutions}
 
 
 def institutions_index_json(request):
-    institutions = sorted(Institution.query().all(), key=lambda x: x.name)
+    institutions = preload_cached_avs(Institution, Institution.query()).all()
+    institutions = sorted(institutions, key=lambda x: x.name)
     institutions = [i.to_nice_dict() for i in institutions]
     return institutions
 
 
 def _get_institution(request):
     institution_id = request.matchdict.get('institution_id')
-    return Institution.query().get(institution_id)
+    return preload_cached_avs(
+        Institution, Institution.query()).get(institution_id)
 
 
 def _redirect_response(request, id):
@@ -74,26 +78,15 @@ def institution_merge(request):
     except KeyError:
         request.session.flash('No mergee institution given', 'help')
         return redirect_response
-    mergee = Institution.query().get(mergee_id)
+    mergee = preload_cached_avs(Institution, Institution.query()).get(mergee_id)
     if not mergee:
         request.session.flash(
             'Invalid mergee institution %s given' % mergee_id, 'help')
         return redirect_response
 
-    cruises = set(institution.cruises()).union(mergee.cruises())
-    for cruise in cruises:
-        participants = cruise.get('participants')
-        for p in participants:
-            if p['institution'] == mergee.id:
-                p['institution'] = institution.id
-        cruise.set_accept(Institution.cruise_associate_key,
-                          participants, request.user)
-    people = mergee.people()
-    for person in people:
-        person.institution = institution.id
-        person.save()
-    request.session.flash(
-        'Merged institution with %s' % mergee, 'action_taken')
-    mergee.remove()
+    institution.merge(request.user, mergee)
+    transaction.commit()
 
+    transaction.begin()
+    request.session.flash('Merged institution with %s' % mergee, 'action_taken')
     return redirect_response

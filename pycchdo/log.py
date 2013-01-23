@@ -3,7 +3,10 @@ http://stackoverflow.com/questions/384076
 
 """
 import logging
-from logging import DEBUG, INFO, WARN, ERROR, CRITICAL
+from logging import (
+    Logger, Formatter, StreamHandler,
+    DEBUG, INFO, WARN, ERROR, CRITICAL,
+    )
 
 
 __all__ = [
@@ -22,9 +25,11 @@ COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ = "\033[1m"
 
 FORMAT = (
-    u"[%(asctime)s %(levelname)-4s $BOLD%(name)-15s$RESET] "
-    "%(message)s "
-    " ($BOLD%(filename)s$RESET:%(lineno)d)"
+    u"%(asctime)s %(name)-15s "
+    #"$BOLD%(filename)s$RESET:%(lineno)d %(threadName)s\t"
+    "$BOLD%(filename)s$RESET:%(lineno)d\t"
+    "%(levelname)s$RESET "
+    "%(message)s"
     )
 
 
@@ -46,35 +51,41 @@ COLORS = {
 }
 
 
-class ColoredFormatter(logging.Formatter):
+class ColoredFormatter(Formatter):
     COLOR_FORMAT = formatter_message(FORMAT, True)
 
     def __init__(self, msg=None, use_color=True):
         if msg is None:
             msg = self.COLOR_FORMAT
-        logging.Formatter.__init__(self, msg)
+        Formatter.__init__(self, msg)
         self.use_color = use_color
 
+    def _short_level(self, level):
+        return level[0]
+
     def format(self, record):
+        """Modify the record."""
         levelname = record.levelname
         if self.use_color and levelname in COLORS:
-            levelname_color = COLOR_SEQ % (30 + COLORS[levelname]) + \
-                levelname + RESET_SEQ
-            record.levelname = levelname_color
-        return logging.Formatter.format(self, record)
+            levelname_with_color = COLOR_SEQ % (30 + COLORS[levelname]) + \
+                self._short_level(levelname) + RESET_SEQ
+            record.levelname = levelname_with_color
+        else:
+            record.levelname = _short_level(levelname)
+        return Formatter.format(self, record)
 
     def formatTime(self, record, datefmt=None):
         return super(ColoredFormatter, self).formatTime(record, datefmt)[11:]
 
 
 # Custom logger class with multiple destinations
-class ColoredLogger(logging.Logger):
+class ColoredLogger(Logger):
     def __init__(self, name):
-        logging.Logger.__init__(self, name, DEBUG)                
+        Logger.__init__(self, name, DEBUG)                
 
         color_formatter = ColoredFormatter()
 
-        console = logging.StreamHandler()
+        console = StreamHandler()
         console.setFormatter(color_formatter)
 
         self.addHandler(console)

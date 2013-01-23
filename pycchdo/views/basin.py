@@ -7,6 +7,7 @@ from pyramid.httpexceptions import HTTPNotFound
 
 from sqlalchemy import distinct
 
+from pycchdo.helpers import cruises_sort_by_date_start
 from pycchdo.views.toplevel import catchall_static
 import pycchdo.models as models
 from pycchdo.models import Collection
@@ -25,113 +26,87 @@ def _sorted_by_name(collections):
     return sorted(collections, key=lambda c: c.name)
 
 
+def _coll_cruises(colls):
+    """Return dict mapping collection to its cruises."""
+    cc = models.batch_load_cruises(Collection, colls)
+    for coll in cc:
+        cc[coll] = cruises_sort_by_date_start(cc[coll])
+    return cc
+
+
+def load_coll(objs):
+    """Load collection basins and names.
+
+    get_all_by_attrs allows for a hook_objs to load this before true match.
+
+    """
+    models.disjoint_load_list(objs, 'basins', 'names')
+
+
 def _arctic():
     """Provide a list of collections with cruises in the Arctic circle.
 
     """
-    default = []
-    collections = Collection.get_all_by_attrs({
-        'names': re.compile('.*arctic.*', re.IGNORECASE)
-        })
+    colls = Collection.get_all_by_attrs(
+        {'basins': u'arctic'}, hook_objs=load_coll)
 
-    coll_cruises = set()
-    for coll in collections:
-        coll_cruises |= set(coll.cruises())
-    coll_cruise_ids = [c.id for c in coll_cruises]
-
-    one_away_collection_ids = set()
-    for coll_cruise in coll_cruises:
-        one_away_collection_ids |= set(coll_cruise.get('collections'))
-
-    one_away_collections = Collection.by_ids(
-        list(one_away_collection_ids)).all()
-    woce_collections = filter(
-        lambda c: c.get('type') == 'WOCE line', one_away_collections)
-    collections = _sorted_by_name(woce_collections)
-
-    return {'default': collections}
+    results = {'default': colls}
+    _sort_results(results)
+    return results, _coll_cruises(colls)
 
 
 def _indian():
-    ind = []
-    sou = []
-    atl = []
-    # Currently, only indian basin page is generated from spatial groups
-    colls = Collection.get_all_by_attrs({'basins': 'indian'}) + \
-            Collection.get_all_by_attrs({'basins': 'southern'}) + \
-            Collection.get_all_by_attrs({'basins': 'atlantic'})
-    for sgs in colls:
-        basins = sgs.get('basins')
-        if 'indian' not in basins:
-            continue
-        if 'atlantic' in basins:
-            atl.append(sgs)
-        else:
-            if 'southern' in basins:
-                sou.append(sgs)
-            else:
-                ind.append(sgs)
+    colls = Collection.get_all_by_attrs(
+        {'basins': 'indian'}, hook_objs=load_coll)
 
-    return {
-        'indian': ind,
-        'southern': sou,
-        'atlantic': atl,
+    results = {
+        u'indian': [],
+        u'southern': [],
+        u'atlantic': [],
     }
 
+    for coll in colls:
+        basins = list(coll.basins)
+        if u'atlantic' in basins:
+            results[u'atlantic'].append(coll)
+        elif u'southern' in basins:
+            results[u'southern'].append(coll)
+        else:
+            results[u'indian'].append(coll)
 
-def _filter_for_southern(collections):
-    filtered = []
-    for collection in collections:
-        cruises = collection.cruises(limit=1)
-        cruise = None
-        if len(cruises) > 0:
-            cruise = cruises[0]
-        if cruise:
-            ok = False
-            for c in cruise.collections:
-                if 'Southern' in c.name:
-                    ok = True
-                    break
-            if not ok:
-                continue
-        filtered.append(collection)
-    return filtered
+    _sort_results(results)
+    return results, _coll_cruises(colls)
+
+
+def _sort_results(results):
+    for key in results:
+        results[key] = _sorted_by_name(results[key])
 
 
 def _southern():
-    sou = Collection.get_all_by_attrs({
-        'type': 'WOCE line',
-        'names': re.compile('S.*', re.IGNORECASE)
-        })
-    atl = Collection.get_all_by_attrs({
-        'type': 'WOCE line',
-        'names': re.compile('A(R|J|__).*', re.IGNORECASE)
-        })
-    ind = Collection.get_all_by_attrs({
-        'type': 'WOCE line',
-        'names': re.compile('(I|AIS).*', re.IGNORECASE)
-        })
-    pac = Collection.get_all_by_attrs({
-        'type': 'WOCE line',
-        'names': re.compile('(P|AAI).*', re.IGNORECASE)
-        })
+    colls = Collection.get_all_by_attrs(
+        {'basins': u'southern'}, hook_objs=load_coll)
 
-    sou = _filter_for_southern(sou)
-    atl = _filter_for_southern(atl)
-    ind = _filter_for_southern(ind)
-    pac = _filter_for_southern(pac)
-
-    sou = _sorted_by_name(sou)
-    atl = _sorted_by_name(atl)
-    ind = _sorted_by_name(ind)
-    pac = _sorted_by_name(pac)
-
-    return {
-        'southern': sou,
-        'atlantic': atl,
-        'indian': ind,
-        'pacific': pac,
+    results = {
+        u'southern': [],
+        u'atlantic': [],
+        u'indian': [],
+        u'pacific': [],
     }
+
+    for coll in colls:
+        basins = list(coll.basins)
+        if u'atlantic' in basins:
+            results[u'atlantic'].append(coll)
+        elif u'indian' in basins:
+            results[u'indian'].append(coll)
+        elif u'pacific' in basins:
+            results[u'pacific'].append(coll)
+        else:
+            results[u'southern'].append(coll)
+
+    _sort_results(results)
+    return results, _coll_cruises(colls)
 
 
 def basin_show(request):
@@ -145,13 +120,13 @@ def basin_show(request):
     collections = None
     areas = []
     if basin == 'arctic':
-        collections = _arctic()
+        collections, coll_cruises = _arctic()
     elif basin == 'indian':
         areas = ['Indian', 'Southern', 'Atlantic', ]
-        collections = _indian()
+        collections, coll_cruises = _indian()
     elif basin == 'southern':
         areas = ['Southern', 'Atlantic', 'Indian', 'Pacific', ]
-        collections = _southern()
+        collections, coll_cruises = _southern()
 
     if not collections:
         raise HTTPNotFound()
@@ -160,4 +135,5 @@ def basin_show(request):
         'basin': basin.capitalize(),
         'areas': areas,
         'collections': collections,
+        'coll_cruises': coll_cruises,
     }

@@ -68,6 +68,12 @@ p a:visited, p .link.visited {
 p a:hover:visited, p .link.visited.hover {
   border-bottom: 1px solid #E8C79E;
 }
+
+#janrainEngageEmbed a,
+#timeline a {
+  border-bottom: none;
+}
+
 .box_content #no_accounts a,
 .box_content .thumb a,
 #search_map_ad a,
@@ -180,6 +186,9 @@ table tr.header th {
 .reverse.expander a {
   background-position: 0 -18px;
 }
+.header .expander a {
+  background: url('/static/img/icons/expandall_arrows.png') no-repeat;
+}
 .open .expander a {
   background-position: 0 -9px;
 }
@@ -212,6 +221,10 @@ tr.odd {
 #session_status.moderator {
   background: #FFDDDD;
   padding: 0.2em 0.5em;
+}
+#not-user {
+  font-size: 0.6em;
+  font-style: italic;
 }
 
 #gsearch {
@@ -382,7 +395,7 @@ input[type="submit"]:active {
   padding: 0;
 }
 #cchdo_menu #cchdo_menu_basins {
-  padding: 3em;
+  padding: 0 3em;
 }
 
 #cchdo_menu li h1 { 
@@ -539,7 +552,7 @@ input[type="submit"]:active {
   right: 0;
   top: 0;
   padding: 0.5em;
-  margin: 0 -1px 0 -1px;
+  margin: 0;
 }
 .boxed .box_content {
   padding: 1em;
@@ -655,6 +668,11 @@ input[type="submit"]:active {
 }
 .search_adv #timeline5 {
   right: 0;
+}
+
+/* Carina */
+#carina-about p {
+  margin: 0.5em auto;
 }
 
 /* Attribute notes */

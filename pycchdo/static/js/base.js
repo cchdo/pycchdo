@@ -243,7 +243,10 @@ function remove_class(e, c) {
   })();
 })();
 (function defaultFocus() {
-  document.getElementById('query').focus();
+  var query = document.getElementById('query');
+  if (query.value) {
+    query.focus();
+  }
 })();
 (function imgmap_mobile_toggle() {
   // Adapted from http://home.comcast.net/~urbanjost/semaphore.html

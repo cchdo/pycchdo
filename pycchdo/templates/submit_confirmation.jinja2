@@ -1,39 +1,54 @@
 {% extends "templates/base.jinja2" %}
 {%- block head %}
-  <style>
-    dt { font-size: 1.2em; margin-top: 0.5em; }
-    dd { margin-left: 1em; }
-  </style>
+  {{ whh.tags.stylesheet_link('/static/css/submit.css') }}
 {%- endblock %}
+{% block title %}Data Submitted{% endblock %}
 {%- block content -%}
 {%- if submission %}
-  {%- call h.boxed('Data submission by %s' % submission.name) %}
-    <p>Thank you for submitting data, {{ submission.name }}.</p>
+  {%- call h.boxed('Data submitted', class='submit-confirmation') %}
+    <p>Thank you for submitting files, {{ submission.creation_person.name }}.</p>
+    <p>
+      You should receive a confirmation email from <strong>cchdo@ucsd.edu</strong> at 
+      <strong>{{ submission.creation_person.email }}</strong> shortly.
+    </p>
+
     <dl>
       <dt>{% trans count=file_names|length %}File{% pluralize %}Files{% endtrans %}</dt>
-        <dd>{{ ''.join(file_names) }}</dd>
+        <dd>{{ ', '.join(file_names) }}</dd>
       <dt>Status</dt>
-        <dd>{{ files|attr('public') or 'Non-public' }}</dd>
-      <dt>Action</dt>
-        <dd>{{ files|attr('action') or 'No action specified' }}</dd>
-      <dt>Expocode</dt>
-        <dd>{{ files|attr('expocode') or 'No expocode given' }}</dd>
-      <dt>Line</dt>
-        <dd>{{ files|attr('line') or 'No WOCE line suggested' }} </dd>
-      <dt>Cruise Date</dt>
-        <dd>{{ files|attr('cruise_date') or 'No cruise dates given' }}</dd>
-      <dt>Institution</dt>
-        <dd>{{ files|attr('institution') or 'No institution given' }}</dd>
-      <dt>Country</dt>
-        <dd>{{ files|attr('country') or 'No country given' }}</dd>
-      <dt>Confirmation sent to</dt>
-        <dd>{{ files|attr('email') }}</dd>
+        <dd>{{ submission|attr('public') }}</dd>
+      {%- if submission|attr('action') %}
+        <dt>Action</dt>
+          <dd>{{ submission|attr('action') }}</dd>
+      {%- endif %}
+      {%- if submission|attr('expocode') %}
+        <dt>Cruise Identifier</dt>
+          <dd>{{ submission|attr('expocode') }}</dd>
+      {%- endif %}
+      {%- if submission|attr('line') %}
+        <dt>Line</dt>
+          <dd>{{ submission|attr('line') }} </dd>
+      {%- endif %}
+      {%- if submission|attr('cruise_date') %}
+        <dt>Cruise Date</dt>
+          <dd>{{ submission|attr('cruise_date') }}</dd>
+      {%- endif %}
+      {%- if submission|attr('institution') %}
+        <dt>Institution</dt>
+          <dd>{{ submission|attr('institution') }}</dd>
+      {%- endif %}
+      {%- if submission|attr('country') %}
+        <dt>Country</dt>
+          <dd>{{ submission|attr('country') }}</dd>
+      {%- endif %}
+      <dt>Timestamp</dt>
+        <dd>{{ submission.creation_timestamp.strftime('%Y-%m-%d') }}</dd>
     </dl>
   {%- endcall %}
 {%- else %}
   {%- call h.boxed('File submission error') %}
     <p>We apologize, the system encountered an error while processing your submission.</p>
-    <p>Please email your submission directly to <a href="mailto:cberysgo@ucsd.edu">cberysgo@ucsd.edu</a>.</p>
+    <p>Please email your submission directly to <a href="mailto:cchdo@ucsd.edu">cchdo@ucsd.edu</a>.</p>
   {%- endcall %}
 {%- endif %}
 {%- endblock %}

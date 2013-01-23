@@ -18,6 +18,7 @@ $(function () {
   });
   timeglider.appendTo(timeline);
   timeglider.height(200);
+  timeline.accordion({active: false});
 
   var datatable = $('<table id="datatable"/>');
   datatable.hide().appendTo($('body'));

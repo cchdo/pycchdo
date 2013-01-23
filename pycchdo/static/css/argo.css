@@ -33,11 +33,33 @@
   white-space: nowrap;
 }
 .argo table .description {
-  width: 80%;
+  min-width: 80%;
 }
 .argo table pre {
   margin: 0;
   width: inherit;
+}
+.argo table tr.display-t {
+  background-color: #efffee;
+}
+.argo table tr.display-t.odd {
+  background-color: #dfffdd;
+}
+
+.argo table ol {
+  border-top: 1px solid #cccccc;
+}
+.argo table ol li span {
+  display: inline-block;
+}
+.argo table ol .ip {
+  width: 10em;
+}
+.argo table ol .ua {
+  width: 20em;
+}
+.argo table ol .dt {
+  width: 10em;
 }
 
 #content h2 {

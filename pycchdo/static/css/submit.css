@@ -18,6 +18,9 @@
   font-size: 1.5em;
   font-weight: bold;
 }
+.step-title h3 {
+  font-size: 1.1em;
+}
 .step-title em {
   color: #a0a0a0;
   font-size: 1.2em;
@@ -78,4 +81,12 @@
 #submission_type h3 {
   margin: 0.2em;
   color: #000000;
+}
+
+.submit-confirmation dt {
+  font-size: 1.2em;
+  margin-top: 0.5em;
+}
+.submit-confirmation dd {
+  margin-left: 1em;
 }

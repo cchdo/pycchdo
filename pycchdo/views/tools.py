@@ -30,6 +30,8 @@ import libcchdo.formats.ctd.zip.netcdf_oceansites as ctdzipnc_os
 import libcchdo.formats.bottle.exchange as botex
 
 from pycchdo import models
+from pycchdo import helpers as h
+from pycchdo.models.models import disjoint_load_cruise_attrs
 from pycchdo.views import file_response
 from pycchdo.views.staff import staff_signin_required
 
@@ -280,7 +282,10 @@ def dumps_sqlite(request):
 
         dac = 'CCHDO'
         profile_type = 'ctd'
-        for c in models.Cruise.get_all():
+        cruises = models.Cruise.query().all()
+        disjoint_load_cruise_attrs(cruises)
+        h.reduce_specificity(request, *cruises)
+        for c in cruises:
             if any(c.get(format) for format in ctd_formats):
                 cruise = c.uid
                 date = c.date_start
@@ -357,7 +362,10 @@ def dumps_sqlite(request):
             'id', 'aliases', 'collections', 'ship', 'country', 'chi_sci', 
             'ports', 'date_start', 'date_end', 'track', ]
 
-        for c in models.Cruise.get_all({'accepted': False}):
+        cruises_seahunt = models.Cruise.only_if_accepted_is(False).all()
+        disjoint_load_cruise_attrs(cruises_seahunt)
+        h.reduce_specificity(request, *cruises_seahunt)
+        for c in cruises_seahunt:
             id = c.uid
             aliases = ', '.join(c.aliases)
             collections = ', '.join([x.name for x in c.collections])

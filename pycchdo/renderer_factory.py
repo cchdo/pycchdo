@@ -1,9 +1,14 @@
 import json as JSON
 import datetime
 
+from sqlalchemy.ext.associationproxy import _AssociationList
+
 from pyramid.response import Response
 
-from pycchdo.models import Obj
+from pycchdo.models import (
+    Obj, Participants, Participant,
+    Institution,
+    )
 
 
 class CustomJSONEncoder(JSON.JSONEncoder):
@@ -12,6 +17,21 @@ class CustomJSONEncoder(JSON.JSONEncoder):
             return str(obj)
         elif isinstance(obj, datetime.date):
             return str(obj)
+        elif isinstance(obj, Participants):
+            return self.default(list(obj))
+        elif isinstance(obj, Participant):
+            return JSON.dumps({
+                'person': obj.person_id,
+                'institution': obj.institution_id,
+                'role': obj.role})
+        elif isinstance(obj, list):
+            return JSON.dumps([self.default(x) for x in obj])
+        elif isinstance(obj, str) or isinstance(obj, unicode):
+            return obj
+        elif isinstance(obj, _AssociationList):
+            return ''
+            # TODO stale proxy?
+            #return JSON.dumps([self.default(x) for x in obj])
         return JSON.JSONEncoder.default(self, obj)
 
 

@@ -27,7 +27,7 @@ submission_confirmation_recipient = synmantics+test@gmail.com
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/dev_pycchdo
+sqlalchemy.url = postgresql://pycchdo:pycchd0@315@kaze.ucsd.edu:5432/dev_pycchdo
 #sqlalchemy.url = sqlite:///%(here)s/development.db
 #sqlalchemy.echo = True
 
@@ -38,14 +38,21 @@ pipeline =
 
 [server:main]
 use = egg:waitress#main
-#host = 0.0.0.0
-host = 127.0.0.1
+host = 0.0.0.0
 port = 6543
+
+[pshell]
+p = pycchdo
+m = pycchdo.models.models
+s = pycchdo.models.models.DBSession
+v = pycchdo.views
+t = transaction
 
 # Begin logging configuration
 
 [loggers]
 keys = root, pycchdo, pycchdo_models, sqlalchemy
+#keys = root, pycchdo, pycchdo_models
 
 [handlers]
 keys = null, console
@@ -68,7 +75,7 @@ handlers = console
 qualname = pycchdo.models.models
 
 [logger_sqlalchemy]
-level = INFO
+level = WARN
 # "level = INFO" logs SQL queries
 # "level = DEBUG" logs SQL queries and results
 # "level = WARN" logs neither (recommended)

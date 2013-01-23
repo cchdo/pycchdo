@@ -294,9 +294,9 @@ def _ensure_cruise(cruise, updater):
     ccc = Cruise.get_one_by_attrs(
         {'import_id': import_id}, accepted_only=False)
     if ccc:
-        implog.info('Updating Seahunt Cruise %s: %s' % (import_id, ccc.id))
+        log.info('Updating Seahunt Cruise %s: %s' % (import_id, ccc.id))
     else:
-        implog.info('Creating Seahunt Cruise %s' % import_id)
+        log.info('Creating Seahunt Cruise %s' % import_id)
         ccc = Cruise(updater.importer)
         DBSession.add(ccc)
         DBSession.flush()
@@ -348,7 +348,12 @@ def _import_cruise(updater, cruise, sftp_goship, dl_files=True):
                 'contact',
                  _import_contact(contact, updater)))
         if participants:
-            updater.attr(c, 'participants', Participants(participants))
+            if c.get('participants', None) is None:
+                c.set_accept(
+                    'participants', Participants(participants),
+                    updater.importer)
+            else:
+                c.participants._replace(participants)
 
     if cruise.institutions:
         institutions = []
@@ -400,10 +405,10 @@ def _ensure_inst(updater, inst_id):
     institution = Institution.get_one_by_attrs(
         {'import_id': import_id}, accepted_only=False)
     if institution:
-        implog.info("Updating Seahunt Institution {}: {}".format(
+        log.info("Updating Seahunt Institution {}: {}".format(
             import_id, institution.id))
     else:
-        implog.info("Creating Institution %s" % import_id)
+        log.info("Creating Institution %s" % import_id)
         institution = Institution(updater.importer)
         DBSession.add(institution)
         DBSession.flush()
@@ -419,7 +424,7 @@ def _import_inst(inst, updater):
 
     names = filter(None, [inst.name, inst.full_name])
     if names:
-        implog.info(names[0])
+        log.info(names[0])
         updater.attr(institution, 'name', names[0])
         for name in names[1:]:
             updater.attr(institution, 'name', name, accept=False)
@@ -447,9 +452,9 @@ def _ensure_country(updater, country_id):
     c= Country.get_one_by_attrs(
         {'import_id': import_id}, accepted_only=False)
     if c:
-        implog.info("Updating Country %s: %s" % (import_id, c.id))
+        log.info("Updating Country %s: %s" % (import_id, c.id))
     else:
-        implog.info("Creating Country %s" % import_id)
+        log.info("Creating Country %s" % import_id)
         c = Country(updater.importer)
         DBSession.add(c)
         DBSession.flush()
@@ -469,9 +474,9 @@ def _import_contact(contact, updater):
     p = Person.get_one_by_attrs(
         {'import_id': import_id}, accepted_only=False)
     if p:
-        implog.info('Updating Seahunt Contact %s: %s' % (import_id, p.id))
+        log.info('Updating Seahunt Contact %s: %s' % (import_id, p.id))
     else:
-        implog.info('Creating Seahunt Contact %s' % import_id)
+        log.info('Creating Seahunt Contact %s' % import_id)
         p = import_person(updater, import_id, None, identifier=import_id)
         p.creation_timestamp = contact.created_at
         updater.attr(p, 'import_id', import_id)
@@ -569,7 +574,7 @@ def _import_program(program, updater):
 
 def _import_resource(resource, updater, sftp_goship, dl_files=True):
     if not resource.cruise:
-        implog.error('Resource %s is missing cruise' % resource.id)
+        log.error('Resource %s is missing cruise' % resource.id)
         return None
     cruise = _ensure_cruise(resource.cruise, updater)
     if resource.type == 'URLResource':
@@ -586,6 +591,8 @@ def _import_resource(resource, updater, sftp_goship, dl_files=True):
         file = FieldStorage()
         file.filename = resource.file_file_name
         file.type = resource.file_content_type
+        if not file.type:
+            file.type = guess_mime_type(file.filename)
         cruise_id = cruise.get('import_id').replace('seahunt', '')
         path = os.path.join(rails_root, 'public', 'docs', 'ids', cruise_id,
                             file.filename)
@@ -604,7 +611,7 @@ def _import_resource(resource, updater, sftp_goship, dl_files=True):
                 if resource.description or resource.note:
                     updater.note(a, resource.note, resource.description)
     else:
-        implog.error('Unknown resource type %s' % resource.type)
+        log.error('Unknown resource type %s' % resource.type)
 
 
 def _import_suggestion_contact(name, email, updater):
@@ -662,7 +669,7 @@ def _import_suggestions(sesh, updater):
 
 
 def clear():
-    implog.info('Clearing all Seahunt imports')
+    log.info('Clearing all Seahunt imports')
 
     person = Person.query().\
         filter(Person.name_last == 'importer').\
@@ -678,28 +685,28 @@ def clear():
 
     lobjs = float(len(objs))
     for i, obj in enumerate(objs):
-        obj.remove()
+        DBSession.remove(obj)
         if i % 10 == 0:
-            implog.info('%d/%d = %f' % (i, lobjs, i / lobjs))
+            log.info('%d/%d = %f' % (i, lobjs, i / lobjs))
 
     max_id = Obj.query().order(Obj.creation_timestamp.desc()).first().id
 
     #if models.ObjId.peek_id() != max_id:
     #    models.ObjId.set_id(max_id)
-    #    implog.info('Reset max ObjId to %d' % max_id)
+    #    log.info('Reset max ObjId to %d' % max_id)
 
-    implog.info('Cleared Seahunt imports')
+    log.info('Cleared Seahunt imports')
     return 
 
 
 def import_(args):
     dl_files = not args.skip_downloads
 
-    implog.info("Get/Create Seahunt Importer to take blame")
+    log.info("Get/Create Seahunt Importer to take blame")
     updater = Updater(
         import_person(None, 'importer', 'Seahunt', 'Seahunt_importer'))
 
-    implog.info('Connecting to seahunt db')
+    log.info('Connecting to seahunt db')
     with db_session(session()) as sesh:
         su = (sesh, updater)
 

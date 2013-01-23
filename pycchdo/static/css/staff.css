@@ -1,23 +1,13 @@
-#staff-header,
-#staff-nav {
-  background: #FFEFE0;
+#staff-header {
   padding: 0.5em;
-  position: relative;
-}
-#staff-header h1 {
-  font-size: 1.5em;
-}
-#staff-signout {
-  position: absolute;
-  top: 0.5em;
-  right: 0.5em;
-}
-#staff-nav {
   border-bottom: 1px solid #D0CFC0;
-  text-align: center;
-  padding: 0;
   background: #EFDFD0;
   background: -webkit-linear-gradient(rgba(255, 239, 224, 1), rgba(219, 203, 188, 1));
+  position: relative;
+}
+#staff-nav {
+  text-align: center;
+  padding: 0;
 }
 #staff-nav a {
   padding: 0.5em;

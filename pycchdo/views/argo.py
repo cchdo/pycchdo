@@ -1,39 +1,90 @@
-import datetime
+import transaction
 
-from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest, HTTPNotFound
-
-import pycchdo.models as models
+from pyramid.httpexceptions import HTTPUnauthorized, HTTPSeeOther, HTTPNotFound
 
 from . import *
-from session import require_signin
+from pycchdo.helpers import has_argo, has_staff
+from pycchdo.models import (
+    timestamp_now, DBSession, ArgoFile, RequestFor, FSFile,
+    )
+from pycchdo.views.session import signin_required, require_signin
 
 
+def _check_signin_argo(request):
+    if request.user is None:
+        request.session.flash(u'Please sign in to view Argo SFR', 'help')
+        return require_signin(request)
+    if not has_argo(request):
+        request.session.flash(
+            (u'You are not authorized to view the Argo SFR. '
+             'Please contact the CCHDO to request permissions.'), 'error')
+        raise HTTPUnauthorized()
+    return None
+
+
+def _check_signin_argo_staff(request):
+    if not _check_signin_argo(request):
+        if not has_staff(request):
+            request.session.flash(
+                (u'You are not authorized to edit the Argo SFR. '
+                 'Please contact the CCHDO to request permissions.'), 'error')
+            raise HTTPUnauthorized()
+    return None
+
+
+def signin_required_argo(view_callable):
+    return signin_required(_check_signin_argo)(view_callable)
+
+
+def signin_required_argo_staff(view_callable):
+    return signin_required(_check_signin_argo_staff)(view_callable)
+
+
+@signin_required_argo
 def index(request):
-    """ List of the repository
-
-    If details is set to anything and the current user is an admin_argo, also
-    display download logs.
+    """List of the repository
     
     """
-    details = request.params.get('details', False)
     method = http_method(request)
 
     if method == 'POST':
         return _create(request)
     elif method == 'GET':
-        all_argo_files = models.ArgoFile.all()
-        argo_files = models.ArgoFile.map_mongo(all_argo_files)
+        argo_files = ArgoFile.query().\
+            order_by(ArgoFile.creation_timestamp.asc())
+        if not has_staff(request):
+            argo_files = argo_files.filter(ArgoFile.display)
+        argo_files = argo_files.all()
         return {'argo_files': argo_files}
 
 
+@signin_required_argo
+def file(request):
+    """Return the file."""
+    id = request.matchdict['id']
+    af = ArgoFile.query().get(id)
+    if not af:
+        raise HTTPNotFound()
+
+    request.date = timestamp_now()
+    af.requests_for.append(RequestFor(request))
+    transaction.commit()
+
+    transaction.begin()
+    af = ArgoFile.query().get(id)
+    return file_response(request, af.value)
+
+
+@signin_required_argo
 def new(request):
-    """ Form for new file """
+    """Form for new file."""
     return {}
 
 
 def entity(request):
+    """Update an ArgoFile."""
     id = request.matchdict['id']
-    argo_file = models.ArgoFile.get_id(id)
+    argo_file = ArgoFile.query().get(id)
     if not argo_file:
         raise HTTPNotFound()
 
@@ -47,16 +98,16 @@ def entity(request):
         argo_file.display = bool(display)
         argo_file.description = description
 
-        raise HTTPSeeOther(location='/argo')
+        raise HTTPSeeOther(location='/argo.html')
     elif method == 'DELETE':
-        argo_file.remove()
+        DBSession.delete(argo_file)
+        transaction.commit()
         raise HTTPSeeOther(location=request.referrer)
     return {'argo_file': argo_file}
 
 
 def _create(request):
-    if not request.user:
-        return require_signin(request)
+    _check_signin_argo_staff(request)
 
     expocode = request.params.get('expocode', '')
     date = request.params.get('date', '')
@@ -72,7 +123,8 @@ def _create(request):
     request.session.flash(description, 'form_entered_argo_description')
 
     if file is None or file == '':
-        request.session.flash('A file to upload is required', 'form_error_argo_file')
+        request.session.flash(
+            'A file to upload is required', 'form_error_argo_file')
         raise HTTPSeeOther(location=request.referrer)
 
     if not expocode:
@@ -80,12 +132,16 @@ def _create(request):
     else:
         text_id = expocode
 
-    argo_file = models.ArgoFile(request.user)
+    argo_file = ArgoFile(request.user)
     argo_file.text_identifier = text_id
     argo_file.description = description
     argo_file.display = bool(display)
-    argo_file.store(file)
-    argo_file.save()
+    argo_file.file = FSFile.from_fieldstorage(file)
+
+    print argo_file
+    print argo_file.__dict__
+    DBSession.add(argo_file)
+    transaction.commit()
 
     request.session.pop_flash('form_entered_argo_expocode')
     request.session.pop_flash('form_entered_argo_date')
@@ -93,5 +149,6 @@ def _create(request):
     request.session.pop_flash('form_entered_argo_display')
     request.session.pop_flash('form_entered_argo_description')
 
-    request.session.flash('Added Argo file to Argo secure file repository.', 'action_taken')
-    raise HTTPSeeOther(location='/argo')
+    request.session.flash(
+        'Added Argo file to Argo secure file repository.', 'action_taken')
+    raise HTTPSeeOther(location='/argo.html')

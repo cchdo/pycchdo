@@ -7,12 +7,8 @@
   border: none;
 }
 
-.cruise-page div.boxed {
-  border: 1px solid #ADD8E6;
-  border-top: 0.2em solid #06629B;
-  border-bottom: 1.5em solid #ADD8E6;
-}
 .boxed h1:first-child {
+  border-top: 0.15em solid #06629B;
   background: #add8e6;
   color: #06629B;
 }

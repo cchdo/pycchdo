@@ -20,8 +20,8 @@
   {%- call h.boxed(box_title) %}
     {%- if cruise_id %}
       <div class="editor">
-        {{ whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise',
-                                                           'attr_expocode': cruise_id}) }}
+        {{ whh.tags.form('/objs/new', 'PUT',
+          hidden_fields={'_obj_type': 'Cruise', 'attr_expocode': cruise_id}) }}
           <p>Would you like to suggest that <span class="cruise_id">{{ cruise_id }}</span> be added?</p>
           <p>You will be directed to the new cruise's page where you can make additional edits.</p>
           <p><input type="submit" value="Suggest cruise"></p>
@@ -62,9 +62,9 @@ longitude,latitude
             </tr>
             <tr><th>{{ whh.tags.title('Cruise name', label_for='attr_name') }}</th><td>{{ whh.tags.text('attr_expocode') }}</td></tr>
             <tr><th>{{ whh.tags.title('Ports/Location', label_for='attr_ports') }}</th><td>{{ whh.tags.text('attr_ports') }}</td></tr>
-            <tr><th>{{ whh.tags.title('Programs', label_for='attr_programs') }}</th><td>{{ whh.tags.text('attr_programs') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Programs', label_for='attr_collections') }}</th><td>{{ whh.tags.text('attr_collections') }}</td></tr>
             <tr><th>{{ whh.tags.title('Institutions', label_for='attr_institutions') }}</th><td>{{ whh.tags.text('attr_institutions') }}</td></tr>
-            <tr><th>{{ whh.tags.title('Contacts', label_for='attr_contacts') }}</th><td>{{ whh.tags.text('attr_contacts') }}</td></tr>
+            <tr><th>{{ whh.tags.title('Contacts', label_for='attr_participants') }}</th><td>{{ whh.tags.text('attr_participants') }}</td></tr>
             <tr><th>{{ whh.tags.title('Date range', label_for='attr_date_start') }}</th>
               <td>
                 {{ whh.tags.text('attr_date_start', type='date') }}
@@ -90,11 +90,11 @@ longitude,latitude
             </tr>
             <tr>
               <td colspan="2">
-                {{ whh.tags.title('Notes', label_for='attr_notes') }}
+                {{ whh.tags.title('Notes', label_for='notes') }}
                 <div id="notes-help" class="help">
                   HTML is allowed but please be succinct.
                 </div>
-                {{ whh.tags.textarea('attr_notes') }}
+                {{ whh.tags.textarea('notes') }}
               </td>
             </tr>
           </table>  

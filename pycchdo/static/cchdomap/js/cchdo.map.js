@@ -244,7 +244,7 @@ CCHDO.MAP.load = function () {
 
   var etopo_map_type = 'ETOPO';
   var etopomt = new ETOPOMapType();
-  CCHDO.MAP.map.get('mapTypes').set(etopo_map_type, etopomt);
+  CCHDO.MAP.map.mapTypes.set(etopo_map_type, etopomt);
 
   CCHDO.MAP.earth = new EarthMapType(CCHDO.MAP.map);
 

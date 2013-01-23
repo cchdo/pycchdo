@@ -3,7 +3,7 @@ import urllib
 import re
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPSeeOther, HTTPMovedPermanently, HTTPBadRequest
+from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest
 
 from pycchdo.views import collapse_dict
 from pycchdo.views.cruise import _cruise_to_json
@@ -62,7 +62,8 @@ def search(request):
     params = request.params
 
     if not params: 
-        raise HTTPMovedPermanently(location='/search/advanced') 
+        raise HTTPSeeOther(
+            location=request.route_path('advanced_search')) 
 
     queries = []
     if 'query' in params:

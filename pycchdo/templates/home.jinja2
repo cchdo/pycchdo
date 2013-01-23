@@ -54,9 +54,8 @@
     <div class="clear"></div>
   {% endcall %}
   
-  {% call h.boxed('Updates', id='rdev', class='right', box_content_class='scrollable-y') %}
+  {% call h.boxed('Recent Updates', id='rdev', class='right', box_content_class='scrollable-y') %}
     <div id="updated">
-      <h2>Recently updated data</h2>
       <ol>
       {%- for update in updated %}
         {%- set cruise = update.obj %}

@@ -3,39 +3,68 @@
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
 {%- endblock %}
 {%- block argo_content %}
-  {% if argo_files %}
+  <p><strong>Non-public</strong> Argo QC use <strong>only</strong>.</p>
+  {%- if argo_files %}
     <table class="has-meta-bodies pre-expand">
       <tr class="header">
         <th>ExpoCode</th>
         <th>File</th>
-        <th>Added by</th>
-        <th>Added at</th>
-        <th>Display</th>
+        {%- if h.has_mod(request) %}
+          <th>Added</th>
+          <th>Displayed</th>
+        {%- endif %}
       </tr>
       {%- for af in argo_files %}
         {%- set hl = loop.cycle('even', 'odd') %}
-        <tr class="mb-link{{loop.index0}} meta {{ hl }}">
+        {%- if h.has_mod(request) %}
+          {%- set display = af.display %}
+        {%- endif %}
+        {%- if display %}
+          {%- set display_class = 'display-t' %}
+        {%- else %}
+          {%- set display_class = 'display-f' %}
+        {%- endif %}
+        <tr class="mb-link{{loop.index0}} meta {{ hl }} {{ display_class }}">
           <td>{{ af.text_identifier }}</td>
           <td class="filename">
             {%- if af|attr('file') and af.file %}
-              <a href="{{ h.data_uri(af) }}">{{ af.file.name }}</a>
+              <a href="{{ request.route_path('argo_file', id=af.id) }}">{{ af.file.name }}</a>
             {%- else %}
               Not uploaded
             {%- endif %}
           </td>
-          <td>{{ af.creation_stamp.person.full_name }}</td>
-          <td class="time">{{ af.creation_stamp.timestamp.strftime('%F %H:%M %Z') }}</td>
-          <td>{{ af.display }}</td>
+          {%- if h.has_mod(request) %}
+            <td class="time">{{ af.creation_timestamp.strftime('%F %H:%M %Z') }}</td>
+            <td>{{ display }}</td>
+          {%- endif %}
         </tr>
-        <tr class="mb-link{{loop.index0}} body {{ hl }}">
-          <td class="description" colspan="4">
+        <tr class="mb-link{{loop.index0}} body {{ hl }} {{ display_class }}">
+          <td class="description" colspan="2">
             <pre>{{ af.description }}</pre>
           </td>
-          <td>
-            <p><a href="/argo/{{ af.id }}">Edit</a></p>
-            <p><a href="/argo/{{ af.id }}?_method=DELETE">Delete</a></p>
-          </td>
+          {%- if h.has_mod(request) %}
+            <td>{{ af.creation_person.name }}</td>
+            <td>
+              <p><a href="/argo/{{ af.id }}">Edit</a></p>
+              <p><a href="/argo/{{ af.id }}?_method=DELETE">Delete</a></p>
+            </td>
+          {%- endif %}
         </tr>
+        {%- if h.has_mod(request) %}
+          <tr class="mb-link{{loop.index0}} body {{ hl }} {{ display_class }}">
+            <td colspan="4">
+              <ol>
+              {%- for req in af.requests_for %}
+                <li>
+                  <span class="ip">{{ req.ip }}</span>
+                  <span class="ua">{{ req.ua }}</span>
+                  <span class="dt">{{ req.dt }}</span>
+                </li>
+              {%- endfor %}
+              </ol>
+            </td>
+          </tr>
+        {%- endif %}
       {%- endfor %}
     </table>
   {%- else %}

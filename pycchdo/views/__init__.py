@@ -78,7 +78,7 @@ def http_method(request):
 
 def paged(request, l):
     current_page = int(request.params.get('page', 1))
-    items_per_page = int(request.params.get('items_per_page', 50))
+    items_per_page = int(request.params.get('items_per_page', 30))
     def page_url(page):
         query = request.params.copy()
         query['page'] = page
@@ -240,5 +240,5 @@ def server_error_view(request):
     return {
         'errno': '500',
         'errstr': 'Internal Server Error',
-        'errmsg': "Oops! That's an error. We've been notified and will take a look shortly.",
+        'errmsg': "Oops! Sorry, that's an error. We have been notified and will take a look shortly.",
     }

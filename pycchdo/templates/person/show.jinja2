@@ -25,6 +25,7 @@
         {{ whh.tags.form(request.route_path('person_edit', person_id=person.id), 'PUT') }}
         <table>
           <tr><th>Identifier</th><td><input type="text" name="identifier" value="{{ person.identifier or '' }}"></td><td>{{ h.form_errors_for(request, 'identifier') }}</td></tr>
+          <tr><th>Name</th><td><input type="text" name="name" value="{{ person.name or '' }}"></td><td>{{ h.form_errors_for(request, 'name') }}</td></tr>
           <tr><th>Name first</th><td><input type="text" name="name_first" value="{{ person.name_first or '' }}"></td><td>{{ h.form_errors_for(request, 'name_first') }}</td></tr>
           <tr><th>Name last</th><td><input type="text" name="name_last" value="{{ person.name_last or '' }}"></td><td>{{ h.form_errors_for(request, 'name_last') }}</td></tr>
           <tr><th>Institution</th><td><input type="text" name="institution" value="{{ person.institution.id or '' }}"></td><td>{{ h.form_errors_for(request, 'institution') }}</td></tr>

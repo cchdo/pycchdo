@@ -24,7 +24,7 @@
   font-size: 1.3em;
 }
 .contact .vcard .adr {
-  line-height: 1.1em;
+  line-height: 1.4em;
   padding: 0.4em 0;
 }
 .contact .vcard table {
@@ -34,11 +34,16 @@
   padding-right: 1em;
 }
 .contact .people {
-  width: 50em;
+  width: 40em;
 }
 .contact .people .vcard {
   float: left;
-  width: 25em;
+  width: 20em;
+}
+.contact .vcard.cchdo h3 {
+  font-size: 1.1em;
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
 }
 .contact .vcard h3 {
   font-size: 1.2em;

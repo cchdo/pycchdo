@@ -3,21 +3,25 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Ship
+from pycchdo.models.models import preload_cached_avs
 from pycchdo.views import staff
 
 
 def ships_index(request):
-    return {'ships': sorted(Ship.query().all(), key=lambda s: s.name)}
+    ships = preload_cached_avs(Ship, Ship.query()).all()
+    ships = sorted(ships, key=lambda s: s.name)
+    return {'ships': ships}
 
 
 def ships_index_json(request):
-    ships = sorted(Ship.query().all(), key=lambda s: s.name)
+    ships = preload_cached_avs(Ship, Ship.query()).all()
+    ships = sorted(ships, key=lambda s: s.name)
     return [s.to_nice_dict() for s in ships]
 
 
 def _get_ship(request):
     ship_id = request.matchdict.get('ship_id')
-    return Ship.query().get(ship_id)
+    return preload_cached_avs(Ship, Ship.query()).get(ship_id)
 
 
 def _redirect_response(request, id):
@@ -70,15 +74,14 @@ def ship_merge(request):
     except KeyError:
         request.session.flash('No mergee ship given', 'help')
         return redirect_response
-    mergee = Ship.query().get(mergee_id)
+    mergee = preload_cached_avs(Ship, Ship.query()).get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee ship %s given' % mergee_id, 'help')
         return redirect_response
 
-    cruises = set(ship.cruises()).union(mergee.cruises())
-    for cruise in cruises:
-        cruise.set_accept(Ship.cruise_associate_key, ship.id, request.user)
-    request.session.flash('Merged ship with %s' % mergee, 'action_taken')
-    mergee.remove()
+    ship.merge(request.user, mergee)
+    transaction.commit()
 
+    transaction.begin()
+    request.session.flash('Merged ship with %s' % mergee, 'action_taken')
     return redirect_response

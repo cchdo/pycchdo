@@ -1,6 +1,13 @@
 import socket
 import warnings
 
+from StringIO import StringIO as pyStringIO
+import transaction
+try:
+    from cStringIO import StringIO
+except ImportError:
+    StringIO = pyStringIO
+
 from sqlalchemy import util
 from sqlalchemy.sql import visitors
 from sqlalchemy.util import topological
@@ -81,6 +88,24 @@ class FileProxyMixin(object):
 
     def __iter__(self):
         return iter(self.file)
+
+
+class MemFile(pyStringIO):
+    def __init__(self, content, filename):
+        pyStringIO.__init__(self, content)
+        self.name = filename
+        self.flush()
+
+    @property
+    def filename(self):
+        return self.name
+
+    @property
+    def size(self):
+        return len(self.getvalue())
+
+    def __repr__(self):
+        return u'MemFile({0!r:<10}, {1!r})'.format(self.getvalue(), self.name)
 
 
 def deprecated(message=''):

@@ -55,6 +55,14 @@ def static_policies_name(request):
     raise HTTPMovedPermanently(location='/policies/woce_name.html')
 
 
+def submissions(request):
+    raise HTTPMovedPermanently(location=request.route_path('staff_submissions'))
+
+
+def queue(request):
+    raise HTTPMovedPermanently(location=request.route_path('staff_moderation'))
+
+
 def groups(request):
     group = request.params['id']
 

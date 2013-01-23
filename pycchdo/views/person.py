@@ -7,26 +7,28 @@ import transaction
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Person
+from pycchdo.models.models import preload_person
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
 
 
 def people_index(request):
-    people = sorted(Person.query().all(), key=lambda x: x.name_last)
+    people = preload_person(Person, Person.query()).\
+        order_by(Person.name_last).all()
     people = paged(request, people)
     return {'people': people}
 
 
 def people_index_json(request):
-    people = Person.query().all()
-    people = sorted(people, key=lambda x: x.name_last)
+    people = preload_person(Person, Person.query()).\
+        order_by(Person.name_last).all()
     people = [p.to_nice_dict() for p in people]
     return people
 
 
 def _get_person(request):
     person_id = request.matchdict.get('person_id')
-    return Person.query().get(person_id)
+    return preload_person(Person, Person.query()).get(person_id)
 
 
 def _redirect_response(request, id):
@@ -57,6 +59,7 @@ def person_edit(request):
         raise HTTPNotFound()
 
     identifier = request.params.get('identifier', '')
+    name = request.params.get('name', '')
     name_first = request.params.get('name_first', '')
     name_last = request.params.get('name_last', '')
     try:
@@ -81,6 +84,7 @@ def person_edit(request):
         return {'person': person}
 
     person.identifier = identifier
+    person.name = name
     person.name_first = name_first
     person.name_last = name_last
     if institution:
@@ -114,7 +118,7 @@ def person_merge(request):
     except KeyError:
         request.session.flash('No mergee person given', 'help')
         return redirect_response
-    mergee = Person.query().get(mergee_id)
+    mergee = preload_person(Person, Person.query()).get(mergee_id)
     if not mergee:
         request.session.flash('Invalid mergee person %s given' % mergee_id,
                               'help')
@@ -122,6 +126,8 @@ def person_merge(request):
 
     if not person.identifier:
         person.identifier = mergee.identifier
+    if not person.name:
+        person.name = mergee.name
     if not person.name_first:
         person.name_first = mergee.name_first
     if not person.name_last:

@@ -7,15 +7,25 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
 import pycchdo.models as models
 
 from . import *
-from pycchdo.models import DBSession
+from pycchdo.log import ColoredLogger
+from pycchdo.models import DBSession, Note
 from pycchdo.helpers import has_mod
 from pycchdo.views.staff import staff_signin_required
 from session import require_signin
 
+from sqlalchemy.orm import noload
+
+log = ColoredLogger(__name__)
+
 
 @staff_signin_required
 def objs(request):
-    objs = models.Obj.query().all()
+    objs = models.Obj.query().\
+        options(
+            noload('cache_obj_avs'),
+            noload('attrs_accepted'),
+            noload('attrs')
+        ).all()
     objs = paged(request, objs)
     return {'objs': objs}
 
@@ -28,11 +38,14 @@ def obj_new(request):
     obj_type = request.params.get('_obj_type', models.Obj.__name__)
     attributes = {}
     attrs = {}
+    notes = []
     for k, v in request.params.items():
         if k.startswith('attr_'):
             attrs[k[len('attr_'):]] = v
         elif k.startswith('attribute_'):
             attributes[k[len('attribute_'):]] = v
+        elif k.startswith('note'):
+            notes.append(v)
 
     try:
         obj = models.__dict__[obj_type](request.user)
@@ -47,19 +60,33 @@ def obj_new(request):
         DBSession.flush()
     if attrs:
         for k, v in attrs.items():
+            try:
+                if v == '':
+                    continue
+            except TypeError:
+                pass
             if k == 'track' and isinstance(obj, models.Cruise):
                 obj.set_accept(k, str_to_track(v), request.user)
             else:
                 if k in ['expocode', 'map_thumb', ]:
+                    # Don't try to set it if map_thumb is not a file.
+                    if k == u'map_thumb' and type(v) == unicode:
+                        continue
                     obj.set_accept(k, v, request.user)
                 else:
                     obj.set(k, v, request.user)
 
+    for note in notes:
+        if note:
+            obj.add_note(Note(request.user, note))
+
+    DBSession.flush()
+    obj_id = obj.id
     transaction.commit()
 
     if isinstance(obj, models.Cruise):
-        raise HTTPSeeOther(location=request.route_path('cruise_show',
-                                                        cruise_id=obj.id))
+        raise HTTPSeeOther(
+            location=request.route_path('cruise_show', cruise_id=obj_id))
     return {'obj': obj}
 
 
@@ -75,7 +102,6 @@ def obj_show(request):
     if method == 'DELETE':
         if obj:
             DBSession.delete(obj)
-            transaction.commit()
             obj = None
             request.session.flash('Removed Obj %s' % obj_id, 'action_taken')
             raise HTTPSeeOther(location='/objs')
@@ -100,6 +126,9 @@ def obj_show(request):
                 raise HTTPSeeOther(location=request.referrer)
         except KeyError:
             pass
+        transaction.commit()
+        obj = models.Obj.query().get(obj_id)
+
 
     if obj.obj_type in ['Cruise', 'Person', 'Institution', 'Country']:
         link = request.url.replace('/obj/', '/%s/' % obj.obj_type.lower())
@@ -112,7 +141,6 @@ def obj_show(request):
         'asdict': obj.to_nice_dict(),
         'link': link,
     }
-
 
 @staff_signin_required
 def obj_attrs(request):
@@ -174,9 +202,11 @@ def obj_attr(request):
     key = request.matchdict['key']
     attr = models._Attr.query().get(key)
     if not attr:
-        raise HTTPNotFound('No attr with key %s' % key)
-    if not str(attr['obj']) == obj_id:
-        raise HTTPNotFound('No obj with id %s' % obj_id)
+        log.error(u'No attr with key %s' % key)
+        raise HTTPNotFound()
+    if not str(attr.obj_id) == obj_id:
+        log.error(u'No obj with id %s' % obj_id)
+        raise HTTPNotFound()
 
     method = http_method(request)
     if method == 'GET':
@@ -187,13 +217,13 @@ def obj_attr(request):
         if not has_mod(request):
             raise HTTPUnauthorized()
 
-        def redirect():
-            # Special case for accepting expocode. The cruise will not exist any
-            # more under the original expocode so redirect to the new expocode.
-            if attr.key == 'expocode' and action == 'Accept':
-                raise HTTPSeeOther(location=request.route_url(
-                                    'cruise_show', cruise_id=attr.value))
-            raise HTTPSeeOther(location=request.referrer)
+        # Special case for accepting expocode. The cruise will not exist any
+        # more under the original expocode so redirect to the new expocode.
+        if attr.key == 'expocode' and action == 'Accept':
+            redirect = HTTPSeeOther(
+                location=request.route_url('cruise_show', cruise_id=attr.value))
+        else:
+            redirect = HTTPSeeOther(location=request.referrer)
 
         try:
             action = request.params['action']
@@ -205,13 +235,14 @@ def obj_attr(request):
                 try:
                     accept_key = request.params['accept_key']
                 except KeyError:
-                    request.session.flash('You must provide a new key that is '
-                                          'a file type', 'help')
-                    return redirect()
+                    request.session.flash(
+                        'You must provide a new key that is a file type',
+                        'help')
+                    return redirect
                 if accept_key not in models.data_file_descriptions.keys():
                     request.session.flash(
                         '%s is not a valid file type' % accept_key, 'help')
-                    return redirect()
+                    return redirect
                 else:
                     attr.key = accept_key
                     request.session.flash(
@@ -238,12 +269,15 @@ def obj_attr(request):
                 accept_suggested()
             except ValueError:
                 request.session.flash('%s is not valid' % accept_key, 'help')
-                return redirect()
+                return redirect
         elif action == 'Acknowledge':
             attr.acknowledge(request.user)
-            request.session.flash('Attr change acknowledged', 'action_taken')
+            request.session.flash(
+                '{0} acknowledged'.format(attr), 'action_taken')
         elif action == 'Reject':
             attr.reject(request.user)
-            request.session.flash('Attr change rejected', 'action_taken')
-        return redirect()
+            request.session.flash(
+                '{0} rejected'.format(attr), 'action_taken')
+            transaction.commit()
+        return redirect
     return {'attr': attr}

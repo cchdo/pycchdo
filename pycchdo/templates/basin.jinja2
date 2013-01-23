@@ -18,22 +18,22 @@
     {%- for collection in collections %}
       {%- set hl = loop.cycle('even', 'odd') %}
       {%- set loopi = loop.index0 %}
-      {%- set cruises = collection.cruises() %}
+      {%- set cruises = coll_cruises[collection] %}
       <tr class="meta mb-link{{ loopi }} {{ hl }}">
         <td>{{h.link_collection(collection)}}</td>
         <td colspan="4">
-          <img class="map" src="{{h.get_basin_map(basin, collection, cruises)}}">
+          {{h.lazyload_image(request, h.get_basin_map(basin, collection, cruises), lazyload=False, class_='map')}}
         </td>
       </tr>
-      {%- for cruise in h.cruises_sort_by_date_start(cruises) %}
+      {%- for cruise in cruises %}
         <tr class="body mb-link{{ loopi }} {{ hl }} {{ loop.cycle('even1', 'odd1') }}{%- if not cruise.track %} no_plot{%- endif %}">
-          <td>{{whh.tags.link_to(cruise.expocode, h.path_cruise(cruise))}}</td>
-          <td>{{cruise.date_start.year or h.cruise_nice_name(cruise)}}</td>
+          <td>{{h.link_cruise(cruise)}}</td>
+          <td>{{cruise.date_start.year}}</td>
           <td>{{h.link_ship(cruise.ship)}}</td>
           <td>
             {%- set css = cruise.chief_scientists %}
             {%- if css %}
-              {{h.link_person(css[0]['person'])}}
+              {{h.link_person(css[0].person)}}
             {%- endif %}
           </td>
         </tr>
@@ -298,7 +298,7 @@
         cruise page.
       </p>
       {%- if basin == 'Arctic' or basin == 'Southern' %}
-        <p>Please note, the <a href="/search?query=CARINA">Project Carina collection</a> is not shown on this map.</p>
+        <p>Please note, the {{ whh.tags.link_to('Project Carina collection', request.route_path('project_carina')) }} is not shown on this map.</p>
       {%- endif %}
       {%- if basin == 'Southern' %}
         <p><a href="/sou_map.html">WOCE Reference Map</a></p>

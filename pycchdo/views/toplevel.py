@@ -1,12 +1,16 @@
 import os
 
+import transaction
+
 from pyramid.renderers import render_to_response
 from pyramid.response import Response
 from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
 import pycchdo.models as models
-from pycchdo.models import Cruise, Parameter
+from pycchdo.models import (
+    Cruise, Parameter, Unit, disjoint_load_obj, disjoint_load_list,
+    )
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -37,6 +41,14 @@ try:
 except IOError:
     _robots_response = HTTPNotFound()
 
+try:
+    with open(os.path.join(_static_root, 'transparent.gif')) as _f:
+        _transparent = _f.read()
+    _transparent_response = Response(
+        content_type='image/gif', body=_transparent)
+except IOError:
+    _transparent_response = HTTPNotFound()
+
 
 def favicon(context, request):
     return _favicon_response
@@ -44,6 +56,10 @@ def favicon(context, request):
 
 def robots(context, request):
     return _robots_response
+
+
+def transparent(context, request):
+    return _transparent_response
 
 
 def empty_view(context, request):
@@ -70,22 +86,30 @@ def home(request):
 
 
 def project_carina(request):
-    collections = models.Collection.get_by_attrs(names='CARINA')
-    if len(collections) > 0:
-        return {'cruises': collections[0].cruises()}
+    collection = models.Collection.get_one_by_attrs({'names': 'CARINA'})
+    if collection:
+        return {'cruises': collection.cruises()}
     else:
         return {'cruises': []}
 
 
+def _get_params_for_order(order):
+    try:
+        param_order = models.ParameterOrder.get_one_by_attrs({'name': order})
+        disjoint_load_obj([param_order], 'order', Parameter, single=False)
+        order = param_order.order
+        disjoint_load_list(order, 'aliases')
+        disjoint_load_list(order, 'bounds')
+        disjoint_load_obj(order, 'unit', Unit, single=True)
+        return order
+    except (AttributeError, IndexError):
+        return []
+
+
 def parameters(request):
-    def get_params_for_order(order):
-        try:
-            return models.ParameterOrder.get_all_by_attrs({'name': order})
-        except IndexError:
-            return []
-    primary = get_params_for_order('CCHDO Primary Parameters')
-    secondary = get_params_for_order('CCHDO Secondary Parameters')
-    tertiary = get_params_for_order('CCHDO Tertiary Parameters')
+    primary = _get_params_for_order('CCHDO Primary Parameters')
+    secondary = _get_params_for_order('CCHDO Secondary Parameters')
+    tertiary = _get_params_for_order('CCHDO Tertiary Parameters')
     return {'parameters': {1: primary, 2: secondary, 3: tertiary}}
 
 
@@ -102,13 +126,13 @@ def parameter_show(request):
     except KeyError:
         raise HTTPBadRequest()
 
-    parameter = Parameter.query().get(parameter_id)
+    try:
+        parameter = Parameter.query().get(parameter_id)
+    except Exception, e:
+        transaction.begin()
+        parameter = Parameter.get_one_by_attrs({'name': parameter_id})
     if not parameter:
-        parameters = Parameter.get_all_by_attrs({'name': parameter_id})
-        if len(parameters) > 0:
-            parameter = parameters[0]
-        else:
-            raise HTTPNotFound()
+        raise HTTPNotFound()
 
     response = {'parameter': {
         'name': parameter.get('name', ''),
@@ -149,12 +173,6 @@ def data(request):
             raise HTTPNotFound()
 
     if not data:
-        try:
-            data = models.ArgoFile.query().get(id)
-        except ValueError:
-            raise HTTPNotFound()
-
-    if not data:
         raise HTTPNotFound()
 
     # Ensure the HTTP session is authorized to read the data
@@ -177,7 +195,10 @@ def data(request):
 
 def catchall_static(request):
     """ Wraps any static templates with the layout """
-    subpath = os.path.join(*request.matchdict['subpath'])
+    try:
+        subpath = os.path.join(*request.matchdict['subpath'])
+    except TypeError:
+        raise HTTPNotFound()
 
     project_path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
     static_path = os.path.join('templates', 'static')
@@ -185,6 +206,9 @@ def catchall_static(request):
     path = os.path.join(project_path, static_path, subpath)
     relpath = os.path.join(static_path, subpath)
 
-    if os.path.isfile(path):
-        return render_to_response(relpath, {}, request)
+    try:
+        if os.path.isfile(path):
+            return render_to_response(relpath, {}, request)
+    except TypeError:
+        raise HTTPNotFound()
     raise HTTPNotFound()

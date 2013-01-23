@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pyramid.renderers import render_to_response
 from pyramid.httpexceptions import HTTPBadRequest, HTTPUnauthorized
 from pyramid_mailer import get_mailer
@@ -5,82 +7,89 @@ from pyramid_mailer.message import Message
 
 from pycchdo import models
 from pycchdo import helpers as h
+from pycchdo.models import DBSession, FSFile
 from pycchdo.views.session import require_signin
+from pycchdo.log import ColoredLogger
 from . import *
 
 
+log = ColoredLogger(__name__)
+
+
 def _send_confirmation(request, d):
-        cchdo_email = 'cchdo@ucsd.edu'
-        recipients = [
-            request.registry.settings.get('submission_confirmation_recipient',
-                                          request.user.email), cchdo_email]
+    cchdo_email = 'cchdo@ucsd.edu'
+    recipient = request.registry.settings.get(
+        'submission_confirmation_recipient')
+    if recipient:
+        recipients = [recipient]
+    else:
+        recipients = [request.user.email, cchdo_email]
 
-        d['user_name'] = request.user.full_name
-        d['file_noun'] = h.whtext.plural(
-            len(d['file_names']), 'file', 'files', False)
+    d['user_name'] = request.user.name
+    d['file_noun'] = h.whtext.plural(
+        len(d['file_names']), 'file', 'files', False)
 
-        if d['public_status'] == 'public':
-            d['public_description'] = 'will be public.'
-        elif d['public_status'] == 'non_public':
-            d['public_description'] = 'will *not* be public.'
-        elif d['public_status'] == 'non_public_argo':
-            d['public_description'] = \
-                'will be available for use exclusively by the Argo program.'
-        d['file_list'] = '\n'.join(d['file_names'])
-        d['actions'] = '\n'.join(d['action_list'])
-        # TODO
+    if d['public_status'] == 'public':
+        d['public_description'] = 'will be public.'
+    elif d['public_status'] == 'non_public':
+        d['public_description'] = 'will *not* be public.'
+    elif d['public_status'] == 'non_public_argo':
+        d['public_description'] = \
+            'will be available for use exclusively by the Argo program.'
+    d['file_list'] = '\n'.join(d['file_names'])
+    d['actions'] = '\n'.join(d['action_list'])
 
-        body_parts = []
-        body = """\
-Dear %(name)s:
+    body_parts = []
+    body = """\
+Dear {user_name}:
 
 Thank you for your submission to the CCHDO.
 
 This is an automated confirmation. However, replying to the sender will reach 
 all senior CCHDO staff.
 
-Your submitted %(file_noun)s:
-%(file_list)s
+Your submitted {file_noun}:
+{file_list}
 
-%(public_description)s.
+{public_description}.
 
 The following actions were specified:
-%(actions)s
+{actions}
 
 Additional information collected with your submission:
 """.format(d)
-        if d['institution']:
-            body_parts.append('Institution: ' + d['institution'])
-        if d['country']:
-            body_parts.append('Country: ' + d['country'])
-        if d['identifier'] or d['woce_line']:
-            parts = []
-            if d['identifier']:
-                parts.append('ExpoCode: ' + d['identifier'])
-            if d['woce_line']:
-                parts.append('Line: ' + d['woce_line'])
-            body_parts.append(' '.join(parts))
-        if d['ship']:
-            body_parts.append('Ship: ' + d['ship'])
-        if d['cruise_dates']:
-            body_parts.append('Dates: ' + d['cruise_dates'])
-        if d['notes']:
-            body_parts.append('Notes: ' + d['notes'])
-        body_parts.append('\nThank you again for your submission.')
-        body = '\n'.join(body_parts)
+    if d['institution']:
+        body_parts.append('Institution: ' + d['institution'])
+    if d['country']:
+        body_parts.append('Country: ' + d['country'])
+    if d['identifier'] or d['woce_line']:
+        parts = []
+        if d['identifier']:
+            parts.append('ExpoCode: ' + d['identifier'])
+        if d['woce_line']:
+            parts.append('Line: ' + d['woce_line'])
+        body_parts.append(' '.join(parts))
+    if d['ship']:
+        body_parts.append('Ship: ' + d['ship'])
+    if d['cruise_dates']:
+        body_parts.append(
+            'Dates: ' + datetime.strftime(d['cruise_dates'], '%Y-%m-%d'))
+    if d['notes']:
+        body_parts.append('Notes: ' + d['notes'])
+    body_parts.append('\nThank you again for your submission.')
 
-        message = Message(
-            subject="[CCHDO] Submission by %(name)s: %(id)s".format(
-                name=d['user_name'],
-                id=' '.join([d['woce_line'], d['identifier']])),
-            sender=cchdo_email,
-            recipients=recipients,
-            body=body,
-        )
-        # XXX actually send the message!
-        print str(message)
-        #mailer = get_mailer(request)
-        #mailer.send(message)
+    body += '\n'.join(body_parts)
+
+    message = Message(
+        subject="[CCHDO] Submission by {name}: {id}".format(
+            name=d['user_name'],
+            id=' '.join([d['woce_line'], d['identifier']])),
+        sender=cchdo_email,
+        recipients=recipients,
+        body=body,
+    )
+    mailer = get_mailer(request)
+    mailer.send(message)
 
 
 def submit(request):
@@ -104,7 +113,11 @@ def submit(request):
         d['identifier'] = request.params.get('identifier', None)
         d['woce_line'] = request.params.get('woce_line', None)
         d['ship'] = request.params.get('ship', None)
-        d['cruise_dates'] = request.params.get('cruise_dates', None)
+        try:
+            d['cruise_dates'] = datetime.strptime(
+                request.params.get('cruise_dates', ''), '%Y-%m-%d')
+        except ValueError:
+            d['cruise_dates'] = None
         d['notes'] = request.params.get('notes', None)
 
         d['type_merge_data'] = request.params.get('type_merge_data', None)
@@ -116,27 +129,24 @@ def submit(request):
         for k, v in d.items():
             h.form_entered(request, k, v)
 
-        files = []
-        file_keys = filter(lambda k: k.startswith('files'),
-                           request.POST.keys())
+        uploaded = [v for k, v in request.POST.items() if k.startswith('files')]
 
-        for fk in file_keys:
-            f = request.POST[fk]
+        d['file_names'] = []
+        files = []
+        for f in uploaded:
             try:
-                f.filename
+                d['file_names'].append(f.filename)
                 f.file
             except AttributeError:
                 # TODO handle if files don't have names...shouldn't be possible?
                 continue
             files.append(f)
-
-        d['file_names'] = [file.filename for file in files]
         h.form_entered(request, 'files', d['file_names'])
 
         if len(files) < 1:
             request.response.status = 400
-            request.session.flash('You must submit at least one file',
-                                  'form_error_files')
+            request.session.flash(
+                'You must submit at least one file', 'form_error_files')
             return {}
 
         action_list = []
@@ -152,22 +162,28 @@ def submit(request):
 
         user = request.user
         submissions = []
+        # Create one submission per file with duplicated information
         for file in files:
-            s = models.Submission(user)
-        #    s.save()
-        #    s.set_accept('expocode', d['identifier'], user)
-        #    s.set_accept('line', d['woce_line'], user)
-        #    s.set_accept('ship_name', d['ship'], user)
-        #    s.set_accept('cruise_date', d['cruise_dates'], user)
-        #    s.set_accept('action', d['action_list'], user)
-        #    s.set_accept('public', d['public'] == 'public', user)
-        #    s.add_note(models.Note(user.id, d['notes']).save())
-        #    s.store(file)
-            submissions.append(s)
+            sub = models.Submission(user)
+            DBSession.add(sub)
+            if d['identifier']:
+                sub.expocode = d['identifier']
+            if d['woce_line']:
+                sub.line = d['woce_line']
+            if d['ship']:
+                sub.ship_name = d['ship']
+            if d['cruise_dates']:
+                sub.cruise_date = d['cruise_dates']
+            if d['action_list']:
+                sub.action = repr(d['action_list'])
+            if d['public_status']:
+                sub.type = d['public_status']
+            sub.file = FSFile.from_fieldstorage(file)
+            if d['notes']:
+                sub.add_note(models.Note(user, d['notes']))
+            DBSession.flush()
+            submissions.append(sub)
             # TODO record submitter useragent and ip
-
-        # TODO ensure safety of data records and notify users to email
-        # cberysgo@ucsd.edu in case of failure
 
         _send_confirmation(request, d)
 

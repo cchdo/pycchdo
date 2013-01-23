@@ -1,4 +1,3 @@
-import inspect
 import cgi
 import tarfile
 import os
@@ -17,45 +16,21 @@ import pycchdo.models as models
 
 from pycchdo.views import *
 from pycchdo.helpers import has_staff
-from pycchdo.views.session import require_signin
+from pycchdo.views.session import signin_required, require_signin
+
+
+def _check_signin_staff(request):
+    user = request.user
+    if user is None:
+        request.session.flash('Please sign in to use staff tools.', 'help')
+        return require_signin(request)
+    if not has_staff(request):
+        raise HTTPUnauthorized()
+    return None
 
 
 def staff_signin_required(view_callable):
-    """ Decorates a view_callable so that the signed in user must be a staff
-        member in order to view.
-    """
-    def check_signin(request):
-        user = request.user
-        if user is None:
-            request.session.flash('Please sign in to use staff tools.', 'help')
-            return require_signin(request)
-        if not has_staff(request):
-            raise HTTPUnauthorized()
-        return None
-
-    numargs = len(inspect.getargspec(view_callable)[0])
-    if numargs == 1:
-        def decorator(request):
-            response = check_signin(request)
-            if response is None:
-                response = view_callable(request)
-            return response
-        return decorator
-    elif numargs == 2:
-        def decorator(context, request):
-            response = check_signin(request)
-            if response is None:
-                response = view_callable(context, request)
-            return response
-        return decorator
-    else:
-        def decorator(*args, **kwargs):
-            request = args[1]
-            response = check_signin(request)
-            if response is None:
-                response = view_callable(*args, **kwargs)
-            return response
-        return decorator
+    return signin_required(_check_signin_staff)(view_callable)
 
 
 @staff_signin_required
@@ -65,8 +40,8 @@ def index(request):
 
 def _submission_short_text(submission):
     return 'submission by %s on %s called %s' % (
-                link_person(submission.creation_stamp.person),
-                pdate(submission.creation_stamp.timestamp),
+                link_person(submission.creation_person),
+                pdate(submission.creation_timestamp),
                 submission.identifier)
 
 
@@ -115,7 +90,7 @@ def _moderate_submission(request):
 
     cruise = models.Cruise.get_id(cruise_id)
     if not cruise:
-        cruises = models.Cruise.get_by_attrs(expocode=cruise_id)
+        cruises = models.Cruise.get_all_by_expocode(cruise_id)
         if len(cruises) > 0:
             cruise = cruises[0]
         else:
@@ -139,8 +114,8 @@ def submissions(request):
         if not request.user:
             return require_signin(request)
         _moderate_submission(request)
-    submissions = models.Submission.map_mongo(
-                      models.sort_by_stamp(models.Submission.find()))
+    submissions = models.Submission.query().\
+        order_by(models.Submission.creation_timestamp).all()
     submissions = paged(request, submissions)
 
     return {

@@ -19,8 +19,7 @@
         <h2>Alternatively, leave your contact information</h2>
         {{ whh.tags.form(request.route_path('session_new')) }}
         <table>
-          <tr><th>{{ whh.tags.title('First name', label_for='direct_name_first', required=True) }}</th><td>{{ whh.tags.text('direct_name_first') }}</td></tr>
-          <tr><th>{{ whh.tags.title('Last name', label_for='direct_name_last', required=True) }}</th><td>{{ whh.tags.text('direct_name_last') }}</td></tr>
+          <tr><th>{{ whh.tags.title('Name', label_for='direct_name', required=True) }}</th><td>{{ whh.tags.text('direct_name') }}</td></tr>
           <tr><th>{{ whh.tags.title('Email', label_for='direct_email', required=True) }}</th><td>{{ whh.tags.text('direct_email', type='email') }}</td></tr>
           <tr><td>{{ whh.tags.required_legend()}}</td><td><input type="submit" value="Sign in"></td></tr>
         </table>

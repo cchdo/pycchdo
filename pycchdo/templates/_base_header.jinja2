@@ -6,7 +6,9 @@
     }}</a>
   <p id="session_status" class="{% if h.has_mod(request) %}moderator{% endif %}">
     {% if request.user -%}
-      {{ h.link_person(request.user) }} <a href="/session/delete">Sign out</a>
+      {{ h.link_person(request.user) }}
+      <a id="not-user" href="/session/delete?location={{request.route_path('session_identify')}}">Not {{ request.user.name }}?</a>
+      <a id="signout" href="/session/delete">Sign out</a>
     {%- else -%}
       <a href="/session/identify">Sign in</a>
     {%- endif %}

@@ -1,3 +1,4 @@
+import inspect
 import urllib
 import urllib2
 import json
@@ -70,6 +71,38 @@ def require_signin(request):
     raise HTTPSeeOther(location='/session/identify')
 
 
+def signin_required(check_signin):
+    """Decorate a view_callable so that the signed in user must fulfill a check
+    in order to view.
+
+    """
+    def checked_signin(view_callable):
+        numargs = len(inspect.getargspec(view_callable)[0])
+        if numargs == 1:
+            def decorator(request):
+                response = check_signin(request)
+                if response is None:
+                    response = view_callable(request)
+                return response
+            return decorator
+        elif numargs == 2:
+            def decorator(context, request):
+                response = check_signin(request)
+                if response is None:
+                    response = view_callable(context, request)
+                return response
+            return decorator
+        else:
+            def decorator(*args, **kwargs):
+                request = args[1]
+                response = check_signin(request)
+                if response is None:
+                    response = view_callable(*args, **kwargs)
+                return response
+            return decorator
+    return checked_signin
+
+
 def session_show(request):
     person = request.user
     return {'person': person}
@@ -97,19 +130,17 @@ def _sign_in_user(request, person):
 
 
 def session_new(request):
-    if (    'direct_name_first' in request.params or
-            'direct_name_last' in request.params or
-            'direct_email' in request.params):
-        direct_name_first = request.params.get('direct_name_first')
-        direct_name_last = request.params.get('direct_name_last')
-        direct_email = request.params.get('direct_email')
+    if 'direct_name' in request.params or 'direct_email' in request.params:
+        try:
+            direct_name = request.params['direct_name']
+            direct_email = request.params['direct_email']
+        except KeyError:
+            raise HTTPSeeOther(location=_redirect_uri(request))
         if not direct_email:
             raise HTTPSeeOther(location=_redirect_uri(request))
-        person = Person(
-            name=u'{0} {1}'.format(direct_name_first, direct_name_last),
-            email=direct_email)
+        person = Person(name=direct_name, email=direct_email)
         DBSession.add(person)
-        DBSession.flush(person)
+        DBSession.flush()
         pid = person.id
         transaction.commit()
         person = Person.query().get(pid)
@@ -148,4 +179,20 @@ def session_new(request):
 
 
 def session_delete(request):
-    raise HTTPSeeOther(location=request.referrer, headers=forget(request))
+    location = request.params.get('location', request.referrer)
+    if not location:
+        location = '/'
+    raise HTTPSeeOther(location=location, headers=forget(request))
+
+
+# TODO remove!
+def session_adminify(request):
+    person = request.user
+    if not person:
+        request.session.flash('no one is logged in')
+        return HTTPSeeOther(location='/')
+    if 'staff' not in person.permissions:
+        person.permissions.append('staff')
+        transaction.commit()
+    request.session.flash('adminified')
+    return HTTPSeeOther(location='/')

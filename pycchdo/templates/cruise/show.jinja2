@@ -4,7 +4,7 @@
   {% extends "templates/base.jinja2" %}
 {%- endif %}
 {%- from "templates/_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
-{% block title %}Cruise {{cruise.expocode or ''}}{% endblock %}
+{% block title %}Cruise {{cruise.uid or ''}}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
@@ -25,7 +25,7 @@
   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
     <td class="change" colspan="2">
       {%- if file.pending_stamp %}
-        <span class="pending">(Under review as of {{ h.datetime(file.pending_stamp.timestamp) }})</span>
+        <span class="pending">(Under review as of {{ h.pdatetime(file.pending_stamp.timestamp) }})</span>
       {%- endif %}
     </td>
     <td colspan="2">
@@ -87,11 +87,11 @@
                 {{ h.link_file_holder(file) }}
               {%- else %}
                 {# Unacknowledged files are not shown to the public #}
-                {{ file.file.name }}
+                {{ file.value.name }}
               {%- endif %}
             </td>
-            <td class="file_date">{{ h.date(file.creation_stamp.timestamp) }}</td>
-            <td class="suggested_by">{{ h.link_person(file.creation_stamp.person) }}</td>
+            <td class="file_date">{{ h.pdate(file.creation_timestamp) }}</td>
+            <td class="suggested_by">{{ h.link_person(file.creation_person) }}</td>
           </tr>
           {%- if not file.is_judged() %}
             {{ file_review_status(loop, hl, file) }}
@@ -134,7 +134,7 @@
     {%- endcall %}
   {%- endif %}
   <div id="upper">
-    <div id="info">
+    <div id="info"{%- if updates %} class="updates-available"{%- endif %}>
       {%- call h.boxed('Information', id='metadata', class='upper', box_content_class='scrollable-y') %}
         <div class="subsection general-information">
           {%- if 'map' in data_files %}
@@ -222,7 +222,7 @@
         </div>
         <div class="clear"></div>
       {%- endcall %}
-      {%- call h.boxed('Data', id='data', class='upper', box_content_class='scrollable-y') %}
+      {%- call h.boxed('Dataset', id='data', class='upper', box_content_class='scrollable-y') %}
         <div class="subsection data-files">
           {%- if cruise.preliminary %}
             <p id="preliminary">* These data are preliminary</p> 
@@ -271,8 +271,10 @@
             <div id="data-pending">
               <h4>Data Pending</h4>
               <p>Contact the CCHDO for more information.</p>
-              <p>If you are the PI, please visit the {{ h.tags.link_to('Submit', request.route_path('submit_menu')) }}
-                page or contact the CCHDO for submission information.</p>
+              <p>If you are the PI, please visit the 
+                {{ h.tags.link_to('Submit', request.route_path('submit_menu')) }}
+                page.
+              </p>
             </div>
           {%- endif %}
           {%- if h.has_edit(request) %}
@@ -302,7 +304,7 @@
       {%- endcall %}
     </div>
     {%- if updates %}
-      {%- call h.boxed('Files As Received', id="updates", class='upper upper-left', box_content_class='scrollable-y') %}
+      {%- call h.boxed('Files As Received', id="updates", class='upper upper-right', box_content_class='scrollable-y') %}
         {%- if updates['attrs'] %}
           <div class="subsection">
             <h2>Attributes</h2>
@@ -317,8 +319,8 @@
                   {%- set hl = loop.cycle('even', 'odd') %}
                   <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
                     <td>{{ attr.key }}</td>
-                    <td>{{ h.link_person(attr.creation_stamp.person) }}</td>
-                    <td class="date">{{ h.pdatetime(attr.creation_stamp.timestamp) }}</td>
+                    <td>{{ h.link_person(attr.creation_person) }}</td>
+                    <td class="date">{{ h.pdatetime(attr.creation_timestamp) }}</td>
                   </tr>
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
                     <td class="change">
@@ -369,10 +371,10 @@
         {%- endif %}
         {# TODO need to show files not acknowledged #}
         {%- if updates['as_received'] %}
-          {{ file_subsection('Data as received', 'as_received') }}
+          {{ file_subsection('Unmerged', 'as_received') }}
         {%- endif %}
         {%- if updates['merged'] %}
-          {{ file_subsection('Merged Data', 'merged') }}
+          {{ file_subsection('Merged', 'merged') }}
         {%- endif %}
       {%- endcall %}
     {%- endif %}
@@ -447,8 +449,8 @@
               <td>{{ attr.value }}</td>
             {%- endif %}
             <td>
-              <p>{{ attr.creation_stamp.timestamp }}</p>
-              <p>{{ attr.creation_stamp.person }}</p>
+              <p>{{ attr.creation_timestamp }}</p>
+              <p>{{ attr.creation_person }}</p>
             </td>
             <td>
               {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
@@ -479,11 +481,11 @@
               <td>{{ h.attr_value(attr) }}</td>
             {%- endif %}
             <td>
-              <p>{{ h.date(attr.creation_stamp.timestamp) }}</p>
-              <p>{{ h.link_person(attr.creation_stamp.person) }}</p>
+              <p>{{ h.pdate(attr.creation_timestamp) }}</p>
+              <p>{{ h.link_person(attr.creation_person) }}</p>
             </td>
             <td>
-              <p>{{ h.date(attr.pending_stamp.timestamp) }}</p>
+              <p>{{ h.pdate(attr.pending_stamp.timestamp) }}</p>
               <p>{{ h.link_person(attr.pending_stamp.person) }}</p>
             </td>
             <td>
@@ -515,11 +517,11 @@
               <td>{{ h.attr_value(attr) }}</td>
             {%- endif %}
             <td>
-              <p>{{ h.date(attr.creation_stamp.timestamp) }}</p>
-              <p>{{ h.link_person(attr.creation_stamp.person) }}</p>
+              <p>{{ h.pdate(attr.creation_timestamp) }}</p>
+              <p>{{ h.link_person(attr.creation_person) }}</p>
             </td>
             <td>
-              <p>{{ h.date(attr.judgment_stamp.timestamp) }}</p>
+              <p>{{ h.pdate(attr.judgment_stamp.timestamp) }}</p>
               <p>{{ h.link_person(attr.judgment_stamp.person) }}</p>
             </td>
           </tr>

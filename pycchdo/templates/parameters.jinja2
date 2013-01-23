@@ -12,7 +12,7 @@
     <td class="description">{{ p.get('description') or '' }}</td>
     <td class="units">{%- if p.unit %}{{ p.unit.get('name') }}{%- endif %}</td>
     <td class="woce_unit_mnemonic">{%- if p.unit %}{{ p.unit.get('mnemonic') }}{%- endif %}</td>
-    <td class="range">{{ p.bounds|join(', ') }}</td>
+    <td class="range">{{ h.parameter_bounds(p.bounds) }}</td>
     <td class="format">{{ p.get('format') or '' }}</td>
   </tr>
 {%- endmacro %}
@@ -40,9 +40,7 @@
 {%- block content %}
   {%- call h.boxed('Parameters') %}
     {{ parameter_level('Primary', parameters[1]) }}
-
     {{ parameter_level('Secondary', parameters[2]) }}
-
     {{ parameter_level('Tertiary', parameters[3]) }}
   {%- endcall %}
 {%- endblock %}

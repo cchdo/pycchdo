@@ -1,37 +1,53 @@
-{% extends "templates/base.jinja2" %}
+{% extends "templates/objs/base.jinja2" %}
 {% block title %}Obj {{id}}{% endblock %}
 {% block content %}
-  {% call h.boxed('Obj {id}'.format(id=id)) -%}
+  {% call h.boxed('Obj {id}'.format(id=id), class='objs') -%}
     {{ h.link_obj_polymorph(obj) }}
 
-    <h2>Keys</h2>
+    <h2>Attributes</h2>
     <table>
       {%- for key in obj.allowed_keys|sort %}
         <tr><th>{{ key }}</th><td>{{ obj[key] }}</td></tr>
+      {%- else %}
+        No attributes
       {%- endfor %}
     </table>
 
     <h2>Attrs</h2>
+    <p>
+      <a href="/obj/{{ obj.id }}/a">Edit</a>
+    </p>
     {% if obj.attr_keys -%}
       <table>
       {% for key in obj.attr_keys -%}
-        <tr><th>{{ key }}</th><td>{{ obj.get(key) }}</td></tr>
+        <tr><th>{{ key }}</th><td>{{ obj.get(key).__repr__() }}</td></tr>
+      {%- else %}
+        No attrs
       {%- endfor %}
       </table>
     {%- endif %}
-    <p>
-      <a href="/obj/{{ obj.id }}/a">Edit attributes</a>
-    </p>
 
     <h2>Actions</h2>
+    {{ whh.tags.form('/obj/{0}'.format(obj.id), method='PUT') }}
+      <input type="submit" name="action" value="Accept">
+      <input type="submit" name="action" value="Acknowledge">
+      <input type="submit" name="action" value="Reject">
+
+      {%- if obj.is_accepted() %}
+        <p class="status status-accepted">Accepted</p>
+      {%- elif obj.is_rejected() %}
+        <p class="status status-rejected">Rejected</p>
+      {%- elif obj.is_acknowledged() %}
+        <p class="status status-acknowledged">Acknowledged</p>
+      {%- else %}
+        <p class="status status-created">Created</p>
+      {%- endif %}
+    </form>
+    {{ whh.tags.form('/obj/{0}'.format(obj.id), method='DELETE') }}
+      <input type="submit" value="Delete">
+    </form>
     <p>
-      <form action="/obj/{{ obj.id }}" method="DELETE">
-        <input type="hidden" name="_method" value="DELETE">
-        <input type="submit" value="Delete">
-      </form>
-    </p>
-    <p>
-      <a href="/objs">Back to objs</a>
+      <a href="/objs">List all objs</a>
     </p>
   {%- endcall %}
 {% endblock %}

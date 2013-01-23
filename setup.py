@@ -20,6 +20,7 @@ if sys.version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
 _requires_framework_db = [
     'SQLAlchemy',
+    #'hg+http://hg.sqlalchemy.org/sqlalchemy/@rel_0_8_8b2#egg=SQLAlchemy',
     'transaction',
     'pyramid_tm',
     'zope.sqlalchemy',
@@ -62,7 +63,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     test_suite='pycchdo.tests',
-    install_requires = requires,
+    install_requires=requires,
     entry_points = {
         'paste.app_factory': [
             'main = pycchdo:main',

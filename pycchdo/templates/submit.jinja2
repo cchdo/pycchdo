@@ -16,7 +16,7 @@
   {% set step_num = 1 %}
 
   {% if request.user %}
-    <p>Thank you for submitting data, {{ request.user.name_first }}.</p>
+    <p>Thank you for submitting data, {{ request.user.name }}.</p>
   {% else %}
     {% call step(step_num, 'contact_info', 'Contact Information') -%}
       <p id="signin_invite">
@@ -110,7 +110,7 @@
         automatically reselected. Otherwise malicious pages could upload
         arbitrary files from your computer. We apologize for the inconvenience.
       </p>
-      <p>Here are the files that you had selected: </p>
+      <h3>Here are the files that you had selected: </h3>
       <ul>
       {%- for file in files %}
         <li>{{ file }}</li>
@@ -120,6 +120,9 @@
   {%- else %}
     {%- if h.form_errors(request, 'files') %}
       <div id="file_reselect_warn">
+        <p>
+          Please select files to upload.
+        </p>
         <p>{{ h.form_errors(request, 'files') }}</p>
       </div>
     {%- endif %}

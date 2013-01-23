@@ -8,11 +8,6 @@
   background: #aaddff;
   border-bottom: 1px solid #88bbdd;
 }
-.pending .boxed {
-  border: 1px solid #aaddff;
-  border-bottom: 1.5em solid #aaddff;
-  border-top: 0;
-}
 
 #seahunt-about p {
   margin-bottom: 0.5em;

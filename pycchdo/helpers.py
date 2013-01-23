@@ -1,6 +1,7 @@
 import datetime as dt
 from urllib import quote
 from json import dumps
+from copy import copy
 import logging
 import os.path
 import os
@@ -70,6 +71,13 @@ def has_edit(request):
         return request.user is not None
     except AttributeError:
         return False
+
+
+def has_argo(request):
+    """Determines if the request's user has Argo SFR priviledges."""
+    if 'argo' in request.user.permissions:
+        return True
+    return False
 
 
 def has_mod(request):
@@ -263,6 +271,20 @@ def boxed(title='', **attrs):
             ), class_=tags.css_classes(classes), _nl=True, **attrs)
 
 
+def lazyload_image(request, src, lazyload=True, **kwargs):
+    """Produce HTML to enable this plugin.
+
+    http://www.appelsiini.net/projects/lazyload
+
+    """
+    if lazyload:
+        lazy_kwargs = copy(kwargs)
+        lazy_kwargs['data-original'] = src
+        lazy_kwargs['src'] = request.route_path('transparent')
+        return H.img(**lazy_kwargs) + H.noscript(H.img(src=src, **kwargs))
+    return H.img(src=src, **kwargs)
+
+
 # Pretty printers
 
 
@@ -332,7 +354,7 @@ def ports_to_nice(ports, cruise=None):
     """
     if not ports:
         return ports
-    if cruise and needs_specifics_reduction(cruise):
+    if cruise and needs_specifics_reduction(cruise, dt.datetime.now()):
         return u''
     return u' to '.join(ports)
 
@@ -626,10 +648,12 @@ def link_obj_polymorph(obj):
 def link_file_holder(fh, full=False):
     if not fh:
         return ''
+    if not fh.value:
+        return ''
     name = fh.value.name
     if not full:
         name = os.path.basename(name)
-    return tags.link_to(name, data_uri(fh))
+    return tags.link_to(name, data_uri(fh), title=name)
 
 
 def link_cruise(c):
@@ -676,7 +700,7 @@ def link_person_institutions(pis):
 def link_collection(c):
     if not c:
         return ''
-    return tags.link_to(c.name or '', '/collection/%s' % c.id)
+    return tags.link_to(c.name or c.id, '/collection/%s' % c.id)
 
 
 def link_collections(cs):
@@ -689,22 +713,21 @@ def link_collections(cs):
 def link_ship(s):
     if not s:
         return ''
-    return whh.literal(tags.link_to(s.name, '/ship/%s' % s.id))
+    return whh.literal(tags.link_to(s.name or s.id, '/ship/%s' % s.id))
 
 
 def link_country(c):
     if not c:
         return ''
-    return whh.literal(tags.link_to(c.name,
-                                        '/country/%s' % c.id))
+    return whh.literal(tags.link_to(
+        c.preferred_name or c.id, '/country/%s' % c.id))
 
 
 def link_parameter(p):
     if not p:
         return ''
     return whh.literal(
-        tags.link_to(p.get('name'),
-                         '/parameter/%s.json' % p.get('name')))
+        tags.link_to(p.get('name'), '/parameter/%s.json' % p.get('name')))
 
 
 def link_pdf_preview(link):
@@ -740,9 +763,9 @@ def change_pretty(change):
     span = H.span
     return H.p(
         span(person.full_name, class_='person'), status,
-        span(change['key'], class_='key'), ' to ',
-        span(change['value'], class_='value'), ' at ',
-        span(change['creation_stamp']['timestamp'], class_='date'),
+        span(change.key, class_='key'), ' to ',
+        span(change.value, class_='value'), ' at ',
+        span(change.creation_timestamp, class_='date'),
         class_='change')
 
 
@@ -750,8 +773,8 @@ def data_uri(data):
     """ Given an _Attr with a file, provides a link to a file. """
     if not data or not data.value:
         logging.error('Cannot link to nothing')
-    if data.str_type != 'File':
-        logging.error('Cannot link to a non file _Attr #%s' % data.id)
+    if type(data.value) is not models.FSFile:
+        logging.error('Cannot link to non-FSFile value %s' % data.id)
         return '/404.html'
     return '/data/b/{id}'.format(id=data.id)
 
@@ -950,3 +973,9 @@ def area_attrs_search(q, title=None, img=None):
     return whh.literal(('id="{id}" href="/search?query={q}" title="{title}" '
                         'alt="{title}"').format(id=id, q=q, title=title))
 
+
+def parameter_bounds(bounds):
+    """Pretty-print a parameter's bounds."""
+    if not bounds:
+        return u''
+    return u', '.join([u'{0:.1f}'.format(x) for x in bounds])

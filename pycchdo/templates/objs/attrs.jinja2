@@ -1,20 +1,20 @@
-{% extends "templates/base.jinja2" %}
+{% extends "templates/objs/base.jinja2" %}
 {% block title %}Obj Attrs{% endblock %}
 {% block content %}
-  {% call h.boxed('Obj %s attrs' % obj.id) -%}
+  {% call h.boxed('Obj %s attrs' % obj.id, class='objs attrs') -%}
     <p>{{obj}}</p>
 
     <h2>Attrs</h2>
     <table>
-    {% for k, v in obj.attrs_current.items() %}
+    {% for a in obj.attrs_current.values() %}
       <tr>
-        <th>{{ k }}</th>
-        <td>{{ v }}</td>
+        <th>{{ a.key }}</th>
+        <td>{{ a.value.__repr__() }}</td>
         <td>
           {{ whh.tags.form(request.url, method="DELETE") }}
             <input type="hidden" name="key" value="{{ k }}">
             <input type="submit" value="Delete">
-            <label for="note">Note (optional)</label>
+            <label for="note">with note (optional)</label>
             <input type="text" name="note">
           </form>
         </td>
@@ -83,10 +83,15 @@
     <ul>
     {% for change in obj.unacknowledged_tracked.all() %}
     <li>
-      <code>{{ change }}</code>
-      <form action="{{ request.url }}/{{ change.id }}" method="POST"><input type="submit" name="action" value="Accept"></form>
-      <form action="{{ request.url }}/{{ change.id }}" method="POST"><input type="submit" name="action" value="Acknowledge"></form>
-      <form action="{{ request.url }}/{{ change.id }}" method="POST"><input type="submit" name="action" value="Reject"></form>
+      <code>
+        {{ change }}
+        {{ change.key }} = {{ change.value }}
+      </code>
+      {{ whh.tags.form('{0}/{1}'.format(request.path, change.id), method='PUT') }}
+        <input type="submit" name="action" value="Accept">
+        <input type="submit" name="action" value="Acknowledge">
+        <input type="submit" name="action" value="Reject">
+      </form>
     </li>
     {% endfor %}
     </ul>

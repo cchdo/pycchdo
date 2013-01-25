@@ -28,7 +28,7 @@ def _get_institution(request):
 
 
 def _redirect_response(request, id):
-    raise HTTPSeeOther(
+    return HTTPSeeOther(
         location=request.route_path('institution_show', institution_id=id))
 
 

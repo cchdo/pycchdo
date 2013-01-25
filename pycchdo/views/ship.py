@@ -25,7 +25,7 @@ def _get_ship(request):
 
 
 def _redirect_response(request, id):
-    raise HTTPSeeOther(location=request.route_path('ship_show', ship_id=id))
+    return HTTPSeeOther(location=request.route_path('ship_show', ship_id=id))
 
 
 def ship_show(request):

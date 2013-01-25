@@ -6,7 +6,7 @@ import transaction
 
 from . import *
 import pycchdo.helpers as h
-from pycchdo.models import Person
+from pycchdo.models import Person, DBSession
 from pycchdo.models.models import preload_person
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
@@ -32,7 +32,7 @@ def _get_person(request):
 
 
 def _redirect_response(request, id):
-    raise HTTPSeeOther(
+    return HTTPSeeOther(
         location=request.route_path('person_show', person_id=id))
 
 
@@ -120,8 +120,8 @@ def person_merge(request):
         return redirect_response
     mergee = preload_person(Person, Person.query()).get(mergee_id)
     if not mergee:
-        request.session.flash('Invalid mergee person %s given' % mergee_id,
-                              'help')
+        request.session.flash(
+            u'Invalid mergee person {0} given'.format(mergee_id), 'help')
         return redirect_response
 
     if not person.identifier:
@@ -132,28 +132,19 @@ def person_merge(request):
         person.name_first = mergee.name_first
     if not person.name_last:
         person.name_last = mergee.name_last
-    if not person.institution_:
-        person.institution_ = mergee.institution_
-    if not person.country_:
-        person.country_ = mergee.country_
+    if not person.institution and mergee.institution:
+        person.set_accept('institution', mergee.institution.id, request.user)
+    if not person.country and mergee.country:
+        person.set_accept('country', mergee.country.id, request.user)
     if not person.email:
         person.email = mergee.email
     if not person.permissions:
         person.permissions = mergee.permissions
 
-    DBSession.flush()
-
-    cruises = set(person.cruises()).union(mergee.cruises())
-    for cruise in cruises:
-        participants = cruise.get('participants')
-        for p in participants:
-            if p['person'] == mergee.id:
-                p['person'] = person.id
-        cruise.set_accept(Person.cruise_associate_key, participants,
-                          request.user)
-
-    request.session.flash('Merged person with %s' % mergee, 'action_taken')
-    DBSession.delete(mergee)
-
+    person.merge(request.user, mergee)
     transaction.commit()
+    transaction.begin()
+
+    request.session.flash(
+        u'Merged person with {0}'.format(mergee_id), 'action_taken')
     return redirect_response

@@ -768,6 +768,7 @@ class CruisesImporter(Thread):
         except Exception, e:
             # Close out the transaction for this thread. This is done here in
             # case of fast return from import method.
+            pass
         finally:
             transaction.commit()
 
@@ -1168,7 +1169,7 @@ def _import_contacts_cruises(session):
         if not role:
             role = 'Chief Scientist'
         try:
-            if person in [pi.person for pi in cruise.participants[role]]:
+            if person in [pi.person for pi in cruise.participants.with_role(role)]:
                 log.info(
                     "Updating participant %s %s to %s" % (person, role, cruise))
                 continue

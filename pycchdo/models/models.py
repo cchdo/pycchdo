@@ -871,17 +871,12 @@ event.listen(_AttrValueFile.value, 'set', _AttrValueFile._coerce)
 
 
 class Participant(DBQueryable, Base):
-    """A participant consisting of role, person, and possibly institution."""
+    """A participant consisting of role, person, and optionally institution."""
     __tablename__ = 'participants'
     id = Column(Integer, primary_key=True)
-    attrvalue_id = Column(
-        Integer, ForeignKey('av.id'))
-    attrvalue = relationship(
-        '_AttrValue', single_parent=True, uselist=False,
-        lazy='joined', cascade='all, delete, delete-orphan')
+    attrvalue_id = Column(Integer, ForeignKey('av.id'))
     role = Column(Unicode, nullable=False)
-    person_id = Column(
-        ForeignKey('people.id'), nullable=False)
+    person_id = Column(ForeignKey('people.id'), nullable=False)
     person = relationship('Person', lazy='joined')
     institution_id = Column(Integer, ForeignKey('institutions.id'))
     institution = relationship('Institution', lazy='joined')
@@ -904,11 +899,11 @@ class Participant(DBQueryable, Base):
         return False
 
     def __hash__(self):
-        return hash(u'{}_{}_{}'.format(
+        return hash(u'{0}_{1}_{2}'.format(
             self.attrvalue_id, self.role, self.person_id))
 
     def __repr__(self):
-        return u'Participant({}, {}, {})'.format(
+        return u'Participant({0}, {1}, {2})'.format(
             self.role, self.person_id, self.institution_id)
         
 
@@ -1012,9 +1007,15 @@ class Participants(object):
         p._extend(participants)
         return cruise.set('participants', p, signer)
 
-    def __getitem__(self, role):
+    def with_role(self, role):
         """Return Participants for role."""
         return filter(lambda p: p.role == role, self.data)
+
+    def __getitem__(self, *args, **kwargs):
+        return self.data.__getitem__(*args, **kwargs)
+
+    def pop(self, *args, **kwargs):
+        return self.data.pop(*args, **kwargs)
 
     @property
     def roles(self, role=None):
@@ -1025,14 +1026,17 @@ class Participants(object):
             participants = self[role]
         return [(p.person, p.role) for p in participants]
 
+    def __str__(self):
+        return unicode(self)
+
     def __unicode__(self):
         return u'Participants({0!r})'.format(self.data)
         
 
 class _AttrValueParticipants(_AttrValue):
     values = relationship(
-        'Participant', collection_class=Participants,
-        cascade='all, delete, delete-orphan')
+        'Participant', collection_class=Participants, backref='attrvalue',
+        cascade='all, delete-orphan')
 
     def __init__(self, value, *args, **kwargs):
         super(_AttrValueParticipants, self).__init__(*args, **kwargs)
@@ -1041,6 +1045,10 @@ class _AttrValueParticipants(_AttrValue):
     @property
     def value(self):
         return self.values
+
+    @value.setter
+    def value(self, x):
+        self.values = x
 
     @staticmethod
     def _coerce(target, value, oldvalue=None, initiator=None):
@@ -2729,7 +2737,7 @@ class Cruise(Obj):
     @property
     def chief_scientists(self):
         try:
-            return self.participants['Chief Scientist']
+            return self.participants.with_role('Chief Scientist')
         except KeyError:
             return []
 
@@ -2898,7 +2906,6 @@ class CruiseAssociate(object):
 
     def cruises(self, limit=0, accepted_only=True):
         try:
-            log.debug(self._preload_objs['cruises'])
             return self._preload_objs['cruises']
         except KeyError:
             pass
@@ -3153,6 +3160,77 @@ class Person(CruiseParticipantAssociate, Obj):
             self._preload_objs['country'] = country
             return country
 
+    def merge_(self, signer, *mergees):
+        mergee_ids = [m.id for m in mergees]
+        cs = _Change.query().\
+            filter(_Change.creation_person_id.in_(mergee_ids)).all()
+        for c in cs:
+            c.creation_person_id = self.id
+        cs = _Change.query().\
+            filter(_Change.pending_person_id.in_(mergee_ids)).all()
+        for c in cs:
+            c.pending_person_id = self.id
+        cs = _Change.query().\
+            filter(_Change.judgment_person_id.in_(mergee_ids)).all()
+        for c in cs:
+            c.judgment_person_id = self.id
+
+        participant_lists = set()
+        participants = Participant.query().\
+            filter(Participant.person_id.in_(mergee_ids)).all()
+        for p in participants:
+            p.person_id = self.id
+            participant_lists.add(p.attrvalue)
+
+        for av in participant_lists:
+            # Make a copy. Doing in-place operations on a collection makes for
+            # funny business
+            l = list(av.values)
+            original = None
+            i = 0
+            while i < len(l) - 1:
+                p = l[i]
+                # designate the first participant with matching person as
+                # original. This loop will continue until the end because it is
+                # possible a single person to have multiple roles.
+                if not original and p.person_id == self.id:
+                    original = p
+                else:
+                    i += 1
+                    continue
+
+                # start from the end and remove participants that match the
+                # person and role while filling in the institution if unknown
+                j = len(l) - 1
+                while j > i:
+                    q = l[j]
+                    if q.person_id != p.person_id or q.role != p.role:
+                        j -= 1
+                        continue
+                    l.pop(j)
+                    if not original.institution_id:
+                        original.institution_id = q.institution_id
+                    j -= 1
+
+                # all the participants that matched the original are now
+                # removed. clear things up to prepare for the next match
+                original = None
+                i += 1
+            av.values = Participants(l)
+
+        pis = ParameterInformation.query().\
+            filter(ParameterInformation.pi_id.in_(mergee_ids)).all()
+        for pi in pis:
+            pi.pi_id = self.id
+
+        pps = _PersonPermissions.query().\
+            filter(_PersonPermissions.person_id.in_(mergee_ids)).all()
+        for pp in pps:
+            pp.person_id = self.id
+
+        for mergee in mergees:
+            DBSession.delete(mergee)
+
     def __unicode__(self):
         return u'Person(identifier={0!r}, name={1!r})'.format(
             self.identifier, self.name)
@@ -3254,18 +3332,15 @@ class Institution(CruiseParticipantAssociate, Obj):
             return country
 
     def merge_(self, signer, *mergees):
-        cruises = self._mergee_cruises(*mergees)
-        for cruise in cruises:
-            participants = cruise.get('participants')
-            for p in participants:
-                if p['institution'] == mergee.id:
-                    p['institution'] = institution.id
-            cruise.set_accept(Institution.cruise_associate_key,
-                              participants, signer)
+        mergee_ids = [m.id for m in mergees]
+        participants = Participant.query().\
+            filter(Participant.institution_id.in_(mergee_ids)).all()
+        for p in participants:
+            p.institution_id = self.id
 
         people = self.people
         for person in people:
-            if person.institution != self.id:
+            if person.institution.id != self.id:
                 person.set_accept('country', self.id, signer)
 
         for mergee in mergees:
@@ -3321,8 +3396,7 @@ class Ship(CruiseAssociate, Obj):
     def merge_(self, signer, *mergees):
         cruises = self._mergee_cruises(*mergees)
         for cruise in cruises:
-            cruise.set_accept(Ship.cruise_associate_key,
-                              self.id, signer)
+            cruise.set_accept(Ship.cruise_associate_key, self.id, signer)
 
         for mergee in mergees:
             DBSession.delete(mergee)

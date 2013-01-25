@@ -846,9 +846,9 @@ class _AttrValueFile(_AttrValue):
     value_ = Column('v_fsid', ForeignKey('fsfile.id'))
     value = relationship(
         'FSFile', primaryjoin='FSFile.id == _AttrValueFile.value_',
-        lazy='joined',
-        backref=backref('attr_value', single_parent=True,
-            uselist=False, cascade='all, delete, delete-orphan'))
+        lazy='joined', backref=backref('av', single_parent=True, uselist=False),
+        cascade='all, delete',
+        )
 
     def __init__(self, value, *args, **kwargs):
         """Create an _AttrValueFile reference to an FSFile from a FieldStorage.
@@ -3534,7 +3534,7 @@ class ArgoFile(AutoAcceptingObj):
     display = Column(Boolean)
 
     file__id = Column('file_id', Integer, ForeignKey('fsfile.id'))
-    file_ = relationship('FSFile')
+    file_ = relationship('FSFile', cascade='all, delete')
 
     link_cruise_id = Column(Integer, ForeignKey('cruises.id'))
     link_cruise = relationship(
@@ -3659,7 +3659,7 @@ class Submission(Obj):
     attached = relationship('_Attr')
 
     file_id = Column('file_id', Integer, ForeignKey('fsfile.id'))
-    file = relationship('FSFile')
+    file = relationship('FSFile', cascade='all, delete')
 
     request_for_id = Column(Integer, ForeignKey('requests_for.id'))
     request_for = relationship(

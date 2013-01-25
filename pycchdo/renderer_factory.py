@@ -1,21 +1,19 @@
 import json as JSON
-import datetime
+from datetime import datetime, date
 
 from sqlalchemy.ext.associationproxy import _AssociationList
 
-from pyramid.response import Response
-
 from pycchdo.models import (
-    Obj, Participants, Participant,
-    Institution,
+    Participants, Participant,
     )
 
 
 class CustomJSONEncoder(JSON.JSONEncoder):
+    """Used by custom pyramid renderer."""
     def default(self, obj):
-        if isinstance(obj, datetime.datetime):
+        if isinstance(obj, datetime):
             return str(obj)
-        elif isinstance(obj, datetime.date):
+        elif isinstance(obj, date):
             return str(obj)
         elif isinstance(obj, Participants):
             return self.default(list(obj))
@@ -36,6 +34,7 @@ class CustomJSONEncoder(JSON.JSONEncoder):
 
 
 def json(info):
+    """Return a pyramid renderer for json."""
     def _render(value, system):
         request = system.get('request')
         if request is not None:

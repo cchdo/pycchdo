@@ -97,11 +97,13 @@ def entity(request):
         argo_file.text_identifier = expocode
         argo_file.display = bool(display)
         argo_file.description = description
-
+        transaction.commit()
+        request.session.flash(u'Saved changes to Argo file.', 'action_taken')
         raise HTTPSeeOther(location='/argo.html')
     elif method == 'DELETE':
         DBSession.delete(argo_file)
         transaction.commit()
+        request.session.flash(u'Deleted Argo file.', 'action_taken')
         raise HTTPSeeOther(location=request.referrer)
     return {'argo_file': argo_file}
 

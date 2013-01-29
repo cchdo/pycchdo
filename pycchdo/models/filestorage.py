@@ -45,11 +45,15 @@ def seek_size(file):
 
 def copy_chunked(infile, outfile, chunk=2**9):
     """Copies the file-like in to out in chunks."""
-    cpos = infile.tell()
+    try:
+        cpos = infile.tell()
+    except Exception:
+        cpos = None
     data = infile.read(chunk)
     while data:
         outfile.write(data)
         data = infile.read(chunk)
-    infile.seek(cpos)
+    if cpos is not None:
+        infile.seek(cpos)
     outfile.flush()
     outfile.seek(0)

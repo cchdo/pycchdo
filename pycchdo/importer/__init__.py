@@ -479,6 +479,10 @@ argparser.add_argument(
     help='Whether to reset the pycchdo database before rebuilding. Useful for '
          'full rebuilds.')
 argparser.add_argument(
+    '--clear-filesystem', action='store_true', default=False,
+    help='Whether to reset the pycchdo file system before rebuilding. Useful '
+         'for partial rebuilds.')
+argparser.add_argument(
     '-C', '--skip_cchdo', action='store_true', default=False,
     help='Skip importing CCHDO data')
 argparser.add_argument(
@@ -577,8 +581,11 @@ def do_import():
     if not args.search_index_only:
 
         if args.tabula_rasa:
-            log.info('resetting database and fs')
+            log.info('resetting db')
             reset_database(engine)
+
+        if args.tabula_rasa or args.clear_filesystem:
+            log.info(u'resetting fs')
             with su():
                 reset_fs()
 

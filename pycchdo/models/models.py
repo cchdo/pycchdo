@@ -60,11 +60,15 @@ from geojson import LineString as gj_LineString
 from libcchdo.fns import uniquify
 
 from pycchdo.util import (
-    FileProxyMixin, is_valid_ip, deprecated, _sorted_tables,
+    FileProxyMixin, listlike, is_valid_ip, _sorted_tables,
+    timestamp_now, re_flags_to_pg_op,
     )
 from pycchdo.models import triggers
 from pycchdo.models.types import *
 from pycchdo.models.filestorage import CachingFile, seek_size
+from pycchdo.models.file_types import (
+    data_file_human_names, data_file_descriptions,
+    )
 from pycchdo.log import ColoredLogger, INFO, DEBUG
 
 
@@ -74,8 +78,7 @@ log.setLevel(INFO)
 
 __all__ = [
     'timestamp_now',
-    'data_file_human_names',
-    'data_file_descriptions',
+    'data_file_human_names', 'data_file_descriptions',
     'reset_database', 'reset_fs', 
     'Session', 'DBSession', 'Base',
     'Stamp', 'Note', 'FSFile',
@@ -85,65 +88,9 @@ __all__ = [
     'ArgoFile', 'OldSubmission', 'Submission', 'Parameter', 'Unit',
     'ParameterOrder',
     '_Attr',
-    'disjoint_load_obj', 
-    'disjoint_load_list', 
-    'batch_load_cruises',
-    'preload_person',
-    'disjoint_load_collection_attrs',
+    'disjoint_load_obj', 'disjoint_load_list', 'batch_load_cruises',
+    'preload_person', 'disjoint_load_collection_attrs',
     ]
-
-
-data_file_human_names = {
-    'bottle_exchange': 'Bottle Exchange',
-    'bottlezip_exchange': 'Bottle ZIP Exchange',
-    'ctdzip_exchange': 'CTD ZIP Exchange',
-    'bottlezip_netcdf': 'Bottle ZIP NetCDF',
-    'ctdzip_netcdf': 'CTD ZIP NetCDF',
-    'bottle_woce': 'Bottle WOCE',
-    'ctdzip_woce': 'CTD ZIP WOCE',
-    'sum_woce': 'Summary WOCE',
-    'map_thumb': 'Map Thumbnail',
-    'map_full': 'Map Fullsize',
-    'doc_txt': 'Documentation Text',
-    'doc_pdf': 'Documentation PDF',
-    'woce_ctd': 'CTD WOCE',
-    'encrypted': 'Encrypted file',
-    'ctd_exchange': 'CTD Exchange',
-    'jgofs': 'JGOFS File',
-    'large_volume_samples_exchange': 'Large Volume Samples WOCE',
-    'large_volume_samples_woce': 'Large Volume Samples Exchange',
-    'matlab': 'Matlab file',
-    'sea': 'SEA file',
-    'ctd_wct': 'CTD WCT File',
-    }
-
-
-data_file_descriptions = {
-    'bottle_woce': 'ASCII bottle data',
-    'ctdzip_woce': 'ZIP archive of ASCII CTD data',
-    'bottle_exchange': 'ASCII .csv bottle data with station information',
-    'ctdzip_exchange': 'ZIP archive of ASCII .csv CTD data with station '
-                       'information',
-    'ctdzip_netcdf': 'ZIP archive of binary CTD data with station information',
-    'bottlezip_netcdf': 'ZIP archive of binary bottle data with station '
-                        'information',
-    'sum_woce': 'ASCII station/cast information',
-    'large_volume_samples_woce': 'ASCII large volume samples',
-    'large_volume_samples_exchange': 'ASCII .csv large volume samples',
-    'trace_metals_woce': 'ASCII trace metal samples',
-    'trace_metals_exchange': 'ASCII .csv trace metal samples',
-    'map_thumb': 'Map thumbnail',
-    'map_full': 'Map full size',
-    'doc_txt': 'ASCII cruise and data documentation',
-    'doc_pdf': 'Portable Document Format cruise and data documentation',
-    'woce_ctd': 'ASCII CTD data',
-    'encrypted': 'Encrypted file',
-    'ctd_exchange': 'ASCII .csv CTD data with station information',
-    'jgofs': 'JGOFS File',
-    'matlab': 'Matlab file',
-    'sea': 'ASCII SEA file',
-    'ctd_wct': 'ASCII CTD data',
-    }
 
 
 Session = sessionmaker(extension=ZopeTransactionExtension())
@@ -171,28 +118,6 @@ def reset_fs():
             os.unlink(os.path.join(root, f))
         for d in dirs:
             rmtree(os.path.join(root, d))
-
-
-def timestamp_now():
-    """Create a datetime.datetime representing Now."""
-    return datetime.utcnow()
-
-
-def listlike(x):
-    try:
-        len(x)
-        x.append
-        return True
-    except (TypeError, AttributeError):
-        return False
-
-
-def re_flags_to_pg_op(regexp):
-    """Basic conversion from RegExp flags to Postgresql regexp operators."""
-    op = '~'
-    if regexp.flags & re.IGNORECASE == re.IGNORECASE:
-        op = '~*'
-    return op
 
 
 class Stamp(MutableComposite):
@@ -309,14 +234,6 @@ class Notable(object):
         return relationship(
             'Note', viewonly=True,
             primaryjoin=and_(fk == cls.id, Note.discussion))
-
-    @deprecated('Use _Change.notes.append(note)')
-    def add_note(self, note):
-        self.notes.append(note)
-
-    @deprecated('Use _Change.notes.remove(note)')
-    def remove_note(self, note):
-        self.notes.remove(note)
 
 
 class Note(StampedCreation, DBQueryable, Base):
@@ -670,6 +587,9 @@ def _saved_file(mapper, connection, target):
 
     log.debug(u'saved file {0!r}'.format(save_me))
     target._fsid_dirty = False
+
+    # delete this reference to the file cache
+    del target.file_
 
 
 @event.listens_for(FSFile, 'after_delete')
@@ -2136,72 +2056,6 @@ class _AttrMgr(object):
                 FSFile.query(FSFile.id).filter(FSFile.import_id == import_id))
             ).first()
 
-    #@classmethod
-    #def _attr_value_key(cls, key, value_key=None):
-    #    if value_key:
-    #        return '%s.%s' % (key, value_key)
-    #    return key
-
-    #@classmethod
-    #def _get_by_attrs_true_match(cls, obj, value_key, accepted_only=True,
-    #                             **kwargs):
-    #    """Make sure the most current values match by filtering resulting objs.
-
-    #    """
-    #    if obj is None or (accepted_only and not obj.accepted):
-    #        return False
-    #    for k, v in kwargs.items():
-    #        key = cls._attr_value_key(k, value_key)
-    #        obj_v = obj.get(k)
-
-    #        if type(obj_v) is list and type(v) is not list:
-    #            if '.' in key:
-    #                try:
-    #                    i = int(key.split('.')[1])
-    #                    try:
-    #                        return v.match(obj_v[i])
-    #                    except AttributeError:
-    #                        return v == obj_v[i]
-    #                except ValueError:
-    #                    # The user has specified a non integer in the array
-    #                    # index portion of the query. Things should have failed
-    #                    # long ago.
-    #                    pass
-    #            try:
-    #                if not any(v.match(x) for x in obj_v):
-    #                    return False
-    #            except AttributeError:
-    #                if v not in obj_v:
-    #                    return False
-    #        else:
-    #            try:
-    #                if not v.match(obj_v):
-    #                    return False
-    #            except AttributeError:
-    #                if obj_v != v:
-    #                    return False
-    #    return True
-    
-    #@classmethod
-    #@deprecated
-    #def _get_by_attrs_query(cls, k, v, value_key):
-    #    value_query = str2uni(v)
-    #    return {
-    #        'key': unicode(k),
-    #        'accepted': True,
-    #        '$or': [
-    #             {'$and': [
-    #                 {'accepted_value': {'$ne': None}},
-    #                 {cls._attr_value_key('accepted_value', value_key):
-    #                  value_query},
-    #             ]}, 
-    #             {'$and': [
-    #                 {'accepted_value': None},
-    #                 {cls._attr_value_key('value', value_key): value_query},
-    #             ]}, 
-    #        ]
-    #    }
-
     @classmethod
     def _filter_by_value_scalar(cls, expect_list, query, attr_class, value):
         """Produce filter for the given scalar value and attr_class."""
@@ -2469,7 +2323,7 @@ class _IDAttrMgr(_AttrMgr):
     def by_ids(cls, ids):
         if ids:
             return cls.query().filter(cls.id.in_(ids))
-        return cls.query().filter(cls.id.in_([]))
+        return cls.query().filter(False)
 
     @classmethod
     def get_by_id(cls, id):
@@ -3478,9 +3332,10 @@ class Collection(CruiseAssociate, MultiName, Obj):
         return self.get_all_by_attrs({'names': name})
 
     @classmethod
-    def get_by_name(cls, name):
-        # FIXME value_key?
-        return cls.get_all_by_attrs({'names': name}, value_key='0')
+    def get_all_by_name(cls, name):
+        return filter(
+            lambda c: c.name == name,
+            cls.get_all_by_attrs({'names': name}))
 
     def merge_(self, signer, *mergees):
         """Merge this Collection with others, leaving this one."""
@@ -3909,10 +3764,14 @@ def disjoint_load_list(objs, *attrs):
     http://www.sqlalchemy.org/trac/wiki/UsageRecipes/DisjointEagerLoading
 
     """
+    objs = filter(None, objs)
+
     avclass = None
     cache_avids = {}
     ids = set()
     for o in objs:
+        if not o:
+            continue
         if avclass is None:
             avclasses = set()
             for attr in attrs:
@@ -3996,7 +3855,6 @@ def disjoint_load_obj(objs, attr, klass, single=True):
 
     query = klass.query(klass.id, klass).filter(klass.id.in_(ids))
     subobjs = dict(preload_cached_avs(klass, query).all())
-    subobjs[None] = None
 
     for o in objs:
         subobj_ids = obj_subobj_ids[o.id]
@@ -4014,7 +3872,8 @@ def disjoint_load_obj(objs, attr, klass, single=True):
                     try:
                         objs.append(subobjs[i])
                     except KeyError:
-                        objs.append(None)
+                        # Don't load objects that don't exist
+                        pass
             o._preload_objs[attr] = objs
 
 

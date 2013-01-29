@@ -329,7 +329,7 @@ function remove_class(e, c) {
   }
   function resizeImgMaps() {
     // Breathe for half a second so the style settles
-    // FIXME Find a better way. Resize when detected image size change?
+    // TODO Find a better way to resize. perhaps when image size changes?
     setTimeout(function () {
       _map(function () { this.resize(); }, ims);
     }, 500);
@@ -684,6 +684,8 @@ var bannerControl = (function rotateBanner() {
 (function easter() {
   if (window.localStorage) {
     var egg = document.createElement('DIV');
+    egg.style.float = 'right';
+    egg.style.width = '1em';
     egg.style.textAlign = 'right';
     egg.style.color = '#DDDDDD';
     egg.style.cursor = 'pointer';

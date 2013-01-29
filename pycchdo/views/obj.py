@@ -78,7 +78,7 @@ def obj_new(request):
 
     for note in notes:
         if note:
-            obj.add_note(Note(request.user, note))
+            obj.notes.append(Note(request.user, note))
 
     DBSession.flush()
     obj_id = obj.id

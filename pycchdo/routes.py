@@ -88,11 +88,13 @@ def configure_routes(config):
                'pycchdo.views.submit.submit', 'submit.jinja2')
     route_path(config, 'parameters', '/parameters.html',
                'pycchdo.views.toplevel.parameters', 'parameters.jinja2')
-    route_path(config, 'contributions', '/contributions.html',
-               'pycchdo.views.toplevel.contributions', 'search/map.jinja2')
-
+    route_path(config, 'parameters_show_json', '/parameters.json',
+               'pycchdo.views.toplevel.parameters_show_json', 'json')
     route_path(config, 'parameter_show', '/parameter/{parameter_id}.json',
                'pycchdo.views.toplevel.parameter_show', 'json')
+
+    route_path(config, 'contributions', '/contributions.html',
+               'pycchdo.views.toplevel.contributions', 'search/map.jinja2')
 
     route_path(config, 'session', '/session',
                'pycchdo.views.session.session_show', 'sessions/show.jinja2')
@@ -102,8 +104,6 @@ def configure_routes(config):
                'pycchdo.views.session.session_new')
     route_path(config, 'session_delete', '/session/delete',
                'pycchdo.views.session.session_delete')
-    route_path(config, 'session_adminify', '/session/adminify',
-               'pycchdo.views.session.session_adminify')
 
     route_path(config, 'objs', '/objs',
                'pycchdo.views.obj.objs', 'objs/index.jinja2')
@@ -121,7 +121,6 @@ def configure_routes(config):
     route_path(config, 'cruise_kml', '/cruise/{cruise_id}.kml',
                'pycchdo.views.cruise.kml')
     obj_routes(config, 'cruise', new=True, json_index=True, json_show=True)
-    # TODO map_full.png?
     route_path(config, 'cruise_map_full', '/cruise/{cruise_id}/map_full',
                'pycchdo.views.cruise.map_full')
     route_path(config, 'cruise_map_thumb', '/cruise/{cruise_id}/map_thumb',

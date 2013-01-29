@@ -9,8 +9,6 @@ from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent, HTTPUnauthorized
 from pyramid.url import current_route_url
 
-import gridfs.errors
-
 from webhelpers import paginate
 
 from webob.multidict import MultiDict
@@ -204,14 +202,13 @@ def file_response(request, file, disposition='inline'):
     except AttributeError:
         resp.content_disposition = disposition
 
-    # XXX
-    # Hack for detecting corrupted GridFiles (data in fs missing) before the
+    # HACK detect corrupted GridFiles (data in fs missing) before the
     # framework gets handed the file to send
     try:
         resp.app_iter.read(1)
         resp.app_iter.seek(0)
-    except gridfs.errors.CorruptGridFile:
-        log.error('Missing file %s' % file.id)
+    except Exception, e:
+        log.error('Missing file {0}:\n{1!r}'.format(file.id, e))
         raise HTTPNotFound()
 
     return resp
@@ -240,5 +237,6 @@ def server_error_view(request):
     return {
         'errno': '500',
         'errstr': 'Internal Server Error',
-        'errmsg': "Oops! Sorry, that's an error. We have been notified and will take a look shortly.",
+        'errmsg': ("Oops! Sorry, that's an error. We have been notified and "
+                   "will take a look shortly."),
     }

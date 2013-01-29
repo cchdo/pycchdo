@@ -66,6 +66,10 @@ def queue(request):
 def groups(request):
     group = request.params['id']
 
-    # TODO Attempt to find collection page.
-    raise HTTPSeeOther(
-        location=request.route_path('collection_show', collection_id=1))
+    colls = Collection.get_all_by_name(group)
+    if colls:
+        coll_id = colls[0].id
+        location=request.route_path('collection_show', collection_id=coll_id)
+    else:
+        location=request.route_path('collection_index')
+    raise HTTPSeeOther(location=location)

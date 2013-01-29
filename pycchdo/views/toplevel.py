@@ -106,18 +106,27 @@ def _get_params_for_order(order):
         return []
 
 
-def parameters(request):
+def _parameters():
     primary = _get_params_for_order('CCHDO Primary Parameters')
     secondary = _get_params_for_order('CCHDO Secondary Parameters')
     tertiary = _get_params_for_order('CCHDO Tertiary Parameters')
+    return primary, secondary, tertiary
+
+
+def parameters(request):
+    primary, secondary, tertiary = _parameters()
     return {'parameters': {1: primary, 2: secondary, 3: tertiary}}
 
 
-def contributions(request):
-    contributions = _contribution_kmzs(request) + _contributions(request)
-    commands = ','.join(['kmllink:%s' % url for url in contributions] + 
-                        ['map_type:earth'])
-    return map_index(request, commands)
+def parameters_show_json(request):
+    primary = _get_params_for_order('CCHDO Primary Parameters')
+    secondary = _get_params_for_order('CCHDO Secondary Parameters')
+    tertiary = _get_params_for_order('CCHDO Tertiary Parameters')
+    return {
+        'Primary': primary,
+        'Secondary': secondary,
+        'Tertiary': tertiary,
+    }
 
 
 def parameter_show(request):
@@ -133,28 +142,14 @@ def parameter_show(request):
         parameter = Parameter.get_one_by_attrs({'name': parameter_id})
     if not parameter:
         raise HTTPNotFound()
+    return parameter
 
-    response = {'parameter': {
-        'name': parameter.get('name', ''),
-        'aliases': filter(None,
-            [parameter.get('name_netcdf'), parameter.get('full_name')] + \
-             parameter.aliases),
-        'format': parameter.get('format', ''),
-        'bounds': parameter.bounds,
-        },
-        'description': parameter.get('description', None),
-    }
-    units = parameter.units
-    if units:
-        response['parameter']['units'] = {
-            'unit': {
-                'def': units.get('name'),
-                'aliases': [
-                    {'name': {'singular': units.get('mnemonic')}}
-                ]
-            }
-        }
-    return response
+
+def contributions(request):
+    contributions = _contribution_kmzs(request) + _contributions(request)
+    commands = ','.join(['kmllink:%s' % url for url in contributions] + 
+                        ['map_type:earth'])
+    return map_index(request, commands)
 
 
 def data(request):

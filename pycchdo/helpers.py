@@ -312,7 +312,6 @@ def attr_value(a):
         v.read
         return 'file(%s)' % v.name
     except AttributeError:
-        # TODO how to get track to return WKT
         try:
             return str(v)
         except TypeError:
@@ -445,18 +444,19 @@ def cruise_summary(cruise):
     return whh.literal(' '.join(["%s." % x for x in sentences]))
 
 
-def cruise_map_thumb(thumb=None, full=None, show_full_link=True):
+def cruise_map_thumb(request, cruise, show_full_link=True):
     thumb_link = ''
-    thumb_img = tags.image(data_uri(thumb), 'Cruise Map thumbnail')
-    if full:
-        full_uri = data_uri(full)
-        if thumb:
-            thumb_link = H.p(
-                tags.link_to(thumb_img, full_uri))
-        thumb_link += H.p(tags.link_to('Full Map', full_uri),
-                                 class_='caption')
+    thumb_img = tags.image(
+        request.route_path('cruise_map_thumb', cruise_id=cruise.id),
+        'Cruise Map thumbnail')
+    if cruise.get('map_full'):
+        full_uri = request.route_path('cruise_map_full', cruise_id=cruise.id)
+        if cruise.get('map_thumb'):
+            thumb_link = H.p(tags.link_to(thumb_img, full_uri))
+        thumb_link += H.p(
+            tags.link_to('Full Map', full_uri), class_='caption')
     else:
-        if thumb:
+        if cruise.get('map_thumb'):
             thumb_link = H.p(thumb_img)
     return H.div(thumb_link, class_='thumb')
 
@@ -731,7 +731,7 @@ def link_parameter(p):
 
 
 def link_pdf_preview(link):
-    """ Gives a URL that uses Google Docs to preview a PDF """
+    """Gives a URL that uses Google Docs to preview a PDF."""
     # TODO add preview link for pdf docs?
     # Another option that gview takes is "embedded=true"
     return "http://docs.google.com/gview?url={link}".format(link=link)

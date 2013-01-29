@@ -86,8 +86,11 @@ class PersonBaseTest(BaseTest):
 class MockFieldStorage():
     def __init__(self, file, filename='mockfile.txt',
                  contentType='application/octet-stream'):
-        self.filename = filename
         self.file = file
+        try:
+            self.filename = file.name
+        except AttributeError:
+            self.filename = self.filename
         self.type = contentType
         
         if not self.filename and self.file.name:

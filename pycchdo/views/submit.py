@@ -180,7 +180,7 @@ def submit(request):
                 sub.type = d['public_status']
             sub.file = FSFile.from_fieldstorage(file)
             if d['notes']:
-                sub.add_note(models.Note(user, d['notes']))
+                sub.notes.append(models.Note(user, d['notes']))
             DBSession.flush()
             submissions.append(sub)
             # TODO record submitter useragent and ip

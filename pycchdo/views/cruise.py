@@ -317,7 +317,7 @@ def _add_note_to_attr(request):
             'The attribute you tried to add a note to could not be found.', 'help')
         return
 
-    attr_obj.add_note(Note(request.user.id, note, discussion=not public))
+    attr_obj.notes.append(Note(request.user.id, note, discussion=not public))
 
 
 def _add_note_to_file(request):
@@ -343,7 +343,7 @@ def _add_note_to_file(request):
             'The file you tried to add a note to could not be found.', 'help')
         return
 
-    file_obj.add_note(Note(request.user.id, note, discussion=not public))
+    file_obj.notes.append(Note(request.user.id, note, discussion=not public))
 
 
 def _add_note(request, cruise_obj):
@@ -364,7 +364,7 @@ def _add_note(request, cruise_obj):
     except KeyError:
         public = False
 
-    cruise_obj.add_note(
+    cruise_obj.notes.append(
         Note(request.user.id, note, action, data_type, summary, not public))
 
 

@@ -138,7 +138,7 @@
       {%- call h.boxed('Information', id='metadata', class='upper', box_content_class='scrollable-y') %}
         <div class="subsection general-information">
           {%- if 'map' in data_files %}
-            {{ h.cruise_map_thumb(data_files['map'].get('thumb', None), data_files['map'].get('full', None)) }}
+            {{ h.cruise_map_thumb(request, cruise) }}
           {%- endif %}
           {{- cruise_attr('ExpoCode', cruise.expocode) }}
           {{- cruise_attr('Aliases', cruise.get('aliases', [])|join(', ')) }}

@@ -1,3 +1,4 @@
+from datetime import datetime
 import socket
 import warnings
 
@@ -21,6 +22,28 @@ def str2uni(x):
     if type(x) is str:
         return unicode(x)
     return x
+
+
+def listlike(x):
+    try:
+        len(x)
+        x.append
+        return True
+    except (TypeError, AttributeError):
+        return False
+
+
+def timestamp_now():
+    """Create a datetime.datetime representing Now."""
+    return datetime.utcnow()
+
+
+def re_flags_to_pg_op(regexp):
+    """Basic conversion from RegExp flags to Postgresql regexp operators."""
+    op = '~'
+    if regexp.flags & re.IGNORECASE == re.IGNORECASE:
+        op = '~*'
+    return op
 
 
 def is_valid_ipv4(ip):
@@ -106,27 +129,6 @@ class MemFile(pyStringIO):
 
     def __repr__(self):
         return u'MemFile({0!r:<10}, {1!r})'.format(self.getvalue(), self.name)
-
-
-def deprecated(message=''):
-    """This is a decorator which can be used to mark functions as deprecated.
-
-    It will result in a warning being emitted when the function is used.
-
-    http://wiki.python.org/moin/PythonDecoratorLibrary#
-        Generating_Deprecation_Warnings
-    
-    """
-    def deprecated(func):
-        msg = '{}() is deprecated: {}'.format(func.__name__, message)
-        def new_func(*args, **kwargs):
-            warnings.warn(msg, category=DeprecationWarning)
-            return func(*args, **kwargs)
-        new_func.__name__ = func.__name__
-        new_func.__doc__ = func.__doc__
-        new_func.__dict__.update(func.__dict__)
-        return new_func
-    return deprecated
 
 
 def _sorted_tables(self):

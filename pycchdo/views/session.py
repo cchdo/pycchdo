@@ -46,11 +46,9 @@ def _profile_to_person(profile):
     email = profile.get('email')
 
     person = Person.query().filter(Person.identifier == identifier).first()
-    log.info(person)
     if not person:
         person = Person(
             identifier=identifier, name=name['formatted'], email=email)
-        log.info(person)
         DBSession.add(person)
         DBSession.flush()
         pid = person.id
@@ -183,16 +181,3 @@ def session_delete(request):
     if not location:
         location = '/'
     raise HTTPSeeOther(location=location, headers=forget(request))
-
-
-# TODO remove!
-def session_adminify(request):
-    person = request.user
-    if not person:
-        request.session.flash('no one is logged in')
-        return HTTPSeeOther(location='/')
-    if 'staff' not in person.permissions:
-        person.permissions.append('staff')
-        transaction.commit()
-    request.session.flash('adminified')
-    return HTTPSeeOther(location='/')

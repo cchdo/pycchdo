@@ -1,25 +1,27 @@
 import datetime
 import os
-import logging
 import json
 import math
 import time
 import tempfile
 
 from pyramid.response import Response
-from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, \
-    HTTPInternalServerError
+from pyramid.httpexceptions import (
+    HTTPNotFound, HTTPBadRequest, HTTPInternalServerError,
+    )
 
 from webhelpers import html as whh
 
 from shapely.geometry import polygon as poly
 
-import bson.objectid
-
-from pycchdo import models
+from pycchdo import models, helpers as h
 from pycchdo.models import search
-from pycchdo import helpers as h
 from pycchdo.views import file_response
+from pycchdo.log import ColoredLogger, DEBUG
+
+
+log = ColoredLogger(__name__)
+log.setLevel(DEBUG)
 
 
 RADIUS_EARTH = 6371.01 # km
@@ -68,8 +70,6 @@ class MapsJSONEncoder(json.JSONEncoder):
             new_dct, markers=markers)
 
     def default(self, obj):
-        if type(obj) == pymongo.objectid.ObjectId:
-            return str(obj)
         return json.JSONEncoder.default(self, obj)
 
 
@@ -285,7 +285,7 @@ def _info(id_cruises):
                 print e
                 infos[id]['ship'] = ''
         except (KeyError, AttributeError) as e:
-            logging.warn('Unable to read info for %s %s' % (id, e))
+            log.warn('Unable to read info for %s %s' % (id, e))
     return infos
 
 
@@ -303,7 +303,7 @@ def _track(id_cruises, max_coords=None):
             t = c.track
             d[idt] = pareDown(t, max_coords)
         except (KeyError, AttributeError) as e:
-            logging.warn('Unable to get track for %s %s' % (id, e))
+            log.warn('Unable to get track for %s %s' % (id, e))
     return d
 
 

@@ -437,7 +437,7 @@ def _name_to_person(updater, cruise, name):
 
     # No people found
     log.warn('No person found for %s' % name)
-    return _import_contact(updater, name, '')
+    return _import_contact(updater, None, None, name=name)
 
 
 def _name_to_inst(updater, name, p):
@@ -478,7 +478,8 @@ def _cchdo_pi_to_person_insts(pi, cruise, updater):
     Institutions pairs.
 
     """
-    log.info(u'Mapping {0!r} {1} to person-institution'.format(pi, str(cruise)))
+    log.info(
+        u'Mapping {0!r} {1} to person-institution'.format(pi, cruise.__dict__))
 
     # Special cases
     if pi == 'Unknown':
@@ -556,12 +557,13 @@ def _import_inst(updater, name):
 
 
 def _import_contact(
-        updater, name_last, name_first, institution=None, email=None):
+        updater, name_last, name_first, institution=None, email=None,
+        name=None):
     inst_id = None
     if institution is not None:
         inst_id = institution.id
     return import_person(updater, name_last, name_first, None,
-                         institution=inst_id, email=email)
+                         institution=inst_id, email=email, name=name)
 
 
 def _import_person_inst(
@@ -654,6 +656,8 @@ known_country_names = {
     'ICE': 'Iceland',
     'NEW': 'New Zealand',
     'POL': 'Poland',
+    'NOR': 'Norway',
+    'SWE': 'Sweden',
     'SA': 'South Africa',
     'TAI': 'Taiwan',
     'UK': 'United Kingdom',
@@ -891,7 +895,7 @@ def _import_track_lines(session):
 
 
 def import_person(updater, name_last, name_first,
-                  identifier=None, institution=None, email=None):
+                  identifier=None, institution=None, email=None, name=None):
     query = {}
     dbquery = Person.query()
     if name_last:
@@ -906,6 +910,9 @@ def import_person(updater, name_last, name_first,
     if email:
         query['email'] = email
         dbquery = dbquery.filter(Person.email == query['email'])
+    if name:
+        query['name'] = name
+        dbquery = dbquery.filter(Person.name == query['name'])
 
     people = dbquery.all()
 
@@ -936,6 +943,10 @@ def import_person(updater, name_last, name_first,
                 query['name_first']
             except KeyError:
                 query['name_first'] = ''
+            try:
+                query['name']
+            except KeyError:
+                query['name'] = ''
 
         person = Person(**query)
         DBSession.add(person)
@@ -1709,8 +1720,7 @@ def _import_submissions(session, downloader):
                     Note(submitter, _ustr2uni(notes)))
 
             if file_path in _KNOWN_MISSING_SUBMISSIONS:
-                log.info(
-                    u'Skipped known missing submission: %s', file_path)
+                log.info(u'Skipped known missing submission: %s', file_path)
                 continue
 
             with downloader.dl(file_path) as file:
@@ -1746,6 +1756,7 @@ def _import_submissions(session, downloader):
                             DBSession.flush()
                             tempzipf.close()
                     temp.close()
+                    del temp
                 else:
                     fs.type = guess_mime_type(fs.filename)
                     submission.file = FSFile.from_fieldstorage(fs)
@@ -2162,9 +2173,10 @@ def _import_documents_for_cruise(downloader, docs, expocode, cruise):
         with su(su_lock=downloader.su_lock):
             with pushd(local_dir):
                 ua_tar.add('.')
-            ua_tar.close()
             log.info(u'removing tempdir {0}'.format(local_dir))
             shutil.rmtree(local_dir)
+        ua_tar.close()
+        del ua_tar
         unaccounted_archive.seek(0)
 
         fs_archive = FieldStorage()
@@ -2180,7 +2192,6 @@ def _import_documents_for_cruise(downloader, docs, expocode, cruise):
         del unaccounted_archive
 
     log.debug('imported docs for %s' % cruise.get('expocode', ''))
-    cruise._recache()
 
 
 class DocumentsImporter(Thread):

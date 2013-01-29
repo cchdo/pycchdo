@@ -584,6 +584,10 @@ var EarthMapType = (function () {
 
     addMVCFollower(listeners, rect, 'bounds_changed', function () {
       var bounds = rect.getBounds();
+      if (!bounds) {
+        console.log(rect);
+        return;
+      }
       var sw = bounds.getSouthWest();
       var ne = bounds.getNorthEast();
 

@@ -15,7 +15,9 @@ from webhelpers import html as whh
 from shapely.geometry import polygon as poly
 
 from pycchdo import models, helpers as h
-from pycchdo.models import search
+from pycchdo.models import (
+    Cruise, search, _Attr, 
+    )
 from pycchdo.views import file_response
 from pycchdo.log import ColoredLogger, DEBUG
 
@@ -139,7 +141,8 @@ def ids(request):
                 filters.append(lambda track: track_in_polygon(polygon, track))
 
         time_min = int(request.params.get('time_min', DEFAULTS['time_min']))
-        # Bump the year forward because we want searches up to Jan 1 00:00 year + 1
+        # Bump the year forward because we want searches up to 
+        # Jan 1 00:00 year + 1
         time_max = int(request.params.get(
             'time_max', DEFAULTS['time_max'])) + 1
 
@@ -150,9 +153,9 @@ def ids(request):
             cruises.extend(filter(lambda t: f(t.track), raw_tracks))
     elif req_ids:
         def get_by_id_or_expo(id):
-            c = models.Cruise.get_id(id)
+            c = Cruise.get_id(id)
             if not c:
-                c = models.Cruise.get_all_by_expocode(id)
+                c = Cruise.get_all_by_expocode(id)
                 if len(c) > 0:
                     c = c[0]
                 else:
@@ -162,6 +165,7 @@ def ids(request):
     elif req_q:
         results = request.search_index.search(request.params.get('q', ''))
         cruises = search.compile_into_cruises(results)
+    h.reduce_specificity(cruises)
 
     # Build JSON response with id: track
     id_track = {}
@@ -256,8 +260,8 @@ def _info(id_cruises):
             id = str(id)
             infos[id] = {
                 'name': cruise.expocode or '',
-                'contacts': ', '.join([pi['person'].full_name for pi in
-                                       cruise.chief_scientists]) or '',
+                'contacts': ', '.join(
+                    [pi.person.name for pi in cruise.chief_scientists]) or '',
                 'cruise_dates': h.cruise_dates(cruise)[2],
             }
 
@@ -308,25 +312,8 @@ def _track(id_cruises, max_coords=None):
 
 
 def getTracksInSelection(selection, time_min, time_max):
-    polygon = list(selection.exterior.coords)
-    query = {'track': {'$within': {'$polygon': polygon}}}
-    limit = DEFAULTS['roi_result_limit']
-    attrs = models._Attr.get_all(query, limit=limit)
-
-    limited = False
-    if len(attrs) == limit:
-        limited = models._Attr.count(query) > limit
-
-    objs = set(attr.obj for attr in attrs)
-    cruises = []
-    for obj in objs:
-        if obj.obj_type == models.Cruise.__name__:
-            cruises.append(obj)
-
-    def date_filter(cruise):
-        return time_min <= cruise.date_start.date().year and \
-               cruise.date_end.date().year<= time_max
-    return (filter(date_filter, cruises), limited)
+    return Cruise.cruises_in_selection(
+        selection, (time_min, time_max), DEFAULTS['roi_result_limit'])
 
 
 def pareDown(line, max_coords=50):

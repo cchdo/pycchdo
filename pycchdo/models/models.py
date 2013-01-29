@@ -2679,6 +2679,42 @@ class Cruise(Obj):
             years.add(cruise.date_start.year)
         return list(years)
 
+    @classmethod
+    def cruises_in_selection(
+            cls, selection, time_range, roi_result_limit=50):
+        """Return cruises in selected polygon and time range.
+
+        Returns a tuple of the matching cruises and also whether or not there
+        were more results than the limit.
+
+        """
+        polygon = list(selection.exterior.coords)
+        query = _Attr.query().filter(_Attr.key == 'track').\
+            join(_AttrValueLineString).\
+            filter(_AttrValueLineString.value_.intersects(str(selection))).\
+            limit(roi_result_limit)
+        attrs = query.all()
+
+        limited = False
+        if len(attrs) == roi_result_limit:
+            limited = query.count() > roi_result_limit
+
+        objs = set(attr.obj for attr in attrs)
+        cruises = [obj for obj in objs if isinstance(obj, Cruise)]
+
+        def date_filter(cruise):
+            def d2y(d):
+                try:
+                    return d.date().year
+                except AttributeError:
+                    try:
+                        return int(d)
+                    except (TypeError, ValueError):
+                        return time_range[0]
+            return time_range[0] <= d2y(cruise.date_start) and \
+                   d2y(cruise.date_end) <= time_range[1]
+        return (filter(date_filter, cruises), limited)
+
     def to_nice_dict(self):
         """ Returns a dict representation of the Cruise.
 

@@ -1,6 +1,5 @@
 from datetime import datetime
 import socket
-import warnings
 
 from StringIO import StringIO as pyStringIO
 import transaction

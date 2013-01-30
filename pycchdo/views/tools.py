@@ -1,13 +1,10 @@
-from cgi import FieldStorage
-import json
 import logging
+import json
 import os
+from cgi import FieldStorage
 from contextlib import contextmanager
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-import tempfile
+
+from tempfile import NamedTemporaryFile
 import sqlite3
 
 from pyramid.httpexceptions import HTTPBadRequest
@@ -29,11 +26,16 @@ import libcchdo.formats.ctd.zip.netcdf as ctdzipex
 import libcchdo.formats.ctd.zip.netcdf_oceansites as ctdzipnc_os
 import libcchdo.formats.bottle.exchange as botex
 
-from pycchdo import models
-from pycchdo import helpers as h
+from pycchdo import models, helpers as h
 from pycchdo.models.models import disjoint_load_cruise_attrs
 from pycchdo.views import file_response
 from pycchdo.views.staff import staff_signin_required
+from pycchdo.util import StringIO
+from pycchdo.log import ColoredLogger, DEBUG, INFO
+
+
+log = ColoredLogger(__name__)
+log.setLevel(DEBUG)
 
 
 _ALLOWED_OCEANSITES_TIMESERIES = ['BATS', 'HOT']
@@ -66,7 +68,7 @@ def _xhr_response(request, obj, status=None):
 
 
 @contextmanager
-def _libcchdo_log_capture(level=logging.INFO):
+def _libcchdo_log_capture(level=INFO):
     orig_log_level = LOG.getEffectiveLevel()
     LOG.setLevel(level)
 
@@ -140,7 +142,7 @@ def _convert(request, fn, filename_callback, *args):
         output_file.name = filename_callback(file, df, output)
         return file_response(request, output_file, 'attachment')
     except Exception, e:
-        logging.debug(e)
+        log.debug(e)
         request.response.status = 500
         return {'error': 'Could not convert file: %r' % e}
 
@@ -261,7 +263,7 @@ def dumps_sqlite(request):
     seahunt = request.params.get('seahunt')
 
     if type == 'metadata' and datatype == 'ctd':
-        temp = tempfile.NamedTemporaryFile()
+        temp = NamedTemporaryFile()
         conn = sqlite3.connect(temp.name)
 
         cur = conn.cursor()
@@ -346,7 +348,7 @@ def dumps_sqlite(request):
         temp.seek(0)
         return file_response(request, field, disposition='attachment')
     elif seahunt and type == 'metadata':
-        temp = tempfile.NamedTemporaryFile()
+        temp = NamedTemporaryFile()
         conn = sqlite3.connect(temp.name)
 
         cur = conn.cursor()

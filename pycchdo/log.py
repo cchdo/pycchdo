@@ -2,7 +2,6 @@
 http://stackoverflow.com/questions/384076
 
 """
-import logging
 from logging import (
     Logger, Formatter, StreamHandler,
     DEBUG, INFO, WARN, ERROR, CRITICAL,

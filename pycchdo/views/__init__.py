@@ -1,20 +1,23 @@
 from datetime import datetime
-import cgi
-import logging
-log = logging.getLogger(__name__)
+from cgi import FieldStorage
 
-import geojson
+from geojson import LineString as gj_LineString
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent, HTTPUnauthorized
 from pyramid.url import current_route_url
 
-from webhelpers import paginate
+from webhelpers. paginate import Page
 
 from webob.multidict import MultiDict
 
-import pycchdo.models as models
-from pycchdo.models.models import data_file_human_names
+from pycchdo import models
+from pycchdo.models.file_types import data_file_human_names
+from pycchdo.log import ColoredLogger, DEBUG
+
+
+log = ColoredLogger(__name__)
+log.setLevel(DEBUG)
 
 
 __CONSTANTS__ = [
@@ -82,7 +85,7 @@ def paged(request, l):
         query['page'] = page
         query['items_per_page'] = items_per_page
         return current_route_url(request, _query=query)
-    return paginate.Page(
+    return Page(
         l, current_page, items_per_page=items_per_page, url=page_url)
 
 
@@ -104,27 +107,21 @@ _possible_date_formats = [
 ]
 
 
-def _ensure_id(x):
-    """ Attempts to convert the argument into an ObjectId
-        If that fails consider the argument as an id
-
-        Checks if the id exists as an Obj.
-
-        If the check fails, raise ValueError
+def _obj_exists(id):
+    """Check that the id refers to a valid Obj.
 
     """
-    try:
-        id = models.guess_objectid(x)
-    except models.InvalidId:
-        id = x
-    if models.Obj.find_one(id, limit=1):
+    if models.Obj.query().get(id):
         return id
     else:
         raise ValueError('%s is not a valid object' % id)
 
 
 def text_to_obj(value, text_type='text'):
-    if type(value) is cgi.FieldStorage:
+    """Convert some text into the given type of object.
+
+    """
+    if type(value) is FieldStorage:
         return value
     if text_type == 'text':
         return value.strip()
@@ -140,14 +137,14 @@ def text_to_obj(value, text_type='text'):
     if text_type == 'id':
         if not value:
             return None
-        return _ensure_id(value)
+        return _obj_exists(value)
     if text_type == 'id_list':
-        return [_ensure_id(x.strip()) for x in value.split(',')]
+        return [_obj_exists(x.strip()) for x in value.split(',')]
 
 
 def str_to_track(s):
     coords = [[float(y) for y in x.split(',')] for x in s.split()]
-    return geojson.LineString(coords)
+    return gj_LineString(coords)
 
 
 def _humanize(obj):

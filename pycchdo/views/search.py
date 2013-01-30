@@ -1,12 +1,16 @@
-import logging
-import urllib
-import re
+from urllib import quote_plus
+from re import search
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest
 
 from pycchdo.views import collapse_dict
 from pycchdo.views.cruise import _cruise_to_json
+from pycchdo.log import ColoredLogger, DEBUG
+
+
+log = ColoredLogger(__name__)
+log.setLevel(DEBUG)
 
 
 def advanced_search(request):
@@ -24,7 +28,7 @@ def search_results(request):
     try:
         results = collapse_dict(request.search_index.search(unicode(query)))
     except Exception, e:
-        logging.error('Search failed: %s' % e)
+        log.error('Search failed: %s' % e)
         results = {'cruise': []}
     return {
         'query': query,
@@ -39,7 +43,7 @@ def search_results_json(request):
     try:
         results = request.search_index.search(unicode(query))
     except Exception, e:
-        logging.error('Search failed: %s' % e)
+        log.error('Search failed: %s' % e)
         results = {'cruise': []}
 
     cruise_jsons = map(_cruise_to_json, results['cruise'])
@@ -53,9 +57,9 @@ def search_results_json(request):
 
 def _quote(str):
     """ URL quoted keyword argument for query """
-    if re.search('\s', str):
+    if search('\s', str):
         str = '"%s"' % str
-    return urllib.quote_plus(str)
+    return quote_plus(str)
 
 
 def search(request):

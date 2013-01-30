@@ -33,7 +33,7 @@ cred = ['seahunt_web', 'll0yd315']
 rails_root = os.path.join(os.path.sep, 'srv', 'not_served', 'project_seahunt')
 
 
-url = S.engine.url.URL('postgresql', cred[0], cred[1], 'sui.ucsd.edu',
+url = S.engine.url.URL('postgresql', cred[0], cred[1], 'kaze.ucsd.edu',
                        database='seahunt')
 
 

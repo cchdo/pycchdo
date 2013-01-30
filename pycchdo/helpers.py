@@ -2,7 +2,6 @@ import datetime as dt
 from urllib import quote
 from json import dumps
 from copy import copy
-import logging
 import os.path
 import os
 import re
@@ -18,7 +17,9 @@ from webhelpers.html import tags, tools as whhtools
 from webhelpers import text as whtext
 
 from pycchdo.log import ColoredLogger, INFO, DEBUG
-import models
+from pycchdo.models import (
+    Note, FSFile, data_file_descriptions,
+    )
 
 
 log = ColoredLogger(__name__)
@@ -494,7 +495,7 @@ def cruise_history_rows(change, i, hl):
 
     baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
 
-    if type(change) == models.Note:
+    if type(change) == Note:
         time = pdate(change.creation_timestamp, '%Y-%m-%d')
         person = link_person(change.creation_person)
         data_type = change.data_type
@@ -772,9 +773,9 @@ def change_pretty(change):
 def data_uri(data):
     """ Given an _Attr with a file, provides a link to a file. """
     if not data or not data.value:
-        logging.error('Cannot link to nothing')
-    if type(data.value) is not models.FSFile:
-        logging.error('Cannot link to non-FSFile value %s' % data.id)
+        log.error('Cannot link to nothing')
+    if type(data.value) is not FSFile:
+        log.error('Cannot link to non-FSFile value %s' % data.id)
         return '/404.html'
     return '/data/b/{id}'.format(id=data.id)
 
@@ -843,7 +844,7 @@ def data_file_link(request, type, data):
 
     data_type = short_data_type(type)
 
-    description = models.data_file_descriptions.get(type, '')
+    description = data_file_descriptions.get(type, '')
 
     preliminary = False
     if data.obj:
@@ -851,7 +852,7 @@ def data_file_link(request, type, data):
         if status:
             preliminary = 'preliminary' in status
     else:
-        logging.error('%r has no obj' % data)
+        log.error('%r has no obj' % data)
 
     preliminary_marker = ''
     if preliminary:

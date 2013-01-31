@@ -23,6 +23,7 @@ _requires_framework_db = [
     #'hg+http://hg.sqlalchemy.org/sqlalchemy/@rel_0_8_8b2#egg=SQLAlchemy',
     'transaction',
     'pyramid_tm',
+    'django',
     'zope.sqlalchemy',
 ]
 _requires_app = [

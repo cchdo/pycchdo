@@ -459,6 +459,7 @@ input[type="submit"]:active {
 /* expands whole menu */
 #cchdo_menu ul.open {
   height: 14.5em;
+  padding-bottom: 0.1em;
   background: rgba(247, 247, 247, 0.6);
   -webkit-transition: height .1s ease;
   -moz-transition: height .1s ease;

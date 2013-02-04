@@ -1,142 +1,35 @@
-#menu_ushydro {
-  background: #add8e6;
-  padding: 0.5em;
-  border-top: 0.2em solid #06629B;
-}
-#menu_ushydro a {
-  border: none;
-}
-
-.boxed h1:first-child {
-  border-top: 0.15em solid #06629B;
-  background: #add8e6;
-  color: #06629B;
-}
-.boxed .box_content {
-  background: #FFFFFF;
-}
-.boxed .box_bottom {
-  background: #add8e6;
-}
-
-/* menu */
-#menu {
-  /* pin to bottom of picture */
-  z-index: 99;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 1.5em;
-  text-align: center;
-}
-#menu h1 a {
-  font-size: 1.1em;
-}
-#menu a {
-  color: #708090;
-  text-decoration: none;
-}
-#menu li {
-  /* Make all entries a little bigger */
-  height: 1.5em;
-  line-height: 1.7em;
-  padding: 0 1em;
+.collection-specific-banner {
+  background-color: #B2E4F3;
   position: relative;
-  display: inline;
-  text-transform: uppercase;
-  z-index: 99;
-  white-space: nowrap;
 }
-#menu li h1 { 
-  display: inline;
-}
-/* back up styling for submenu entries */
-#menu ul ul li {
-  padding: 0;
-  position: static;
+.collection-specific-banner div {
   display: block;
-  text-transform: none;
-  height: 2em;
-  line-height: 2em;
+  text-align: center;
+  font-size: 0.8em;
+  color: #31648E;
 }
-#menu ul ul {
-  visibility: hidden;
+.collection-specific-banner p {
+  padding: 1em;
+}
+.collection-specific-banner .from {
+  background-color: #9BCCDB;
+  width: 48.3%;
+  background-image: url('/static/img/collection_arrow_ushydro.png');
+  background-size: auto 100%;
+  background-repeat: no-repeat;
+  background-position: right;
+}
+div.collection-specific-banner .from a {
+  border-bottom: none;
+}
+.collection-specific-banner .to {
   position: absolute;
-  top: 100%;
-  width: 100%;
-  left: 0; /* HACK force firefox to left align */
-  background: #B0C4DE;
-  opacity: 0;
-  -webkit-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease, background .3s ease;
-  transition: visibility .3s ease, opacity .3s ease, background .3s ease;
+  top: 0;
+  right: 0;
+  width: 51.7%;
 }
-#menu ul ul a {
-  height: 100%;
-  display: block;
-}
-#menu ul li.focus ul,
-#menu ul li:hover ul {
-  visibility: visible;
-  opacity: 1;
-  -webkit-transition: visibility .3s ease, opacity .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease;
-  transition: visibility .3s ease, opacity .3s ease;
-}
-#menu ul li.focus ul ul,
-#menu ul li:hover ul ul {
-  visibility: hidden;
-  opacity: 0;
-  -webkit-transition: visibility .3s ease, opacity .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease;
-  transition: visibility .3s ease, opacity .3s ease;
-}
-#menu ul ul li.focus,
-#menu ul ul li.focus a,
-#menu ul ul li:hover,
-#menu ul ul li:hover a {
-  background: #F0F8FF;
-  color: #4682b4;
-  -webkit-transition: color .3s ease, background .3s ease;
-  -moz-transition: color .3s ease, background .3s ease;
-  -o-transition: color .3s ease, background .3s ease;
-  transition: color .3s ease, background .3s ease;
-}
-#menu ul ul li.focus ul,
-#menu ul ul li:hover ul {
-  visibility: visible;
-  opacity: 1;
-  -webkit-transition: visibility .3s ease, opacity .3s ease;
-  -moz-transition: visibility .3s ease, opacity .3s ease;
-  -o-transition: visibility .3s ease, opacity .3s ease;
-  transition: visibility .3s ease, opacity .3s ease;
-}
-#menu ul ul li.focus ul a,
-#menu ul ul li:hover ul a {
-  color: #000000;
-}
-#menu ul ul ul {
-  position: static;
-  background: #A0A0A0;
-  margin: -2em 0 0 100%;
-  -webkit-transition: background .3s ease;
-  -moz-transition: background .3s ease;
-  -o-transition: background .3s ease;
-  transition: background .3s ease;
-}
-#menu ul ul ul li.focus a,
-#menu ul ul ul li:hover a {
-  background: #3C3C3C;
-  color: #FFFFFF;
-  -webkit-transition: color .3s ease, background .3s ease;
-  -moz-transition: color .3s ease, background .3s ease;
-  -o-transition: color .3s ease, background .3s ease;
-  transition: color .3s ease, background .3s ease;
-}
-
-#menu .links {
-  width: 230px;
+.collection-specific-banner .to p {
+  line-height: 31px;
+  margin: auto;
+  width: 70%;
 }

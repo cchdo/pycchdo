@@ -1,4 +1,4 @@
-import subprocess
+from urlparse import urlparse
 from subprocess import Popen, PIPE
 from argparse import ArgumentParser
 from StringIO import StringIO
@@ -29,7 +29,10 @@ def main():
     settings = get_appsettings(args.config_uri + '#pycchdo')
 
     if args.full_reset:
-        dbname = settings['sqlalchemy.url'].split('/')[-1]
+        url = settings['sqlalchemy.url']
+        o = urlparse(url)
+
+        dbname = o.path[1:]
         owner = 'pycchdo'
 
         psql_script = """\
@@ -41,7 +44,8 @@ ALTER DATABASE {dbname} OWNER TO {owner};
 
         tables = [
             'geography_columns', 'geometry_columns', 'spatial_ref_sys',
-            'raster_columns', 'raster_overviews'] 
+            #'raster_columns', 'raster_overviews',
+        ] 
         for table in tables:
             psql_script += (
                 'GRANT select, insert, update, delete ON TABLE public.{table} '
@@ -50,10 +54,15 @@ ALTER DATABASE {dbname} OWNER TO {owner};
         psql_stdin = psql_script.format(dbname=dbname, owner=owner)
 
         print 'resetting database...'
-        reset = Popen(
-            ['psql', '-h', 'ghdc.ucsd.edu', '-U', 'postgres', 'postgres'],
-            stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        stdout, stderr = reset.communicate(input=psql_stdin)
+        username = 'postgres'
+        cmd = ['psql',
+                '-h', o.hostname, '-p', str(o.port or 5432),
+                '-U', username,
+                '--set', 'ON_ERROR_STOP=on',
+                'postgres']
+        print ' '.join(cmd)
+        psql_proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        stdout, stderr = psql_proc.communicate(input=psql_stdin)
         if 'ERROR' in stderr:
             raise ValueError(stderr)
 

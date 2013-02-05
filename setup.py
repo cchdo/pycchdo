@@ -19,8 +19,7 @@ _requires_framework = [
 if sys.version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
 _requires_framework_db = [
-    'SQLAlchemy',
-    #'hg+http://hg.sqlalchemy.org/sqlalchemy/@rel_0_8_8b2#egg=SQLAlchemy',
+    'SQLAlchemy>=0.8.0b2',
     'transaction',
     'pyramid_tm',
     'django',
@@ -30,13 +29,13 @@ _requires_app = [
     'webhelpers',
     'pyKML',
     'whoosh',
+    'geoalchemy',
     'geojson',
     'shapely',
+    'libcchdo',
 ]
 _requires_importer = [
-#    'libcchdo',
     'paramiko',
-    'geoalchemy',
 ]
 requires = \
     _requires_framework + \
@@ -45,9 +44,16 @@ requires = \
     _requires_importer
 
 
+dependency_links = [
+    #'hg+http://hg.sqlalchemy.org/sqlalchemy/@rel_0_8_8b2#egg=SQLAlchemy-0.8.8b2',
+    #'http://hg.sqlalchemy.org/sqlalchemy/archive/8d82961d3464.tar.gz#egg=SQLAlchemy-0.8.0b2',
+    #'git+git@bitbucket.org:ghdc/libcchdo.git#egg=libcchdo',
+    'https://bitbucket.org/ghdc/libcchdo/get/master.tar.bz2#egg=libcchdo',
+]
+
 setup(
     name='pycchdo',
-    version='0.7',
+    version='0.8',
     description='pycchdo',
     long_description=README + '\n\n' +  CHANGES,
     classifiers=[
@@ -65,6 +71,7 @@ setup(
     zip_safe=False,
     test_suite='pycchdo.tests',
     install_requires=requires,
+    dependency_links=dependency_links,
     entry_points = {
         'paste.app_factory': [
             'main = pycchdo:main',

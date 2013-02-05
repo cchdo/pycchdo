@@ -24,11 +24,13 @@ from sqlalchemy import engine_from_config
 from sqlalchemy.orm import lazyload
 
 from pycchdo import models
-from pycchdo.models import DBSession, reset_database, reset_fs, _Attr, FSFile
-from pycchdo.models.models import log as model_log, DEBUG
+from pycchdo.models import (
+    DBSession, reset_database, reset_fs, _Attr, FSFile,
+    log as model_log,
+    )
 from pycchdo.models.search import SearchIndex
 from pycchdo.models.filestorage import copy_chunked
-from pycchdo.log import *
+from pycchdo.log import ColoredLogger, DEBUG, INFO, WARN, ERROR
 
 
 __all__ = [
@@ -80,14 +82,15 @@ def pushd(dir):
 @contextmanager
 def lock(lock=None):
     if lock:
+        log.debug(u'{0} requested by {1}'.format(lock, current_thread().name))
         lock.acquire()
-        #log.debug(u'{0!r} acquired by {1!r}'.format(
-        #    lock, current_thread().name))
+        log.debug(u'{0} acquired by {1}'.format(
+            lock, current_thread().name))
         try:
             yield
         finally:
-            #log.debug(u'{0!r} released by {1!r}'.format(
-            #    lock, current_thread().name))
+            log.debug(u'{0} released by {1}'.format(
+                lock, current_thread().name))
             lock.release()
     else:
         yield
@@ -214,11 +217,11 @@ def local_dl(filepath, su_lock, dl_files=True):
     """
     with su(su_lock=su_lock):
         try:
-            log.info('downloading %s' % filepath)
+            log.info('downloading {0}'.format(filepath))
             downloaded = open(filepath, 'rb')
         except IOError, e:
-            log.warn(
-                u"Unable to locate file on local %s: %s" % (filepath, e))
+            log.warn(u"Unable to locate file on local {0}:\n{1!r}".format(
+                filepath, e))
             downloaded = None
         try:
             yield downloaded
@@ -246,8 +249,8 @@ def _dl_dir(downloader, remotedir, localdir, listdir, lstat, copy):
         with su(su_lock=downloader.su_lock):
             mkdir(localdir)
     except OSError, e:
-        log.error('Unable to create directory %s %s' %
-                     (os.path.basename(remotedir), e))
+        log.error(u'Unable to create directory {0}:\n{1!r}'.format(
+            os.path.basename(remotedir), e))
         return
 
     remote_dir_stat = lstat(remotedir)
@@ -283,11 +286,21 @@ def _dl_dir(downloader, remotedir, localdir, listdir, lstat, copy):
     set_stat(downloader, remote_dir_stat, localdir)
 
 
+def sftp_copy_dir(remote_path, local_path):
+    sftp.get(remote_path, local_path)
+
+
 def sftp_dl_dir(downloader, sftp, remotedir, localdir):
     log.info(u'sftp copying {0}'.format(remotedir))
-    def copy(remote_path, local_path):
-        sftp.get(remote_path, local_path)
-    _dl_dir(downloader, remotedir, localdir, sftp.listdir, sftp.lstat, copy)
+    _dl_dir(downloader, remotedir, localdir, sftp.listdir, sftp.lstat,
+            sftp_copy_dir)
+
+
+def local_copy_dir(remote_path, local_path, hardlink=False):
+    if hardlink:
+        link(remote_path, local_path)
+    else:
+        shutil.copy2(remote_path, local_path)
 
 
 def local_dl_dir(downloader, remotedir, localdir, hardlink=False):
@@ -298,12 +311,7 @@ def local_dl_dir(downloader, remotedir, localdir, hardlink=False):
 
     """
     log.info(u'locally copying {0}'.format(remotedir))
-    def copy(remote_path, local_path, hardlink=hardlink):
-        if hardlink:
-            link(remote_path, local_path)
-        else:
-            shutil.copy2(remote_path, local_path)
-    _dl_dir(downloader, remotedir, localdir, listdir, lstat, copy)
+    _dl_dir(downloader, remotedir, localdir, listdir, lstat, local_copy_dir)
 
 
 def guess_mime_type(filename):
@@ -346,9 +354,11 @@ class Downloader(object):
             log.debug(
                 u'rewrite {} to {}'.format(file_path, rewritten_path))
             with local_dl(rewritten_path, self.su_lock, self.dl_files) as x:
+                log.debug('downloaded')
                 yield x
         else:
             with sftp_dl(self.sftp, file_path, self.dl_files) as x:
+                log.debug('downloaded')
                 yield x
 
     def dl_dir(self, remote_dir_path, local_dir_path):
@@ -450,13 +460,13 @@ class Updater:
                 attr, attr.value, value))
             if attr.value != value:
                 attr._set(value)
+                log.debug(u'done setting')
+            log.debug(u'setting accept to {0}'.format(accept))
             attr.accepted = accept
             if not accept:
                 attr.judgment_person = None
                 attr.judgment_timestamp = None
-            obj._recache(key)
         else:
-            log.debug(u'creating attribute')
             if accept:
                 attr = obj.set_accept(key, value, self.importer)
             else:
@@ -547,9 +557,10 @@ def do_import():
         if _is_root():
             _drop_permissions(wwwuser)
         else:
-            log.error('{} must be run as root in order to import correct '
-                         'file ownerships. Alternatively, supply the '
-                         '-D/--skip_downloads flag.'.format(sys.argv[0]))
+            log.error(
+                u'{0} must be run as root in order to import correct file '
+                'ownerships. Alternatively, supply the -D/--skip_downloads '
+                'flag.'.format(sys.argv[0]))
             argparser.exit(1)
     elif _is_root():
         _drop_permissions(wwwuser)

@@ -13,7 +13,7 @@ pyramid.includes =
     pyramid_tm
 
 # Search index
-db_search_index_path = /var/cache/pycchdo/search_index
+db_search_index_path = /Users/myshen/var/pycchdo_search_index
 
 # filesystem root
 fs_root = /Users/myshen/var/pycchdo_fs

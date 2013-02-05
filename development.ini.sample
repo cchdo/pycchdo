@@ -27,7 +27,7 @@ submission_confirmation_recipient = synmantics+test@gmail.com
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = postgresql://pycchdo:pycchd0@315@kaze.ucsd.edu:5432/dev_pycchdo
+sqlalchemy.url = postgresql://pycchdo:pycchd0@315@ghdc.ucsd.edu:5432/dev_pycchdo
 #sqlalchemy.url = sqlite:///%(here)s/development.db
 #sqlalchemy.echo = True
 

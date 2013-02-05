@@ -15,7 +15,7 @@ from pycchdo.models import reset_database
 
 argparser = ArgumentParser(description='Reset database')
 argparser.add_argument(
-    '--full_reset', action='store_true', default=False,
+    '--full-reset', action='store_true', default=False,
     help='Whether to drop the database first')
 argparser.add_argument(
     'config_uri', type=str, nargs='?', default='development.ini',
@@ -51,7 +51,7 @@ ALTER DATABASE {dbname} OWNER TO {owner};
 
         print 'resetting database...'
         reset = Popen(
-            ['psql', '-h', 'kaze.ucsd.edu', '-U', 'postgres', 'postgres'],
+            ['psql', '-h', 'ghdc.ucsd.edu', '-U', 'postgres', 'postgres'],
             stdin=PIPE, stdout=PIPE, stderr=PIPE)
         stdout, stderr = reset.communicate(input=psql_stdin)
         if 'ERROR' in stderr:

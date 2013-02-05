@@ -1,18 +1,18 @@
+import os.path
 from tempfile import SpooledTemporaryFile
 
 from django.core.files.base import File
+from django.core.files.storage import FileSystemStorage
+from django.core.exceptions import SuspiciousOperation
+from django.utils._os import safe_join
 
-from pycchdo.log import ColoredLogger, INFO, DEBUG
-
-
-log = ColoredLogger(__name__)
-log.setLevel(DEBUG)
+from pycchdo.models import log
 
 
 class CachingFile(File):
     def __init__(self, *args, **kwargs):
         super(CachingFile, self).__init__(*args, **kwargs)
-        cache = SpooledTemporaryFile()
+        cache = SpooledTemporaryFile(max_size=2 ** 20)
         try:
             cache.name = self.file.name
         except AttributeError:
@@ -39,21 +39,47 @@ def seek_size(file):
             file.seek(cpos)
         return size
     except IOError, e:
-        log.error(u'Unable to determine file size {0!r}: '
-                  '{1!r}'.format(file, e))
+        log.error(
+            u'Unable to determine file size {0!r}: {1!r}'.format(file, e))
 
 
 def copy_chunked(infile, outfile, chunk=2**9):
     """Copies the file-like in to out in chunks."""
     try:
-        cpos = infile.tell()
+        cipos = infile.tell()
     except Exception:
-        cpos = None
+        cipos = None
+    try:
+        copos = outfile.tell()
+    except Exception:
+        copos = None
+    log.debug('copying {0} -> {1}'.format(infile, outfile))
+    i = 0
     data = infile.read(chunk)
     while data:
         outfile.write(data)
         data = infile.read(chunk)
-    if cpos is not None:
-        infile.seek(cpos)
+        i += 1
+        if i % 1000 == 0:
+            log.debug('{0} chunks'.format(i))
+    log.debug('copied {0} chunks'.format(i))
+    if cipos is not None:
+        infile.seek(cipos)
     outfile.flush()
-    outfile.seek(0)
+    if copos is not None:
+        outfile.seek(copos)
+    log.debug('copy complete {0} -> {1}'.format(infile, outfile))
+
+
+class DirFileSystemStorage(FileSystemStorage):
+    def path(self, name):
+        try:
+            fragments = [name[:2], name[2:4], name[4:6]]
+        except TypeError:
+            fragments = []
+        fragments.append(name)
+        try:
+            path = safe_join(self.location, *fragments)
+        except (TypeError, ValueError):
+            raise SuspiciousOperation("Attempted access to '%s' denied." % name)
+        return os.path.normpath(path)

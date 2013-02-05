@@ -11,7 +11,6 @@ from webob.multidict import MultiDict
 
 # underlying FS implementation
 from django.conf import settings as django_settings
-from django.core.files.storage import FileSystemStorage
 from django.utils.functional import empty
 
 from sqlalchemy import (
@@ -65,15 +64,13 @@ from pycchdo.util import (
     )
 from pycchdo.models import triggers
 from pycchdo.models.types import *
-from pycchdo.models.filestorage import CachingFile, seek_size
+from pycchdo.models.filestorage import (
+    CachingFile, seek_size, DirFileSystemStorage,
+    )
 from pycchdo.models.file_types import (
     data_file_human_names, data_file_descriptions,
     )
-from pycchdo.log import ColoredLogger, INFO, DEBUG
-
-
-log = ColoredLogger(__name__)
-log.setLevel(INFO)
+from pycchdo.models import log
 
 
 __all__ = [
@@ -494,7 +491,7 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
         return cls._fs
     
     @classmethod
-    def reconfig_fs_storage(cls, root=None, url='', perms=0644):
+    def reconfig_fs_storage(cls, root=None, url='', perms=0664):
         if not root:
             root = mkdtemp()
         django_settings._wrapped = empty
@@ -503,7 +500,7 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
             MEDIA_URL=url,
             FILE_UPLOAD_PERMISSIONS=perms,
         )
-        cls._fs = FileSystemStorage()
+        cls._fs = DirFileSystemStorage()
 
     @staticmethod
     def from_fieldstorage(fs):
@@ -543,6 +540,14 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
         flag_modified(self, 'fsid')
         self._fsid_dirty = True
         log.debug('set file for {0!r} to {1!r}'.format(self, self.file_))
+
+    @classmethod
+    def attr_by_import_id(cls, import_id):
+        """Return _Attr matching FSFile import_id.
+
+        """
+        return _Attr.query().join(_AttrValueFile).join(FSFile).\
+            filter(FSFile.import_id == import_id).first()
 
 
 @event.listens_for(FSFile, 'before_insert')
@@ -1399,7 +1404,6 @@ class _Attr(_Change):
             # there are two possibilities for storage based on the accepted bit
             # of the _AttrValue. Replace if it exists, otherwise add.
             av = self._av(value=value, accepted=accepted)
-            log.debug(u'created {0} for set'.format(av))
             self.vs[accepted] = av
         except StatementError:
             raise cannot_be_stored_error
@@ -1547,9 +1551,7 @@ class CacheObjAttrs(DBQueryable, Base):
         ))
     key = Column(Unicode, primary_key=True)
     attrvalue_id = Column(Integer, ForeignKey('av.id'))
-    attrvalue = relationship(
-        _AttrValue, lazy='joined', 
-        backref=backref('cache_obj_avs', cascade='all,delete'))
+    attrvalue = relationship('_AttrValue', lazy='joined')
 
     __table_args__ = (
         Index('idx_cache_obj_avs', 'attrvalue_id', 'obj_id', 'key'),
@@ -1576,9 +1578,10 @@ class CacheObjAttrs(DBQueryable, Base):
 
         for key, attr in attrs_current.items():
             try:
-                obj.cache_obj_avs[key].attrvalue = attr.attr_value
-            except (InvalidRequestError, KeyError):
-                obj.cache_obj_avs[key] = cls(key, attr.attr_value)
+                obj.cache_obj_avs[key]
+            except KeyError:
+                pass
+            obj.cache_obj_avs[key] = cls(key, attr.attr_value)
 
         deleted_keys = \
             set(obj.cache_obj_avs.keys()) - set(attrs_current.keys())
@@ -1917,7 +1920,7 @@ class _AttrMgr(object):
         except AttributeError:
             pass
 
-        # Flush any changes that need to be persisted first
+        # Make sure obj ids are populated
         DBSession.flush()
 
         if clear_first:
@@ -1928,7 +1931,6 @@ class _AttrMgr(object):
         CacheObjAttrs.cache(self, key=key)
 
     def _clear_cache_attrs_current(self, expire=True):
-        log.debug('clear attrs current')
         try:
             del self._cache_attrs_current
         except AttributeError:
@@ -1976,7 +1978,6 @@ class _AttrMgr(object):
             
         curr = {}
         deleted = set()
-        log.debug('all current attrs for obj {0}'.format(self.id))
         attrs = self.attrs_accepted
         for attr in attrs:
             k = attr.key
@@ -2045,16 +2046,6 @@ class _AttrMgr(object):
     @hybrid_property
     def accepted_tracked_changed_data(self):
         return self.accepted_tracked_data.filter(_Attr.v_accepted)
-
-    def attr_by_file_import_id(self, key, import_id):
-        """Return _Attr matching key and FSFile value with matching import_id.
-
-        """
-        return self.attrsq(key).\
-            filter(_Attr.id == _AttrValueFile.id).\
-            filter(_AttrValueFile.value_.in_(
-                FSFile.query(FSFile.id).filter(FSFile.import_id == import_id))
-            ).first()
 
     @classmethod
     def _filter_by_value_scalar(cls, expect_list, query, attr_class, value):

@@ -25,8 +25,9 @@ BOLD_SEQ = "\033[1m"
 
 FORMAT = (
     u"%(asctime)s %(name)-15s "
-    #"$BOLD%(filename)s$RESET:%(lineno)d %(threadName)s\t"
-    "$BOLD%(filename)s$RESET:%(lineno)d\t"
+    # XXX
+    "$BOLD%(filename)s$RESET:%(lineno)d\t%(threadName)s "
+    #"$BOLD%(filename)s$RESET:%(lineno)d\t"
     "%(levelname)s$RESET "
     "%(message)s"
     )

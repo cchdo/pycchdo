@@ -7,12 +7,13 @@ import os
 import re
 import tarfile
 import shutil
+from contextlib import closing
 from copy import copy
 from threading import current_thread, Thread, Lock
 import traceback
 import time
 import zipfile
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, SpooledTemporaryFile
 from traceback import format_exc
 
 from sqlalchemy.sql.expression import select, alias
@@ -579,14 +580,8 @@ def _import_users(session):
     users = session.query(legacy.User).all()
     updater = _get_updater()
     for user in users:
-        person = Person.query().filter(
-            Person.identifier == user.username).first()
-        if not person:
-            log.info('Creating User %s' % user.username)
-            person = import_person(
-                updater, None, user.username, user.username)
-        else:
-            log.info('Updating User %s' % user.username)
+        person = import_person(
+            updater, None, user.username, user.username)
         person._cache_off = True
         updater.attr(person, 'password_hash', user.password_hash)
         updater.attr(person, 'password_salt', user.password_salt)
@@ -800,7 +795,7 @@ def _log_progress(i, total):
     if total == 0:
         log.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, 1.))
         return
-    log.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, i / total))
+    log.info(u'{0!r} / {1!r} = {2:g}'.format(i, total, float(i) / total))
     
 
 def _run_importers(importers, nthreads=6, remote_downloads=False, sleep=0.5):
@@ -1648,10 +1643,10 @@ def _import_submissions(session, downloader):
             'import_id', 'submissions_assimilated', updater.importer)
         fs_assimilated = FieldStorage()
         fs_assimilated.filename = 'assimilated'
-        fs_assimilated.file = MemFile('', fs_assimilated.filename)
-        fs_assimilated.file.name = fs_assimilated.filename
+        fs_assimilated.file = SpooledTemporaryFile(max_size=1)
         attr = cruise.set('data_suggestion', fs_assimilated, updater.importer)
-        DBSession.flush()
+        with su(su_lock=downloader.su_lock):
+            DBSession.flush()
         del fs_assimilated.file
     else:
         attr = cruise.get_attr('data_suggestion')
@@ -1739,28 +1734,25 @@ def _import_submissions(session, downloader):
                 if (    file_name.startswith('multiple_files') and
                         file_name.endswith('.zip')):
                     # ZipFile.open will clobber the file object so make a copy
-                    temp = StringIO()
-                    copy_chunked(file, temp)
-                    file.seek(0)
-
-                    with zipfile.ZipFile(temp) as zf:
-                        infos = zf.infolist()
-                        if len(infos) == 1:
-                            tempzipf = NamedTemporaryFile()
-                            zippedf = zf.open(infos[0])
-                            copy_chunked(zippedf, tempzipf)
-                            fs.filename = infos[0].filename
-                            fs.file = tempzipf
-                            fs.type = guess_mime_type(fs.filename)
-                            submission.file = FSFile.from_fieldstorage(fs)
-                            DBSession.flush()
-                            tempzipf.close()
-                    temp.close()
-                    del temp
+                    with closing(StringIO()) as temp:
+                        copy_chunked(file, temp)
+                        with zipfile.ZipFile(temp) as zf:
+                            infos = zf.infolist()
+                            if len(infos) == 1:
+                                tempzipf = NamedTemporaryFile()
+                                zippedf = zf.open(infos[0])
+                                copy_chunked(zippedf, tempzipf)
+                                fs.filename = infos[0].filename
+                                fs.file = tempzipf
+                                fs.type = guess_mime_type(fs.filename)
+                                submission.file = FSFile.from_fieldstorage(fs)
+                                tempzipf.close()
                 else:
                     fs.type = guess_mime_type(fs.filename)
                     submission.file = FSFile.from_fieldstorage(fs)
-                    DBSession.flush()
+
+            with su(su_lock=downloader.su_lock):
+                DBSession.flush()
 
             submission.type = submission_public_to_type(
                 sub.public, argo_action)
@@ -1771,7 +1763,6 @@ def _import_submissions(session, downloader):
             if assimilated:
                 submission.attached = attr
 
-            DBSession.flush()
             try:
                 submission.cruise_date = _date_to_datetime(sub.cruise_date)
             except TypeError:
@@ -1805,8 +1796,14 @@ def _import_queue_files(session, downloader):
 
         import_id = str(qfile.id)
         unprocessed_input = qfile.unprocessed_input.strip()
-        qf_file = FSFile.query().filter(FSFile.import_id == import_id).first()
-        if not qf_file or not qf_file.attr_value or not qf_file.attr_value.attr:
+        queue_file = FSFile.attr_by_import_id(import_id)
+
+        if qfile.date_received:
+            date_received = _date_to_datetime(qfile.date_received)
+        else:
+            date_received = None
+
+        if not queue_file or not queue_file.attr_value.value:
             log.info('Creating Queue File %s' % import_id)
 
             with downloader.dl(unprocessed_input) as file:
@@ -1829,20 +1826,16 @@ def _import_queue_files(session, downloader):
                     'data_suggestion', actual_file, updater.importer)
                 # Set the import id on the FSFile
                 queue_file.value.import_id = import_id
+
+            with su(su_lock=downloader.su_lock):
                 DBSession.flush()
 
             queue_file.creation_person = submitter
-            date_received = None
-            if qfile.date_received:
-                date_received = _date_to_datetime(qfile.date_received)
-            else:
+            if not date_received:
                 date_received = downloader.mtime(unprocessed_input)
             queue_file.creation_timestamp = date_received
-            DBSession.flush()
         else:
             log.info('Updating Queue File %s' % import_id)
-            log.info(qf_file.id)
-            queue_file = qf_file.attr_value.attr
 
         if qfile.cchdo_contact:
             contact = import_person(updater, None, qfile.cchdo_contact)
@@ -1968,16 +1961,107 @@ def parse_dt(s):
 _ignorable_document_types = ['ExpoCode', '.passwd', '.password', 'error_File', ]
 
 
-def _import_documents_for_cruise(downloader, docs, expocode, cruise):
-    with lock(downloader.sesh_lock):
-        updater = _get_updater()
+def _import_documents_unaccounted(
+        downloader, updater, cruise, remote_dir, accounted_files,
+        tempdir='/tmp/pycchdoimp'):
+    # Import unaccounted files as an archive
+    archive_import_id = str(cruise.id)
+    log.info(u'Packaging unaccounted files for {0}'.format(archive_import_id))
+    archive_attr = cruise.attrsq('archive').first()
+    if archive_attr:
+        log.info('%s archive already imported' % archive_import_id)
+        return
+
+    log.debug(u'generating tempdir')
+    # Use a shorter temp root so long path names don't get too long. Mac OS X
+    # limits to 1024 bytes.
+    with su(su_lock=downloader.su_lock):
+        try:
+            os.makedirs(tempdir)
+        except OSError:
+            pass
+        local_dir = tempfile.mkdtemp(dir=tempdir)
+    log.info(u'collecting unaccounted files in tempdir %s' % local_dir)
+
+    log.info(u'scan for unaccounted files in {0}'.format(remote_dir))
+    try:
+        dirlist = downloader.listdir(remote_dir)
+    except (OSError, IOError), e:
+        log.error(
+            u'Could not list remote dir {0} to find unaccounted files:\n'
+            '{1!r}'.format(remote_dir, e))
+        return
+    any_unaccounted = False
+    for entry in dirlist:
+        if entry in _DOCS_FILES_IGNORE:
+            continue
+        if entry in accounted_files:
+            continue
+        if any(regexp.match(entry) for regexp in _DOCS_RE_IGNORE):
+            continue
+
+        any_unaccounted = True
+
+        log.info('not accounted: %s' % entry)
+
+        remote_path = os.path.join(remote_dir, entry)
+        local_path = os.path.join(local_dir, entry)
+
+        r_lstat = downloader.lstat(remote_path)
+        try:
+            if stat.S_ISDIR(r_lstat.st_mode):
+                downloader.dl_dir(remote_path, local_path)
+            else:
+                with downloader.dl(remote_path) as file:
+                    with open(local_path, 'wb') as ostream:
+                        copy_chunked(file, ostream) 
+        except (OSError, IOError), e:
+            log.error(
+                u'Unable to download unaccounted file/dir {0}\n{1!r}'.format(
+                remote_path, e))
+
+    if any_unaccounted:
+        archive_name = 'archive_{0}.tar'.format(cruise.id)
+        log.info(u'packaging {0} to {1}...'.format(local_dir, archive_name))
+        unaccounted_archive = SpooledTemporaryFile(max_size=2**20)
+        log.info(u'opening tarfile')
+        ua_tar = tarfile.open(mode='w', fileobj=unaccounted_archive)
+        with su(su_lock=downloader.su_lock):
+            with pushd(local_dir):
+                ua_tar.add('.')
+        ua_tar.close()
+        unaccounted_archive.seek(0)
+
+        log.info(u'removing tempdir {0}'.format(local_dir))
+        with su(su_lock=downloader.su_lock):
+            shutil.rmtree(local_dir)
+
+        fs_archive = FieldStorage()
+        fs_archive.filename = archive_name
+        fs_archive.file = unaccounted_archive
+        fs_archive.type = 'application/x-tar'
+
+        with su(su_lock=downloader.su_lock):
+            archive_attr = updater.attr(cruise, 'archive', fs_archive)
+            archive_attr.attr_value.import_id = archive_import_id
+            archive_attr.permissions_read = ['staff', ]
+            DBSession.flush()
+        unaccounted_archive.close()
+
+
+def _import_documents_for_cruise(downloader, docs, expocode):
+    cruises = Cruise.get_all_by_expocode(expocode)
+    updater = _get_updater()
     if docs:
         log.info("Importing documents for %s" % expocode)
     else:
         log.info("No docs to import for %s" % expocode)
         return
-    if not cruise:
-        log.error('No cruise to associate documents for {0}'.format(expocode))
+    if cruises:
+        cruise = cruises[0]
+        log.info('associating documents to {0}'.format(cruise))
+    else:
+        log.error('no cruise {0} to associate documents'.format(expocode))
         return
 
     # Map the list of legacy Documents to keys that pycchdo recognizes
@@ -2019,25 +2103,24 @@ def _import_documents_for_cruise(downloader, docs, expocode, cruise):
     try:
         dir = mapped_docs['directory'].FileName
         del mapped_docs['directory']
-        # escalated privileges are required to ensure filestorage can chmod
-        # doing this while holding the sesh_lock can cause deadlock
-        with su(su_lock=downloader.su_lock):
-            with lock(downloader.sesh_lock):
-                updater.attr(cruise, 'data_dir', dir)
+        updater.attr(cruise, 'data_dir', dir)
     except KeyError:
         log.error(
             '%s has no directory registered. Cannot import.' % expocode)
         return
 
     # Import all files that have been mapped to the cruise
-    accounted_files = []
+    accounted_files = copy(_DOCS_FILES_IGNORE)
+    log.debug(mapped_docs)
+    log.debug(mapped_docs.items())
     for data_type, doc in mapped_docs.items():
+        log.debug('handling mapped doc {0} {1}'.format(data_type, doc))
         if data_type == 'ignore':
             continue
 
         doc_import_id = str(doc.id)
-        with lock(downloader.sesh_lock):
-            attr = cruise.attr_by_file_import_id(data_type, doc_import_id)
+        log.debug(u'checking import status of {0}'.format(doc_import_id))
+        attr = FSFile.attr_by_import_id(doc_import_id)
         if attr:
             log.info('%s already imported' % doc_import_id)
             continue
@@ -2052,8 +2135,7 @@ def _import_documents_for_cruise(downloader, docs, expocode, cruise):
             # assume the only <key>_status is the one we want to change.
             status_key = '%s_status' % data_type
             statuses = uniquify(cruise.get(status_key, []) + ['preliminary'])
-            with lock(downloader.sesh_lock):
-                updater.attr(cruise, status_key, statuses)
+            updater.attr(cruise, status_key, statuses)
 
         # Check that the file to download is the same size as recorded in db.
         size = int(doc.Size)
@@ -2082,10 +2164,12 @@ def _import_documents_for_cruise(downloader, docs, expocode, cruise):
                 continue
 
             field.file = file
-            with lock(downloader.sesh_lock):
-                attr = updater.attr(cruise, data_type, field)
-                attr.attr_value.import_path = doc.FileName
-                attr.attr_value.import_id = doc_import_id
+            attr = updater.attr(cruise, data_type, field)
+            attr.attr_value.import_path = doc.FileName
+            attr.attr_value.import_id = doc_import_id
+
+        with su(su_lock=downloader.su_lock):
+            DBSession.flush()
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
@@ -2093,103 +2177,29 @@ def _import_documents_for_cruise(downloader, docs, expocode, cruise):
         # It's possible for date_creation to be a comma separated list.
         # I'm assuming it's lists of modification times - myshen
         if date_creation:
+            log.debug('setting creation date')
             creations = date_creation.split(',')
             if len(creations) > 1:
                 date_creations = map(str, sorted(map(parse_dt, creations)))
                 date_creation = date_creations[0]
-                with lock(downloader.sesh_lock):
-                    updater.note(
-                        attr, ','.join(date_creations), 'dates_updated',
-                        creation_timestamp=date_creations[-1])
+                updater.note(
+                    attr, ','.join(date_creations), 'dates_updated',
+                    creation_timestamp=date_creations[-1])
             else:
                 attr.creation_timestamp = date_creation
         if date_accepted:
+            log.debug('setting accept date')
             attr.creation_timestamp = parse_dt(date_accepted)
             attr.judgment_timestamp = parse_dt(date_accepted)
 
         accounted_files.append(field.filename)
-    accounted_files.extend(_DOCS_FILES_IGNORE)
+        log.debug('accounted')
 
-    # Import unaccounted files as an archive
-    archive_import_id = str(cruise.id)
-    log.info(u'Packaging unaccounted files for {0}'.format(archive_import_id))
-    with lock(downloader.sesh_lock):
-        archive_attr = cruise.attrsq('archive').first()
-    if archive_attr:
-        log.info('%s archive already imported' % archive_import_id)
-        return
-
-    # Use a shorter temp root so long path names don't get too long. Mac OS X
-    # limits to 1024 bytes.
-    with su(su_lock=downloader.su_lock):
-        local_dir = tempfile.mkdtemp(dir='/tmp')
-    log.info(u'collecting unaccounted files in tempdir %s' % local_dir)
+    log.debug('accounted files: {0}'.format(accounted_files))
 
     remote_dir = os.path.dirname(doc.FileName)
-
-    log.info(
-        u'scanning for unaccounted files in {0} to package'.format(remote_dir))
-    try:
-        dirlist = downloader.listdir(remote_dir)
-    except (OSError, IOError), e:
-        log.error(
-            u'Could not list remote dir {0} to find unaccounted files:\n'
-            '{1!r}'.format(remote_dir, e))
-        return
-    any_unaccounted = False
-    for entry in dirlist:
-        if entry in _DOCS_FILES_IGNORE:
-            continue
-        if entry in accounted_files:
-            continue
-        if any(regexp.match(entry) for regexp in _DOCS_RE_IGNORE):
-            continue
-
-        any_unaccounted = True
-        log.info('not accounted: %s' % entry)
-
-        remote_path = os.path.join(remote_dir, entry)
-        local_path = os.path.join(local_dir, entry)
-
-        r_lstat = downloader.lstat(remote_path)
-        try:
-            if stat.S_ISDIR(r_lstat.st_mode):
-                downloader.dl_dir(remote_path, local_path)
-            else:
-                with downloader.dl(remote_path) as file:
-                    with open(local_path, 'wb') as ostream:
-                        copy_chunked(file, ostream) 
-                    file.seek(0)
-        except (OSError, IOError), e:
-            log.error(
-                u'Unable to download unaccounted file/dir {0}\n{1!r}'.format(
-                remote_path, e))
-
-    if any_unaccounted:
-        archive_name = 'archive_{0}.tar'.format(cruise.id)
-        log.info(u'packaging {0}...'.format(archive_name))
-        unaccounted_archive = MemFile('', archive_name)
-        ua_tar = tarfile.open(mode='w', fileobj=unaccounted_archive)
-        with su(su_lock=downloader.su_lock):
-            with pushd(local_dir):
-                ua_tar.add('.')
-            log.info(u'removing tempdir {0}'.format(local_dir))
-            shutil.rmtree(local_dir)
-        ua_tar.close()
-        del ua_tar
-        unaccounted_archive.seek(0)
-
-        fs_archive = FieldStorage()
-        fs_archive.filename = unaccounted_archive.name
-        fs_archive.type = 'application/x-tar'
-        fs_archive.file = unaccounted_archive
-
-        with lock(downloader.sesh_lock):
-            archive_attr = updater.attr(cruise, 'archive', fs_archive)
-            archive_attr.attr_value.import_id = archive_import_id
-            archive_attr.permissions_read = ['staff', ]
-        unaccounted_archive.close()
-        del unaccounted_archive
+    _import_documents_unaccounted(
+        downloader, updater, cruise, remote_dir, accounted_files)
 
     log.debug('imported docs for %s' % cruise.get('expocode', ''))
 
@@ -2212,7 +2222,9 @@ class DocumentsImporter(Thread):
                     e, format_exc()))
             DBSession.rollback()
         finally:
+            log.debug('committing')
             transaction.commit()
+            log.debug('committed')
 
 
 def _import_documents(session, downloader, nthreads):
@@ -2223,13 +2235,11 @@ def _import_documents(session, downloader, nthreads):
     # TODO FIXME what about the files with no ExpoCode? or ExpoCode == 'NULL'?
     # package those up?
     expocode_attrs = _Attr.query().filter(_Attr.key == 'expocode').\
-        filter(_Attr.accepted == True).\
-        options(joinedload(_Attr.obj)).\
-        all()
-    expocode_cruise = [(a.value, a.obj) for a in expocode_attrs]
+        filter(_Attr.accepted == True).all()
+    expocodes = [a.value for a in expocode_attrs]
 
-    log.debug(u'Found {0} expocodes; Initializing threads'.format(
-        len(expocode_cruise)))
+    log.debug(u'Found {0} expocodes. initializing threads...'.format(
+        len(expocodes)))
 
     docs_by_expocode = {}
     docs = session.query(legacy.Document).\
@@ -2241,24 +2251,32 @@ def _import_documents(session, downloader, nthreads):
             except KeyError:
                 docs_by_expocode[doc.ExpoCode] = [doc]
 
-    previous_su_lock = downloader.su_lock
-    previous_sesh_lock = downloader.sesh_lock
-    downloader.su_lock = Lock()
-    downloader.sesh_lock = Lock()
-
-    try:
-        importers = []
-        for expocode, cruise in expocode_cruise:
+    if nthreads > 1:
+        previous_su_lock = downloader.su_lock
+        try:
+            downloader.su_lock = Lock()
+            importers = []
+            for expocode in expocodes:
+                try:
+                    docs = docs_by_expocode[expocode]
+                except KeyError:
+                    continue
+                importers.append(
+                    DocumentsImporter(downloader, docs, expocode))
+            _run_importers(importers, nthreads=nthreads, remote_downloads=False)
+        finally:
+            downloader.su_lock = previous_su_lock
+    else:
+        for i, expocode in enumerate(expocodes):
             try:
                 docs = docs_by_expocode[expocode]
             except KeyError:
                 continue
-            importers.append(
-                DocumentsImporter(downloader, docs, expocode, cruise))
-        _run_importers(importers, nthreads=nthreads, remote_downloads=False)
-    finally:
-        downloader.sesh_lock = previous_sesh_lock
-        downloader.su_lock = previous_su_lock
+            _import_documents_for_cruise(downloader, docs, expocode)
+            if i % 3 == 0:
+                transaction.commit()
+                _log_progress(i, len(expocodes))
+                transaction.begin()
 
 
 class FakeWebObRequest(object):
@@ -2357,6 +2375,7 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
             log.error(
                 u'Unable to attach argo file by download: could not '
                 'download {0}'.format(remote_path))
+    with su(su_lock=downloader.su_lock):
         DBSession.flush()
 
 
@@ -2415,7 +2434,7 @@ def _get_updater():
 
 def import_(import_gid, nthreads, args):
     log.info("Connecting to cchdo db")
-    #nthreads = 2
+    nthreads = 2
     with db_session(legacy.session()) as session:
         if not args.files_only:
             _import_users(session)
@@ -2447,9 +2466,9 @@ def import_(import_gid, nthreads, args):
             downloader = Downloader(
                 not args.skip_downloads, ssh_sftp, import_gid,
                 local_rewriter=rewrite_dl_path_to_local, su_lock=Lock())
-            _import_submissions(session, downloader)
-            _import_old_submissions(session, downloader)
-            _import_queue_files(session, downloader)
+            #_import_submissions(session, downloader)
+            #_import_old_submissions(session, downloader)
+            #_import_queue_files(session, downloader)
             _import_documents(session, downloader, nthreads - 1)
-            _import_argo_files(session, downloader)
+            #_import_argo_files(session, downloader)
         transaction.commit()

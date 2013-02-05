@@ -33,7 +33,7 @@ cred = ['seahunt_web', 'll0yd315']
 rails_root = os.path.join(os.path.sep, 'srv', 'not_served', 'project_seahunt')
 
 
-url = S.engine.url.URL('postgresql', cred[0], cred[1], 'kaze.ucsd.edu',
+url = S.engine.url.URL('postgresql', cred[0], cred[1], 'ghdc.ucsd.edu',
                        database='seahunt')
 
 
@@ -599,15 +599,14 @@ def _import_resource(resource, updater, sftp_goship, dl_files=True):
         with sftp_dl(sftp_goship, path, dl_files=dl_files) as downloaded:
             if downloaded:
                 file.file = downloaded
-                if resource.type == 'FileResource':
-                    a = updater.attr(cruise, 'data_suggestion', file)
-                elif resource.type == 'ThumbMapResource':
-                    a = updater.attr(cruise, 'map_thumb', file)
-                elif resource.type == 'MapResource':
-                    a = updater.attr(cruise, 'map_full', file)
+                with su():
+                    if resource.type == 'FileResource':
+                        a = updater.attr(cruise, 'data_suggestion', file)
+                    elif resource.type == 'ThumbMapResource':
+                        a = updater.attr(cruise, 'map_thumb', file)
+                    elif resource.type == 'MapResource':
+                        a = updater.attr(cruise, 'map_full', file)
                 a.creation_timestamp = resource.file_updated_at
-                DBSession.add(a)
-                DBSession.flush()
                 if resource.description or resource.note:
                     updater.note(a, resource.note, resource.description)
     else:

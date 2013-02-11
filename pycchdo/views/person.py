@@ -143,7 +143,6 @@ def person_merge(request):
 
     person.merge(request.user, mergee)
     transaction.commit()
-    transaction.begin()
 
     request.session.flash(
         u'Merged person with {0}'.format(mergee_id), 'action_taken')

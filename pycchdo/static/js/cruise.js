@@ -97,13 +97,7 @@ $(function () {
       'font-size': '1.1em'
     }).insertAfter(person);
     addAC(person, personPreview);
-    acSource('person', '/people.json', function (xs) {
-      var source = [];
-      $.each(xs, function (i, x) {
-        source.push({label: x.name_last + ', ' + x.name_first, value: x.id});
-      });
-      return source;
-    }, function (source) {
+    acSource('person', '/people.json', nameIdToSource, function (source) {
       person.autocomplete('option', 'source', source);
     });
 

@@ -104,6 +104,5 @@ def country_merge(request):
     country.merge(request.user, mergee)
     transaction.commit()
 
-    transaction.begin()
     request.session.flash('Merged country with %s' % mergee, 'action_taken')
     return redirect_response

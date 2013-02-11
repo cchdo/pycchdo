@@ -1,5 +1,5 @@
 import datetime
-import logging
+import transaction
 import os
 
 from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound, HTTPSeeOther
@@ -23,28 +23,50 @@ from sqlalchemy.ext.associationproxy import _AssociationList
 
 from pycchdo.models import (
     DBSession,
-    data_file_descriptions, _Attr, Cruise, Note, Person, Institution, FSFile, )
+    data_file_descriptions, _Attr, Cruise, Note, Person, Institution, FSFile,
+    Participants, Participant,
+    )
 from pycchdo.models.models import (
-    preload_cached_avs, disjoint_load_cruise_attrs,
+    preload_cached_avs, disjoint_load_cruise_attrs, _AttrValueUnicode,
     )
 import pycchdo.helpers as h
 
 from . import *
-from session import require_signin
-from pycchdo.views import staff
+from pycchdo.views.session import require_signin
+from pycchdo.views import log, staff
 
 
-def allowed_attrs_select(cls):
+_DISALLOWED_CRUISE_ATTR_TYPES = [
+    'ParticipantsType', 'ParameterInformations',
+]
+
+
+_DISALLOWED_CRUISE_ATTR_KEYS = [
+    'data_dir', 'import_id', 'data_suggestion', 'archive', 'track',
+]
+
+
+def _allowed_attrs_select(cls, disallowed_types=[], disallowed_keys=[]):
     sel = []
     for k, v in cls.allowed_attrs.items():
-        sel.append(([(x, cls.allowed_attrs_human_names[x]) for x in v], k))
+        if k in disallowed_types:
+            continue
+        keys = []
+        for x in v:
+            if x in disallowed_keys:
+                continue
+            keys.append((x, cls.allowed_attrs_human_names[x]))
+        if keys:
+            sel.append((keys, k))
     return sel
 
 
-CRUISE_ATTRS_SELECT = allowed_attrs_select(Cruise)
+def cruise_attrs_select():
+    return _allowed_attrs_select(
+        Cruise, _DISALLOWED_CRUISE_ATTR_TYPES, _DISALLOWED_CRUISE_ATTR_KEYS)
 
 
-def _cruises(request, defer_load=False):
+def _cruises(request, subtypes=None, defer_load=False):
     seahunt = request.params.get('seahunt_only', False)
     allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
@@ -54,7 +76,7 @@ def _cruises(request, defer_load=False):
     else:
         query = Cruise.only_if_accepted_is(True)
 
-    cruises = preload_cached_avs(Cruise, query).all()
+    cruises = preload_cached_avs(Cruise, query, subtypes=subtypes).all()
     cruises = sorted(cruises, key=lambda c: c.uid)
     if not defer_load:
         disjoint_load_cruise_attrs(cruises)
@@ -96,15 +118,15 @@ def cruises_index_json(request):
 
 
 def cruises_archive(request):
-    return staff.archive(request, _cruises(request),
-                         formats=['woce', 'exchange'])
+    return staff.archive(
+        request, _cruises(request), formats=['woce', 'exchange'])
 
 
 def _suggest_file(request, cruise_obj):
     try:
         type = request.params['type']
         if not type in data_file_descriptions.keys():
-            logging.warn('Attempted to suggest file with improper type')
+            log.warn('Attempted to suggest file with improper type')
             request.response_status_int = 400
             request.session.flash(
                 'Invalid file type %s.' % type, 'help')
@@ -113,7 +135,7 @@ def _suggest_file(request, cruise_obj):
                 ', '.join(data_file_descriptions.keys()), 'help')
             return
     except KeyError:
-        logging.warn('Attempted to suggest file without type')
+        log.warn('Attempted to suggest file without type')
         request.response_status = '400 Bad Request'
         request.session.flash(
             'Your file submission was missing a type.', 'help')
@@ -126,7 +148,7 @@ def _suggest_file(request, cruise_obj):
     try:
         add_file_action = request.params['add_file_action']
     except KeyError:
-        logging.warn('Attempted to modify file without action')
+        log.warn('Attempted to modify file without action')
         request.response_status = '400 Bad Request'
         request.session.flash(
             'You must specify what to do to that file type.', 'help')
@@ -138,7 +160,7 @@ def _suggest_file(request, cruise_obj):
             if file == '':
                 raise KeyError()
         except KeyError:
-            logging.warn('Attempted to suggest file without file')
+            log.warn('Attempted to suggest file without file')
             request.response_status = '400 Bad Request'
             request.session.flash(
                 'You did not select a file. Please try again.', 'help')
@@ -151,60 +173,68 @@ def _suggest_file(request, cruise_obj):
 def _edit_attr(request, cruise_obj):
     try:
         key = request.params['key']
-        # Allow any Cruise attrs in addition to file_type_status attrs
-        allowed_list = Cruise.allowed_attrs_list + \
-            ['%s_status' % x for x in data_file_descriptions.keys()]
+        allowed_list = Cruise.allowed_attrs_list 
         if key not in allowed_list:
-            logging.warn('Attempted to edit attribute with illegal key')
+            log.warn('Attempted to edit attribute with illegal key')
             request.response_status = '400 Bad Request'
             request.session.flash(
-                'The attribute key must be one of %s.' % \
-                ', '.join(sorted(allowed_list)),
-                'help')
+                'The attribute key must be one of {0}.'.format(
+                    ', '.join(sorted(allowed_list))), 'help')
             return
     except KeyError:
-        logging.warn('Attempted to edit attribute without key')
+        log.warn('Attempted to edit attribute without key')
         request.response_status = '400 Bad Request'
         request.session.flash('You must specify a key to edit', 'help')
         return
     try:
         edit_action = request.params['edit_action']
     except KeyError:
-        logging.warn('Attempted to edit attribute without a specified action')
+        log.warn('Attempted to edit attribute without a specified action')
         request.response_status = '400 Bad Request'
         request.session.flash('You must specify what to do to %s' % key, 'help')
         return
 
+    note = None
     try:
-        note = Note(request.user, request.params['notes'])
+        str_note = request.params['notes']
+        if str_note:
+            note = Note(request.user, str_note)
     except KeyError:
-        note = None
+        pass
 
     if edit_action == 'Set':
         try:
             value = request.params['value']
         except KeyError:
-            logging.warn('Attempted to edit attribute without value')
+            log.info(
+                u'{0!r} attempted to edit attribute without value'.format(
+                request.user))
             request.response_status = '400 Bad Request'
             request.session.flash(
-                'You did not give a value for the attribute.', 'help')
+                'No value given for the attribute.', 'help')
             return
 
         value_type = Cruise.attr_type(key)
         try:
             value = text_to_obj(value, value_type)
-        except ValueError:
+        except ValueError, e:
+            log.error(
+                u'Unable to suggest value {0} for attribute {1}:\n{2!r}'.format(
+                value, key, e
+                ))
             request.response_status = '400 Bad Request'
-            request.session.flash('Bad value for attribute %s' % key, 'help')
+            request.session.flash(
+                u'Bad value for attribute {0}'.format(key), 'help')
             return
 
         cruise_obj.set(key, value, request.user, note)
         request.session.flash(
-            'Suggested that %s should become %s' % (key, value), 'action_taken')
+            u'Suggested that {0} should become {1}'.format(key, value),
+            'action_taken')
     elif edit_action == 'Delete':
         cruise_obj.delete(key, request.user, note)
         request.session.flash(
-            'Suggested that %s be deleted' % key, 'action_taken')
+            u'Suggested that {0} be deleted'.format(key), 'action_taken')
     elif edit_action == 'Mark reviewed':
         # Remove a cruise file type's preliminary status
         if not h.has_mod(request):
@@ -217,80 +247,104 @@ def _edit_attr(request, cruise_obj):
             status = status.remove(u'preliminary')
             cruise_obj.set_accept(key, status, request.user)
             request.session.flash(
-                'Marked %s for %s as reviewed' % (key.replace('_status', ''),
-                                                  cruise_obj.expocode),
+                'Marked {0} for {1} as reviewed'.format(
+                    key.replace('_status', ''), cruise_obj.uid),
                 'action_taken')
         except ValueError:
             request.session.flash(
-                '%s for %s is already marked reviewed' % (
-                    key.replace('_status', ''), cruise_obj.expocode),
+                '{0} for {1} is already marked reviewed'.format(
+                    key.replace('_status', ''), cruise_obj.uid),
                 'help')
     elif edit_action == 'Set participants':
-        if key == 'participants':
-            rpis = {}
-            keys = ['role', 'person', 'institution']
-            for key, value in request.params.items():
-                for k in keys:
-                    if key.startswith(k):
-                        id = key[len(k):]
-                        try:
-                            rpis[id][k] = value
-                        except KeyError:
-                            rpis[id] = {k: value}
+        if key != 'participants':
+            request.session.flash(
+                u'Invalid action to take on {0}'.format(key), 'help')
+            return
 
-            failed = False
-            new_rpis = []
-            for i, rpi in sorted(rpis.items()):
-                if rpi['role'] or rpi['person'] or rpi['institution']:
-                    if rpi['person']:
-                        person_id = rpi['person']
-                        try:
-                            person = Person.get_id(person_id)
-                            if not person:
-                                failed = True
-                                request.session.flash(
-                                    'Person %s does not exist' % person_id,
-                                    'help')
-                                continue
-                            rpi['person'] = person.id
-                        except ValueError:
-                            failed = True
-                            request.session.flash(
-                                'Invalid person id %s' % person_id, 'help')
-                    if rpi['institution']:
-                        institution_id = rpi['institution']
-                        try:
-                            institution = Institution.get_id(
-                                institution_id)
-                            if not institution:
-                                failed = True
-                                request.session.flash(
-                                    'Institution %s does not exist' % \
-                                    institution_id, 'help')
-                                continue
-                            rpi['institution'] = institution.id
-                        except ValueError:
-                            failed = True
-                            request.session.flash(
-                                'Invalid institution id %s' % institution_id, 'help')
-                    new_rpis.append(rpi)
+        rpis = {}
+        keys = ['role', 'person', 'institution']
+        for key, value in request.params.items():
+            for k in keys:
+                if key.startswith(k):
+                    id = key[len(k):]
+                    try:
+                        rpis[id][k] = value
+                    except KeyError:
+                        rpis[id] = {k: value}
+        participants = _rpi_to_participants(rpis)
+        if participants is None:
+            return
 
-            if failed:
-                return
-            cruise_obj.set('participants', new_rpis, request.user, note)
-            request.session.flash('Suggested updated participants for this cruise',
-                                  'action_taken')
-        else:
-            request.session.flash('Invalid action to take on %s' % key, 'help')
+        cruise_obj.set(
+            'participants', Participants(participants), request.user, note)
+        request.session.flash(
+            u'Suggested updated participants for this cruise',
+            'action_taken')
     elif edit_action == 'Delete all participants':
         if key == 'participants':
             cruise_obj.delete('participants', request.user, note)
-            request.session.flash('Suggested that participants be cleared',
-                                  'action_taken')
+            request.session.flash(
+                u'Suggested that participants be cleared', 'action_taken')
         else:
-            request.session.flash('Invalid action to take on %s' % key, 'help')
+            request.session.flash(
+                u'Invalid action to take on {0}'.format(key), 'help')
     else:
-        request.session.flash('Unknown edit action: %s' % edit_action, 'help')
+        request.session.flash(
+            u'Unknown edit action: {0}'.format(edit_action), 'help')
+
+
+def _rpi_obj_get_from_id_str(cls, id_str):
+    """Abstract way to get Person or Institution for Participant with warnings.
+
+    """
+    try:
+        id = int(id_str)
+        obj = cls.query().get(id)
+        if not obj:
+            request.session.flash(
+                u'{cls} {id} does not exist'.format(cls=cls, id=id), 'help')
+            return None
+        return obj
+    except (TypeError, ValueError), e:
+        log.error(
+            u'attempt to get participant {cls} {id}'.format(cls=cls, id=id))
+        request.session.flash(
+            u'Invalid {cls} id {id}'.format(cls=cls, id=id), 'help')
+        return None
+
+
+def _rpi_to_participants(rpis):
+    """Convert dictionary of role, person, institution tuples into Participants.
+
+    Returns::
+        list of Participants or None if errors occured
+
+    If any people or institutions do not exist, the error will be flashed and
+    the method will return None instead of a list.
+
+    """
+    failed = False
+    participants = []
+    for i, rpi in sorted(rpis.items()):
+        role = rpi['role']
+        person = rpi['person']
+        institution = rpi['institution']
+
+        if not (role or person or institution):
+            continue
+        
+        if person:
+            person = _rpi_obj_get_from_id_str(Person, person)
+            if person is None:
+                failed = True
+        if institution:
+            institution = _rpi_obj_get_from_id_str(Institution, institution)
+            if institution is None:
+                failed = True
+        participants.append(Participant(role, person, institution))
+    if failed:
+        participants = None
+    return participants
 
 
 def _add_note_to_attr(request):
@@ -298,7 +352,7 @@ def _add_note_to_attr(request):
         attr_id = request.params['attr_id']
         note = request.params['note']
     except KeyError:
-        logging.warn('Attempted to add note with missing attributes')
+        log.warn('Attempted to add note with missing attributes')
         request.response_status = '400 Bad Request'
         request.session.flash(
             'Your note was missing an id or the note body. Please try again.',
@@ -325,7 +379,7 @@ def _add_note_to_file(request):
         file_id = request.params['file_id']
         note = request.params['note']
     except KeyError:
-        logging.warn('Attempted to add note with missing attributes')
+        log.warn('Attempted to add note with missing attributes')
         request.response_status = '400 Bad Request'
         request.session.flash(
             'Your note was missing parts. Please try again.', 'help')
@@ -353,7 +407,7 @@ def _add_note(request, cruise_obj):
         summary = request.params['note_summary']
         note = request.params['note_note']
     except KeyError:
-        logging.warn('Attempted to add note with missing attributes')
+        log.warn('Attempted to add note with missing attributes')
         request.response_status = '400 Bad Request'
         request.session.flash('Your note was missing parts. Please try again.',
                               'help')
@@ -376,9 +430,9 @@ def _get_cruise(cruise_id, load_attrs=True):
             cruise_obj = None
     except ValueError:
         cruise_obj = None
-        DBSession.close()
+        transaction.begin()
 
-    # If the id is not an ObjectId, try searching based on ExpoCode
+    # If the id does not refer to a Cruise, try searching based on ExpoCode
     if not cruise_obj:
         cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
         if not cruise_obj:
@@ -490,7 +544,7 @@ def cruise_show(request):
         'data_files': collapse_dict(data_files) or {},
         'history': history,
         'updates': collapse_dict(updates, []) or {},
-        'CRUISE_ATTRS_SELECT': CRUISE_ATTRS_SELECT,
+        'CRUISE_ATTRS_SELECT': cruise_attrs_select(),
         'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,
         }
 

@@ -657,6 +657,22 @@ known_country_names = {
     'TAI': 'Taiwan',
     'UK': 'United Kingdom',
     'UKR': 'Ukraine',
+    'USA': 'United States of America',
+}
+
+known_country_2_codes = {
+    'Australia': 'AU',
+    'Canada': 'CA',
+    'China': 'CN',
+    'France': 'FR',
+    'Germany': 'DE',
+    'Japan': 'JP',
+    'Netherlands': 'NL',
+    'New Zealand': 'NZ',
+    'Norway': 'NO',
+    'Spain': 'ES',
+    'United Kingdom': 'GB',
+    'United States of America': 'US',
 }
 
 
@@ -671,6 +687,10 @@ def _import_country(updater, country_name):
         log.info('Creating Country %s' % country_name)
         country = updater.create_accept(Country)
         country.iso_3166_1 = country_name
+        try:
+            country.iso_3166_1_alpha_2 = known_country_2_codes[country_name]
+        except KeyError:
+            pass
     return country
 
 

@@ -11,7 +11,8 @@ from webhelpers. paginate import Page
 
 from webob.multidict import MultiDict
 
-from pycchdo import models
+from pycchdo.models import Obj
+from pycchdo.models.types import *
 from pycchdo.models.file_types import data_file_human_names
 from pycchdo.log import ColoredLogger, DEBUG
 
@@ -26,6 +27,7 @@ __CONSTANTS__ = [
 
 
 __all__ = [
+    'log',
     'collapse_dict', 'http_method', 'paged', 'text_to_obj', 'str_to_track',
     'file_response', ] + __CONSTANTS__
 
@@ -111,35 +113,45 @@ def _obj_exists(id):
     """Check that the id refers to a valid Obj.
 
     """
-    if models.Obj.query().get(id):
+    if Obj.query().get(id):
         return id
     else:
         raise ValueError('%s is not a valid object' % id)
 
 
-def text_to_obj(value, text_type='text'):
+def text_to_obj(value, text_type=Unicode):
     """Convert some text into the given type of object.
 
     """
     if type(value) is FieldStorage:
         return value
-    if text_type == 'text':
+
+    if isinstance(text_type, list):
+        for t in text_type:
+            try:
+                return text_to_obj(value, t)
+            except ValueError:
+                pass
+
+    if text_type == Unicode:
         return value.strip()
-    if text_type == 'datetime':
+    if text_type == DateTime:
         for df in _possible_date_formats:
             try:
                 return datetime.strptime(value, df)
             except ValueError:
                 pass
         return None
-    if text_type == 'text_list':
+    if text_type == TextList:
         return [_unescape(x.strip()) for x in value.split(',')]
-    if text_type == 'id':
+    if text_type == ID:
         if not value:
             return None
         return _obj_exists(value)
-    if text_type == 'id_list':
+    if text_type == IDList:
         return [_obj_exists(x.strip()) for x in value.split(',')]
+
+    raise ValueError(u'Unknown text type: {0}'.format(text_type))
 
 
 def str_to_track(s):

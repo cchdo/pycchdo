@@ -202,10 +202,10 @@ def obj_attr(request):
     key = request.matchdict['key']
     attr = models._Attr.query().get(key)
     if not attr:
-        log.error(u'No attr with key %s' % key)
+        log.error(u'No attr with key {0!r}'.format(key))
         raise HTTPNotFound()
     if not str(attr.obj_id) == obj_id:
-        log.error(u'No obj with id %s' % obj_id)
+        log.error(u'No obj with id {0}'.format(obj_id))
         raise HTTPNotFound()
 
     method = http_method(request)
@@ -217,6 +217,11 @@ def obj_attr(request):
         if not has_mod(request):
             raise HTTPUnauthorized()
 
+        try:
+            action = request.params['action']
+        except KeyError:
+            raise HTTPBadRequest()
+
         # Special case for accepting expocode. The cruise will not exist any
         # more under the original expocode so redirect to the new expocode.
         if attr.key == 'expocode' and action == 'Accept':
@@ -224,11 +229,6 @@ def obj_attr(request):
                 location=request.route_url('cruise_show', cruise_id=attr.value))
         else:
             redirect = HTTPSeeOther(location=request.referrer)
-
-        try:
-            action = request.params['action']
-        except KeyError:
-            raise HTTPBadRequest()
 
         if action == 'Accept':
             if attr.key == 'data_suggestion':
@@ -241,35 +241,35 @@ def obj_attr(request):
                     return redirect
                 if accept_key not in models.data_file_descriptions.keys():
                     request.session.flash(
-                        '%s is not a valid file type' % accept_key, 'help')
+                        u'{0} is not a valid file type'.format(accept_key),
+                        'help')
                     return redirect
                 else:
                     attr.key = accept_key
                     request.session.flash(
-                        'Attr key changed to "%s"' % accept_key,
+                        u'Attr key changed to {0!r}'.format(accept_key),
                         'action_taken')
-
-            def accept_suggested():
-                attr.accept(request.user)
-                request.session.flash('Attr change accepted', 'action_taken')
 
             try:
                 accept_value = request.params['accept_value']
-                if accept_value:
+            except KeyError:
+                accept_value = None
+            if accept_value:
+                try:
                     attr.accept_value(
                         text_to_obj(accept_value,
-                                    attr.obj.__class__.attr_type(attr.key)),
+                                    type(attr.obj).attr_type(attr.key)),
                         request.user)
                     request.session.flash(
-                        'Attr change accepted with new value "%s"' % (
+                        u'Attr change accepted with new value {0!r}'.format(
                             accept_value), 'action_taken')
-                else:
-                    accept_suggested()
-            except KeyError:
-                accept_suggested()
-            except ValueError:
-                request.session.flash('%s is not valid' % accept_key, 'help')
-                return redirect
+                except ValueError:
+                    request.session.flash(
+                        u'{0!r} is not valid'.format(accept_key), 'help')
+                    return redirect
+            else:
+                attr.accept(request.user)
+                request.session.flash('Attr change accepted', 'action_taken')
         elif action == 'Acknowledge':
             attr.acknowledge(request.user)
             request.session.flash(
@@ -278,6 +278,7 @@ def obj_attr(request):
             attr.reject(request.user)
             request.session.flash(
                 '{0} rejected'.format(attr), 'action_taken')
-            transaction.commit()
+
+        transaction.commit()
         return redirect
     return {'attr': attr}

@@ -19,6 +19,7 @@ from webhelpers import text as whtext
 from pycchdo.log import ColoredLogger, INFO, DEBUG
 from pycchdo.models import (
     Note, FSFile, data_file_descriptions,
+    Person, Country, Cruise, Collection, Ship, Institution,
     )
 
 
@@ -630,17 +631,17 @@ def link_obj(obj):
 
 
 def link_obj_polymorph(obj):
-    if obj.obj_type == 'Person':
+    if isinstance(obj, Person):
         return link_person(obj)
-    elif obj.obj_type == 'Collection':
+    elif isinstance(obj, Collection):
         return link_collection(obj)
-    elif obj.obj_type == 'Country':
+    elif isinstance(obj, Country):
         return link_country(obj)
-    elif obj.obj_type == 'Cruise':
+    elif isinstance(obj, Cruise):
         return link_cruise(obj)
-    elif obj.obj_type == 'Ship':
+    elif isinstance(obj, Ship):
         return link_ship(obj)
-    elif obj.obj_type == 'Institution':
+    elif isinstance(obj, Institution):
         return link_institution(obj)
     else:
         return obj

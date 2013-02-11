@@ -1,17 +1,14 @@
-from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
-
 import transaction
+
+from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
 
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Collection
+from pycchdo.models.types import TextList, Unicode
 from pycchdo.models.models import (
     preload_cached_avs, disjoint_load_collection_attrs, )
-from pycchdo.views import staff
-from pycchdo.log import ColoredLogger
-
-
-log = ColoredLogger(__name__)
+from pycchdo.views import log, staff
 
 
 def collections_index(request):
@@ -38,7 +35,7 @@ def _get_collection(request):
 
 
 def _redirect_response(request, id):
-    raise HTTPSeeOther(
+    return HTTPSeeOther(
         location=request.route_path('collection_show', collection_id=id))
 
 
@@ -62,39 +59,43 @@ def collection_edit(request):
     if not collection:
         raise HTTPNotFound()
 
+    cruises = collection.cruises(accepted_only=False)
+    response = {'collection': collection, 'cruises': cruises}
+
     try:
-        names = text_to_obj(request.params.get('names', ''), 'text_list')
+        names = text_to_obj(request.params.get('names', ''), TextList)
     except ValueError:
         request.session.flash(
             'Invalid collection names. Please ensure names are a list (x,y,z)',
             'help')
-        return {'collection': collection}
+        return response
 
     if collection.get('names') != names:
         collection.set_accept('names', names, request.user)
 
     try:
-        type = text_to_obj(request.params.get('type', ''), 'text')
+        type = text_to_obj(request.params.get('type', ''), Unicode)
     except ValueError:
         request.session.flash('Invalid collection type', 'help')
-        return {'collection': collection}
+        return response
 
     if collection.type != type:
         collection.set_accept('type', type, request.user)
 
     try:
-        basins = text_to_obj(request.params.get('basins', ''), 'text_list')
+        basins = text_to_obj(request.params.get('basins', ''), TextList)
     except ValueError:
         request.session.flash(
             'Invalid collection basins. Please ensure basins are a list (x,y,z)',
             'help')
-        return {'collection': collection}
+        return response
 
     if collection.get('basins') != basins:
         collection.set_accept('basins', basins, request.user)
 
+    coll_id = collection.id
     transaction.commit()
-    return _redirect_response(request, collection.id)
+    return _redirect_response(request, coll_id)
 
 
 def collection_merge(request):
@@ -118,8 +119,8 @@ def collection_merge(request):
     mergee = preload_cached_avs(Collection, Collection.query()).get(mergee_id)
     disjoint_load_collection_attrs([mergee])
     if not mergee:
-        request.session.flash('Invalid mergee collection %s given' % mergee_id,
-                              'help')
+        request.session.flash(
+            u'Invalid mergee collection {0} given'.format(mergee_id), 'help')
         return redirect_response
 
     try:
@@ -127,6 +128,7 @@ def collection_merge(request):
     except TypeError:
         request.session.flash('Invalid mergee collection found', 'help')
         return redirect_response
+    transaction.commit()
 
     request.session.flash('Merged collection with %s' % mergee, 'action_taken')
     return redirect_response

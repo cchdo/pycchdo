@@ -25,7 +25,7 @@
   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
     <td class="change" colspan="2">
       {%- if file.pending_stamp %}
-        <span class="pending">(Under review as of {{ h.pdatetime(file.pending_stamp.timestamp) }})</span>
+        <span class="pending" title="{{ h.pdatetime(file.pending_timestamp) }}">(Under review)</span>
       {%- endif %}
     </td>
     <td colspan="2">
@@ -330,7 +330,7 @@
                         <span class="value">{{ attr.value }}</span>
                       {%- endif %}
                       {%- if attr.pending_stamp %}
-                        <span class="pending">(Under review as of {{ h.pdatetime(attr.pending_stamp.timestamp) }})</span>
+                        <span class="pending" title="{{ h.pdatetime(attr.pending_timestamp) }}">(Under review)</span>
                       {%- endif %}
                     </td>
                     <td colspan="2">
@@ -485,8 +485,8 @@
               <p>{{ h.link_person(attr.creation_person) }}</p>
             </td>
             <td>
-              <p>{{ h.pdate(attr.pending_stamp.timestamp) }}</p>
-              <p>{{ h.link_person(attr.pending_stamp.person) }}</p>
+              <p>{{ h.pdate(attr.pending_timestamp) }}</p>
+              <p>{{ h.link_person(attr.pending_person) }}</p>
             </td>
             <td>
               {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
@@ -521,8 +521,8 @@
               <p>{{ h.link_person(attr.creation_person) }}</p>
             </td>
             <td>
-              <p>{{ h.pdate(attr.judgment_stamp.timestamp) }}</p>
-              <p>{{ h.link_person(attr.judgment_stamp.person) }}</p>
+              <p>{{ h.pdate(attr.judgment_timestamp) }}</p>
+              <p>{{ h.link_person(attr.judgment_person) }}</p>
             </td>
           </tr>
         {%- endfor %}

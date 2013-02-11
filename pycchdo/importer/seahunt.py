@@ -449,7 +449,7 @@ def _import_institutions(sesh, updater):
 
 def _ensure_country(updater, country_id):
     import_id = 'seahunt%d' % country_id
-    c= Country.get_one_by_attrs(
+    c = Country.get_one_by_attrs(
         {'import_id': import_id}, accepted_only=False)
     if c:
         log.info("Updating Country %s: %s" % (import_id, c.id))
@@ -528,6 +528,7 @@ def _ensure_ship(updater, ship_id):
         {'import_id': import_id}, accepted_only=False)
     if not s:
         s = Ship(updater.importer)
+        updater.attr(s, 'import_id', import_id)
         DBSession.add(s)
         DBSession.flush()
     return s
@@ -555,6 +556,7 @@ def _import_program(program, updater):
     if not col:
         col = updater.create_accept(Collection)
         col.creation_timestamp = program.created_at
+        updater.attr(col, 'import_id', import_id)
 
     updater.attr(col, 'names', filter(None, [program.name, program.notes]))
     attr = updater.attr(col, 'date_start', program.dates, accept=False)

@@ -1,3 +1,5 @@
+import transaction
+
 from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
 
 from . import *
@@ -87,6 +89,5 @@ def institution_merge(request):
     institution.merge(request.user, mergee)
     transaction.commit()
 
-    transaction.begin()
     request.session.flash('Merged institution with %s' % mergee, 'action_taken')
     return redirect_response

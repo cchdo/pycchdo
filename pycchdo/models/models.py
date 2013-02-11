@@ -255,7 +255,7 @@ class Note(StampedCreation, DBQueryable, Base):
     creation_person_id = Column(Integer, ForeignKey('people.id',
         use_alter=True, name='fk_note_person'))
     creation_person = relationship(
-        'Person', primaryjoin='Person.id == Note.creation_person_id')
+        'Person', primaryjoin='Note.creation_person_id == Person.id')
     creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
 
     body = Column(Unicode)
@@ -277,14 +277,14 @@ class Note(StampedCreation, DBQueryable, Base):
         self.subject = subject
         self.discussion = discussion
 
+    def __str__(self):
+        return unicode(self)
+
     def __unicode__(self):
         try:
-            return u'Note(%s, %s)' % (self.id, self.subject)
+            return u'Note({0}, {1})'.format(self.id, self.subject)
         except AttributeError:
-            try:
-                return u'Note(%s)' % self.id
-            except AttributeError:
-                return u'Note()'
+            return u'Note({0})'.format(self.id)
 
 
 @event.listens_for(Note, 'after_insert')
@@ -813,23 +813,23 @@ class Participant(DBQueryable, Base):
 
     def __init__(self, role, person, institution=None):
         self.role = role
-        self.person_id = person.id
+        self.person = person
         if institution:
-            self.institution_id = institution.id
+            self.institution = institution
     
     def __eq__(self, other):
         if (    hash(self) == hash(other) and
-                self.institution_id == other.institution_id):
+                self.institution == other.institution):
             return True
         return False
 
     def __hash__(self):
         return hash(u'{0}_{1}_{2}'.format(
-            self.attrvalue_id, self.role, self.person_id))
+            self.attrvalue_id, self.role, self.person))
 
     def __repr__(self):
         return u'Participant({0}, {1}, {2})'.format(
-            self.role, self.person_id, self.institution_id)
+            self.role, self.person, self.institution)
         
 
 class Participants(object):
@@ -1326,7 +1326,7 @@ class _Attr(_Change):
             self._set(value)
 
         if note is not None:
-            self.add_note(note)
+            self.notes.append(note)
 
     @property
     def _attr_type(self):
@@ -1500,7 +1500,7 @@ class _Attr(_Change):
 
     def __repr__(self):
         try:
-            mapping = u'{}, {}'.format(repr(self.key), repr(self.value))
+            mapping = u'{0}, {1}'.format(repr(self.key), repr(self.value))
         except KeyError:
             mapping = u'DEL'
         except IOError:
@@ -1514,18 +1514,11 @@ class _Attr(_Change):
                 state = 'ASIS'
         elif self.pending_stamp:
             state = 'ACK'
-        try:
-            attr_class = self.obj.attr_class(self.key)
-        except AttributeError:
-            try:
-                attr_class = self.person.attr_class(self.key)
-            except AttributeError:
-                attr_class = '???'
 
         obj_id = self.obj_id
         id = self.id or '?'
-        return u"_Attr({}, {}, {}, {}, obj_id={}, id={})".format(
-            mapping, state, self.str_type, attr_class, obj_id, id)
+        return u"_Attr({0}, {1}, {2}, obj_id={3}, id={4})".format(
+            mapping, state, self.str_type, obj_id, id)
 
     @classmethod
     def all_data(cls):
@@ -2634,7 +2627,7 @@ class Cruise(Obj):
         return updated
 
     @classmethod
-    def pending_with_date_starts(cls, limit=None):
+    def pending_with_date_starts(cls, offset=None, limit=None):
         """Gives a list of all pending cruises that have start dates"""
         pending = Cruise.query().\
             filter(Cruise.accepted==False).\
@@ -2644,27 +2637,37 @@ class Cruise(Obj):
                     filter(_Attr.accepted)
                 )
             )
+        if offset:
+            pending = pending.offset(offset)
         if limit:
             pending = pending.limit(limit)
-        return pending.all()
+        return pending
 
     @classmethod
     def upcoming(cls, limit):
-        upcoming = Cruise.pending_with_date_starts(limit)
         now = timestamp_now()
-        try:
-            upcoming = sorted(upcoming, key=lambda c: c.date_start)
-        except TypeError:
-            upcoming = []
+        query = Cruise.pending_with_date_starts()
 
-        # filter out Seahunt cruises that are in the past
-        return filter(lambda x: x.date_start and now > x.date_start, upcoming)
+        i = limit
+        hardlimit = query.count()
+        upcoming = []
+
+        while len(upcoming) < limit and i <= hardlimit:
+            upcoming = query.limit(i).all()
+            try:
+                upcoming = sorted(upcoming, key=lambda c: c.date_start)
+            except TypeError:
+                upcoming = []
+            upcoming = filter(
+                lambda x: x.date_start and now <= x.date_start, upcoming)
+            i += limit
         return upcoming[:limit]
+
 
     @classmethod
     def pending_years(cls):
         """Gives a list of integer years that have pending cruises."""
-        pending_with_date_starts = Cruise.pending_with_date_starts()
+        pending_with_date_starts = Cruise.pending_with_date_starts().all()
         years = set()
         for cruise in pending_with_date_starts:
             years.add(cruise.date_start.year)
@@ -2749,7 +2752,6 @@ __cruise_allow_attrs = [
     ('country', [ID, Unicode]),
 
     ('collections', [IDList, Unicode]),
-    ('institutions', [IDList, Unicode]),
 
     ('track', LineString),
 
@@ -2906,11 +2908,11 @@ class Country(CruiseAssociate, Obj):
         return Person.get_all_by_attrs({'country': self.id})
 
     def merge_(self, signer, *mergees):
-        cruises = self._mergee_cruises(*mergees)
-        for cruise in cruises:
-            # TODO This doesn't get rid of other references if pending, etc.
-            cruise.set_accept(
-                self.cruise_associate_key, self.id, signer)
+        mergee_ids = [m.id for m in mergees]
+
+        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
+        for attr in attrs:
+            attr.obj_id = self.id
 
         people = self.people
         for person in people:
@@ -3099,6 +3101,11 @@ class Person(CruiseParticipantAssociate, Obj):
                 i += 1
             av.values = Participants(l)
 
+        notes = Note.query().\
+            filter(Note.creation_person_id.in_(mergee_ids)).all()
+        for note in notes:
+            note.creation_person_id = self.id
+
         pis = ParameterInformation.query().\
             filter(ParameterInformation.pi_id.in_(mergee_ids)).all()
         for pi in pis:
@@ -3109,8 +3116,19 @@ class Person(CruiseParticipantAssociate, Obj):
         for pp in pps:
             pp.person_id = self.id
 
+        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
+        for attr in attrs:
+            attr.obj_id = self.id
+
+        cavs = CacheObjAttrs.query().\
+            filter(CacheObjAttrs.obj_id.in_(mergee_ids)).all()
+        for cav in cavs:
+            DBSession.delete(cav)
+
         for mergee in mergees:
             DBSession.delete(mergee)
+
+        self._recache()
 
     def __unicode__(self):
         return u'Person(identifier={0!r}, name={1!r})'.format(
@@ -3214,15 +3232,20 @@ class Institution(CruiseParticipantAssociate, Obj):
 
     def merge_(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
+
         participants = Participant.query().\
             filter(Participant.institution_id.in_(mergee_ids)).all()
         for p in participants:
             p.institution_id = self.id
 
-        people = self.people
-        for person in people:
-            if person.institution.id != self.id:
-                person.set_accept('country', self.id, signer)
+        pis = ParameterInformation.query().\
+            filter(ParameterInformation.inst_id.in_(mergee_ids)).all()
+        for pi in pis:
+            pi.inst_id = self.id
+
+        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
+        for attr in attrs:
+            attr.obj_id = self.id
 
         for mergee in mergees:
             DBSession.delete(mergee)
@@ -3275,15 +3298,17 @@ class Ship(CruiseAssociate, Obj):
         return self.get('nodc_platform_code', None)
 
     def merge_(self, signer, *mergees):
-        cruises = self._mergee_cruises(*mergees)
-        for cruise in cruises:
-            cruise.set_accept(Ship.cruise_associate_key, self.id, signer)
+        mergee_ids = [m.id for m in mergees]
+
+        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
+        for attr in attrs:
+            attr.obj_id = self.id
 
         for mergee in mergees:
             DBSession.delete(mergee)
 
     def __unicode__(self):
-        return u'Ship(%s)' % self.name
+        return u'Ship({0})'.format(self.name)
 
     def to_nice_dict(self):
         """Returns a dict representation of the Ship."""
@@ -3381,12 +3406,13 @@ class Collection(CruiseAssociate, MultiName, Obj):
         if self.type is None and types:
             if len(types) > 1:
                 log.debug(
-                    u'Merging {} with types {}. Picked {}'.format(
+                    u'Merging {0} with types {1}. Picked {2}'.format(
                         self, types, types[0]))
             self.set_accept('type', types[0], signer)
 
-        basins = uniquify(
-            list(self.get('basins', [])) + list(mergee.get('basins', [])))
+        basins = list(self.get('basins', []))
+        basins += list(mergee.get('basins', []))
+        basins = uniquify(basins)
         if basins:
             self.set_accept('basins', basins, signer)
 
@@ -3407,9 +3433,7 @@ class Collection(CruiseAssociate, MultiName, Obj):
             DBSession.delete(mergee)
 
     def to_nice_dict(self):
-        """ Returns a dict representation of the Collection.
-
-        """
+        """Returns a dict representation of the Collection."""
         rep = super(Collection, self).to_nice_dict()
         rep.update({
             'names': self.names,

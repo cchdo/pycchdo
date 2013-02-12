@@ -1,5 +1,4 @@
 from datetime import datetime
-from tempfile import mkdtemp
 from string import capwords
 import re
 import os
@@ -8,10 +7,6 @@ from shutil import rmtree
 from traceback import format_exc
 
 from webob.multidict import MultiDict
-
-# underlying FS implementation
-from django.conf import settings as django_settings
-from django.utils.functional import empty
 
 from sqlalchemy import (
     event, Column, ForeignKey, Table,
@@ -27,7 +22,7 @@ from sqlalchemy.orm import (
     relationship, reconstructor, mapper, joinedload, subqueryload,
     noload, dynamic_loader, joinedload_all, subqueryload_all,
     aliased, with_polymorphic, contains_eager, lazyload,
-    defer, undefer
+    remote, defer, undefer
     )
 from sqlalchemy.orm.attributes import (
     flag_modified, set_committed_value, register_attribute,
@@ -52,7 +47,7 @@ from geoalchemy import (
 from geoalchemy.postgis import PGComparator
 
 from shapely import wkb, wkt
-from shapely.geometry import shape as sg_shape, linestring as sg_linestring
+from shapely.geometry import shape as sg_shape, linestring as sg_LineString
 
 from geojson import LineString as gj_LineString
 
@@ -458,6 +453,7 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
     import_path = Column(Unicode)
 
     _fs = None
+    _fs_kwargs = None
 
     def __init__(self, file=None, filename=None, contentType=None):
         self._fsid_dirty = True
@@ -487,24 +483,15 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
                     file._size = seek_size(file)
         return file._size
 
-    @property
-    def fs(self):
-        cls = type(self)
-        if not cls._fs:
-            cls.reconfig_fs_storage()
-        return cls._fs
-    
     @classmethod
-    def reconfig_fs_storage(cls, root=None, url='', perms=0664):
-        if not root:
-            root = mkdtemp()
-        django_settings._wrapped = empty
-        django_settings.configure(
-            MEDIA_ROOT=root,
-            MEDIA_URL=url,
-            FILE_UPLOAD_PERMISSIONS=perms,
-        )
-        cls._fs = DirFileSystemStorage()
+    def fs(cls):
+        if not cls._fs:
+            cls.fs_setup()
+        return cls._fs
+
+    @classmethod
+    def fs_setup(cls, **kwargs):
+        cls._fs = DirFileSystemStorage(**kwargs)
 
     @staticmethod
     def from_fieldstorage(fs):
@@ -525,7 +512,7 @@ class FSFile(FileProxyMixin, DBQueryable, Base):
             return self.file_
         except AttributeError:
             try:
-                self.file_ = self.fs.open(self.fsid)
+                self.file_ = self.fs().open(self.fsid)
             except IOError, e:
                 log.error(
                     u'Unable to open FSFile({0}): {1}'.format(self.id, e))
@@ -585,9 +572,9 @@ def _saved_file(mapper, connection, target):
     cpos = save_me.tell()
     # Do not use the same name for every file or this method will become *very*
     # slow.
-    available_name = target.fs.get_available_name(str(hash(save_me)))
+    available_name = target.fs().get_available_name(str(hash(save_me)))
     try:
-        target.fsid = unicode(target.fs.save(available_name, save_me))
+        target.fsid = unicode(target.fs().save(available_name, save_me))
     except (IOError, OSError), e:
         log.error(u'Unable to save file {0!r} {1!r} to {2!r}:\n{3}'.format(
             target, save_me, available_name, format_exc()))
@@ -603,7 +590,7 @@ def _saved_file(mapper, connection, target):
 
 @event.listens_for(FSFile, 'after_delete')
 def _deleted_file(mapper, connection, target):
-    target.fs.delete(target.fsid)
+    target.fs().delete(target.fsid)
 
 
 class _AttrValue(DBQueryable, Base):
@@ -725,7 +712,7 @@ class _AttrValueLineString(_AttrValue):
         try:
             return wkb.loads(str(self.value_.geom_wkb))
         except AttributeError, e:
-            return sg_linestring.LineString(
+            return sg_LineString.LineString(
                 self.value_.coords(DBSession))
 
     @value.setter
@@ -734,7 +721,7 @@ class _AttrValueLineString(_AttrValue):
 
     def _verify_and_normalize_linestring(self, value):
         """Convert value into a Shapely LineString."""
-        if type(value) is sg_linestring.LineString:
+        if type(value) is sg_LineString.LineString:
             pass
         elif type(value) is gj_LineString:
             value = sg_shape(value)
@@ -750,7 +737,7 @@ class _AttrValueLineString(_AttrValue):
                     raise TypeError(
                         'Coordinate list must contain numbers. Element {0} '
                         'does not'.format(i))
-            value = sg_linestring.LineString(value)
+            value = sg_LineString.LineString(value)
         return value
 
     def __init__(self, value, *args, **kwargs):
@@ -1664,11 +1651,11 @@ class _AttrMgr(object):
     def attrs_accepted(cls):
         return relationship(
             '_Attr',
-            primaryjoin='and_(_Attr.obj_id == Obj.id, '
-                        '_Change.accepted == True)',
+            primaryjoin=and_(
+                remote(_Attr.obj_id) == cls.id,
+                _Change.accepted == True),
             order_by=_Change.judgment_timestamp.desc,
-            cascade='all, delete, delete-orphan',
-            )
+            cascade='all, delete, delete-orphan')
 
     @classmethod
     def _attr_type_to_str(cls, attr_type):

@@ -49,6 +49,7 @@ from pycchdo.models import (
     ParameterInformation, 
     _Attr, 
     )
+from pycchdo.models.types import DateTime
 from pycchdo.models.models import joinedload
 from pycchdo.importer import * 
 from pycchdo.views import text_to_obj
@@ -1970,7 +1971,7 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
 
 def parse_dt(s):
     try:
-        return text_to_obj(s, 'datetime')
+        return text_to_obj(s, DateTime)
     except TypeError:
         # Probably got fed a datetime
         return s

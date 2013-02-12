@@ -141,7 +141,7 @@ def _suggest_file(request, cruise_obj):
             'Your file submission was missing a type.', 'help')
         return
     try:
-        note = Note(request.user.id, request.params['notes'])
+        note = Note(request.user, request.params['notes'])
     except KeyError:
         note = None
 
@@ -371,7 +371,7 @@ def _add_note_to_attr(request):
             'The attribute you tried to add a note to could not be found.', 'help')
         return
 
-    attr_obj.notes.append(Note(request.user.id, note, discussion=not public))
+    attr_obj.notes.append(Note(request.user, note, discussion=not public))
 
 
 def _add_note_to_file(request):
@@ -397,7 +397,7 @@ def _add_note_to_file(request):
             'The file you tried to add a note to could not be found.', 'help')
         return
 
-    file_obj.notes.append(Note(request.user.id, note, discussion=not public))
+    file_obj.notes.append(Note(request.user, note, discussion=not public))
 
 
 def _add_note(request, cruise_obj):
@@ -419,7 +419,7 @@ def _add_note(request, cruise_obj):
         public = False
 
     cruise_obj.notes.append(
-        Note(request.user.id, note, action, data_type, summary, not public))
+        Note(request.user, note, action, data_type, summary, not public))
 
 
 def _get_cruise(cruise_id, load_attrs=True):

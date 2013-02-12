@@ -1,6 +1,8 @@
 import os.path
-from tempfile import SpooledTemporaryFile
+from tempfile import mkdtemp, SpooledTemporaryFile
 
+from django.conf import settings as django_settings
+from django.utils.functional import empty
 from django.core.files.base import File
 from django.core.files.storage import FileSystemStorage
 from django.core.exceptions import SuspiciousOperation
@@ -72,6 +74,10 @@ def copy_chunked(infile, outfile, chunk=2**9):
 
 
 class DirFileSystemStorage(FileSystemStorage):
+    def __init__(self, root=None, url='', perms=0664):
+        self._config(root, url, perms)
+        super(DirFileSystemStorage, self).__init__()
+
     def path(self, name):
         try:
             fragments = [name[:2], name[2:4], name[4:6]]
@@ -83,3 +89,13 @@ class DirFileSystemStorage(FileSystemStorage):
         except (TypeError, ValueError):
             raise SuspiciousOperation("Attempted access to '%s' denied." % name)
         return os.path.normpath(path)
+
+    def _config(self, root=None, url='', perms=0664):
+        if not root:
+            root = mkdtemp()
+        django_settings._wrapped = empty
+        django_settings.configure(
+            MEDIA_ROOT=root,
+            MEDIA_URL=url,
+            FILE_UPLOAD_PERMISSIONS=perms,
+        )

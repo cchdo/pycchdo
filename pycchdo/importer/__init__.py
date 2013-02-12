@@ -580,7 +580,7 @@ def do_import():
         pool_logger.setLevel(logging.DEBUG)
 
     DBSession.configure(bind=engine)
-    FSFile.reconfig_fs_storage(args.settings['fs_root'])
+    FSFile.fs_setup(root=args.settings['fs_root'])
 
     if not args.search_index_only:
 

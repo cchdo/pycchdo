@@ -7,6 +7,7 @@ import transaction
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Person, DBSession
+from pycchdo.models.types import ID, TextList
 from pycchdo.models.models import preload_person
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
@@ -62,14 +63,24 @@ def person_edit(request):
     name = request.params.get('name', '')
     name_first = request.params.get('name_first', '')
     name_last = request.params.get('name_last', '')
+
+    inst_id = request.params.get('institution', '')
     try:
-        institution = text_to_obj(request.params.get('institution', ''), 'id')
+        if inst_id:
+            institution = text_to_obj(inst_id, ID)
+        else:
+            institution = None
     except:
         request.response.status = 400
         h.form_errors_for(request, 'institution', 'Bad institution id')
         return {'person': person}
+
+    country_id = request.params.get('country', '')
     try:
-        country = text_to_obj(request.params.get('country', ''), 'id')
+        if country_id:
+            country = text_to_obj(country_id, ID)
+        else:
+            country = None
     except:
         request.response.status = 400
         h.form_errors_for(request, 'country', 'Bad country id')
@@ -77,7 +88,7 @@ def person_edit(request):
 
     email = request.params.get('email', '')
     try:
-        permissions = text_to_obj(request.params.get('permissions', ''), 'text_list')
+        permissions = text_to_obj(request.params.get('permissions', ''), TextList)
     except:
         request.response.status = 400
         h.form_errors_for(request, 'permissions', 'Bad permissions format')

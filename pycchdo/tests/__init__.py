@@ -34,12 +34,11 @@ engine = None
 def setUpModule():
     global engine
     if engine is None:
-        log.info('connecting')
         env = bootstrap(os.path.join(os.getcwd(), 'test.ini'))
         settings = env['registry'].settings
         engine = engine_from_config(settings, 'sqlalchemy.')
         DBSession.configure(bind=engine)
-        FSFile.reconfig_fs_storage()
+        FSFile.fs_setup()
 
         if db_echo:
             sqlalchemy_logger = logging.getLogger('sqlalchemy.engine')

@@ -20,6 +20,7 @@ from sqlalchemy import engine_from_config
 from pycchdo import models, helpers
 from pycchdo.routes import configure_routes
 from pycchdo.models import DBSession, FSFile, Person, preload_person
+from pycchdo.models.filestorage import DirFileSystemStorage
 from pycchdo.models.search import SearchIndex
 
 
@@ -103,7 +104,7 @@ def main(global_config, **settings):
     """This function returns a Pyramid WSGI application."""
     engine = engine_from_config(settings, 'sqlalchemy.')
     DBSession.configure(bind=engine)
-    FSFile.reconfig_fs_storage(settings['fs_root'])
+    FSFile.fs_setup(root=settings['fs_root'])
 
     config = create_config(settings)
     _configure(config)

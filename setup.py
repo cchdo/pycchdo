@@ -1,4 +1,4 @@
-import os
+import os.path
 import sys
 
 from setuptools import setup, find_packages, Command
@@ -9,12 +9,9 @@ CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 
 _requires_framework = [
-    'repoze.tm2',
     'pyramid',
     'pyramid_jinja2',
     'pyramid_mailer',
-    'WebError',
-    'waitress',
 ]
 if sys.version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
@@ -34,20 +31,24 @@ _requires_app = [
     'shapely',
     'libcchdo',
 ]
-_requires_importer = [
-    'paramiko',
-]
 requires = \
     _requires_framework + \
     _requires_framework_db + \
-    _requires_app + \
-    _requires_importer
+    _requires_app
+
+
+extras_require = {
+    'dev': [
+        'WebError',
+        'waitress',
+    ],
+    'importer': ['paramiko'],
+}
 
 
 dependency_links = [
     #'hg+http://hg.sqlalchemy.org/sqlalchemy/@rel_0_8_8b2#egg=SQLAlchemy-0.8.8b2',
     #'http://hg.sqlalchemy.org/sqlalchemy/archive/8d82961d3464.tar.gz#egg=SQLAlchemy-0.8.0b2',
-    #'git+git@bitbucket.org:ghdc/libcchdo.git#egg=libcchdo',
     'https://bitbucket.org/ghdc/libcchdo/get/master.tar.bz2#egg=libcchdo',
 ]
 

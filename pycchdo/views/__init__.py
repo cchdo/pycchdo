@@ -14,6 +14,7 @@ from webob.multidict import MultiDict
 from pycchdo.models import Obj
 from pycchdo.models.types import *
 from pycchdo.models.file_types import data_file_human_names
+from pycchdo.util import guess_mime_type
 from pycchdo.log import ColoredLogger, DEBUG
 
 
@@ -188,7 +189,7 @@ def file_response(request, file, disposition='inline'):
         resp.last_modified = file.upload_date
     except AttributeError:
         pass
-    # For GridFiles (data files), there isn't really an expiry date.
+    # For data files, there isn't really an expiry date.
     # Let's set one for almost a month so we have the opportunity to change it.
     resp.cache_control.max_age = 60 * 60 * 24 * 30
 
@@ -202,7 +203,10 @@ def file_response(request, file, disposition='inline'):
         pass
     try:
         # TODO TEST that this must be string.
-        resp.content_type = str(file.content_type)
+        if file.content_type is not None and file.content_type != 'None':
+            resp.content_type = str(file.content_type)
+        else:
+            resp.content_type = guess_mime_type(file.name)
     except AttributeError:
         pass
     try:
@@ -211,8 +215,8 @@ def file_response(request, file, disposition='inline'):
     except AttributeError:
         resp.content_disposition = disposition
 
-    # HACK detect corrupted GridFiles (data in fs missing) before the
-    # framework gets handed the file to send
+    # HACK detect corrupted files (data in fs missing) before the framework gets
+    # handed the file to send
     try:
         resp.app_iter.read(1)
         resp.app_iter.seek(0)

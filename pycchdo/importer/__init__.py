@@ -3,7 +3,6 @@ from pprint import pformat
 from datetime import datetime, time
 import logging
 from contextlib import contextmanager
-import mimetypes
 from tempfile import NamedTemporaryFile
 import shutil
 import stat
@@ -30,6 +29,7 @@ from pycchdo.models import (
     )
 from pycchdo.models.search import SearchIndex
 from pycchdo.models.filestorage import copy_chunked
+from pycchdo.util import guess_mime_type
 from pycchdo.log import ColoredLogger, DEBUG, INFO, WARN, ERROR
 
 
@@ -312,13 +312,6 @@ def local_dl_dir(downloader, remotedir, localdir, hardlink=False):
     """
     log.info(u'locally copying {0}'.format(remotedir))
     _dl_dir(downloader, remotedir, localdir, listdir, lstat, local_copy_dir)
-
-
-def guess_mime_type(filename):
-    mime = mimetypes.guess_type(filename)[0]
-    if not mime:
-        mime = 'application/octet-stream'
-    return mime
 
 
 class Downloader(object):

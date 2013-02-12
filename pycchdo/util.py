@@ -1,5 +1,6 @@
 from datetime import datetime
 import socket
+import mimetypes
 
 from StringIO import StringIO as pyStringIO
 import transaction
@@ -21,6 +22,13 @@ def str2uni(x):
     if type(x) is str:
         return unicode(x)
     return x
+
+
+def guess_mime_type(filename):
+    mime = mimetypes.guess_type(filename)[0]
+    if not mime:
+        mime = 'application/octet-stream'
+    return mime
 
 
 def listlike(x):

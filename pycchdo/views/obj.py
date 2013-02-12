@@ -8,19 +8,18 @@ import pycchdo.models as models
 
 from . import *
 from pycchdo.log import ColoredLogger
-from pycchdo.models import DBSession, Note
+from pycchdo.models import DBSession, Note, Cruise, Obj
 from pycchdo.helpers import has_mod
+from pycchdo.views import log
 from pycchdo.views.staff import staff_signin_required
 from session import require_signin
 
 from sqlalchemy.orm import noload
 
-log = ColoredLogger(__name__)
-
 
 @staff_signin_required
 def objs(request):
-    objs = models.Obj.query().\
+    objs = Obj.query().\
         options(
             noload('cache_obj_avs'),
             noload('attrs_accepted'),
@@ -35,7 +34,7 @@ def obj_new(request):
     if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
-    obj_type = request.params.get('_obj_type', models.Obj.__name__)
+    obj_type = request.params.get('_obj_type', Obj.__name__)
     attributes = {}
     attrs = {}
     notes = []
@@ -65,7 +64,7 @@ def obj_new(request):
                     continue
             except TypeError:
                 pass
-            if k == 'track' and isinstance(obj, models.Cruise):
+            if k == 'track' and isinstance(obj, Cruise):
                 obj.set_accept(k, str_to_track(v), request.user)
             else:
                 if k in ['expocode', 'map_thumb', ]:
@@ -84,7 +83,7 @@ def obj_new(request):
     obj_id = obj.id
     transaction.commit()
 
-    if isinstance(obj, models.Cruise):
+    if isinstance(obj, Cruise):
         raise HTTPSeeOther(
             location=request.route_path('cruise_show', cruise_id=obj_id))
     return {'obj': obj}
@@ -93,7 +92,7 @@ def obj_new(request):
 @staff_signin_required
 def obj_show(request):
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.query().get(obj_id)
+    obj = Obj.query().get(obj_id)
     if not obj:
         raise HTTPNotFound()
 
@@ -127,7 +126,7 @@ def obj_show(request):
         except KeyError:
             pass
         transaction.commit()
-        obj = models.Obj.query().get(obj_id)
+        obj = Obj.query().get(obj_id)
 
 
     if obj.obj_type in ['Cruise', 'Person', 'Institution', 'Country']:
@@ -147,7 +146,7 @@ def obj_attrs(request):
     method = http_method(request)
 
     obj_id = request.matchdict['obj_id']
-    obj = models.Obj.query().get(obj_id)
+    obj = Obj.query().get(obj_id)
     if not obj:
         raise HTTPNotFound()
 
@@ -163,8 +162,8 @@ def obj_attrs(request):
     note_data_type = request.params.get('note_data_type', None)
     note_subject = request.params.get('note_subject', None)
     if note_body or note_action or note_data_type or note_subject:
-        note = models.Note(request.user.id, note_body, note_action,
-                           note_data_type, note_subject)
+        note = Note(
+            request.user.id, note_body, note_action, note_data_type, note_subject)
 
     key = request.params.get('key', None)
     if method == 'POST':
@@ -183,7 +182,7 @@ def obj_attrs(request):
         elif type == 'list':
             value = [_unescape(x) for x in value.split(',')]
         elif type == 'id':
-            value = models.Obj.query().get(value)
+            value = Obj.query().get(value)
             if value:
                 value = value.id
         else:

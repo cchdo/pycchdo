@@ -387,6 +387,10 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
         self.accepted = False
 
     @classmethod
+    def get_id(cls, id):
+        return cls.query().get(id)
+
+    @classmethod
     def only_if_accepted_is(cls, accepted=True):
         """Return a query for this class only when accepted or not."""
         return cls.query().filter(cls.accepted == accepted)
@@ -2752,10 +2756,11 @@ __cruise_allow_attrs = [
     ('country', [ID, Unicode]),
 
     ('collections', [IDList, Unicode]),
+    ('institutions', [IDList, Unicode]),
 
     ('track', LineString),
 
-    ('participants', ParticipantsType),
+    ('participants', [ParticipantsType, TextList]),
 
     ('parameter_informations', ParameterInformations), 
 

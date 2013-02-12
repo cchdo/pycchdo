@@ -1,5 +1,5 @@
 from urllib import quote_plus
-from re import search
+from re import search as re_search
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest
@@ -55,11 +55,11 @@ def search_results_json(request):
     }
 
 
-def _quote(str):
+def _quote(s):
     """ URL quoted keyword argument for query """
-    if search('\s', str):
-        str = '"%s"' % str
-    return quote_plus(str)
+    if re_search('\s', s):
+        str = '"{0}"'.format(s)
+    return quote_plus(s)
 
 
 def search(request):
@@ -71,7 +71,8 @@ def search(request):
 
     queries = []
     if 'query' in params:
-        raise HTTPSeeOther(location='/search/results?query=%s'%(params['query']))
+        raise HTTPSeeOther(
+            location='/search/results?query={0}'.format(params['query']))
     if params.get('line'): 
         queries.append("line:" + _quote(params['line']))
     if params.get('expocode'): 
@@ -87,5 +88,5 @@ def search(request):
     if params.get('search_date_max'):
         queries.append("to:" + _quote(params['search_date_max']))
     query = '+'.join(queries)
-    raise HTTPSeeOther(location='/search/results?query=%s'%(query))
+    raise HTTPSeeOther(location='/search/results?query={0}'.format(query))
 

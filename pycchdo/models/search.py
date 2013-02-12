@@ -209,7 +209,8 @@ class SearchIndex(object):
                 if buffered:
                     ixw.close()
                 else:
-                    ixw.cancel()
+                    # TODO TEST make sure the note is committed afterward.
+                    ixw.commit()
                 ix.close()
 
 

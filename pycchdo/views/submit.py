@@ -17,13 +17,9 @@ log = ColoredLogger(__name__)
 
 
 def _send_confirmation(request, d):
-    cchdo_email = 'cchdo@ucsd.edu'
     recipient = request.registry.settings.get(
         'submission_confirmation_recipient')
-    if recipient:
-        recipients = [recipient]
-    else:
-        recipients = [request.user.email, cchdo_email]
+    recipients = [request.user.email, recipient]
 
     d['user_name'] = request.user.name
     d['file_noun'] = h.whtext.plural(

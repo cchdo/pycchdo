@@ -19,7 +19,7 @@ db_search_index_path = /Users/myshen/var/pycchdo_search_index
 fs_root = /Users/myshen/var/pycchdo_fs
 
 # submission confirmation recipient (leave blank for default)
-submission_confirmation_recipient = 
+submission_confirmation_recipient = cchdo@ucsd.edu
 
 # Security keys
 # TODO change the secrets

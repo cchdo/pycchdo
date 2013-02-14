@@ -1,5 +1,5 @@
 import os.path
-import sys
+from sys import version_info
 
 from setuptools import setup, find_packages, Command
 
@@ -12,28 +12,34 @@ _requires_framework = [
     'pyramid',
     'pyramid_jinja2',
     'pyramid_mailer',
+    'pyramid_webassets',
 ]
-if sys.version_info[:3] < (2,5,0):
+if version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
-_requires_framework_db = [
+_requires_db_fs = [
     'SQLAlchemy>=0.8.0b2',
+    'geoalchemy',
     'transaction',
     'pyramid_tm',
-    'django',
     'zope.sqlalchemy',
+    'django',
+]
+_requires_assets = [
+    'cssmin',
+    'closure',
 ]
 _requires_app = [
     'webhelpers',
     'pyKML',
     'whoosh',
-    'geoalchemy',
     'geojson',
     'shapely',
     'libcchdo',
 ]
 requires = \
     _requires_framework + \
-    _requires_framework_db + \
+    _requires_db_fs + \
+    _requires_assets + \
     _requires_app
 
 

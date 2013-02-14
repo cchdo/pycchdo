@@ -1,9 +1,9 @@
 {%- if 'US Repeat Hydrography' in h.collection_names(cruise.collections) %}
-  {% extends "templates/ushydro.jinja2" %}
+  {% extends "ushydro.jinja2" %}
 {%- else %}
-  {% extends "templates/base.jinja2" %}
+  {% extends "base.jinja2" %}
 {%- endif %}
-{%- from "templates/_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
+{%- from "_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
 {% block title %}Cruise {{cruise.uid or ''}}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
@@ -381,7 +381,7 @@
   </div>
   {%- if cruise.track %}
     {%- call h.boxed('Plot', id='plot') %}
-      {%- include "templates/_noscript_warning.txt" %}
+      {%- include "_noscript_warning.txt" %}
       <div id="plot_map"></div>
       <textarea>{{ h.track_as_string(cruise.track)}}</textarea>
     {%- endcall %}

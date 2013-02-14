@@ -1,4 +1,4 @@
-{% extends "templates/base.jinja2" %}
+{% extends "base.jinja2" %}
 {% block head %}
   {{ whh.tags.stylesheet_link('/static/css/session/identify.css') }}
 {% endblock %}
@@ -30,5 +30,5 @@
 {% endblock %}
 {% block js %}
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
-  {%- if not request.user %}{% include 'templates/_janrain.html' ignore missing %}{%- endif %}
+  {%- if not request.user %}{% include '_janrain.html' ignore missing %}{%- endif %}
 {% endblock %}

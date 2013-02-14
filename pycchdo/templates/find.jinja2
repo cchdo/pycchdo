@@ -1,4 +1,4 @@
-{% extends "templates/base.jinja2" %}
+{% extends "base.jinja2" %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/static.css') }}
 {%- endblock %}
@@ -27,7 +27,7 @@
       {{ whh.HTML.li(whh.tags.link_to('Indian', '/indian.html')) }}
       {{ whh.HTML.li(whh.tags.link_to('Southern', '/southern.html')) }}
     </ul>
-    {%- include "templates/_basin_selector.jinja2" %}
+    {%- include "_basin_selector.jinja2" %}
   </div>
 
   <div id="time-series" class="sub-section">

@@ -1,9 +1,9 @@
-{% extends "templates/base.jinja2" %}
+{% extends "base.jinja2" %}
 {% block title %}Tools{% endblock %}
 {% block content -%}
 {% call h.boxed('Tools') -%}
   {%- if h.has_staff(request) %}
-    {%- include 'templates/_tools_list.jinja2' %}
+    {%- include '_tools_list.jinja2' %}
   {%- endif %}
 {%- endcall %}
 {%- endblock %}

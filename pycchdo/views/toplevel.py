@@ -7,6 +7,8 @@ from pyramid.response import Response
 from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
+from jinja2.exceptions import TemplateNotFound
+
 import pycchdo.models as models
 from pycchdo.models import (
     Cruise, Parameter, Unit, disjoint_load_obj, disjoint_load_list,
@@ -195,15 +197,14 @@ def catchall_static(request):
     except TypeError:
         raise HTTPNotFound()
 
-    project_path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-    static_path = os.path.join('templates', 'static')
-
-    path = os.path.join(project_path, static_path, subpath)
+    static_path = 'static'
     relpath = os.path.join(static_path, subpath)
 
     try:
-        if os.path.isfile(path):
-            return render_to_response(relpath, {}, request)
+        return render_to_response(relpath, {}, request)
+    except TemplateNotFound, e:
+        log.error('template not found: {0}\n{1}'.format(relpath, e))
+        raise HTTPNotFound()
     except TypeError:
         raise HTTPNotFound()
     raise HTTPNotFound()

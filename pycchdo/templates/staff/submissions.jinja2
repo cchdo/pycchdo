@@ -1,5 +1,5 @@
-{% extends "templates/staff.jinja2" %}
-{% from "templates/_notes.jinja2" import show_notes, note_editor with context %}
+{% extends "staff.jinja2" %}
+{% from "_notes.jinja2" import show_notes, note_editor with context %}
 {%- macro row_if_exists(t, x) %}
   {%- if x %}
     <tr><th>{{ t }}</th><td>{{ x }}</td></tr>

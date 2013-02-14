@@ -19,3 +19,4 @@ dist
 *.tmp*
 import_assets
 *.ini
+.webassets-cache

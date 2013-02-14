@@ -18,8 +18,8 @@ log = ColoredLogger(__name__)
 
 def _send_confirmation(request, d):
     recipient = request.registry.settings.get(
-        'submission_confirmation_recipient')
-    recipients = [request.user.email, recipient]
+        'submission_confirmation_recipient', None)
+    recipients = filter(None, [request.user.email, recipient])
 
     d['user_name'] = request.user.name
     d['file_noun'] = h.whtext.plural(

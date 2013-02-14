@@ -1,5 +1,6 @@
 [app:pycchdo]
-use = egg:pycchdo
+app = pycchdo
+use = egg:%(app)s
 
 reload_templates = false
 debug_authorization = false
@@ -11,12 +12,13 @@ pyramid.includes =
     pyramid_jinja2
     pyramid_mailer
     pyramid_tm
+    pyramid_webassets
 
 # Search index
-db_search_index_path = /Users/myshen/var/pycchdo_search_index
+db_search_index_path = /Users/myshen/var/%(app)s_search_index
 
 # filesystem root
-fs_root = /Users/myshen/var/pycchdo_fs
+fs_root = /Users/myshen/var/%(app)s_fs
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = cchdo@ucsd.edu
@@ -27,6 +29,11 @@ key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
 sqlalchemy.url = postgresql://pycchdo:pycchd0@315@h2o.ucsd.edu:5432/prod_pycchdo
+
+webassets.base_dir = %(here)s/%(app)s/static
+# Do not set base_url to /static or it will mask real static files
+webassets.base_url = /static/media
+webassets.cache = False
 
 [filter:weberror]
 use = egg:WebError#error_catcher

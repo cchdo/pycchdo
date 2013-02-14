@@ -1,5 +1,5 @@
 {{ whh.tags.Doctype().html5() }}
-{%- import "templates/_helpers_layout.jinja2" as helpers_layout %}
+{%- import "_helpers_layout.jinja2" as helpers_layout %}
 <html>
 <head>
   <meta charset="utf-8">
@@ -8,9 +8,15 @@
   <link rel="shortcut icon" href="/static/favicon.ico">
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="apple-touch-icon-precomposed" type="image/png" href="/static/img/iphone_icon.png">
-  {{ whh.tags.stylesheet_link('/static/css/normalize.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/screen.css') }}
-  {%- include 'templates/_ua.jinja2' ignore missing %}
+  {%- assets
+    filters='cssmin,gzip',
+    output='main.css',
+    'css/normalize.css',
+    'css/screen.css',
+  %}
+    {{ whh.tags.stylesheet_link(ASSET_URL, media='screen') }}
+  {%- endassets %}
+  {%- include '_ua.jinja2' ignore missing %}
   {%- block staff_head %}{%- endblock %}
   {%- block head %}{%- endblock %}
   {%- block subhead %}{%- endblock %}
@@ -20,11 +26,11 @@
   {{ whh.tags.stylesheet_link('/static/css/handheld.css', media='handheld', class="mobile") }}
   <meta class="mobile" name="viewport" content="width=device-width initial-scale=1 user-scalable=1 target-densityDpi=device-dpi">
 
-  {{ whh.tags.stylesheet_link('http://fonts.googleapis.com/css?family=Open+Sans') }}
+  {{ whh.tags.stylesheet_link('//fonts.googleapis.com/css?family=Open+Sans') }}
 </head>
 <body>
   <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
-    {%- include 'templates/_base_header.jinja2' with context %}
+    {%- include '_base_header.jinja2' with context %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
       {%- if request.session.peek_flash('action_taken') -%}
         {%- set actions_taken = request.session.pop_flash('action_taken') %}
@@ -42,13 +48,19 @@
       {%- block subcontent %}{%- endblock %}
       {% block content -%}{%- endblock %}
     </div>
-    {%- include 'templates/_base_footer.html' %}
+    {%- include '_base_footer.html' %}
   </div>
   <div id="scripts">
-    {{- whh.tags.javascript_link('/static/js/base.js') }}
+    {%- assets
+      filters='rjsmin',
+      output='base.js',
+      'js/base.js'
+    %}
+       {{ whh.tags.javascript_link(ASSET_URL) }}
+    {%- endassets %}
     {%- block js %}{%- endblock %}
-    {%- include 'templates/_track.html' ignore missing %}
-    {%- include 'templates/_ie6.html' ignore missing %}
+    {%- include '_track.html' ignore missing %}
+    {%- include '_ie6.html' ignore missing %}
   </div>
 </body>
 </html>

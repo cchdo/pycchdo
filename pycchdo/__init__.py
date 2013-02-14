@@ -9,6 +9,8 @@ from pyramid.security import unauthenticated_userid
 from pyramid.httpexceptions import HTTPUnauthorized, HTTPInternalServerError
 from pyramid.exceptions import NotFound
 
+from webassets import Bundle
+
 import webhelpers
 import webhelpers.html
 import webhelpers.html.tags
@@ -47,6 +49,10 @@ class RequestFactory(Request):
 
 
 def _configure_bindings(config):
+    config.add_jinja2_extension('webassets.ext.jinja2.AssetsExtension')
+    assets_env = config.get_webassets_env()
+    config.get_jinja2_environment().assets_environment = assets_env
+    # This needs to come after the assets_environment set
     config.add_jinja2_search_path('pycchdo:templates')
 
 
@@ -64,8 +70,8 @@ def _configure_renderers(config):
     config.add_renderer('json', 'pycchdo.renderer_factory.json')
 
 
-def _add_error_view(config, view_callable, context,
-                   renderer='errors/xxx.jinja2'):
+def _add_error_view(
+        config, view_callable, context, renderer='errors/xxx.jinja2'):
     config.add_view(view_callable, context=context, renderer=renderer)
 
 

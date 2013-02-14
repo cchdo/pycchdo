@@ -1,4 +1,4 @@
-{% extends "templates/base.jinja2" %}
+{% extends "base.jinja2" %}
 {%- block title %} CLIVAR & Carbon Hydrographic Data Office{%- endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/home.css') }}
@@ -48,7 +48,7 @@
       </li>
       <li id="basin">
         <h2>Click on a basin</h2>
-        {%- include "templates/_basin_selector.jinja2" %}
+        {%- include "_basin_selector.jinja2" %}
       </li>
     </ul>
     <div class="clear"></div>
@@ -103,6 +103,12 @@
   {% endcall %}
 {% endblock %}
 {% block js %}
-  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
-  {{ whh.tags.javascript_link('/static/js/basin_selector.js') }}
+  {%- assets
+    filters='rjsmin',
+    output='home.js',
+    'js/jquery-1.4.4.min.js',
+    'js/basin_selector.js'
+  %}
+     {{ whh.tags.javascript_link(ASSET_URL) }}
+  {%- endassets %}
 {% endblock %}

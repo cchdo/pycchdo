@@ -191,7 +191,7 @@ def data(request):
 
 
 def catchall_static(request):
-    """ Wraps any static templates with the layout """
+    """Wraps any static templates with the layout."""
     try:
         subpath = os.path.join(*request.matchdict['subpath'])
     except TypeError:
@@ -203,8 +203,9 @@ def catchall_static(request):
     try:
         return render_to_response(relpath, {}, request)
     except TemplateNotFound, e:
-        log.error('template not found: {0}\n{1}'.format(relpath, e))
+        log.error(u'template not found: {0}\n{1}'.format(relpath, e))
         raise HTTPNotFound()
-    except TypeError:
+    except (ValueError, TypeError), e:
+        log.error(u'Failed rendering catchall static: {0!r}'.format(e))
         raise HTTPNotFound()
     raise HTTPNotFound()

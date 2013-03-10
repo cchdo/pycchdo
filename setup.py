@@ -17,6 +17,7 @@ _requires_framework = [
 if version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
 _requires_db_fs = [
+    'psycopg2',
     'SQLAlchemy>=0.8.0b2',
     'geoalchemy',
     'transaction',
@@ -45,6 +46,7 @@ requires = \
 
 extras_require = {
     'dev': [
+        'pyramid_debugtoolbar',
         'WebError',
         'waitress',
     ],
@@ -79,6 +81,7 @@ setup(
     test_suite='pycchdo.tests',
     install_requires=requires,
     dependency_links=dependency_links,
+    extras_require=extras_require,
     entry_points = {
         'paste.app_factory': [
             'main = pycchdo:main',

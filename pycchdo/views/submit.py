@@ -17,6 +17,7 @@ log = ColoredLogger(__name__)
 
 
 def _send_confirmation(request, d):
+    cchdo_email = 'cchdo@ucsd.edu'
     recipient = request.registry.settings.get(
         'submission_confirmation_recipient', None)
     recipients = filter(None, [request.user.email, recipient])

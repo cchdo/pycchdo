@@ -304,7 +304,7 @@ def _ensure_cruise(cruise, updater):
     return ccc
 
 
-def _import_cruise(updater, cruise, sftp_goship, dl_files=True):
+def _import_cruise(updater, cruise, downloader):
     c = _ensure_cruise(cruise, updater)
     c.acknowledge(updater.importer)
     c.creation_timestamp = cruise.created_at
@@ -374,7 +374,7 @@ def _import_cruise(updater, cruise, sftp_goship, dl_files=True):
         updater.attr(c, 'collections', [col.id for col in collections])
 
     for resource in cruise.resources:
-        _import_resource(resource, updater, sftp_goship, dl_files)
+        _import_resource(resource, updater, downloader)
 
     ds = None
     de = None
@@ -394,10 +394,10 @@ def _import_cruise(updater, cruise, sftp_goship, dl_files=True):
     return c
 
 
-def _import_cruises(sftp_goship, sesh, updater, dl_files=True):
+def _import_cruises(downloader, sesh, updater):
     cruises = sesh.query(SCruise).all()
     for c in cruises:
-        _import_cruise(updater, c, sftp_goship, dl_files)
+        _import_cruise(updater, c, downloader)
 
 
 def _ensure_inst(updater, inst_id):
@@ -574,7 +574,7 @@ def _import_program(program, updater):
     return col
 
 
-def _import_resource(resource, updater, sftp_goship, dl_files=True):
+def _import_resource(resource, updater, downloader):
     if not resource.cruise:
         log.error('Resource %s is missing cruise' % resource.id)
         return None
@@ -598,7 +598,7 @@ def _import_resource(resource, updater, sftp_goship, dl_files=True):
         cruise_id = cruise.get('import_id').replace('seahunt', '')
         path = os.path.join(rails_root, 'public', 'docs', 'ids', cruise_id,
                             file.filename)
-        with sftp_dl(sftp_goship, path, dl_files=dl_files) as downloaded:
+        with downloader.dl(path) as downloaded:
             if downloaded:
                 file.file = downloaded
                 with su():
@@ -700,7 +700,7 @@ def clear():
     return 
 
 
-def import_(args):
+def import_(import_gid, args):
     dl_files = not args.skip_downloads
 
     log.info("Get/Create Seahunt Importer to take blame")
@@ -711,8 +711,9 @@ def import_(args):
     with db_session(session()) as sesh:
         su = (sesh, updater)
 
-        with sftp('goship.ucsd.edu') as (ssh_goship, sftp_goship):
-            _import_cruises(sftp_goship, sesh, updater, dl_files)
+        with conn_dl('goship.ucsd.edu', args.skip_downloads,
+                     import_gid) as downloader:
+            _import_cruises(downloader, sesh, updater)
         if not args.files_only:
             _import_institutions(*su)
             _import_contacts(*su)

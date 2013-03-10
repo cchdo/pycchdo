@@ -831,11 +831,10 @@ def _run_importers(importers, nthreads=6, remote_downloads=False, sleep=0.5):
         sftp_pool = []
         for i in range(nthreads):
             try:
-                ssh = ssh_connect(remote_host)
-                sftp = ssh.open_sftp()
+                ssh_sftp = SFTP(remote_host)
             except SSHException, e:
                 log.error(repr(e))
-            sftp_pool.append((ssh, sftp))
+            sftp_pool.append(ssh_sftp)
 
     active_importers = []
     while importers:
@@ -870,9 +869,8 @@ def _run_importers(importers, nthreads=6, remote_downloads=False, sleep=0.5):
 
     log.debug(u'closing sftp connections')
     if remote_downloads:
-        for ssh, sftp in sftp_pool:
-            sftp.close()
-            ssh.close()
+        for ssh_sftp in sftp_pool:
+            ssh_sftp.__exit__(None, None, None)
 
 
 def _import_track_lines(session):
@@ -1317,7 +1315,7 @@ def _import_old_submissions(session, downloader):
             map_submissions[sub.Folder] = submission
 
         with downloader.dl(sub.Location) as file:
-            if file is None and downloader.dl_files:
+            if file is None and not downloader.dryrun:
                 if sub.Location in _known_bad_old_submissions:
                     log.info(
                         u'Skipping known bad Old Submission: {0}'.format(
@@ -1331,6 +1329,7 @@ def _import_old_submissions(session, downloader):
                     not any(f.name == sub.Filename for f in submission.files)):
                 submission.files.append(FSFile(file, sub.Filename))
             DBSession.add(submission)
+        with su(su_lock=downloader.su_lock):
             DBSession.flush()
 
 
@@ -2483,13 +2482,12 @@ def import_(import_gid, nthreads, args):
 
         transaction.commit()
         transaction.begin()
-        with sftp(remote_host) as ssh_sftp:
-            downloader = Downloader(
-                not args.skip_downloads, ssh_sftp, import_gid,
-                local_rewriter=rewrite_dl_path_to_local, su_lock=Lock())
-            #_import_submissions(session, downloader)
-            #_import_old_submissions(session, downloader)
-            #_import_queue_files(session, downloader)
+        with conn_dl(remote_host, args.skip_downloads, import_gid,
+                     local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
+                    ) as downloader:
+            _import_submissions(session, downloader)
+            _import_old_submissions(session, downloader)
+            _import_queue_files(session, downloader)
             _import_documents(session, downloader, nthreads - 1)
-            #_import_argo_files(session, downloader)
+            _import_argo_files(session, downloader)
         transaction.commit()

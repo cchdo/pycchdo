@@ -67,4 +67,5 @@ ALTER DATABASE {dbname} OWNER TO {owner};
             raise ValueError(stderr)
 
     engine = engine_from_config(settings)
-    reset_database(engine)
+    if args.full_reset:
+        reset_database(engine)

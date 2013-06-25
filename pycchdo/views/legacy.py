@@ -28,6 +28,11 @@ def data_access_show_cruise(request):
     raise HTTPMovedPermanently(location='/cruise/%s' % expocode)
 
 
+def list_files(request):
+    # TODO
+    raise HTTPNotFound()
+
+
 def data_df(request):
     """ Serve legacy data files that used to be served from /data prefix
     """
@@ -63,13 +68,21 @@ def queue(request):
     raise HTTPMovedPermanently(location=request.route_path('staff_moderation'))
 
 
+def data_history(request):
+    try:
+        expocode = request.params['ExpoCode']
+        raise HTTPSeeOther(
+            location=request.route_url(
+                'cruise_show', cruise_id=expocode, _anchor='history'))
+    except KeyError, err:
+        raise HTTPSeeOther(
+            location=request.route_path('advanced_search'))
+
+
 def groups(request):
     group = request.params['id']
+    raise HTTPMovedPermanently(
+        location=request.route_path(
+            'search_results', _query=[('query', 'group:{0}'.format(group))]))
 
-    colls = Collection.get_all_by_name(group)
-    if colls:
-        coll_id = colls[0].id
-        location=request.route_path('collection_show', collection_id=coll_id)
-    else:
-        location=request.route_path('collection_index')
-    raise HTTPSeeOther(location=location)
+table = groups

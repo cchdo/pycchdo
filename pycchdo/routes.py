@@ -164,6 +164,9 @@ def configure_routes(config):
     route_path(config, 'search_no_ext', '/search',
                'pycchdo.views.legacy.add_extension')
 
+    route_path(config, 'search_list_files', '/search/list_files',
+               'pycchdo.views.legacy.list_files')
+
     route_path(config, 'search_results', '/search/results.html',
                'pycchdo.views.search.search_results', 'search/results.jinja2')
     route_path(config, 'search_results_no_ext', '/search/results',
@@ -197,8 +200,19 @@ def configure_routes(config):
                'pycchdo.views.legacy.data_access')
     route_path(config, 'data_access_show_cruise', '/data_access/show_cruise',
                'pycchdo.views.legacy.data_access_show_cruise')
+    route_path(config, 'data_access_list_cruises', '/data_access/list_cruises',
+               'pycchdo.views.legacy.data_access')
+    route_path(config, 'data_access_advanced_search',
+               '/data_access/advanced_search',
+               'pycchdo.views.legacy.data_access')
+    route_path(config, 'data_history', '/data_history',
+               'pycchdo.views.legacy.data_history')
+    route_path(config, 'data_history_full', '/data_history/full',
+               'pycchdo.views.legacy.data_history')
     route_path(config, 'submit_no_ext', '/submit',
                'pycchdo.views.legacy.add_extension')
+    route_path(config, 'table', '/table',
+               'pycchdo.views.legacy.table')
     route_path(config, 'groups', '/groups',
                'pycchdo.views.legacy.groups')
 

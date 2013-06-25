@@ -20,3 +20,4 @@ dist
 import_assets
 *.ini
 .webassets-cache
+pycchdo/static/screen.css.gz

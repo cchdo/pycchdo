@@ -35,6 +35,7 @@ sqlalchemy.url = postgresql://pycchdo:pycchd0@315@ghdc.ucsd.edu:5432/dev_pycchdo
 webassets.base_dir = %(here)s/%(app)s/static
 # Do not set base_url to /static or it will mask real static files
 webassets.base_url = /static/media
+webassets.debug = True
 
 [pipeline:main]
 pipeline =

@@ -709,27 +709,40 @@ table.notes {
 .search-results h3 {
   margin-top: 0.5em;
 }
-.search-results table.cruise-listing {
+.search-results .cruise-listing {
   margin-bottom: 1em;
 }
 
 /* cruise listing */
-table.cruise-listing .meta td,
-table.cruise-listing .body td {
+.cruise-listing .meta td,
+.cruise-listing .body td {
   vertical-align: top;
 }
-table.cruise-listing .cruise-track-img {
+.cruise-listing .cruise-track-img {
   position: relative;
   max-width: 128px;
 }
-table.cruise-listing th.identifier,
-table.cruise-listing th.country {
+.cruise-listing th.identifier,
+.cruise-listing th.country {
   width: 15%;
 }
-table.cruise-listing th.ship,
-table.cruise-listing th.cruise_dates {
+.cruise-listing th.ship,
+.cruise-listing th.cruise_dates {
   width: 20%;
 }
-table.cruise-listing th.chief_scientists {
+.cruise-listing th.chief_scientists {
   width: 30%;
+}
+.cruise-listing .tools {
+  background: #C8DBF9;
+  width: 99.9%;
+}
+.cruise-listing .tools .tool-count {
+  padding: 0.2em 0.3em;
+}
+
+span.datesep {
+  font-size: 0.6em;
+  padding: 0 0.3em;
+  color: #CCCCCC;
 }

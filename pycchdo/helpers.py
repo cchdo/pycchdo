@@ -369,7 +369,8 @@ def cruise_dates(cruise):
         end = date_to_nice(cruise.date_end)
     except AttributeError:
         end = None
-    combined = '/'.join(map(str, filter(None, (start, end))))
+    joiner = H.span('/', class_='datesep')
+    combined = whh.literal(joiner.join(map(str, filter(None, (start, end)))))
     return (start, end, combined)
 
 
@@ -607,7 +608,13 @@ def cruise_listing(cruises, pre_expand=False, allow_empty=False):
     table_class = 'has-meta-bodies cruise-listing'
     if pre_expand:
         table_class += ' pre-expand'
-    return H.table(*list, class_=table_class)
+    table = H.table(*list, class_=table_class)
+    section = H.div(
+        H.div(
+            H.div(whtext.plural(len(cruises), 'result', 'results'),
+                class_='tool tool-count'), class_='tools'),
+        table, class_='cruise-listing')
+    return section
 
 
 def track_as_string(track):

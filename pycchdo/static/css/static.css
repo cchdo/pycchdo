@@ -322,3 +322,12 @@
 .boxed.find #list {
   clear: both;
 }
+
+.woce-flags h2 {
+  color: #006F89;
+  font-size: 1.2em;
+}
+.woce-flags th {
+  font-size: 1.2em;
+  border-bottom: 1px solid #AAAAAA;
+}

@@ -15,8 +15,9 @@ from pykml.factory import KML_ElementMaker as KML
 from lxml import etree
 
 from libcchdo import LOG
-from libcchdo.fns import read_arbitrary, uniquify
 from libcchdo.model.datafile import DataFile
+from libcchdo.fns import uniquify
+from libcchdo.formats.formats import read_arbitrary
 from libcchdo.formats import google_wire
 import libcchdo.formats.netcdf_oceansites as nc_os
 import libcchdo.formats.ctd.netcdf as ctdnc

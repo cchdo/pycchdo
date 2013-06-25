@@ -1,0 +1,42 @@
+{%- extends 'static/static.jinja2' %}
+{%- block title %}WOCE flags{%- endblock %}
+{%- block content %}
+  {%- call h.boxed('WOCE flags', class='woce-flags') -%}
+    <h2 id="!bottle-quality-flags-woce-manual-table-48">Bottle Quality Flags (WOCE manual Table 4.8)</h2>
+    <p>Use of ﬂag 1 is generally limited to non-WOCE or pre-WOCE cruises where bottle
+    information is not available. BTLNBR is set equal –9 in such data sets. WOCE cruises
+    should use ﬂag 5 if bottle information is not reported.</p>
+    <p>Flags 6, 7, and 8 apply primarily to large volume samplers.</p>
+
+    <table>
+      <tbody>
+        <tr><th>number</th><th>description</th></tr>
+        <tr><td>1</td><td>Bottle information unavailable.</td></tr>
+        <tr><td>2</td><td>No problems noted.</td></tr>
+        <tr><td>3</td><td>Leaking.</td></tr>
+        <tr><td>4</td><td>Did not trip correctly.</td></tr>
+        <tr><td>5</td><td>Not reported.</td></tr>
+        <tr><td>6</td><td>Signiﬁcant discrepancy in measured values between Gerard and Niskin bottles.</td></tr>
+        <tr><td>7</td><td>Unknown problem.</td></tr>
+        <tr><td>8</td><td>Pair did not trip correctly. Note that the Niskin bottle can trip at an unplanned depth while the Gerard trips correctly and vice versa.</td></tr>
+        <tr><td>9</td><td>Samples not drawn from this bottle.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="!water-sample-quality-flags-woce-manual-table-49">Water sample quality flags (WOCE manual Table 4.9)</h2>
+    <table>
+      <tbody>
+        <tr><th>number</th><th>description</th><th>note</th></tr>
+        <tr><td>1</td><td>Sample for this measurement was drawn from water bottle but analysis not received. Note that if water is drawn for any measurement from a water bottle, the quality ﬂag for that parameter must be set equal to 1 initially to ensure that all water samples are accounted for.</td><td></td></tr>
+        <tr><td>2</td><td>Acceptable measurement.</td><td></td></tr>
+        <tr><td>3</td><td>Questionable measurement.</td><td></td></tr>
+        <tr><td>4</td><td>Bad measurement.</td><td></td></tr>
+        <tr><td>5</td><td>Not reported.</td><td>Don't misinterpret this as flag not reported. This means data was not reported.</td></tr>
+        <tr><td>6</td><td>Mean of replicate measurements (Number of replicates should be speciﬁed in the —.DOC ﬁle and replicate data tabulated).</td><td></td></tr>
+        <tr><td>7</td><td>Manual chromatographic peak measurement.</td><td></td></tr>
+        <tr><td>8</td><td>Irregular digital chromatographic peak integration.</td><td></td></tr>
+        <tr><td>9</td><td>Sample not drawn for this measurement from this bottle.</td><td></td></tr>
+      </tbody>
+    </table>
+  {%- endcall %}
+{%- endblock %}

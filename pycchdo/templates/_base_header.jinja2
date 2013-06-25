@@ -1,25 +1,27 @@
 <div id="gheader">
-  <a href="/">
-    {{- whh.tags.image('/static/img/logos/CCHDO_logo.png',
-                       'CLIVAR & Carbon Hydrographic Data Office (CCHDO)',
-                       id_='cchdo_logo')
-    }}</a>
-  <p id="session_status" class="{% if h.has_mod(request) %}moderator{% endif %}">
-    {% if request.user -%}
-      {{ h.link_person(request.user) }}
-      <a id="not-user" href="/session/delete?location={{request.route_path('session_identify')}}">Not {{ request.user.name }}?</a>
-      <a id="signout" href="/session/delete">Sign out</a>
-    {%- else -%}
-      <a href="/session/identify">Sign in</a>
-    {%- endif %}
-  </p>
-  <div id="gsearch">
+  <div id="cchdo_logo" class="masthead-block">
+    <a href="/">
+      {{- whh.tags.image('/static/img/logos/CCHDO_logo.png',
+                         'CLIVAR & Carbon Hydrographic Data Office (CCHDO)')
+      }}</a>
+  </div>
+  <div id="gsearch" class="masthead-block">
     <form action="/search" method="GET">
       {%- set query = request.session.get('query', '') %}
       <input id="query" name="query" type="search" {% if query %}value="{{query}}" {% endif %}x-webkit-speech>
       <input type="submit" value="Search Data">
     </form>
-    <p><a href="/search/advanced">Advanced</a></p>
+  </div>
+  <div class="masthead-block masthead-right">
+    <div id="session_status" class="masthead-block{% if h.has_mod(request) %} moderator{% endif %}">
+      {% if request.user -%}
+        <p>{{ h.link_person(request.user) }}</p>
+        <a id="not-user" href="/session/delete?location={{request.route_path('session_identify')}}">Not {{ request.user.name }}?</a>
+        <a id="signout" href="/session/delete">Sign out</a>
+      {%- else -%}
+        <a href="/session/identify">Sign in</a>
+      {%- endif %}
+    </div>
   </div>
 </div>
 <div id="picture">

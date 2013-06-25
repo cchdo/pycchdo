@@ -200,22 +200,66 @@ tr.odd {
 
 #centering {
   margin: 0 auto;
-  margin-top: 0.5em;
   width: 1024px;
 }
 
 #gheader {
   position: relative;
+  height: 45px;
+  margin: 0.2em 0;
 }
 
-#cchdo_logo {
-  height: 3.5em;
+.masthead-block {
+  float: left;
+  height: 3.05em;
+  padding: 0.35em 0.35em 0.2em 0.2em;
+}
+.masthead-right {
+  float: right;
+  padding-right: 0;
+}
+.masthead-right .masthead-block {
+  padding: 0 0.2em 0 0.2em;
+  height: 100%;
+  text-align: center;
+}
+
+#cchdo_logo img {
+  height: 45px;
+}
+#cchdo_logo.masthead-block {
+  padding: 0;
+}
+
+#gsearch {
+  padding-top: 0.6em;
+}
+#gsearch form {
+}
+#gsearch #query {
+  font-size: 1.3em;
+  line-height: 1.2em;
+  width: 15em;
+  height: 1.4em;
+}
+#query:focus {
+  border: 1px solid #67A9BB;
+  border-left: none;
+  border-right: none;
+  outline: none;
+}
+#gsearch input[type="submit"] {
+  font-size: 1.3em;
+  line-height: 1em;
+  margin-left: -0.2em;
+  height: 1.6em;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  -moz-border-radius-topleft: 0;
+  -moz-border-radius-bottomleft: 0;
 }
 
 #session_status {
-  position: absolute;
-  top: 0;
-  right: 24em;
   text-align: right;
 }
 #session_status.moderator {
@@ -226,24 +270,10 @@ tr.odd {
   font-size: 0.6em;
   font-style: italic;
 }
+#signout {
+  font-size: 0.7em;
+}
 
-#gsearch {
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-input#query {
-  font-size: 1.1em;
-}
-#query:focus {
-  border: 1px solid #67A9BB;
-  border-left: none;
-  border-right: none;
-  outline: none;
-}
-#gsearch input[type="submit"] {
-  vertical-align: middle;
-}
 input {
   vertical-align: top;
 }

@@ -31,6 +31,7 @@ key_session_factory = itsaseekreet
 
 sqlalchemy.url = postgresql://pycchdo:pycchd0@315@ghdc.ucsd.edu:5432/dev_pycchdo
 #sqlalchemy.echo = True
+sqlalchemy.pool_timeout = 10
 
 webassets.base_dir = %(here)s/%(app)s/static
 # Do not set base_url to /static or it will mask real static files

@@ -32,7 +32,7 @@
            important. Also, cruises are the only Obj that
            can't have cruises associated with them. #}
         <h2>Cruises</h2>
-        {{- h.cruise_listing(results['cruise'], pre_expand=True) }}
+        {{- h.cruise_listing(request, results['cruise'], pre_expand=True) }}
       {%- endif %}
 
       {%- for category, items in results.items() %}
@@ -41,7 +41,7 @@
           {%- for result in items %}
             <h3>{{- h.link_obj_polymorph(result) }}</h3>
             {%- if items[result]|length > 0 %}
-              {{- h.cruise_listing(items[result]) }}
+              {{- h.cruise_listing(request, items[result]) }}
             {%- endif %}
           {%- endfor %}
         {%- endif %}
@@ -66,9 +66,14 @@
 {%- endblock %}
 
 {%- block js %}
-  {{ whh.tags.javascript_link('/static/js/jquery-1.7.1.min.js') }}
-  {{ whh.tags.javascript_link('/static/js/jquery-ui-1.8.14.custom.min.js') }}
-  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
-  {{ whh.tags.javascript_link('/static/js/timeglider/timeglider-0.1.3.min.js') }}
-  {{ whh.tags.javascript_link('/static/js/search_results.js') }}
+  {%- assets
+    filters='rjsmin,gzip',
+    output='gen/search.results.js.gz',
+    'js/metaTable.js',
+    'js/jquery-ui-1.8.14.custom.min.js',
+    'js/timeglider/timeglider-0.1.3.min.js',
+    'js/search_results.js'
+  %}
+     {{ whh.tags.javascript_link(ASSET_URL) }}
+  {%- endassets %}
 {%- endblock %}

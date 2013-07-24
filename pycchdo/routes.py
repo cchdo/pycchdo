@@ -193,6 +193,28 @@ def configure_routes(config):
     route_path(config, 'legacy_map_search', '/map_search', 
                'pycchdo.views.legacy.map_search')
 
+    # Datacart
+    route_path(config, 'datacart', '/datacart.html',
+               'pycchdo.views.datacart.index', 'datacart/index.jinja2')
+    route_path(config, 'datacart_add', '/datacart/add',
+               'pycchdo.views.datacart.add')
+    route_path(config, 'datacart_remove', '/datacart/remove',
+               'pycchdo.views.datacart.remove')
+    route_path(config, 'datacart_add_cruise', '/datacart/add_cruise',
+               'pycchdo.views.datacart.add_cruise')
+    route_path(config, 'datacart_remove_cruise', '/datacart/remove_cruise',
+               'pycchdo.views.datacart.remove_cruise')
+    route_path(config, 'datacart_add_cruises', '/datacart/add_cruises',
+               'pycchdo.views.datacart.add_cruises')
+    route_path(config, 'datacart_remove_cruises', '/datacart/remove_cruises',
+               'pycchdo.views.datacart.remove_cruises')
+    # requires POST
+    route_path(config, 'datacart_clear', '/datacart/clear',
+               'pycchdo.views.datacart.clear')
+    # requires POST
+    route_path(config, 'datacart_download', '/datacart/download',
+               'pycchdo.views.datacart.download')
+
     # maintain legacy data_access
     route_path(config, 'parameter_descriptions', '/parameter_descriptions',
                'pycchdo.views.legacy.parameter_descriptions')

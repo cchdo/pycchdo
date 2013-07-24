@@ -52,6 +52,7 @@ from shapely.geometry import shape as sg_shape, linestring as sg_LineString
 from geojson import LineString as gj_LineString
 
 from libcchdo.fns import uniquify
+from libcchdo.recipes.orderedset import OrderedSet
 
 from pycchdo.util import (
     FileProxyMixin, listlike, is_valid_ip, _sorted_tables,
@@ -110,6 +111,43 @@ def reset_fs():
             os.unlink(os.path.join(root, f))
         for d in dirs:
             rmtree(os.path.join(root, d))
+
+
+class Datacart(OrderedSet):
+    """A Datacart contains files that are meant to be downloaded in bulk.
+
+    Each file is refererred to by a key composed from a directory and a
+    filename. (This is from old CCHDO.)
+
+    """
+    def files(self):
+        return _Attr.by_ids(list(self))
+
+    @classmethod
+    def is_file_type_allowed(cls, ftype):
+        """Determine whether a data file's of type is allowed in the data cart.
+
+        """
+        prefixes = ['btl', 'bot', 'ctd', 'doc', 'sum']
+        for prefix in prefixes:
+            if ftype.startswith(prefix):
+                return True
+        return False
+
+    def cruise_files_in_cart(self, cruise):
+        """Return a tuple of the number of files in cart and number of files.
+
+        """
+        file_attrs = cruise.file_attrs
+
+        file_count = 0
+        for ftype, fattr in file_attrs.items():
+            if not self.is_file_type_allowed(ftype):
+                continue
+            if fattr.id in self:
+                file_count += 1
+        return (file_count, len(file_attrs))
+
 
 
 class Stamp(MutableComposite):
@@ -384,6 +422,12 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     @classmethod
     def get_id(cls, id):
         return cls.query().get(id)
+
+    @classmethod
+    def by_ids(cls, ids):
+        if ids:
+            return cls.query().filter(cls.id.in_(ids))
+        return cls.query().filter(False)
 
     @classmethod
     def only_if_accepted_is(cls, accepted=True):
@@ -1830,6 +1874,13 @@ class _AttrMgr(object):
                 key, self.attrs_current))
             raise KeyError(u"No accepted _Attr for {0!r}".format(key))
 
+    def get_attr_or(self, key, default=None):
+        """Return the most recent accepted _Attr for key or default."""
+        try:
+            return self.get_attr(key)
+        except KeyError:
+            return default
+
     def get(self, key, default=None):
         """Return the value of the most recent accepted _Attr for key.
 
@@ -2295,12 +2346,6 @@ class _IDAttrMgr(_AttrMgr):
             return creation_time
 
     @classmethod
-    def by_ids(cls, ids):
-        if ids:
-            return cls.query().filter(cls.id.in_(ids))
-        return cls.query().filter(False)
-
-    @classmethod
     def get_by_id(cls, id):
         try:
             return cls.query().filter(cls.id == id).first()
@@ -2543,6 +2588,18 @@ class Cruise(Obj):
                 country = Country.query().get(id)
             self._preload_objs['country'] = country
             return country
+
+    @property
+    def file_attrs(self):
+        file_attrs = {}
+        file_types = data_file_descriptions.keys()
+        for ft in file_types:
+            try:
+                v = self.get_attr(ft)
+                file_attrs[ft] = v
+            except KeyError:
+                pass
+        return file_attrs
 
     @property
     def files(self):

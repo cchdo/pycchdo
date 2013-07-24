@@ -51,7 +51,7 @@ a:active {
 .box_content a, .box_content .link,
 #screensize a, #screensize .link,
 p a, p .link {
-  border-bottom: 1px dashed #CFE2FF;
+/*  border-bottom: 1px dashed #CFE2FF; */
 }
 .box_content a:hover, .box_content .link.hover,
 #screensize a:hover, #screensize .link.hover,
@@ -61,7 +61,7 @@ p a:hover, p .link.hover {
 .box_content a:visited, .box_content .link.visited,
 #screensize a:visited, #screensize .link.visited,
 p a:visited, p .link.visited {
-  border-bottom: 1px dashed #F8D7BE;
+/*  border-bottom: 1px dashed #F8D7BE; */
 }
 .box_content a:hover:visited, .box_content .link.visited.hover,
 #screensize a:hover:visited, #screensize .link.visited.hover,
@@ -125,6 +125,16 @@ th, td {
 }
 .flash.action_taken {
   background: #FFDDAA;
+}
+.flash.info, 
+.flash.help {
+  background: #DDEEFF;
+}
+.flash.error {
+  background: #FFDDDD;
+}
+.flash.success {
+  background: #DDFFDD;
 }
 
 /* Required form fields */
@@ -259,6 +269,15 @@ tr.odd {
   -moz-border-radius-bottomleft: 0;
 }
 
+#datacart_status{
+  margin-right: 0.2em;
+}
+#datacart_status p.count a {
+  font-size: 1.1em;
+  color: #666666;
+  text-decoration: none;
+}
+
 #session_status {
   text-align: right;
 }
@@ -273,6 +292,135 @@ tr.odd {
 #signout {
   font-size: 0.7em;
 }
+
+/* datacart */
+a.datacart-link,
+a.datacart-link:hover {
+  border: none;
+}
+a.datacart-link .datacart-icon {
+  display: inline-block;
+}
+div.formats-sections span,
+a.datacart-link {
+  padding: 0;
+}
+
+.data-formats .short .datacart { left: 13em; margin-top: 0; }
+.cruise-listing .formats-sections th,
+.cruise-listing .formats-sections td { padding-top: 0; padding-bottom: 0; font-size: 0.7em}
+.cruise-listing .datacart-cruise-links { margin-top: 0.1em; }
+.cruise-listing .datacart-cruise-links .datacart-icon { margin-left: 0; }
+.cruise-listing tr.open .datacart-cruise-links .datacart-icon { margin-left: 3em; }
+.cruise-page #data .datacart-cruise-links,
+.expanded .datacart-cruise-links,
+.ui-dialog .datacart-cruise-links {
+  position: absolute;
+  right: 0;
+  top: 0.5em;
+  /* center the global tools vertically
+  top: 50%;
+  margin-top: -1em;
+  */
+  z-index: 1;
+}
+div.datacart-icon {
+  background: url("/static/img/cart/cart_sprite.png");
+  white-space: nowrap;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+#datacart_status.hidden {
+  display: none;
+}
+#datacart_status .datacart-link {
+  text-decoration: none;
+  display: block;
+}
+#datacart_status .datacart-icon {
+  background-size: 40px auto;
+  width: 40px;
+  height: 40px;
+  background-position: 0 120px;
+}
+#datacart_status .count {
+  text-align: center;
+  margin-right: 3px;
+  padding-top: 4px;
+  color: #60A864;
+}
+.lt-ie9 .datacart-add .datacart-icon,
+.lt-ie9 .datacart-remove .datacart-icon {
+  background: transparent url("/images/cart/cart_sprite_small.png") repeat-y;
+}
+.datacart-blank .datacart-icon, .datacart-add .datacart-icon, .datacart-remove .datacart-icon {
+  background-size: 15px auto;
+  background-position: 8px;
+  background-repeat: repeat-y;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+  padding-left: 17px;
+  color: #2670C8;
+  font-family: sans-serif;
+  font-size: 0.9em;
+  text-decoration: none;
+}
+.datacart-blank .datacart-icon { background-position: 0 45px; padding-left: 0; }
+.datacart-add .datacart-icon { background-position: 0 30px; }
+.datacart-remove .datacart-icon { background-position: 0 15px; }
+.datacart-add-cruise .datacart-icon { background-position: 0 0px; }
+.datacart-remove-cruise .datacart-icon { background-position: 0 60px; }
+
+.datacart-cruise .datacart-icon { width: 5em; }
+
+.datacart-dl th {
+  padding-left: 0.2em;
+}
+.datacart-dl .hl {
+  background-color: #eeeeee;
+}
+.datacart-dl .datacart-remove {
+  width: 5em;
+}
+.datacart-dl #quick-dl p {
+  width: auto;
+  max-width: none;
+}
+.datacart-dl #quick-dl li {
+  float: left;
+}
+.datacart-dl table {
+  clear: left;
+}
+.datacart-dl .tools .download {
+  font-size: 1.1em;
+  background-color: #CCEEBB;
+  border: 1px solid #99CC66;
+  border-radius: 0.3em;
+  color: #55AA22;
+}
+.datacart-dl .tools .download:hover {
+  background-color: #ddffaa;
+}
+.datacart-dl .tools .download:active {
+  color: #EEEEEE;
+  background-color: #99CC66;
+}
+.datacart-dl .tools .clear {
+  background-color: #FFAAAA;
+  border: 1px solid #dd8888;
+  border-radius: 0.3em;
+  color: #772222;
+}
+.datacart-dl .tools .clear:hover {
+  background-color: #FFBBBB;
+}
+.datacart-dl .tools .clear:active {
+  color: #EEEEEE;
+  background-color: #994444;
+}
+
 
 input {
   vertical-align: top;
@@ -744,31 +892,84 @@ table.notes {
 }
 
 /* cruise listing */
+.metadata-cruise .aliases,
+.metadata-cruise .identifier .expocode {
+  color: #51888E;
+}
+.metadata-cruise .aliases {
+  font-size: 1.05em;
+  margin-right: 1em;
+}
+.metadata-cruise .chief_scientists {
+  padding-left: 1em;
+  text-indent: -1em;
+}
+.identifier .expocode {
+  font-size: 1.3em;
+  font-weight: normal;
+  color: #89773F;
+}
+.identifier .cruise_dates {
+  color: #777777;
+}
+.expanded .identifier .expocode {
+  position: absolute;
+  left: 5.57em;
+}
+.metadata-cruise .links {
+  text-transform: uppercase;
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+  font-size: 0.90em;
+}
+.metadata-cruise .links form, 
+.metadata-cruise .links div {
+  display: inline;
+}
 .cruise-listing .meta td,
 .cruise-listing .body td {
   vertical-align: top;
 }
 .cruise-listing .cruise-track-img {
-  position: relative;
   max-width: 128px;
 }
-.cruise-listing th.identifier,
-.cruise-listing th.country {
-  width: 15%;
-}
-.cruise-listing th.ship,
-.cruise-listing th.cruise_dates {
-  width: 20%;
-}
-.cruise-listing th.chief_scientists {
-  width: 30%;
-}
+.cruise-listing th.identifier { width: 20%; }
+.cruise-listing th.who { width: 25%; }
+.cruise-listing th.map { width: 128px; }
 .cruise-listing .tools {
   background: #C8DBF9;
-  width: 99.9%;
+  width: 100%;
+  position: relative;
 }
 .cruise-listing .tools .tool-count {
   padding: 0.2em 0.3em;
+}
+.cruise-listing .tools .datacart-cruises-links {
+  width: 12em;
+  text-align: left;
+  position: absolute;
+  right: 0;
+  top: 0.1em;
+}
+
+.cruise-listing .tool input[type=submit], .metadata-cruise .links input[type=submit] {
+  color: #556F8E;
+  margin-right: 0.7em;
+  display: inline-block;
+  background-color: #F8F8F8;
+  border: 1px solid #95AFCE;
+  border-radius: 0.3em;
+  letter-spacing: 0;
+  line-height: 0.8em;
+  font-weight: normal;
+}
+.cruise-listing .tool input[type=submit]:hover, .metadata-cruise .links input[type=submit]:hover {
+  background-color: #B5DFFE;
+}
+.cruise-listing .tool input[type=submit]:active, .metadata-cruise .links input[type=submit]:active {
+  background-color: #95AFCE;
+  border-color: #556F8E;
+  color: #EEEEEE;
 }
 
 span.datesep {

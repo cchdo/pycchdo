@@ -1,7 +1,8 @@
-import datetime as dt
+from datetime import datetime, date
 from urllib import quote
 from json import dumps
 from copy import copy
+from collections import OrderedDict
 import os.path
 import os
 import re
@@ -16,11 +17,15 @@ H = whh.HTML
 from webhelpers.html import tags, tools as whhtools
 from webhelpers import text as whtext
 
+from pyramid.url import route_path
+
 from pycchdo.log import ColoredLogger, INFO, DEBUG
 from pycchdo.models import (
     Note, FSFile, data_file_descriptions,
     Person, Country, Cruise, Collection, Ship, Institution,
     )
+from pycchdo.util import collapse_dict
+from pycchdo.views.datacart import get_datacart, ZIP_FILE_LIMIT
 
 
 log = ColoredLogger(__name__)
@@ -128,9 +133,9 @@ def needs_specifics_reduction(cruise, date):
             ) and 
             (date and (
                 (cruise.date_start and 
-                 type(cruise.date_start) == dt.datetime and
+                 type(cruise.date_start) == datetime and
                  cruise.date_start > date) or
-                (cruise.date_end and type(cruise.date_end) == dt.datetime and
+                (cruise.date_end and type(cruise.date_end) == datetime and
                  cruise.date_end > date)))):
         return True
     return False
@@ -151,7 +156,7 @@ def reduce_specificity(request, *cruises):
     if has_edit(request):
         return
 
-    now = dt.datetime.now()
+    now = datetime.now()
     for cruise in cruises:
         if needs_specifics_reduction(cruise, now):
             log.info(
@@ -159,12 +164,12 @@ def reduce_specificity(request, *cruises):
             attr = cruise.get_attr('date_start')
             if attr:
                 av = attr.attr_value
-                av.value = dt.datetime(av.value.year, 1, 1)
+                av.value = datetime(av.value.year, 1, 1)
                 transaction.doom()
             attr = cruise.get_attr('date_end')
             if attr:
                 av = attr.attr_value
-                av.value = dt.datetime(av.value.year, 1, 1)
+                av.value = datetime(av.value.year, 1, 1)
                 transaction.doom()
 
 
@@ -323,7 +328,7 @@ def attr_value(a):
 def is_reduced(d):
     try:
         return (
-            d.year >= dt.date.today().year and d.month == 1 and d.day == 1)
+            d.year >= date.today().year and d.month == 1 and d.day == 1)
     except AttributeError:
         return False
 
@@ -355,7 +360,7 @@ def ports_to_nice(ports, cruise=None):
     """
     if not ports:
         return ports
-    if cruise and needs_specifics_reduction(cruise, dt.datetime.now()):
+    if cruise and needs_specifics_reduction(cruise, datetime.now()):
         return u''
     return u' to '.join(ports)
 
@@ -532,21 +537,28 @@ def cruise_history_rows(change, i, hl):
 
 
 def cruises_sort_by_date_start(cruises):
-    zero = dt.datetime(1, 1, 1)
+    zero = datetime(1, 1, 1)
     return sorted(cruises, key=lambda c: c.date_start or zero)
 
 
-def cruise_listing(cruises, pre_expand=False, allow_empty=False):
+def cruise_track_image(map, cruise):
+    return tags.image(map, cruise_nice_name(cruise) + ' thumbnail',
+        class_='cruise-track-img')
+
+
+def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
     cruises = filter(None, cruises)
     if not cruises and not allow_empty:
         return ''
     list = [
         H.tr(
-            H.th('Identifier', class_='identifier'),
-            H.th('Ship', class_='ship'),
-            H.th('Country', class_='country'),
-            H.th('Cruise dates', class_='cruise_dates'),
-            H.th('Chief scientist(s)', class_='chief_scientists'),
+            H.th('ExpoCode / Cruise dates', class_='identifier'),
+            H.th('Aliases', class_='aliases'),
+            H.th('Chief scientist(s) / Ship / Country', class_='who'),
+            H.th('Dataset', class_='dataset'),
+            # Extra column for the datacart cruise link
+            H.th(),
+            H.th(class_='map'),
             class_='header'),
     ]
     for i, cruise in enumerate(cruises):
@@ -554,53 +566,63 @@ def cruise_listing(cruises, pre_expand=False, allow_empty=False):
         if i % 2 == 0:
             hl = 'even'
 
-        map = '/static/img/etopo_static/etopo_thumb_no_track.png'
+        map_path = '/static/img/etopo_static/etopo_thumb_no_track.png'
         if cruise.get('map_thumb'):
-            map = '/cruise/{id}/map_thumb'.format(id=cruise.uid)
+            map_path = '/cruise/{id}/map_thumb'.format(id=cruise.uid)
 
         baseclass = 'mb-link{i} {hl}'.format(i=i, hl=hl)
-        metaclass = 'meta ' + baseclass
+        metaclass = 'meta metadata-cruise batch-open ' + baseclass
         bodyclass = 'body ' + baseclass
 
-        aliases = '(%s)' % ', '.join(cruise.aliases)
-        if aliases == '()':
-            aliases = ''
+        aliases = ', '.join(cruise.aliases)
 
+        cruise_page_buttons = H.div(
+            tags.form(
+                request.route_path('cruise_show', cruise_id=cruise.uid),
+                method='get', class_='button-to'),
+            H.div(tags.submit('', 'Cruise page')),
+            tags.end_form(),
+            tags.form(
+                request.route_path(
+                    'cruise_show', cruise_id=cruise.uid, _anchor='history'),
+                method='get', class_='button-to'),
+            H.div(tags.submit('', 'History')),
+            tags.end_form(),
+            class_='links body {0}'.format(baseclass))
+        data_files = collect_data_files(cruise)
         list.append(
             H.tr(
-                H.td(link_cruise(cruise)), 
-                H.td(link_ship(cruise.ship)),
-                H.td(link_country(cruise.country)),
-                H.td(cruise_dates(cruise)[2]),
-                H.td(link_person_institutions(cruise.chief_scientists)),
+                H.td(
+                    H.div(link_cruise(cruise), class_='expocode'),
+                    H.div(cruise_dates(cruise)[2], class_='cruise_dates'),
+                    cruise_page_buttons,
+                    class_='identifier'
+                ),
+                H.td(aliases, class_='aliases'),
+                H.td(
+                    H.div(link_person_institutions(cruise.chief_scientists),
+                        class_='chief_scientists'),
+                    H.div(link_ship(cruise.ship), class_='ship'),
+                    H.div(link_country(cruise.country), class_='country'),
+                    class_='who'
+                ),
+                H.td(
+                    data_files_lists(request, data_files, condensed=True),
+                    class_='dataset body {0}'.format(baseclass)
+                ),
+                H.td(datacart_link_cruise(request, cruise)), 
+                H.td(
+                    cruise_track_image(map_path, cruise),
+                    class_='map body {0}'.format(baseclass)
+                ), 
                 class_=metaclass
             ),
         )
-        list.append(
-            H.tr(
-                H.td(aliases, colspan=5), 
-                class_=bodyclass
-            ),
-        )
-        list.append(
-            H.tr(
-                H.td(link_collections(cruise.collections), colspan=4), 
-                H.td(
-                    tags.image(
-                        map,
-                        cruise_nice_name(cruise) + ' thumbnail',
-                        class_='cruise-track-img',
-                    )
-                ), 
-                class_=bodyclass
-            ),
-        )
-        # TODO
-        # number of stations
-        # parameters (and count)
+        # TODO number of stations, parameters (and count)
         #list.append(
         #    H.tr(
-        #        H.td('', colspan=5), 
+        #        H.td('{0} stations with the following parameters:',
+        #            colspan=2), 
         #        class_=bodyclass
         #    ),
         #)
@@ -609,12 +631,15 @@ def cruise_listing(cruises, pre_expand=False, allow_empty=False):
     if pre_expand:
         table_class += ' pre-expand'
     table = H.table(*list, class_=table_class)
-    section = H.div(
+    return H.div(
         H.div(
             H.div(whtext.plural(len(cruises), 'result', 'results'),
-                class_='tool tool-count'), class_='tools'),
-        table, class_='cruise-listing')
-    return section
+                class_='tool tool-count'),
+            datacart_link_cruises(request, cruises), 
+            class_='tools'),
+        table,
+        class_='cruise-listing'
+    )
 
 
 def track_as_string(track):
@@ -694,14 +719,15 @@ def link_person_institutions(pis):
             p = pi.person
         except KeyError:
             continue
-        try:
-            i = pi.institution
-        except KeyError:
-            i = None
         name = link_person(p)
+        #try:
+        #    i = pi.institution
+        #except KeyError:
+        #    i = None
+        #inst = None
+        #if i:
+        #    inst = '(%s)' % link_institution(i)
         inst = None
-        if i:
-            inst = '(%s)' % link_institution(i)
         strings.append(' '.join(filter(None, (name, inst))))
     return whh.literal(', '.join(strings))
 
@@ -801,49 +827,226 @@ def short_data_type(type):
         return 'Trace Metal'
     if type.startswith('doc'):
         if 'pdf' in type:
-            return 'PDF Documentation'
+            return 'PDF'
         elif 'txt' in type or 'text' in type:
-            return 'Text Documentation'
+            return 'Text'
     return ''
+
+
+def collect_data_files(cruise_obj):
+    """Return ordered sections with files of a cruise's dataset."""
+    if not cruise_obj:
+        return {}
+
+    data_files = OrderedDict()
+    data_files['exchange'] = {
+        'ctdzip_exchange': cruise_obj.get_attr_or('ctdzip_exchange'),
+        'bottle_exchange': cruise_obj.get_attr_or('bottle_exchange'),
+        'large_volume_samples_exchange': cruise_obj.get_attr_or(
+            'large_volume_samples_exchange'),
+        'trace_metals_exchange': cruise_obj.get_attr_or(
+            'trace_metals_woce'),
+    }
+    data_files['netcdf'] = {
+        'ctdzip_netcdf': cruise_obj.get_attr_or('ctdzip_netcdf'),
+        'bottlezip_netcdf': cruise_obj.get_attr_or('bottlezip_netcdf'),
+    }
+    data_files['doc'] = {
+        'doc_txt': cruise_obj.get_attr_or('doc_txt'),
+        'doc_pdf': cruise_obj.get_attr_or('doc_pdf'),
+    }
+    data_files['woce'] = {
+        'bottle_woce': cruise_obj.get_attr_or('bottle_woce'),
+        'ctdzip_woce': cruise_obj.get_attr_or('ctdzip_woce'),
+        'sum_woce': cruise_obj.get_attr_or('sum_woce'),
+        'large_volume_samples_woce': cruise_obj.get_attr_or(
+            'large_volume_samples_woce'),
+    }
+    data_files['map'] = {
+        'full': cruise_obj.get_attr_or('map_full'),
+        'thumb': cruise_obj.get_attr_or('map_thumb'),
+    }
+    return collapse_dict(data_files) or {}
 
 
 def sort_data_files(d):
     """ Sort a list of tuples of (data file type, file) by the order CCHDO
         would like them to be in
 
-        Order of preference: CTD, BOT, SUM, Large Volume, Trace Metal, TXT, PDF
+        Order of preference: CTD, BOT, SUM, Large Volume, Trace Metal, Text, PDF
     
     """
-    preferred = [None] * 7
+    preferred = [None] * 8
 
     for type, df in d.items():
         short_type = short_data_type(type)
         i = -1
-        if short_type == 'CTD':
+        if short_type == 'Summary':
             i = 0
-        elif short_type == 'BOT':
+        elif short_type == 'CTD':
             i = 1
-        elif short_type == 'SUM':
+        elif short_type == 'BTL':
             i = 2
         elif short_type == 'Large Volume':
             i = 3
         elif short_type == 'Trace Metal':
             i = 4
-        elif short_type == 'TXT':
+        elif short_type == 'Text':
             i = 5
         elif short_type == 'PDF':
             i = 6
+        else:
+            i = 7
         preferred[i] = (type, df)
     return filter(None, preferred)
 
 
-def data_file_link(request, type, data):
-    """ Given an _Attr with a file, provides a link to a file next to its
-        description as a table row
+def data_files_list(request, data_files, short_name, title, condensed=False):
+    """Display a table of data_files given from views.cruises.show."""
+    if short_name not in data_files:
+        return ''
 
+    files_html = ''
+    for dtype, dfile in sort_data_files(data_files.get(short_name)):
+        if condensed:
+            leader = title
+        else:
+            leader = None
+        files_html += data_file_link(request, dtype, dfile, leader=leader)
+
+    if condensed:
+        return files_html
+    return H.h3(title) + H.table(files_html, class_='formats')
+
+
+def data_files_lists(request, data_files, condensed=False):
+    """Display a cruise's dataset."""
+    htmllist = whh.literal(''.join([
+        data_files_list(request, data_files, 'exchange', 'Exchange', condensed),
+        data_files_list(request, data_files, 'netcdf', 'NetCDF', condensed),
+        data_files_list(request, data_files, 'woce', 'WOCE', condensed),
+        data_files_list(request, data_files, 'doc', 'Documentation', condensed),
+        ]))
+    if condensed:
+        htmllist = H.table(htmllist, class_='formats')
+    return H.div(htmllist, class_='formats-sections')
+
+
+def datacart_link(act, link={}, **kwargs):
+    """Individual datacart action agnostic link."""
+    ref = kwargs.get('ref', '')
+    if ref:
+        del kwargs['ref']
+    rel = 'nofollow' + ref
+
+    return tags.link_to(
+        H.div(act, class_='datacart-icon'), link, rel=rel, **kwargs)
+
+
+def datacart_link_file(request, act, fileattr):
+    """Datacart action link for a single file."""
+    if act == 'Remove':
+        action = 'remove'
+        classname = 'datacart-link datacart-remove'
+        title = 'Remove from data cart'
+    elif act == 'Add':
+        action = 'add'
+        classname = 'datacart-link datacart-add'
+        title = 'Add to data cart'
+
+    return datacart_link(act,
+        request.route_path('datacart_' + action, _query={'id': fileattr.id}),
+        class_=classname, title=title)
+
+
+def datacart_link_cruise_action(request, act, cruise):
+    if act == 'Remove':
+        action = 'remove_cruise'
+        classname = 'datacart-link datacart-cruise datacart-remove'
+        title = 'Remove all cruise data from data cart'
+    elif act == 'Add':
+        action = 'add_cruise'
+        classname = 'datacart-link datacart-cruise datacart-add'
+        title = 'Add all cruise data to data cart'
+
+    return datacart_link("{0} all".format(act),
+        request.route_path('datacart_{0}'.format(action),
+                           _query={'id': cruise.id}),
+        class_=classname, title=title)
+
+
+def datacart_link_cruise(request, cruise):
+    """Datacart action link for all the files in a cruise."""
+    nfiles_in_cart, nfiles = request.datacart.cruise_files_in_cart(cruise)
+    if nfiles_in_cart > 0:
+        link = datacart_link_cruise_action(request, 'Remove', cruise)
+    elif nfiles > 0:
+        link = datacart_link_cruise_action(request, 'Add', cruise)
+    else:
+        link = ''
+    return H.div(link, class_='datacart-cruise-links')
+
+
+def datacart_link_cruises(request, cruises, div_attributes={}):
+    nfiles_in_cart_all = 0
+    nfiles_all = 0
+    for cruise in cruises:
+        nfiles_in_cart, nfiles = request.datacart.cruise_files_in_cart(cruise)
+        nfiles_in_cart_all += nfiles_in_cart
+        nfiles_all += nfiles
+
+    ids = [ccc.id for ccc in cruises]
+    if nfiles_in_cart_all > 0:
+        link_str = 'Remove all data in result'
+        link_params = request.route_path(
+            'datacart_remove_cruises', _query={'ids': ids})
+        link_attrs = {
+            'class_': 'datacart-link datacart-results datacart-remove',
+            'title': 'Remove all result data from data cart',
+        }
+    elif nfiles_all > 0:
+        link_str = 'Add all data in result'
+        link_params = request.route_path(
+            'datacart_add_cruises', _query={'ids': ids})
+        link_attrs = {
+            'class_': 'datacart-link datacart-results datacart-add',
+            'title': 'Add all result data to data cart',
+        }
+    else:
+        link = ''
+        link_params = ''
+        link_attrs = {}
+    div_attrs = {'class_': "datacart-cruises-links"}
+    div_attrs_proper = dict(
+        list(div_attributes.items()) + list(div_attrs.items()))
+    if 'class_' in div_attributes:
+        div_attrs_proper['class_'] = ' '.join(
+            filter(None, [
+                div_attrs.get('class_', None),
+                div_attributes['class_']]))
+    link = datacart_link(link_str, link_params, **link_attrs)
+    return H.div(link, **div_attrs_proper)
+
+
+def datacart_num_files_in_archive(request, index):
+    return min((len(request.datacart) - index), ZIP_FILE_LIMIT)
+
+
+def datacart_archive_id(index):
+    return int(index / ZIP_FILE_LIMIT)
+
+
+def data_file_link(request, type, data, leader=None):
+    """Given an _Attr with a file, provides a link to a file next to its
+    description as a table row.
+
+    Arguments:
         type - a short form of the file format e.g. ctdzip_exchange,
                bottlezip_netcdf
         data - the _Attr with file
+        leader - (optional) if given, leader will be prepended onto the short
+        representation of the data type.
+
     """
     try:
         link = data_uri(data)
@@ -851,6 +1054,8 @@ def data_file_link(request, type, data):
         return ''
 
     data_type = short_data_type(type)
+    if leader:
+        data_type = ' '.join([leader, data_type])
 
     description = data_file_descriptions.get(type, '')
 
@@ -867,8 +1072,16 @@ def data_file_link(request, type, data):
         preliminary_marker = ' *'
 
     items = [
-        H.th(H.abbr(tags.link_to(data_type + preliminary_marker, link), title=description)),
+        H.th(H.abbr(tags.link_to(data_type + preliminary_marker, link),
+                                 title=description)),
     ]
+
+    # If datacart has item
+    if data.id in request.datacart:
+        dcart_link = datacart_link_file(request, 'Remove', data)
+    else:
+        dcart_link = datacart_link_file(request, 'Add', data)
+    items.append(H.td(dcart_link, class_='datacart'))
 
     classes = [type.replace('_', ' ')]
     if preliminary:

@@ -24,6 +24,7 @@ from pycchdo.routes import configure_routes
 from pycchdo.models import DBSession, FSFile, Person, preload_person
 from pycchdo.models.filestorage import DirFileSystemStorage
 from pycchdo.models.search import SearchIndex
+from pycchdo.views.datacart import get_datacart
 
 
 class RequestFactory(Request):
@@ -44,6 +45,10 @@ class RequestFactory(Request):
         return models
 
     @reify
+    def datacart(self):
+        return get_datacart(self)
+
+    @reify
     def db(self):
         return DBSession
 
@@ -60,6 +65,8 @@ def _add_renderer_globals(event):
     # from urllib import quote
     event['wh'] = webhelpers
     event['whh'] = webhelpers.html
+    event['txt'] = webhelpers.text
+    event['tags'] = webhelpers.html.tags
     event['h'] = helpers
     event['geojson'] = geojson
 

@@ -711,7 +711,7 @@ def import_(import_gid, args):
     with db_session(session()) as sesh:
         su = (sesh, updater)
 
-        with conn_dl('goship.ucsd.edu', args.skip_downloads,
+        with conn_dl('pacha.ucsd.edu', args.skip_downloads,
                      import_gid) as downloader:
             _import_cruises(downloader, sesh, updater)
         if not args.files_only:

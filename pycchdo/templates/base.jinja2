@@ -1,6 +1,9 @@
 {{ whh.tags.Doctype().html5() }}
 {%- import "_helpers_layout.jinja2" as helpers_layout %}
-<html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
 <head>
   <meta charset="utf-8">
   <meta name="google-site-verification" content="Jg9hBGPowxUZWHJAgYLXRFfZweb_R28puGLp0H6xA3E">
@@ -10,7 +13,7 @@
   <link rel="apple-touch-icon-precomposed" type="image/png" href="/static/img/iphone_icon.png">
   {%- assets
     filters='cssmin,gzip',
-    output='screen.css.gz',
+    output='gen/screen.css.gz',
     'css/normalize.css',
     'css/screen.css'
   %}
@@ -32,18 +35,14 @@
   <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
     {%- include '_base_header.jinja2' with context %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>
-      {%- if request.session.peek_flash('action_taken') -%}
-        {%- set actions_taken = request.session.pop_flash('action_taken') %}
-        {%- for action in actions_taken %}
-          <h1 class="flash action_taken">{{ whh.HTML.literal(action) }}</h1>
-        {%- endfor %}
-      {%- endif -%}
-      {%- if request.session.peek_flash('help') %}
-        {%- set help = request.session.pop_flash('help') %}
-        {%- for helper in help %}
-          <h1 class="flash help">{{ whh.HTML.literal(helper) }}</h1>
-        {%- endfor %}
-      {%- endif -%}
+      {%- for flash_type in ['action_taken', 'success', 'error', 'help'] %}
+        {%- if request.session.peek_flash(flash_type) %}
+          {%- set flashed_items = request.session.pop_flash(flash_type) %}
+          {%- for item in flashed_items %}
+            <h1 class="flash {{ flash_type }}">{{ whh.HTML.literal(item) }}</h1>
+          {%- endfor %}
+        {%- endif -%}
+      {%- endfor %}
       {%- block staff_content %}{%- endblock %}
       {%- block subcontent %}{%- endblock %}
       {% block content -%}{%- endblock %}
@@ -52,9 +51,9 @@
   </div>
   <div id="scripts">
     {%- assets
-      filters='rjsmin',
-      output='base.js',
-      'js/base.js'
+      filters='rjsmin,gzip',
+      output='gen/base.js.gz',
+      'js/base.js', 'js/jquery-1.7.1.min.js', 'js/datacart.js'
     %}
        {{ whh.tags.javascript_link(ASSET_URL) }}
     {%- endassets %}

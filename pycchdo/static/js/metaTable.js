@@ -24,12 +24,12 @@ function metaTable() {
 
   var batchOpen = false;
   function toggleAll() {
-    var open = !header.data('open');
-    header.data('open', open);
+    var open = !table.data('open');
+    table.data('open', open);
     if (open) {
-      header.addClass('open');
+      table.addClass('open');
     } else {
-      header.removeClass('open');
+      table.removeClass('open');
     }
 
     batchOpen = true;
@@ -70,7 +70,8 @@ function metaTable() {
       attachExpanderArrow(expander, react, 'Expand', 'Collapse').css({cursor: 'pointer'});
       row.click(function (event) {
         var tagname = event.target.tagName;
-        if (tagname == 'TR' || tagname == 'TH' || tagname == 'TD') {
+        if (tagname == 'TR' || tagname == 'TH' || tagname == 'TD' ||
+            event.target.parentNode.parentNode.tagName == 'TR') {
           react();
         }
       });
@@ -100,10 +101,17 @@ function metaTable() {
 
     function react() {
       row.data('open', !row.data('open'));
+      if (row.hasClass('batch-open')) {
+        batchOpen = true;
+      }
       if (row.data('open')) {
+        var savedbatchOpen = batchOpen;
         open();
       } else {
         close();
+      }
+      if (row.hasClass('batch-open')) {
+        batchOpen = savedbatchOpen;
       }
       return false;
     }
@@ -138,7 +146,7 @@ function metaTable() {
       exa.blur(function () { exa_focus = false; react_focus(); });
       focusable.focus(function () { input_focus = true; react_focus(); });
       focusable.blur(function () { input_focus = false; react_focus(); });
-      row.find(':input').click(function () { return false; });
+      //row.find(':input').click(function () { return false; });
     } else {
       exa.focus(open);
       exa.blur(close);

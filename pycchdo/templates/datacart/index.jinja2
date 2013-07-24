@@ -1,0 +1,76 @@
+{% extends "base.jinja2" %}
+{% block title -%}Data cart{% endblock title -%}
+{% block content -%}
+  {% call h.boxed('Data cart', class='datacart-dl') -%}
+    {% if not request.datacart -%}
+      <p>Please visit a cruise page to add files to download.</p>
+    {% else -%}
+      <div class="tools">
+        {% if request.datacart -%}
+          {{ tags.form(request.route_path('datacart_clear')) }}
+            <input type="submit" value="Clear list" class="clear">
+          {{ tags.end_form() }}
+        {% endif -%}
+      <div>
+
+      <div id="quick-dl">
+        <h2>Download all</h2>
+        <p>In order to maintain response times considering file sizes, the list can be downloaded in archives of at most {{ ZIP_FILE_LIMIT }} at a time.</p>
+        <p>Following are all the archives for your {{ txt.plural(request.datacart|length, 'file', 'files') }}. Click each in succession to download the entire list.</p>
+        <ol>
+        {% for id in request.datacart -%}
+          {% set i = loop.index0 -%}
+          {% if i % ZIP_FILE_LIMIT == 0 -%}
+            <li>
+              {%- set num_files_in_archive = h.datacart_num_files_in_archive(request, i) %}
+              {% set archive_id = h.datacart_archive_id(i) -%}
+              {{ tags.form(request.route_path('datacart_download')) }}
+                <input type="hidden" name="archive" value="{{ archive_id }}">
+                <input type="submit" value="Download {{ (archive_id + 1).ordinalize }} archive ({{ txt.plural(num_files_in_archive, 'file', 'files') }})" class="download">
+              </form>
+            </li>
+          {%- endif %}
+        {%- endfor %}
+        </ol>
+      </div>
+
+      <table>
+        <tr class="header">
+          <th>Cruise</th>
+          <th>File</th>
+          <th></th>
+          <th></th>
+        </tr>
+      {% set hlclass='hl' -%}
+      {% for dfile in request.datacart.files() -%}
+        {% set i = loop.index0 -%}
+        {% if i % ZIP_FILE_LIMIT == 0 -%}
+          {% set hlclass = loop.cycle('hl', '') -%}
+        {% endif -%}
+        <tr class="{{ hlclass }}">
+          <td class="cruise">
+            {{ tags.link_to(
+                 dfile.obj.expocode,
+                 request.route_path('cruise_show', cruise_id=dfile.obj.expocode, _anchor='data')) }}
+          </td>
+          <td class="filename">
+            {{ dfile.value.name }}
+          </td>
+          <td class="datacart-remove">
+            {{ h.datacart_link('Remove', request.route_path('datacart_remove', _query={'id': dfile.id})) }}
+          </td>
+          {% if i % ZIP_FILE_LIMIT == 0 -%}
+            {%- set num_files_in_archive = h.datacart_num_files_in_archive(request, i) %}
+            <td class="tools" rowspan="{{ num_files_in_archive }}">
+              {{ tags.form(request.route_path('datacart_download')) }}
+                <input type="hidden" name="archive" value="{{ h.datacart_archive_id(i) }}">
+                <input type="submit" value="Download archive ({{ txt.plural(num_files_in_archive, 'file', 'files') }})" class="download">
+              {{ tags.end_form() }}
+            </td>
+          {% endif -%}
+        </tr>
+      {% endfor -%}
+      </table>
+    {%- endif %}
+  {%- endcall %}
+{%- endblock %}

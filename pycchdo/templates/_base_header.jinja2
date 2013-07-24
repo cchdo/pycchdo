@@ -13,6 +13,13 @@
     </form>
   </div>
   <div class="masthead-block masthead-right">
+    <div id="datacart_status" class="masthead-block">
+      <a class="data-cart-link" href="{{ request.route_path('datacart') }}">
+        <div class="datacart-icon datacart-cart">
+          <div class="count">{{ request.datacart|count }}</div>
+        </div>
+      </a>
+    </div>
     <div id="session_status" class="masthead-block{% if h.has_mod(request) %} moderator{% endif %}">
       {% if request.user -%}
         <p>{{ h.link_person(request.user) }}</p>

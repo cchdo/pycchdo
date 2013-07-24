@@ -14,7 +14,7 @@ from webob.multidict import MultiDict
 from pycchdo.models import Obj
 from pycchdo.models.types import *
 from pycchdo.models.file_types import data_file_human_names
-from pycchdo.util import guess_mime_type
+from pycchdo.util import guess_mime_type, collapse_dict
 from pycchdo.log import ColoredLogger, DEBUG
 
 
@@ -51,26 +51,6 @@ for k, v in FILE_GROUPS.items():
     FILE_GROUPS_SELECT.append(
         ([(x, data_file_human_names[x]) for x in v], k))
 FILE_GROUPS_SELECT.append('Other')
-
-
-def collapse_dict(d, n=None):
-    """ Collapses a dict recursively into the value n if it has no values that
-    are not n """
-    e = {}
-    for k, v in d.items():
-        if type(v) is dict:
-            # recurse into sub-dicts
-            v = collapse_dict(v, n)
-        if type(v) is list:
-            # TODO TEST for list condition
-            # do not recurse into lists if n is None
-            if n is None and not v:
-                v = n
-        if v != n:
-            e[k] = v
-    if len(e) < 1:
-        return n
-    return e
 
 
 def http_method(request):

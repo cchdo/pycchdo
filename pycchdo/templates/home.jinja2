@@ -69,9 +69,9 @@
             {#- if cruise.ship %}
               <p><strong>Ship:</strong> <span class="ship" title="{{ cruise.ship.name }}">{{ h.link_ship(cruise.ship) }}</span></p>
             {%- endif #}
-            {%- set dates = h.cruise_dates(cruise)[2] %}
+            {%- set dates = h.cruise_dates(cruise) %}
             {%- if dates %}
-              <p><strong>Dates:</strong> <span class="date-cruise" title="{{ dates }}">{{ dates }}</span></p>
+              <p><strong>Dates:</strong> <span class="date-cruise" title="{{ '/'.join(dates[:2]) }}">{{ dates[2] }}</span></p>
             {%- endif %}
             <p><strong>Updated:</strong> <span class="date-updated">{{ h.pdate(update.judgment_stamp.timestamp) }}</span></p>
             <p><strong>Type:</strong> <span class="key-updated">{{ update.key }}</span></p>
@@ -91,9 +91,9 @@
           </div>
           <div class="info">
             <h3>{{ h.link_cruise(cruise) }}</h3> 
-            {%- set dates = h.cruise_dates(cruise)[2] %}
+            {%- set dates = h.cruise_dates(cruise) %}
             {%- if dates %}
-              <p><strong>Dates:</strong> <span class="date-cruise" title="{{ dates }}">{{ dates  }}</span></p>
+              <p><strong>Dates:</strong> <span class="date-cruise" title="{{ '/'.join(dates[:2]) }}">{{ dates[2] }}</span></p>
             {%- endif %}
           </div>
         </li>

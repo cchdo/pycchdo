@@ -81,6 +81,10 @@
   font-style: italic;
 }
 
+.data-files td.datacart {
+  width: 10em;
+}
+
 .cruise-page th,
 .cruise-page td {
   vertical-align: top;

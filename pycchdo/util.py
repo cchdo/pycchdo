@@ -40,6 +40,26 @@ def listlike(x):
         return False
 
 
+def collapse_dict(d, n=None):
+    """Collapses a dict recursively into the value n if it has no values that
+    are not n."""
+    e = {}
+    for k, v in d.items():
+        if type(v) is dict:
+            # recurse into sub-dicts
+            v = collapse_dict(v, n)
+        if type(v) is list:
+            # TODO TEST for list condition
+            # do not recurse into lists if n is None
+            if n is None and not v:
+                v = n
+        if v != n:
+            e[k] = v
+    if len(e) < 1:
+        return n
+    return e
+
+
 def timestamp_now():
     """Create a datetime.datetime representing Now."""
     return datetime.utcnow()

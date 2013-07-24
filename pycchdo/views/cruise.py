@@ -436,7 +436,12 @@ def _get_cruise(cruise_id, load_attrs=True):
     if not cruise_obj:
         cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
         if not cruise_obj:
-            raise ValueError()
+            # If not, try based on aliases.
+            cruise_obj = Cruise.get_one_by_attrs({'aliases': cruise_id})
+            if not cruise_obj:
+                raise ValueError('Not found')
+            else:
+                raise ValueError(cruise_obj.expocode)
     if load_attrs:
         disjoint_load_cruise_attrs([cruise_obj])
     return cruise_obj
@@ -449,9 +454,13 @@ def cruise_show(request):
         raise HTTPBadRequest()
     try:
         cruise_obj = _get_cruise(cruise_id)
-    except ValueError:
-        raise HTTPSeeOther(
-            location=request.route_path('cruise_new', cruise_id=cruise_id))
+    except ValueError, err:
+        if str(err) == 'Not found':
+            raise HTTPSeeOther(
+                location=request.route_path('cruise_new', cruise_id=cruise_id))
+        else:
+            raise HTTPSeeOther(
+                location=request.route_path('cruise_show', cruise_id=str(err)))
 
     method = http_method(request)
 
@@ -473,47 +482,11 @@ def cruise_show(request):
             _add_note_to_file(request)
 
     cruise = {}
-    data_files = {}
     history = []
     if cruise_obj:
         cruise['date_start'], cruise['date_end'], cruise['cruise_dates'] = \
             h.cruise_dates(cruise_obj)
         cruise['link'] = cruise_obj.get('link')
-
-        def getAttr(self, key):
-            try:
-                return self.get_attr(key)
-            except KeyError:
-                return None
-
-        data_files = {}
-        data_files['map'] = {
-            'full': getAttr(cruise_obj, 'map_full'),
-            'thumb': getAttr(cruise_obj, 'map_thumb'),
-        }
-        data_files['exchange'] = {
-            'ctdzip_exchange': getAttr(cruise_obj, 'ctdzip_exchange'),
-            'bottle_exchange': getAttr(cruise_obj, 'bottle_exchange'),
-            'large_volume_samples_exchange': getAttr(
-                cruise_obj, 'large_volume_samples_exchange'),
-            'trace_metals_exchange': getAttr(
-                cruise_obj, 'trace_metals_woce'),
-        }
-        data_files['netcdf'] = {
-            'ctdzip_netcdf': getAttr(cruise_obj, 'ctdzip_netcdf'),
-            'bottlezip_netcdf': getAttr(cruise_obj, 'bottlezip_netcdf'),
-        }
-        data_files['woce'] = {
-            'bottle_woce': getAttr(cruise_obj, 'bottle_woce'),
-            'ctdzip_woce': getAttr(cruise_obj, 'ctdzip_woce'),
-            'sum_woce': getAttr(cruise_obj, 'sum_woce'),
-            'large_volume_samples_woce': getAttr(
-                cruise_obj, 'large_volume_samples_woce'),
-        }
-        data_files['doc'] = {
-            'doc_txt': getAttr(cruise_obj, 'doc_txt'),
-            'doc_pdf': getAttr(cruise_obj, 'doc_pdf'),
-        }
 
         if request.user:
             history = cruise_obj.notes
@@ -541,7 +514,7 @@ def cruise_show(request):
     return {
         'cruise': cruise_obj,
         'cruise_dict': cruise,
-        'data_files': collapse_dict(data_files) or {},
+        'data_files': h.collect_data_files(cruise_obj),
         'history': history,
         'updates': collapse_dict(updates, []) or {},
         'CRUISE_ATTRS_SELECT': cruise_attrs_select(),

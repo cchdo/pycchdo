@@ -149,8 +149,7 @@
           {%- if cruise.country %}
             {{ cruise_attr('Country', h.link_country(cruise.country)) }}
           {%- endif %}
-          {{- cruise_attr('Chief Scientists',
-                          h.link_person_institutions(cruise.chief_scientists)) }}
+          {{- cruise_attr('Chief Scientists', h.link_person_institutions(cruise.chief_scientists)) }}
           {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
           {{- cruise_attr('Frequency', cruise.get('frequency', '')) }}
           {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
@@ -232,41 +231,9 @@
               {{ see_or_discuss() }} as received data and see merged data</a>
           {%- endif %}
 
-          {%- if 'exchange' in data_files %}
-            <h3>Exchange</h3>
-            <table>
-            {% for type, df in h.sort_data_files(data_files.get('exchange')) -%}
-              {{ h.data_file_link(request, type, df) }}
-            {%- endfor %}
-            </table>
-          {%- endif %}
+          {{ h.datacart_link_cruise(request, cruise) }}
+          {{ h.data_files_lists(request, data_files) }}
 
-          {%- if 'netcdf' in data_files %}
-            <h3>NetCDF</h3>
-            <table>
-            {% for type, df in h.sort_data_files(data_files.get('netcdf')) -%}
-              {{ h.data_file_link(request, type, df) }}
-            {%- endfor %}
-            </table>
-          {%- endif %}
-
-          {%- if 'woce' in data_files %}
-            <h3>WOCE</h3>
-            <table>
-            {% for type, df in h.sort_data_files(data_files.get('woce')) -%}
-              {{ h.data_file_link(request, type, df) }}
-            {%- endfor %}
-            </table>
-          {%- endif %}
-
-          {%- if 'doc' in data_files %}
-            <h3>Documentation</h3>
-            <table>
-            {% for type, df in h.sort_data_files(data_files.get('doc')) -%}
-              {{ h.data_file_link(request, type, df) }}
-            {%- endfor %}
-            </table>
-          {%- endif %}
           {%- if not data_files %}
             <div id="data-pending">
               <h4>Data Pending</h4>

@@ -1842,8 +1842,9 @@ def _import_queue_files(session, downloader):
                 # cruise and no more. We can't really guess the data type
                 # correctly 100% with the given information so attach it as a
                 # data_suggestion.
-                queue_file = cruise.set(
-                    'data_suggestion', actual_file, updater.importer)
+                with su(su_lock=downloader.su_lock):
+                    queue_file = cruise.set(
+                        'data_suggestion', actual_file, updater.importer)
                 # Set the import id on the FSFile
                 queue_file.value.import_id = import_id
 
@@ -2184,9 +2185,10 @@ def _import_documents_for_cruise(downloader, docs, expocode):
                 continue
 
             field.file = file
-            attr = updater.attr(cruise, data_type, field)
-            attr.attr_value.import_path = doc.FileName
-            attr.attr_value.import_id = doc_import_id
+            with su(su_lock=downloader.su_lock):
+                attr = updater.attr(cruise, data_type, field)
+                attr.attr_value.import_path = doc.FileName
+                attr.attr_value.import_id = doc_import_id
 
         with su(su_lock=downloader.su_lock):
             DBSession.flush()

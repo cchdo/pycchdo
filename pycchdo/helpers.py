@@ -838,6 +838,25 @@ def collect_data_files(cruise_obj):
     if not cruise_obj:
         return {}
 
+    from pycchdo.models.models import disjoint_load_obj, FSFile
+
+    ftypes = [
+        'ctdzip_exchange',
+        'bottle_exchange',
+        'large_volume_samples_exchange',
+        'trace_metals_exchange',
+        'ctdzip_netcdf',
+        'bottlezip_netcdf',
+        'doc_txt',
+        'doc_pdf',
+        'bottle_woce',
+        'ctdzip_woce',
+        'sum_woce',
+        'large_volume_samples_woce',
+    ]
+    #for ftype in ftypes:
+    #    disjoint_load_obj([cruise_obj], ftype, FSFile)
+
     data_files = OrderedDict()
     data_files['exchange'] = {
         'ctdzip_exchange': cruise_obj.get_attr_or('ctdzip_exchange'),
@@ -845,7 +864,7 @@ def collect_data_files(cruise_obj):
         'large_volume_samples_exchange': cruise_obj.get_attr_or(
             'large_volume_samples_exchange'),
         'trace_metals_exchange': cruise_obj.get_attr_or(
-            'trace_metals_woce'),
+            'trace_metals_exchange'),
     }
     data_files['netcdf'] = {
         'ctdzip_netcdf': cruise_obj.get_attr_or('ctdzip_netcdf'),
@@ -1077,7 +1096,7 @@ def data_file_link(request, type, data, leader=None):
     ]
 
     # If datacart has item
-    if data.id in request.datacart:
+    if data.id in get_datacart(request):
         dcart_link = datacart_link_file(request, 'Remove', data)
     else:
         dcart_link = datacart_link_file(request, 'Add', data)

@@ -12,6 +12,14 @@ except ImportError:
 from sqlalchemy import util
 from sqlalchemy.sql import visitors
 from sqlalchemy.util import topological
+from sqlalchemy.engine import reflection
+from sqlalchemy.schema import (
+    MetaData,
+    Table,
+    DropTable,
+    ForeignKeyConstraint,
+    DropConstraint,
+    )
 
 
 def flatten(l):
@@ -239,3 +247,51 @@ def _sort_tables(tables):
     _munge_sort_order(sorted_tables)
 
     return sorted_tables
+
+
+def drop_everything(engine):
+    """Drop all tables.
+
+    Copied from recipe 2013-09-04: 
+    http://www.sqlalchemy.org/trac/wiki/UsageRecipes/DropEverything
+
+    """
+    conn = engine.connect()
+
+    # the transaction only applies if the DB supports
+    # transactional DDL, i.e. Postgresql, MS SQL Server
+    trans = conn.begin()
+
+    inspector = reflection.Inspector.from_engine(engine)
+
+    # gather all data first before dropping anything.
+    # some DBs lock after things have been dropped in 
+    # a transaction.
+
+    metadata = MetaData()
+
+    illegal_tables = ['spatial_ref_sys']
+
+    tbs = []
+    all_fks = []
+
+    for table_name in inspector.get_table_names():
+        fks = []
+        for fk in inspector.get_foreign_keys(table_name):
+            if not fk['name']:
+                continue
+            fks.append(
+                ForeignKeyConstraint((),(),name=fk['name'])
+                )
+        if table_name not in illegal_tables:
+            t = Table(table_name,metadata,*fks)
+            tbs.append(t)
+        all_fks.extend(fks)
+
+    for fkc in all_fks:
+        conn.execute(DropConstraint(fkc))
+
+    for table in tbs:
+        conn.execute(DropTable(table))
+
+    trans.commit()

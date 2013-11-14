@@ -499,8 +499,8 @@ def cruise_show(request):
             if attr.key in Cruise.allowed_attrs_list:
                 suggested_attrs.append(attr)
 
+        # Only show unacknowledged suggestions to mods
         if h.has_mod(request):
-            # Only show unacknowledged suggestions to mods
             as_received = cruise_obj.unjudged_tracked_data.all()
         else:
             as_received = cruise_obj.pending_tracked_data.all()

@@ -30,11 +30,12 @@ _metadata = Base.metadata
 cred = ['seahunt_web', 'll0yd315']
 
 
-rails_root = os.path.join(os.path.sep, 'srv', 'not_served', 'project_seahunt')
+docs_root = os.path.join(os.path.sep, 'Users', 'myshen', 'seahunt', 'docs')
 
 
-url = S.engine.url.URL('postgresql', cred[0], cred[1], 'ghdc.ucsd.edu',
-                       database='seahunt')
+url = S.engine.url.URL(
+    'postgresql', cred[0], cred[1], 'sui.ucsd.edu', port=55432,
+    database='seahunt')
 
 
 engine = S.create_engine(url, use_native_unicode=False)
@@ -596,7 +597,7 @@ def _import_resource(resource, updater, downloader):
         if not file.type:
             file.type = guess_mime_type(file.filename)
         cruise_id = cruise.get('import_id').replace('seahunt', '')
-        path = os.path.join(rails_root, 'public', 'docs', 'ids', cruise_id,
+        path = os.path.join(docs_root, 'ids', cruise_id,
                             file.filename)
         with downloader.dl(path) as downloaded:
             if downloaded:
@@ -711,11 +712,16 @@ def import_(import_gid, args):
     with db_session(session()) as sesh:
         su = (sesh, updater)
 
-        with conn_dl('pacha.ucsd.edu', args.skip_downloads,
+        with conn_dl('sui.ucsd.edu', args.skip_downloads,
                      import_gid) as downloader:
+            log.info('Importing cruises')
             _import_cruises(downloader, sesh, updater)
         if not args.files_only:
+            log.info('Importing institutions')
             _import_institutions(*su)
+            log.info('Importing contacts')
             _import_contacts(*su)
+            log.info('Importing suggestions')
             _import_suggestions(*su)
         transaction.commit()
+    log.info('seahunt import done')

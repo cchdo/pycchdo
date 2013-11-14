@@ -1080,7 +1080,7 @@ def _import_collections_cruises(session):
         log.info(
             u'{0} belongs to {1}'.format(cc.cruise_id, cc.collection_id))
         if cc.collection is None or cc.cruise is None:
-            log.warn(u'pair is bad')
+            log.warn(u'bad pair {0} {1}'.format(cc.id))
             continue
 
         collection = Collection.get_one_by_attrs(
@@ -1664,8 +1664,8 @@ def _import_submissions(session, downloader):
         fs_assimilated = FieldStorage()
         fs_assimilated.filename = 'assimilated'
         fs_assimilated.file = SpooledTemporaryFile(max_size=1)
-        attr = cruise.set('data_suggestion', fs_assimilated, updater.importer)
         with su(su_lock=downloader.su_lock):
+            attr = cruise.set('data_suggestion', fs_assimilated, updater.importer)
             DBSession.flush()
         del fs_assimilated.file
     else:

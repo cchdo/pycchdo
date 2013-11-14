@@ -56,7 +56,7 @@ from libcchdo.recipes.orderedset import OrderedSet
 
 from pycchdo.util import (
     FileProxyMixin, listlike, is_valid_ip, _sorted_tables,
-    timestamp_now, re_flags_to_pg_op,
+    timestamp_now, re_flags_to_pg_op, drop_everything
     )
 from pycchdo.models import triggers
 from pycchdo.models.types import *
@@ -98,9 +98,8 @@ Base = declarative_base()
 
 def reset_database(engine):
     """Clears the database and recreates schema."""
+    drop_everything(engine)
     meta = Base.metadata
-    tables = meta.sorted_tables
-    meta.drop_all(bind=engine, tables=tables)
     meta.create_all(engine)
 
 
@@ -116,8 +115,7 @@ def reset_fs():
 class Datacart(OrderedSet):
     """A Datacart contains files that are meant to be downloaded in bulk.
 
-    Each file is refererred to by a key composed from a directory and a
-    filename. (This is from old CCHDO.)
+    Each file is refered to by attribute id.
 
     """
     def files(self):
@@ -125,7 +123,7 @@ class Datacart(OrderedSet):
 
     @classmethod
     def is_file_type_allowed(cls, ftype):
-        """Determine whether a data file's of type is allowed in the data cart.
+        """Determine whether a data file of ftype is allowed in the data cart.
 
         """
         prefixes = ['btl', 'bot', 'ctd', 'doc', 'sum']
@@ -147,7 +145,6 @@ class Datacart(OrderedSet):
             if fattr.id in self:
                 file_count += 1
         return (file_count, len(file_attrs))
-
 
 
 class Stamp(MutableComposite):
@@ -651,13 +648,13 @@ class _AttrValue(DBQueryable, Base):
     accepted = Column(Boolean, default=False)
     attr_id = Column(Integer, ForeignKey('attrs.id'))
 
-    attr = relationship(
-        '_Attr', primaryjoin='_AttrValue.attr_id == _Attr.id',
-        single_parent=True,
-        backref=backref('vs',
-            lazy='joined',
-            collection_class=attribute_mapped_collection('accepted'),
-        ), cascade='all, delete, delete-orphan')
+    #attr = relationship(
+    #    '_Attr', primaryjoin='_AttrValue.attr_id == _Attr.id',
+    #    single_parent=True,
+    #    backref=backref('vs',
+    #        lazy='joined',
+    #        collection_class=attribute_mapped_collection('accepted'),
+    #    ), cascade='all, delete, delete-orphan')
 
     @declared_attr
     def __mapper_args__(cls):
@@ -1106,8 +1103,6 @@ class ParameterInformation(_AttrValueElem):
     ts - some date attached to the status and PI of the parameter
 
     """
-    __tablename__ = 'param_info'
-    id = Column(Integer, ForeignKey('ave.id'), primary_key=True)
     parameter_id = Column(Integer, ForeignKey('parameters.id'))
     parameter = relationship('Parameter')
     status = Column(
@@ -1188,8 +1183,8 @@ class _AttrValueListDecimal(_AttrValueList, _AttrValue):
 class _AttrValueListParameterInformation(_AttrValueList, _AttrValue):
     __elem_class__ = ParameterInformation
     value = relationship(
-        __elem_class__,
-        cascade='all, delete, delete-orphan')
+        __elem_class__, 
+        uselist=True, cascade='all, delete, delete-orphan')
 
 
 @event.listens_for(_AttrValueListID, 'before_delete')
@@ -1292,6 +1287,15 @@ class _Attr(_Change):
     deleted = Column(Boolean)
 
     obj_id = Column(Integer, ForeignKey('objs.id'))
+
+    vs = relationship(
+        '_AttrValue', primaryjoin='_AttrValue.attr_id == _Attr.id',
+        lazy='joined',
+        collection_class=attribute_mapped_collection('accepted'),
+        backref=backref('attr', lazy='noload'),
+        cascade='all, delete, delete-orphan'
+    )
+
 
     v = relationship(
         '_AttrValue', primaryjoin='and_(_AttrValue.attr_id == _Attr.id, '
@@ -1575,11 +1579,12 @@ class CacheObjAttrs(DBQueryable, Base):
         'Obj',
         backref=backref('cache_obj_avs',
             collection_class=attribute_mapped_collection('key'),
-            cascade='all,delete-orphan',
+            cascade='all, delete, delete-orphan',
         ))
     key = Column(Unicode, primary_key=True)
-    attrvalue_id = Column(Integer, ForeignKey('av.id'))
-    attrvalue = relationship('_AttrValue', lazy='joined')
+    attrvalue_id = Column(Integer, ForeignKey('av.id', ondelete='cascade'))
+    attrvalue = relationship('_AttrValue', lazy='joined',
+        backref=backref('cacheavs', cascade='all, delete, delete-orphan'))
 
     __table_args__ = (
         Index('idx_cache_obj_avs', 'attrvalue_id', 'obj_id', 'key'),
@@ -1833,7 +1838,7 @@ class _AttrMgr(object):
         elif type == ParameterInformations:
             return _AttrValueListParameterInformation
         raise TypeError(
-            u'Unknown type {} cannot be stored in _Attr system.'.format(type))
+            u'Unknown type {0} cannot be stored in _Attr system.'.format(type))
 
     @classmethod
     def value_class(cls, attr_type):
@@ -2529,6 +2534,8 @@ class Cruise(Obj):
             collection_ids = self.get('collections', [])
             collections = preload_cached_avs(
                 Collection, Collection.by_ids(collection_ids)).all()
+            if not collections:
+                collections = []
             self._preload_objs['collections'] = collections
             return collections
 
@@ -2546,6 +2553,8 @@ class Cruise(Obj):
             institution_ids = self.get('institutions', [])
             institutions = preload_cached_avs(
                 Institution, Institution.by_ids(institution_ids)).all()
+            if not institutions:
+                institutions = []
             self._preload_objs['institutions'] = institutions
             return institutions
 

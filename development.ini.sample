@@ -29,8 +29,9 @@ submission_confirmation_recipient = synmantics+test@gmail.com
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = postgresql://pycchdo:pycchd0@315@ghdc.ucsd.edu:5432/dev_pycchdo
-#sqlalchemy.echo = True
+sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:55432/dev_pycchdo
+# echo may also take on value string debug
+# sqlalchemy.echo = True
 sqlalchemy.pool_timeout = 10
 
 webassets.base_dir = %(here)s/%(app)s/static
@@ -46,7 +47,7 @@ pipeline =
 [server:main]
 use = egg:waitress#main
 host = 0.0.0.0
-port = 6543
+port = 65432
 
 [pshell]
 p = pycchdo
@@ -68,7 +69,7 @@ keys = null, console
 keys = generic
 
 [logger_root]
-level = WARN
+level = DEBUG
 handlers = null
 
 [logger_pycchdo]

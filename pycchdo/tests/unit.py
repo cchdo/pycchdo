@@ -16,7 +16,8 @@ from pycchdo.models.models import (
     Session, DBSession,
     String, Integer, LineString, File, TextList, ID, IDList, DateTime, Unicode, 
     Institution, Stamp, Obj, _Change, _Attr, Note, Participant, Participants,
-    Country, Cruise, Person, Collection, Ship, CacheObjAttrs,
+    Country, Cruise, Person, Collection, Ship, CacheObjAttrs, Parameter,
+    ParameterInformation,
     ArgoFile,
     FSFile,
     )
@@ -127,6 +128,23 @@ class TestModelAttrValue(PersonBaseTest):
         DBSession.flush()
         iii.set_accept('name', 'hello', self.testPerson)
         self.assertEqual('hello', iii.get('name', None))
+
+
+class TestModelParameterInformation(PersonBaseTest):
+    def test_delete(self):
+        engine_loglevel(DEBUG)
+        cruise = Cruise(self.testPerson)
+        param = Parameter(self.testPerson)
+        inst = Institution(self.testPerson)
+        DBSession.add(cruise)
+        DBSession.add(param)
+        DBSession.add(inst)
+        DBSession.flush()
+        pis = [ParameterInformation(param, 'online', self.testPerson, inst, datetime.utcnow())]
+        attr = cruise.set('parameter_informations', pis, self.testPerson)
+        DBSession.flush()
+        DBSession.delete(attr)
+        DBSession.flush()
 
 
 class TestModelAttr(PersonBaseTest):
@@ -1282,6 +1300,8 @@ class TestHelper(PersonBaseTest):
         from pycchdo.helpers import data_file_link
         request = testing.DummyRequest()
 
+        self.config.add_route('datacart_add', 'test')
+
         key = self._testMethodName
         Person.allow_attr(key, File)
 
@@ -1294,18 +1314,23 @@ class TestHelper(PersonBaseTest):
         data = ppp.set_accept(key, file, self.testPerson)
         DBSession.flush()
 
-        answer = (
-            '<tr class="bottle exchange"><th><abbr title="ASCII .csv bottle '
-            'data with station information"><a href="/data/b/{id}">Bottle</a>'
-            '</abbr></th></tr>').format(id=data.id)
-        self.assertEquals(
-            data_file_link(request, 'bottle_exchange', data), answer)
-        answer = (
-            '<tr class="ctdzip exchange"><th><abbr title="ZIP archive of '
-            'ASCII .csv CTD data with station information"><a '
-            'href="/data/b/{id}">CTD</a></abbr></th></tr>').format(id=data.id)
-        self.assertEquals(
-            data_file_link(request, 'ctdzip_exchange', data), answer)
+        answer_parts = [
+            'class="bottle exchange"',
+            '<abbr title="ASCII .csv bottle data with station information">',
+            '<a href="/data/b/{id}">Bottle</a>'.format(id=data.id),
+        ]
+        answer = unicode(data_file_link(request, 'bottle_exchange', data))
+        for part in answer_parts:
+            self.assertIn(part, answer)
+
+        answer_parts = [
+            'class="ctdzip exchange"',
+            '<abbr title="ZIP archive of ASCII .csv CTD data with station information">',
+            '<a href="/data/b/{id}">CTD</a>'.format(id=data.id),
+        ]
+        answer = unicode(data_file_link(request, 'ctdzip_exchange', data))
+        for part in answer_parts:
+            self.assertIn(part, answer)
 
 
 class TestView(PersonBaseTest):
@@ -1337,7 +1362,6 @@ class TestView(PersonBaseTest):
         request.user = None
 
         result = cruise_show(request)
-        # TODO
 
     def test_cruise_show_suggest_file(self):
         # XXX HACK because route_url doesn't work without route config

@@ -1,6 +1,7 @@
 import os
 from unittest import TestCase
-import logging
+from logging import getLogger, StreamHandler, DEBUG, INFO, CRITICAL
+from sys import stderr
 from ConfigParser import SafeConfigParser
 
 from pyramid import testing
@@ -20,7 +21,8 @@ from pycchdo.log import ColoredLogger, ColoredFormatter
 
 __all__ = [
     'log', 'BaseTest', 'PersonBaseTest', 'MockFile', 'MockFieldStorage',
-    'MockSession', 'setUpModule', 'tearDownModule',
+    'MockSession', 'engine_loglevel', 'DEBUG', 'CRITICAL', 'setUpModule',
+    'tearDownModule',
     ]
 
 
@@ -29,10 +31,11 @@ log = ColoredLogger(__name__)
 
 db_echo = False
 engine = None
+logger = None
 
 
 def setUpModule():
-    global engine
+    global engine, logger
     if engine is None:
         env = bootstrap(os.path.join(os.getcwd(), 'test.ini'))
         settings = env['registry'].settings
@@ -41,12 +44,22 @@ def setUpModule():
         FSFile.fs_setup()
 
         if db_echo:
-            sqlalchemy_logger = logging.getLogger('sqlalchemy.engine')
-            color_formatter = ColoredFormatter()
-            console = logging.StreamHandler()
-            console.setFormatter(color_formatter)
-            sqlalchemy_logger.addHandler(console)
-            sqlalchemy_logger.setLevel(logging.DEBUG)
+            logger = _add_logger('sqlalchemy.engine')
+            engine_loglevel(DEBUG)
+
+
+def engine_loglevel(level):
+    if logger:
+        logger.setLevel(level)
+
+
+def _add_logger(logger_name):
+    logger = getLogger(logger_name)
+    color_formatter = ColoredFormatter()
+    console = StreamHandler(stderr)
+    console.setFormatter(color_formatter)
+    logger.addHandler(console)
+    return logger
 
 
 def tearDownModule():

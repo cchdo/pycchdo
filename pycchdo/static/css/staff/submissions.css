@@ -27,6 +27,8 @@ table.has-meta-bodies td {
   border-left: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+.identifier a.corrected { text-decoration: line-through; }
+
 .attached.even { background-color: #D9EAED; }
 .attached.odd { background-color: #C9DADD; }
 .attached.even.open { background-color: #D1E2E5; }

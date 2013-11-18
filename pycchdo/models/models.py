@@ -3694,7 +3694,7 @@ class Submission(Obj):
     cruise_date = Column(DateTime)
     type = Column(Unicode)
     attached_id = Column(Integer, ForeignKey('attrs.id'))
-    attached = relationship('_Attr')
+    attached = relationship(_Attr, lazy='joined')
 
     file_id = Column('file_id', Integer, ForeignKey('fsfile.id'))
     file = relationship('FSFile', cascade='all, delete')

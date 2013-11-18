@@ -11,7 +11,16 @@
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
 {% endblock %}
 {% block content -%}
-  {% call h.boxed('Submissions') -%}
+  {% call h.boxed('Submissions', id='submissions') -%}
+    <div id="tools">
+      <form>
+        {%- for label in lqueries.keys() %}
+          {{ whh.tags.radio('ltype', label, checked=(label == ltype), label=label) }}
+        {%- endfor %}
+      </form>
+      {# TODO filter #}
+      {# TODO sort #}
+    </div>
     <div class="help">
       <p>The key here is to attach submissions to specific cruises.</p>
       <ol>
@@ -29,44 +38,35 @@
     </div>
 
     {%- if submissions %}
-      <table class="has-meta-bodies autopagerize_page_element">
+      <table class="has-meta-bodies pre-expand autopagerize_page_element">
         <tr class="header">
+          <th class="id">ID</th>
           <th class="identifier">Identifier</th>
-          <th class="actions">Actions</th>
-          <th class="person">Person</th>
-          <th class="file">File</th>
-          <th class="date_submitted">Date submitted</th>
+          <th class="person">Submitted by</th>
           <th class="type">Type</th>
-          <th class="attached">Attached</th>
         </tr>
       {%- for submission in submissions %}
         {%- set hl = loop.cycle('even', 'odd') %}
         {%- set attached = submission.attached or None %}
         <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
           {%- set ident = submission.expocode or ' ' %}
-          <td class="identifier">{{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}</td>
-          <td class="actions">{{ submission.action or '' }}</td>
-          <td class="person">{{ h.link_person(submission.creation_person) }}</td>
-          <td class="file">{{ h.link_file_holder(submission) }}</td>
-          <td class="date_submitted">{{ h.pdate(submission.creation_timestamp) }}</td>
-          <td class="type">{{ submission.type }}</td>
-          <td class="attached">
+          <td class="id">{{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}</td>
+          <td class="identifier">
             {# TODO attached can be either None, True, or _Attr. True is when the submission was imported. #}
             {%- if attached %}
-              {%- if attached == True %}
-                yes
-              {%- else %}
-                {{ h.link_cruise(attached.obj) }}
-              {%- endif %}
+              {{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident), class_='corrected') }}
+              {{ h.link_cruise(attached.obj) }}
             {%- else %}
-              NO
+              {{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}
             {%- endif %}
           </td>
+          <td class="person">{{ h.link_person(submission.creation_person) }}</td>
+          <td class="type">{{ submission.type }}</td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
-          <td colspan="4">
+          <td class="file">{{ h.link_file_holder(submission) }}</td>
+          <td class="identifier">
             <table class="info">
-              {{ row_if_exists('ID', h.link_obj(submission)) }}
               {{ row_if_exists('Acknowledged by', h.link_person(submission.pending_person)) }}
               {{ row_if_exists('Acknowledged on', h.pdate(submission.pending_timestamp)) }}
               {{ row_if_exists('Cruise dates', h.pdate(submission.cruise_date)) }}
@@ -74,7 +74,8 @@
               {{ row_if_exists('WOCE Line', submission.line or '') }}
             </table>
           </td>
-          <td colspan="3">
+          <td class="date_submitted">{{ h.pdate(submission.creation_timestamp) }}</td>
+          <td>
           {%- if not attached %}
             {{ whh.tags.form('', 'PUT', hidden_fields={'submission_id': submission.id}) }}
             <table class="editor">
@@ -124,4 +125,5 @@
 {%- block js %}
   {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
   {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
+  {{ whh.tags.javascript_link('/static/js/staff.js') }}
 {%- endblock %}

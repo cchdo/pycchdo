@@ -16,7 +16,7 @@ from . import *
 log = ColoredLogger(__name__)
 
 
-def _send_confirmation(request, d):
+def _send_confirmation(request, d, submissions):
     cchdo_email = 'cchdo@ucsd.edu'
     recipient = request.registry.settings.get(
         'submission_confirmation_recipient', None)
@@ -72,8 +72,12 @@ Additional information collected with your submission:
         body_parts.append(
             'Dates: ' + datetime.strftime(d['cruise_dates'], '%Y-%m-%d'))
     if d['notes']:
-        body_parts.append('Notes: ' + d['notes'])
-    body_parts.append('\nThank you again for your submission.')
+        body_parts.append('Notes: ' + d['notes'] + '\n')
+    body_parts.append('Thank you again for your submission.\n')
+    body_parts.append('---\n')
+    for sub in submissions:
+        body_parts.append(request.route_path('staff_submissions',
+            _query={'ltype': 'id', 'query': sub.id}), '\n')
 
     body += '\n'.join(body_parts)
 
@@ -182,7 +186,7 @@ def submit(request):
             submissions.append(sub)
             # TODO record submitter useragent and ip
 
-        _send_confirmation(request, d)
+        _send_confirmation(request, d, submissions)
 
         sample_submission = submissions[0]
         return render_to_response(

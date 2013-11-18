@@ -8,11 +8,13 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
+from collections import OrderedDict
 
 from pyramid.httpexceptions import HTTPUnauthorized
 
 from pycchdo.helpers import link_cruise, pdate, link_person, whtext
 import pycchdo.models as models
+from pycchdo.models import Submission, OldSubmission
 
 from pycchdo.views import *
 from pycchdo.helpers import has_staff
@@ -107,6 +109,17 @@ def _moderate_submission(request):
                                      data_type), 'action_taken')
 
 
+list_queries = OrderedDict([
+    ['Not queued not Argo', lambda: Submission.query().filter(
+            Submission.attached == None, Submission.type != 'argo')],
+    ['Not queued all', lambda: Submission.query().filter(Submission.attached == None)],
+    ['Argo', lambda: Submission.query().filter(Submission.type == 'argo')],
+    ['Queued', lambda: Submission.query().filter(Submission.attached != None)],
+    ['All', lambda: Submission.query()],
+    ['Old Submissions', lambda: OldSubmission.query()],
+])
+
+
 @staff_signin_required
 def submissions(request):
     method = http_method(request)
@@ -114,11 +127,28 @@ def submissions(request):
         if not request.user:
             return require_signin(request)
         _moderate_submission(request)
-    submissions = models.Submission.query().\
-        order_by(models.Submission.creation_timestamp).all()
+
+    ltype = request.params.get('ltype', 'not_queued_not_argo')
+
+    try:
+        squery = list_queries[ltype]()
+    except KeyError:
+        if ltype == 'id':
+            squery = Submission.query().filter(Submission.id == request.params['query'])
+        elif ltype == 'unassigned':
+            squery = Submission.query()
+        else:
+            squery = list_queries['Not queued not Argo']()
+        
+    submissions = squery.\
+        order_by(Submission.creation_timestamp).\
+        all()
+
     submissions = paged(request, submissions)
 
     return {
+        'ltype': ltype,
+        'lqueries': list_queries,
         'submissions': submissions,
         'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,
         }

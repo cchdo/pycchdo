@@ -5,11 +5,6 @@
 {% endblock %}
 {% block content -%}
   {% call h.boxed('Moderation') -%}
-    <div class="TODO">
-      Moderation is a replacement for Queue.
-      These files are "queued"
-      How should these files be displayed?
-    </div>
     <div class="pending autopagerize_page_element">
       {%- for ps in parameters %}
         {%- set cruises = files_by_parameters[ps] %}
@@ -18,9 +13,6 @@
           <tr class="header">
             <th class="staff">
               Staff
-            </th>
-            <th class="collection">
-              Collection
             </th>
             <th class="cruise">
               Cruise
@@ -41,9 +33,6 @@
             <tr class="{{ cruise_loop.cycle('even', 'odd') }}">
               <td class="staff">
                 {{ h.link_person(file.pending_stamp.person) }}
-              </td>
-              <td class="collection">
-                {{ h.link_collection(cruise.collections[0]) }}
               </td>
               <td class="cruise">
                 {{ h.link_cruise(cruise) }}

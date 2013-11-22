@@ -24,3 +24,99 @@ tr.header {
 .pending h2 {
   font-size: 1.2em;
 }
+
+.queue h3 {
+  margin-top: 0.5em;
+  color: #006F89;
+  font-size: 1.2em;
+  margin-bottom: 0;
+  font-weight: normal;
+}
+.queue .tabs {
+  width: 100%;
+}
+.queue .tabs td {
+  text-align: center;
+}
+.queue .tabs .active {
+  font-family: Helvetica;
+  font-variant: small-caps;
+  font-weight: bold;
+  font-size: 1.087em;
+}
+.queue .tabs a {
+  text-decoration: none;
+}
+.queue .tabs a.csv {
+  padding-left: 0.5em;
+  font-family: Inconsolata, monospace;
+  font-size: 0.7em;
+}
+.queue .tabs .active a.link,
+.queue .tabs a:hover {
+  text-decoration: underline;
+}
+.queue .tabs .active.unmerged { background-color: #FFDDDD; }
+.queue .tabs .unmerged { background-color: #FFEEEE; }
+.queue .tabs .active.hidden { background-color: #FFFFBB; }
+.queue .tabs .hidden { background-color: #FFFFEE; }
+.queue .tabs .active.merged { background-color: #DDFFDD; }
+.queue .tabs .merged { background-color: #EEFFEE; }
+.queue .queue-box.id .unmerged,
+.queue .queue-box.expocode .unmerged { background: #FFDDDD; }
+.queue .queue-box.id .merged,
+.queue .queue-box.expocode .merged { background: #DDFFDD; }
+.queue .queue-box.id .hidden,
+.queue .queue-box.expocode .hidden { background: #FFFFBB; }
+
+.queue .qcruise {
+}
+.queue .qcruise a {
+  margin-left: 1em;
+  font-size: 0.8em;
+}
+.queue .files {
+  margin-left: 1em;
+  text-align: left;
+  width: 90%;
+  border-left: 1px solid #eeeeee;
+}
+.queue .files .file td {
+  border-top: 1px solid #eeeeee;
+  border-bottom: 1px solid #eeeeee;
+}
+.queue .files .link {
+  background-color: #eeeeee;
+  width: 15em;
+}
+.queue .files .contact {
+  width: 10em;
+}
+.queue .files .date_received {
+  width: 6em;
+}
+.queue .files .submission {
+  width: 9em;
+}
+.queue .files .id {
+  width: 3em;
+}
+.queue .files .parameters.ctd {
+  background-color: #AAFFAA;
+}
+.queue .files .parameters {
+}
+.queue .files .actions {
+  vertical-align: top;
+  text-align: right;
+}
+.queue .files .farright {
+  text-align: right;
+}
+.queue .files .notebutton {
+  white-space: nowrap;
+}
+
+.queue .editor textarea {
+  width: 100%;
+}

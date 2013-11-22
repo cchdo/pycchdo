@@ -173,6 +173,10 @@ class Stamp(MutableComposite):
             if not allow_blank:
                 raise ValueError(u'Stamp must have at least a Person')
 
+    @property
+    def person(self):
+        return Person.get_by_id(self.person_id)
+
     def __composite_values__(self):
         return [self.person_id, self.timestamp, ]
 
@@ -1559,6 +1563,10 @@ class _Attr(_Change):
         return u"_Attr({0}, {1}, {2}, obj_id={3}, id={4})".format(
             mapping, state, self.str_type, obj_id, id)
 
+    @property
+    def submission(self):
+        return Submission.query().filter(Submission.attached_id == self.id).first()
+
     @classmethod
     def all_data(cls):
         return _Attr.query().filter(_Attr.str_type == 'File').all()
@@ -1570,6 +1578,12 @@ class _Attr(_Change):
     @classmethod
     def pending(cls):
         return _Attr.query().filter(_Change.judgment_stamp == None).all()
+
+    @classmethod
+    def pending_data(cls):
+        return _Attr.query().\
+            filter(_Attr.str_type == 'File').\
+            filter(_Change.judgment_stamp == None).all()
 
 
 class CacheObjAttrs(DBQueryable, Base):

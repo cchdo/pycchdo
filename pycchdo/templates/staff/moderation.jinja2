@@ -2,48 +2,40 @@
 {% block title -%}Moderation | Staff{%- endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/staff/moderation.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
 {% endblock %}
 {% block content -%}
   {% call h.boxed('Moderation') -%}
-    <div class="pending autopagerize_page_element">
-      {%- for ps in parameters %}
-        {%- set cruises = files_by_parameters[ps] %}
-        <h2>{{ ps }}</h2>
-        <table>
-          <tr class="header">
-            <th class="staff">
-              Staff
-            </th>
-            <th class="cruise">
-              Cruise
-            </th>
-            <th class="contact">
-              Contact
-            </th>
-            <th class="file">
-              File
-            </th>
-            <th class="notes">
-              Notes
-            </th>
-          </tr>
-        {%- for cruise, files in cruises|dictsort %}
-          {%- set cruise_loop = loop %}
+    <div class="queue pending autopagerize_page_element">
+      {%- for key in dtc %}
+        {% set (dtime, cruise) = key %}
+        {% set files = dtc_to_q[key] %}
+        <h3 class="qcruise">
+          <span class="date_received">{{dtime.strftime('%F')}}</span>
+          {{h.link_cruise(cruise)}}
+        </h3>
+        <table class="files has-meta-bodies">
           {%- for file in files %}
-            <tr class="{{ cruise_loop.cycle('even', 'odd') }}">
-              <td class="staff">
-                {{ h.link_person(file.pending_stamp.person) }}
-              </td>
-              <td class="cruise">
-                {{ h.link_cruise(cruise) }}
+            {% set submission = attr_sub[file.id] %}
+            <tr id="queue_{{file.id}}" class="file mb-link{{loop.index0}} meta">
+              <td class="link">
+                {{ h.link_file_holder(file) }}
               </td>
               <td class="contact">
                 {{ h.link_person(file.creation_stamp.person) }}
               </td>
-              <td class="file">
-                {{ h.link_file_holder(file) }}
+              <td class="id">
+                {{ whh.tags.link_to(file.id, request.route_path('staff_moderation', _query={})) }}
               </td>
-              <td class="notes">
+              <td class="parameters">
+                {{submission}}
+              </td>
+            </tr>
+            <tr class="file mb-link{{loop.index0}} body">
+              <td class="notes" colspan="4">
+                {%- if submission %}
+                  submission.parameters
+                {%- endif %}
                 <ol>
                 {%- for note in file.notes %}
                   <li>{{ note.data_type }}: {{ note.body }}</li>
@@ -52,11 +44,12 @@
               </td>
             </tr>
           {%- endfor %}
-        {%- endfor %}
         </table>
       {%- endfor %}
+      {{ h.pager_for(dtc) }}
+      {#
       <table>
-      {# for p in pending %}
+      {% for p in pending %}
         <tr>
           <td>{{ h.link_cruise(p.obj) }}</td>
           <td><a href="/obj/{{p.obj.id}}/a/{{p.id}}">{{p}}</a></td>
@@ -76,8 +69,12 @@
         </tr>
       {% endfor %}
       </table>
-      {{ h.pager_for(pending) #}
-      {{ h.pager_for(parameters) }}
+      {{ h.pager_for(pending) }}
+      #}
     </div>
   {%- endcall %}
+{%- endblock %}
+{%- block js %}
+  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
+  {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
 {%- endblock %}

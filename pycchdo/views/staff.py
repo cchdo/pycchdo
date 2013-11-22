@@ -194,27 +194,46 @@ def moderation(request):
             return require_signin(request)
         _moderate_attribute(request)
 
-    pending = models._Attr.pending()
+    #pending = models._Attr.pending()
 
-    files_by_parameters = {}
-    for p in pending:
-        for note in p.notes:
-            if note.data_type == 'Parameters':
-                try:
-                    l = files_by_parameters[note.body]
-                except KeyError:
-                    l = files_by_parameters[note.body] = {}
-                try:
-                    m = l[p.obj]
-                except KeyError:
-                    m = l[p.obj] = set()
-                m.add(p)
+    #files_by_parameters = {}
+    #for attr in pending:
+    #    for note in attr.notes:
+    #        if note.data_type == 'Parameters':
+    #            try:
+    #                l = files_by_parameters[note.body]
+    #            except KeyError:
+    #                l = files_by_parameters[note.body] = {}
+    #            try:
+    #                m = l[attr.obj]
+    #            except KeyError:
+    #                m = l[attr.obj] = set()
+    #            m.add(attr)
 
-    parameters = paged(request, sorted(files_by_parameters.keys()))
+    #parameters = paged(request, sorted(files_by_parameters.keys()))
+
+    parameters = []
+    files_by_parameters = []
+
+    dtc_to_q = {}
+    pending = models._Attr.pending_data()
+    attr_sub = {}
+    for attr in pending:
+        key = (attr.creation_stamp.timestamp, attr.obj)
+        try:
+            dtc_to_q[key].append(attr)
+        except KeyError:
+            dtc_to_q[key] = [attr]
+        attr_sub[attr.id] = attr.submission
+
+    dtc = paged(request, sorted(dtc_to_q.keys(), reverse=True))
 
     return {
         'parameters': parameters,
         'files_by_parameters': files_by_parameters,
+        'dtc': dtc,
+        'dtc_to_q': dtc_to_q,
+        'attr_sub': attr_sub,
     }
 
 

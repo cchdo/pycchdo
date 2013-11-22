@@ -2128,11 +2128,11 @@ class _AttrMgr(object):
             try:
                 v = attr_class._coerce(None, value)
             except TypeError, e:
-                log.debug('Failed to coerce: {}'.format(e))
+                log.debug('Failed to coerce: {0}'.format(e))
                 raise e
-            if v != value:
+            if value is not None and v != value:
                 raise TypeError(
-                    u'Coerced value {!r} for {} != {!r}'.format(
+                    u'Coerced value {0!r} for {1} != {2!r}'.format(
                         v, attr_class, value))
             try:
                 value.match

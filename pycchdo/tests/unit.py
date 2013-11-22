@@ -610,6 +610,8 @@ class TestModelObj(PersonBaseTest):
         aaa._set(['bbb'])
         bbb._set('ddd')
 
+        DBSession.flush()
+
         log.warn([c.key for c in CacheObjAttrs.query().all()])
 
         ccc._clear_cache_attrs_current()

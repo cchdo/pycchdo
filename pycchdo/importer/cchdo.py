@@ -383,18 +383,13 @@ known_multiple_names = {
 }
 
 
-known_aliases = {
-    'sdiggs,,': '',
-}
-
-
 def _find_person_with_qlastn_name_first(qlastn, name_first):
     people = qlastn.filter(Person.name_first == name_first).all()
     if len(people) == 1:
         return people[0]
     elif len(people) > 1:
         log.error(
-            u'Multiple people for {0!r} {1!r}'.format(qlastn, name_first))
+            u'Multiple people for {0} {1!r}'.format(str(qlastn), name_first))
     else:
         log.error(
             u'No person for {0} {1!r}'.format(str(qlastn), name_first))
@@ -424,22 +419,19 @@ def _name_to_person(updater, cruise, name):
             except KeyError:
                 first_names = [p.name_first for p in people]
                 ids = [p.id for p in people]
-                log.warn(u'More than one person for %s %r %s' % (
-                    cruise.id, first_names, ids))
+                log.warn(u'>1 match for {0!r} {1!r} (cruise {2})'.format(
+                    first_names, ids, cruise.id))
                 if name in known_duplicates:
                     log.info(u'Known duplicate %s' % name)
                     return people[0]
                 if name in known_multiple_names.keys():
                     log.info(u'Known multiple names %s' % name)
                     return people[0]
-                log.error(u'More than one person with last name %s and '
-                              'unable to pick' % name)
-        #raise ValueError(u'More than one person with last name %s and unable '
-        #                  'to pick' % name)
+        log.error(u'Unable to pick person for last name {0!r}'.format(name))
 
     # No people found
-    log.warn('No person found for %s' % name)
-    return _import_contact(updater, None, None, name=name)
+    log.warn('No person matched {0!r} (cruise {1!r})'.format(name, cruise.id))
+    return _import_contact(updater, name, None, name=name)
 
 
 def _name_to_inst(updater, name, p):
@@ -481,7 +473,7 @@ def _cchdo_pi_to_person_insts(pi, cruise, updater):
 
     """
     log.info(
-        u'Mapping {0!r} {1} to person-institution'.format(pi, cruise.__dict__))
+        u'Mapping {0!r} {1} to person-institution'.format(pi, cruise.id))
 
     # Special cases
     if pi == 'Unknown':
@@ -904,7 +896,8 @@ def _import_track_lines(session):
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', tl.ExpoCode)
 
-        log.debug(u'Set {0} track to {1}'.format(tl.ExpoCode, linestring))
+        log.info(u'Track for {0}'.format(tl.ExpoCode))
+        log.debug(u'{0}'.format(linestring))
         updater.attr(cruise, 'track', linestring)
 
 
@@ -972,7 +965,7 @@ def import_person(updater, name_last, name_first,
 
         if institution:
             updater.attr(person, 'institution', institution)
-        DBSession.flush()
+    DBSession.flush()
     return person
 
 
@@ -1077,10 +1070,10 @@ def _import_collections_cruises(session):
     updater = _get_updater()
     collections_cruises = session.query(legacy.CollectionsCruise).all()
     for cc in collections_cruises:
-        log.info(
+        log.debug(
             u'{0} belongs to {1}'.format(cc.cruise_id, cc.collection_id))
         if cc.collection is None or cc.cruise is None:
-            log.warn(u'bad pair {0} {1}'.format(cc.id))
+            log.warn(u'bad pair {0} {1}'.format(cc.collection_id, cc.cruise_id))
             continue
 
         collection = Collection.get_one_by_attrs(
@@ -1096,9 +1089,9 @@ def _import_collections_cruises(session):
 
         cruise_collections = cruise.get('collections')
         if collection.id in cruise_collections:
-            log.info('Collection already present in Cruise collections')
+            log.debug('Collection already present in Cruise collections')
         else:
-            log.info('Adding Collection %s to Cruise %s collections' % \
+            log.debug('Adding Collection %s to Cruise %s collections' % \
                         (collection.id, cruise.id))
             updater.attr(
                 cruise, 'collections', cruise_collections + [collection.id])
@@ -1187,7 +1180,7 @@ def _import_contacts_cruises(session):
         person = Person.get_one_by_attrs({'import_id': import_id})
         if not person:
             log.warn("Could not import ContactsCruise pair because person "
-                        '%s does not exist.' % import_id)
+                     '{0} does not exist.'.format(import_id))
             continue
 
         role = cc.function
@@ -1221,12 +1214,12 @@ def _import_events(session):
     len_events = len(events)
     for i, event in enumerate(events):
         if i % 100 == 0:
-            log.info('{:d}/{:d} = {:f}'.format(
+            log.info('{0:d}/{1:d} = {2:f}'.format(
                 i, len_events, float(i) / len_events))
         event_id = str(event.ID)
         note = Note.query().filter(Note.import_id == event_id).first()
         if note:
-            log.info("Updating Event %s" % event_id)
+            log.info("Updating Event {0}".format(event_id))
             continue
 
         cruises = Cruise.get_all_by_expocode(event.ExpoCode)
@@ -1248,12 +1241,13 @@ def _import_events(session):
         summary = ''
         if event.Summary:
             summary = _ustr2uni(event.Summary)
+        lname = event.LastName.strip()
+        fname = event.First_Name.strip()
         try:
-            person = cache_person[(event.LastName, event.First_Name)]
+            person = cache_person[(lname, fname)]
         except KeyError:
-            person = import_person(
-                updater, event.LastName, event.First_Name)
-            cache_person[(event.LastName, event.First_Name)] = person
+            person = import_person(updater, lname, fname)
+            cache_person[(lname, fname)] = person
 
         note = Note(person, body, action, data_type, summary)
         note.creation_timestamp = _date_to_datetime(event.Date_Entered)

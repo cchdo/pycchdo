@@ -85,4 +85,9 @@ def groups(request):
         location=request.route_path(
             'search_results', _query=[('query', 'group:{0}'.format(group))]))
 
+
 table = groups
+
+
+def carina(request):
+    raise HTTPMovedPermanently(location=request.route_path('project_carina'))

@@ -9,7 +9,7 @@
   color: #31648E;
 }
 .collection-specific-banner p {
-  padding: 1em;
+  padding: 0.5em;
 }
 .collection-specific-banner .from {
   background-color: #9BCCDB;
@@ -22,6 +22,9 @@
 div.collection-specific-banner .from a {
   border-bottom: none;
 }
+div.collection-specific-banner .from img {
+  height: 6em;
+}
 .collection-specific-banner .to {
   position: absolute;
   top: 0;
@@ -29,7 +32,7 @@ div.collection-specific-banner .from a {
   width: 51.7%;
 }
 .collection-specific-banner .to p {
-  line-height: 31px;
+  line-height: 6em;
   margin: auto;
   width: 70%;
 }

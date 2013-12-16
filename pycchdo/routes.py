@@ -281,6 +281,8 @@ def configure_routes(config):
                'pycchdo.views.legacy.queue')
     route_path(config, 'legacy_queue.html', '/queue.html',
                'pycchdo.views.legacy.queue')
+    route_path(config, 'project_carina.html', '/project_carina',
+               'pycchdo.views.legacy.carina')
 
     # dynamic static pages
     route_path(config, 'project_carina', '/project_carina.html',

@@ -1032,6 +1032,7 @@ def datacart_link_cruises(request, cruises, div_attributes={}):
             'title': 'Add all result data to data cart',
         }
     else:
+        link_str = ''
         link = ''
         link_params = ''
         link_attrs = {}

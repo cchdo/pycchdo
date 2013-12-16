@@ -652,14 +652,6 @@ class _AttrValue(DBQueryable, Base):
     accepted = Column(Boolean, default=False)
     attr_id = Column(Integer, ForeignKey('attrs.id'))
 
-    #attr = relationship(
-    #    '_Attr', primaryjoin='_AttrValue.attr_id == _Attr.id',
-    #    single_parent=True,
-    #    backref=backref('vs',
-    #        lazy='joined',
-    #        collection_class=attribute_mapped_collection('accepted'),
-    #    ), cascade='all, delete, delete-orphan')
-
     @declared_attr
     def __mapper_args__(cls):
         if cls.__name__ == '_AttrValue':
@@ -1296,7 +1288,7 @@ class _Attr(_Change):
         '_AttrValue', primaryjoin='_AttrValue.attr_id == _Attr.id',
         lazy='joined',
         collection_class=attribute_mapped_collection('accepted'),
-        backref=backref('attr', lazy='noload'),
+        backref=backref('attr', lazy='joined'),
         cascade='all, delete, delete-orphan'
     )
 

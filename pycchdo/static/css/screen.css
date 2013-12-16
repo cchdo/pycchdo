@@ -199,7 +199,10 @@ table tr.header th {
 .header .expander a {
   background: url('/static/img/icons/expandall_arrows.png') no-repeat;
 }
-.open .expander a {
+table.open tr.header .expander a {
+  background-position: 0 -9px;
+}
+tr.open .expander a {
   background-position: 0 -9px;
 }
 

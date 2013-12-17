@@ -17,35 +17,51 @@ function metaTable() {
     expander.append(button);
     return expander;
   }
+  function expandOpen(expander) {
+    expander.data('open', true);
+    expander.addClass('open');
+  }
+  function expandClose(expander) {
+    expander.data('open', false);
+    expander.removeClass('open');
+  }
 
-  // When the header row is double clicked, toggle all rows
-  var header = table.find('.header');
-  header.dblclick(toggleAll);
-
-  var batchOpen = false;
   function toggleAll() {
     var open = !table.data('open');
-    table.data('open', open);
     if (open) {
-      table.addClass('open');
+      expandOpen(table);
     } else {
-      table.removeClass('open');
+      expandClose(table);
     }
 
-    batchOpen = true;
+    table.data('batchopen', true);
     table.find('> tbody > tr.meta, > tr.meta').each(function () {
       var row = $(this);
       if (row.data('open') != open) {
         row.click();
       }
     });
-    batchOpen = false;
+    table.data('batchopen', false);
     return false;
   }
+
+  // When the header row is double clicked, toggle all rows
+  var header = table.find('.header');
+  header.dblclick(toggleAll);
 
   var header_expander = $('<th class="expander"></th>');
   attachExpanderArrow(header_expander, toggleAll, 'Expand all', 'Collapse all');
   header.prepend(header_expander);
+
+  function updateHeaderExpander() {
+    var metas = table.find('> tbody > tr.meta, > tr.meta');
+    var openmetas = metas.filter('.meta.open');
+    if (openmetas.length == 0) {
+      expandClose(table);
+    } else if (openmetas.length == metas.length) {
+      expandOpen(table);
+    }
+  }
 
   // Prepend expander cells for each non-meta row
   table.find('> tbody > tr, > tr').each(function () {
@@ -81,7 +97,7 @@ function metaTable() {
     function open() {
       row.addClass('open');
       var speed = 'fast';
-      if (batchOpen) {
+      if (table.data('batchopen')) {
         speed = null;
       }
       body.addClass('open').show(speed);
@@ -89,7 +105,7 @@ function metaTable() {
     function close() {
       row.removeClass('open');
       var speed = 'fast';
-      if (batchOpen) {
+      if (table.data('batchopen')) {
         speed = null;
       }
       body.removeClass('open').hide(speed);
@@ -102,17 +118,18 @@ function metaTable() {
     function react() {
       row.data('open', !row.data('open'));
       if (row.hasClass('batch-open')) {
-        batchOpen = true;
+        table.data('batchopen', true);
       }
       if (row.data('open')) {
-        var savedbatchOpen = batchOpen;
+        var savedbatchOpen = table.data('batchopen');
         open();
       } else {
         close();
       }
       if (row.hasClass('batch-open')) {
-        batchOpen = savedbatchOpen;
+        table.data('batchopen', savedbatchOpen);
       }
+      updateHeaderExpander();
       return false;
     }
 
@@ -154,7 +171,7 @@ function metaTable() {
   });
 
   if (table.hasClass('pre-expand')) {
-    table.find('.header .expander a').click();
+    header_expander.find('a').click();
   }
 }
 $('table.has-meta-bodies').each(metaTable);

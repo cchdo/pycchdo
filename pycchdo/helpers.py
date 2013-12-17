@@ -541,9 +541,9 @@ def cruises_sort_by_date_start(cruises):
     return sorted(cruises, key=lambda c: c.date_start or zero)
 
 
-def cruise_track_image(map, cruise):
+def cruise_track_image(map, cruise, classes=[]):
     return tags.image(map, cruise_nice_name(cruise) + ' thumbnail',
-        class_='cruise-track-img')
+        class_=' '.join(['cruise-track-img'] + classes))
 
 
 def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
@@ -607,13 +607,15 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
                     class_='who'
                 ),
                 H.td(
-                    data_files_lists(request, data_files, condensed=True),
-                    class_='dataset body {0}'.format(baseclass)
+                    data_files_lists(request, data_files, condensed=True,
+                                     classes=['body', baseclass]),
+                    class_='dataset'
                 ),
                 H.td(datacart_link_cruise(request, cruise)), 
                 H.td(
-                    cruise_track_image(map_path, cruise),
-                    class_='map body {0}'.format(baseclass)
+                    cruise_track_image(
+                        map_path, cruise, classes=['body', baseclass]),
+                    class_='map'
                 ), 
                 class_=metaclass
             ),
@@ -938,7 +940,7 @@ def data_files_list(request, data_files, short_name, title, condensed=False):
     return H.h3(title) + H.table(files_html, class_='formats')
 
 
-def data_files_lists(request, data_files, condensed=False):
+def data_files_lists(request, data_files, condensed=False, classes=[]):
     """Display a cruise's dataset."""
     htmllist = whh.literal(''.join([
         data_files_list(request, data_files, 'exchange', 'Exchange', condensed),
@@ -948,7 +950,7 @@ def data_files_lists(request, data_files, condensed=False):
         ]))
     if condensed:
         htmllist = H.table(htmllist, class_='formats')
-    return H.div(htmllist, class_='formats-sections')
+    return H.div(htmllist, class_=' '.join(['formats-sections'] + classes))
 
 
 def datacart_link(act, link={}, **kwargs):

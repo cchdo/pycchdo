@@ -65,7 +65,7 @@ jQuery(function($) {
         var dclinks = link.parents('.datacart-cruise-links');
         var formats_sections = dclinks.siblings('.formats-sections');
         if (formats_sections.length == 0) {
-          formats_sections = dclinks.parents().find('.formats-sections');
+          formats_sections = dclinks.parents('tr').find('.formats-sections');
         }
         formats_sections.find('.datacart-icon').each(function() {
           if (adder) {

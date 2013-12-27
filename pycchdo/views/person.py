@@ -9,6 +9,7 @@ import pycchdo.helpers as h
 from pycchdo.models import Person, DBSession
 from pycchdo.models.types import ID, TextList
 from pycchdo.models.models import preload_person
+from pycchdo.models.searchsort import sort_list
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
 
@@ -42,6 +43,7 @@ def person_show(request):
     if not person:
         raise HTTPNotFound()
     cruises = person.cruises(accepted_only=False)
+    cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'person': person, 'cruises': cruises}
 
 

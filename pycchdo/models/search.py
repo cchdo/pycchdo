@@ -94,7 +94,7 @@ _schemas = {
 
 _field_aliases = {
     'cruise': {
-        'names': ['expocode', 'alias', 'aliases', ],
+        'names': ['cruise', 'expocode', 'alias', 'aliases', ],
         'date_start': ['from', ],
         'date_end': ['to', ],
     },
@@ -411,7 +411,7 @@ class SearchIndex(object):
                 ixw.commit()
         log.info('Finished indexing')
 
-    def search(self, query_string, limit=None, search_notes=False, ):
+    def search(self, query_string, search_notes=False, **kwargs):
         """Performs search based on a query string.
 
         Parameters:
@@ -451,7 +451,11 @@ class SearchIndex(object):
             with index.searcher() as searcher:
                 try:
                     # Search the index.
-                    raw = searcher.search(query, limit=limit)
+                    try:
+                        kwargs['limit']
+                    except KeyError:
+                        kwargs['limit'] = None
+                    raw = searcher.search(query, **kwargs)
 
                     # Obtain the identifier function for the model. The
                     # identifier function takes object IDs and maps them to

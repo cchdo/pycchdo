@@ -8,6 +8,7 @@ from pycchdo.models import Collection
 from pycchdo.models.types import TextList, Unicode
 from pycchdo.models.models import (
     preload_cached_avs, disjoint_load_collection_attrs, )
+from pycchdo.models.searchsort import sort_list
 from pycchdo.views import log, staff
 
 
@@ -44,6 +45,7 @@ def collection_show(request):
     if not collection:
         raise HTTPNotFound()
     cruises = collection.cruises(accepted_only=False)
+    cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'collection': collection, 'cruises': cruises}
 
 

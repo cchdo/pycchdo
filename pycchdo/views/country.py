@@ -9,6 +9,7 @@ from . import *
 import pycchdo.helpers as h
 from pycchdo.models import DBSession, Country
 from pycchdo.models.models import preload_cached_avs
+from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
@@ -49,6 +50,7 @@ def country_show(request):
     if not country:
         raise HTTPNotFound()
     cruises = country.cruises(accepted_only=False)
+    cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'country': country, 'cruises': cruises}
 
 

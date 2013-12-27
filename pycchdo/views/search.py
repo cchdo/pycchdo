@@ -1,10 +1,12 @@
+from datetime import datetime
 from urllib import quote_plus
 from re import search as re_search
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest
 
-from pycchdo.views import collapse_dict
+from pycchdo.util import collapse_dict
+from pycchdo.models.searchsort import sort_results
 from pycchdo.views.cruise import _cruise_to_json
 from pycchdo.log import ColoredLogger, DEBUG
 
@@ -20,13 +22,17 @@ def advanced_search(request):
 
 def search_results(request):
     query = request.params.get('query', None)
+    orderby = request.params.get('orderby', '')
 
     request.session['query'] = query
+    request.session['query_orderby'] = orderby
 
     if not query:
         raise HTTPSeeOther(location=request.route_path('advanced_search'))
     try:
-        results = collapse_dict(request.search_index.search(unicode(query)))
+        results = sort_results(
+            collapse_dict(request.search_index.search(unicode(query))),
+            orderby=orderby)
     except Exception, e:
         log.error('Search failed: %s' % e)
         results = {'cruise': []}
@@ -38,16 +44,19 @@ def search_results(request):
 
 def search_results_json(request):
     query = request.params.get('query', None)
+    orderby = request.params.get('orderby', '')
     if not query:
         raise HTTPBadRequest()
     try:
-        results = request.search_index.search(unicode(query))
+        results = sort_results(
+            collapse_dict(request.search_index.search(unicode(query))),
+            orderby=orderby)
     except Exception, e:
         log.error('Search failed: %s' % e)
         results = {'cruise': []}
 
-    cruise_jsons = map(_cruise_to_json, results['cruise'])
-    for person, cruises in results['person'].items():
+    cruise_jsons = map(_cruise_to_json, results.get('cruise', {}))
+    for person, cruises in results.get('person', {}).items():
         cruise_jsons.extend(map(_cruise_to_json, cruises))
     return {
         'query': query,

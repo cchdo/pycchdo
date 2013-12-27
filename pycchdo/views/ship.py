@@ -6,6 +6,7 @@ from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Ship
 from pycchdo.models.models import preload_cached_avs
+from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
@@ -35,6 +36,7 @@ def ship_show(request):
     if not ship:
         raise HTTPNotFound()
     cruises = ship.cruises(accepted_only=False)
+    cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'ship': ship, 'cruises': cruises}
 
 

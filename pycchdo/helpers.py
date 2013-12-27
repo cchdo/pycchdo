@@ -26,6 +26,7 @@ from pycchdo.models import (
     )
 from pycchdo.util import collapse_dict
 from pycchdo.views.datacart import get_datacart, ZIP_FILE_LIMIT
+from pycchdo.models.searchsort import Sorter
 
 
 log = ColoredLogger(__name__)
@@ -546,15 +547,67 @@ def cruise_track_image(map, cruise, classes=[]):
         class_=' '.join(['cruise-track-img'] + classes))
 
 
+def _curr_direction(sorter, key):
+    orderkeys = dict(sorter.orderkeys)
+    if key in orderkeys:
+        if orderkeys[key]:
+            direction = 'asc'
+        else:
+            direction = 'desc'
+    else:
+        direction = None
+    return direction
+
+
+def _sortable_link(request, link, key):
+    """Return an HTML link to a order the current page."""
+    sorter = Sorter(request.params.get('orderby', ''))
+    direction = _curr_direction(sorter, key)
+    uarrow = '<span class="sortdir asc">&#x25B2;</span>'
+    darrow = '<span class="sortdir desc">&#x25BC;</span>'
+    if direction:
+        if direction == 'asc':
+            title = '{0} {1}'.format(link, 'descending')
+            link = link + darrow
+        elif direction == 'desc':
+            title = '{0} {1}'.format(link, 'ascending')
+            link = link + uarrow
+    else:
+        link = link
+        title = '{0} {1}'.format(link, '(click to sort ascending)')
+    return tags.link_to(
+        whh.literal(link),
+        _orderby_path(request, direction, key),
+        title=title)
+
+
+def _orderby_path(request, direction, key):
+    if direction:
+        orderby = '{0}:{1}'.format(key, direction)
+    else:
+        orderby = key
+    return request.current_route_path(
+        _query=dict(request.params, **{'orderby': orderby}))
+
+
 def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
     cruises = filter(None, cruises)
     if not cruises and not allow_empty:
         return ''
+
     list = [
         H.tr(
-            H.th('ExpoCode / Cruise dates', class_='identifier'),
-            H.th('Aliases', class_='aliases'),
-            H.th('Chief scientist(s) / Ship / Country', class_='who'),
+            H.th(
+                _sortable_link(request, 'ExpoCode', 'uid'), ' / ', 
+                _sortable_link(request, 'Cruise dates', 'date_start'),
+                class_='identifier'),
+            H.th(_sortable_link(request, 'Aliases', 'aliases'),
+                class_='aliases'),
+            H.th(
+                _sortable_link(request, 'Chief scientist(s)', 'chiscis'), ' / ',
+                _sortable_link(request, 'Ship', 'ship'), ' / ',
+                _sortable_link(request, 'Country', 'country'),
+                class_='who'),
             H.th('Dataset', class_='dataset'),
             # Extra column for the datacart cruise link
             H.th(),

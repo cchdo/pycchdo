@@ -6,6 +6,7 @@ from . import *
 import pycchdo.helpers as h
 from pycchdo.models import Institution
 from pycchdo.models.models import preload_cached_avs
+from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
@@ -39,6 +40,7 @@ def institution_show(request):
     if not institution:
         raise HTTPNotFound()
     cruises = institution.cruises(accepted_only=False)
+    cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'institution': institution, 'cruises': cruises}
 
 

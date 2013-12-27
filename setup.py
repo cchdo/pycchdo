@@ -18,7 +18,7 @@ if version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
 _requires_db_fs = [
     'psycopg2',
-    'SQLAlchemy>=0.8.0b2',
+    'SQLAlchemy>=0.8.4',
     'geoalchemy',
     'transaction',
     'pyramid_tm',
@@ -55,8 +55,6 @@ extras_require = {
 
 
 dependency_links = [
-    #'hg+http://hg.sqlalchemy.org/sqlalchemy/@rel_0_8_8b2#egg=SQLAlchemy-0.8.8b2',
-    #'http://hg.sqlalchemy.org/sqlalchemy/archive/8d82961d3464.tar.gz#egg=SQLAlchemy-0.8.0b2',
     'https://bitbucket.org/ghdc/libcchdo/get/master.tar.bz2#egg=libcchdo',
 ]
 

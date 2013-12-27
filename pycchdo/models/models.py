@@ -21,8 +21,7 @@ from sqlalchemy.orm import (
     backref, scoped_session, make_transient, sessionmaker, composite,
     relationship, reconstructor, mapper, joinedload, subqueryload,
     noload, dynamic_loader, joinedload_all, subqueryload_all,
-    aliased, with_polymorphic, contains_eager, lazyload,
-    remote, defer, undefer
+    aliased, with_polymorphic, contains_eager, lazyload, remote
     )
 from sqlalchemy.orm.attributes import (
     flag_modified, set_committed_value, register_attribute,
@@ -178,7 +177,7 @@ class Stamp(MutableComposite):
         return Person.get_by_id(self.person_id)
 
     def __composite_values__(self):
-        return [self.person_id, self.timestamp, ]
+        return self.person_id, self.timestamp
 
     def __setattr__(self, key, value):
         """Intercept set events and alert parents to change."""
@@ -345,6 +344,8 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     id = Column(Integer, primary_key=True)
     obj_type = Column(String, nullable=False)
 
+    # cannot defer these here, composite for creation_stamp will fail to
+    # populate. bug in sqlalchemy?
     creation_timestamp = Column(DateTime, default=timestamp_now)
     creation_person_id = Column(Integer, ForeignKey('people.id'))
     creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
@@ -1047,6 +1048,10 @@ class _AttrValueElem(DBQueryable, Base):
     def __repr__(self):
         return u'{}({}, {}, {})'.format(
             type(self).__name__, self.id, self.attrvalue_id, unicode(self))
+
+    __table_args__ = (
+        Index('idx_ave_av_id', 'attrvalue_id'),
+        )
 
 
 class _AttrValueElemID(_AttrValueElem):

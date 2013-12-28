@@ -202,6 +202,7 @@ table tr.header th {
 table.open tr.header .expander a {
   background-position: 0 -9px;
 }
+#cchdo_menu .open .expander a,
 tr.open .expander a {
   background-position: 0 -9px;
 }

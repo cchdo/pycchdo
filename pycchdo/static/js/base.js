@@ -203,32 +203,6 @@ function remove_class(e, c) {
   var open = openfns[0];
   var isOpen = openfns[1];
   (function tabableMenu() {
-    function addfocusblur(e, limit) {
-      var lis = [];
-      var f = e;
-      while (f !== limit) {
-        if (f.tagName == 'LI') {
-          lis.push(f);
-        }
-        f = f.parentNode;
-      }
-      var previousOpenness = false;
-      addEvent(e, 'focus', function () {
-        previousOpenness = isOpen();
-        open(true);
-        for (var i = 0; i < lis.length; i++) {
-          add_class(lis[i], 'focus');
-        }
-        add_class(e, 'focus');
-      });
-      addEvent(e, 'blur', function () {
-        open(previousOpenness);
-        for (var i = 0; i < lis.length; i++) {
-          remove_class(lis[i], 'focus');
-        }
-        remove_class(e, 'focus');
-      });
-    }
     function walkFor(root, tagname, callback) {
       for (var i = 0; i < root.children.length; i++) {
         walkFor(root.children[i], tagname, callback);
@@ -237,9 +211,86 @@ function remove_class(e, c) {
         callback(root);
       }
     }
-    walkFor(ul, 'A', function (a) {
-      addfocusblur(a, ul);
-    });
+    function Menu(root) {
+      this.root = root;
+      this.openWhenEntered = null;
+      this.cancelOpen = false;
+      this.delayOpenInProgress = false;
+
+      var self = this;
+      walkFor(root, 'A', function (a) {
+        self.addItem(a);
+      });
+    }
+    Menu.prototype.isInMenu = function(elem) {
+      var node = elem;
+      while (node !== document.body) {
+        if (elem === this.root) {
+          return true;
+        }
+        elem = elem.parentNode;
+      }
+      return false;
+    };
+    Menu.prototype.delayedOpen = function() {
+      var self = this;
+      if (this.delayOpenInProgress) {
+        return;
+      }
+      setTimeout(function() {
+        self.delayOpenInProgress = false;
+        if (self.cancelOpen) {
+          self.cancelOpen = false;
+          return;
+        }
+        open(self.openWhenEntered);
+        self.openWhenEntered = null;
+      }, 0);
+      this.delayOpenInProgress = true;
+    };
+    Menu.prototype.addItem = function(a) {
+      new Item(a, this);
+    };
+
+    function Item(e, menu) {
+      this.e = e;
+      this.menu = menu;
+      this.lis = [];
+      var f = e;
+      while (f !== menu.root) {
+        if (f.tagName == 'LI') {
+          this.lis.push(f);
+        }
+        f = f.parentNode;
+      }
+
+      var self = this;
+      addEvent(e, 'focus', function () {
+        menu.cancelOpen = true;
+        if (menu.openWhenEntered === null) {
+          menu.openWhenEntered = isOpen();
+        }
+        open(true);
+        self.setFocus(true);
+      });
+      addEvent(e, 'blur', function () {
+        self.setFocus(false);
+        menu.delayedOpen();
+      });
+    }
+    Item.prototype.setFocus = function(on) {
+      if (on) {
+        func = add_class;
+      } else {
+        func = remove_class;
+      }
+      for (var i = 0; i < this.lis.length; i++) {
+        func(this.lis[i], 'focus');
+      }
+      func(this.e, 'focus');
+    };
+
+    var menu = new Menu(ul);
   })();
 })();
 (function imgmap_mobile_toggle() {

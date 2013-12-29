@@ -6,17 +6,18 @@
 {%- block content -%}
 {%- if submission %}
   {%- call h.boxed('Data submitted', class='submit-confirmation') %}
-    <p>Thank you for submitting files, {{ submission.creation_person.name }}.</p>
+    <p>Thank you for submitting data, {{ submission.creation_person.name }}.</p>
     <p>
-      You should receive a confirmation email from <strong>cchdo@ucsd.edu</strong> at 
-      <strong>{{ submission.creation_person.email }}</strong> shortly.
+      You should receive a confirmation email shortly from
+      <strong>{{ from_addr }}</strong> to 
+      <strong>{{ submission.creation_person.email }}</strong>.
     </p>
 
     <dl>
       <dt>{% trans count=file_names|length %}File{% pluralize %}Files{% endtrans %}</dt>
         <dd>{{ ', '.join(file_names) }}</dd>
       <dt>Status</dt>
-        <dd>{{ submission|attr('public') }}</dd>
+        <dd>{{ submission|attr('type') }}</dd>
       {%- if submission|attr('action') %}
         <dt>Action</dt>
           <dd>{{ submission|attr('action') }}</dd>
@@ -41,7 +42,7 @@
         <dt>Country</dt>
           <dd>{{ submission|attr('country') }}</dd>
       {%- endif %}
-      <dt>Timestamp</dt>
+      <dt>timestamp</dt>
         <dd>{{ submission.creation_timestamp.strftime('%Y-%m-%d') }}</dd>
     </dl>
   {%- endcall %}

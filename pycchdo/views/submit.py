@@ -17,7 +17,7 @@ log = ColoredLogger(__name__)
 
 
 def _send_confirmation(request, d, submissions):
-    cchdo_email = 'cchdo@ucsd.edu'
+    from_addr = 'cchdo@ucsd.edu'
     recipient = request.registry.settings.get(
         'submission_confirmation_recipient', None)
     recipients = filter(None, [request.user.email, recipient])
@@ -27,12 +27,12 @@ def _send_confirmation(request, d, submissions):
         len(d['file_names']), 'file', 'files', False)
 
     if d['public_status'] == 'public':
-        d['public_description'] = 'will be public.'
+        d['public_description'] = 'will be public'
     elif d['public_status'] == 'non_public':
-        d['public_description'] = 'will *not* be public.'
+        d['public_description'] = 'will *not* be public'
     elif d['public_status'] == 'non_public_argo':
         d['public_description'] = \
-            'will be available for use exclusively by the Argo program.'
+            'will be available for use exclusively by the Argo program'
     d['file_list'] = '\n'.join(d['file_names'])
     d['actions'] = '\n'.join(d['action_list'])
 
@@ -54,7 +54,7 @@ The following actions were specified:
 {actions}
 
 Additional information collected with your submission:
-""".format(d)
+""".format(**d)
     if d['institution']:
         body_parts.append('Institution: ' + d['institution'])
     if d['country']:
@@ -76,8 +76,8 @@ Additional information collected with your submission:
     body_parts.append('Thank you again for your submission.\n')
     body_parts.append('---\n')
     for sub in submissions:
-        body_parts.append(request.route_path('staff_submissions',
-            _query={'ltype': 'id', 'query': sub.id}), '\n')
+        body_parts.append(request.route_url('staff_submissions',
+            _query={'ltype': 'id', 'query': sub.id}) + '\n')
 
     body += '\n'.join(body_parts)
 
@@ -85,12 +85,12 @@ Additional information collected with your submission:
         subject="[CCHDO] Submission by {name}: {id}".format(
             name=d['user_name'],
             id=' '.join([d['woce_line'], d['identifier']])),
-        sender=cchdo_email,
+        sender=from_addr,
         recipients=recipients,
         body=body,
     )
     mailer = get_mailer(request)
-    mailer.send(message)
+    mailer.send_sendmail(message)
 
 
 def submit(request):
@@ -176,7 +176,7 @@ def submit(request):
             if d['cruise_dates']:
                 sub.cruise_date = d['cruise_dates']
             if d['action_list']:
-                sub.action = repr(d['action_list'])
+                sub.action = ', '.join(d['action_list'])
             if d['public_status']:
                 sub.type = d['public_status']
             sub.file = FSFile.from_fieldstorage(file)
@@ -191,7 +191,7 @@ def submit(request):
         sample_submission = submissions[0]
         return render_to_response(
             'pycchdo:templates/submit_confirmation.jinja2',
-            {'files': files, 'file_names': d['file_names'],
-             'submission': sample_submission}, request=request)
+            {'from_addr': from_addr, 'files': files, 'file_names':
+             d['file_names'], 'submission': sample_submission}, request=request)
     raise HTTPBadRequest()
 

@@ -1,3 +1,5 @@
+// timeglider needs debug set
+debug = false;
 $(function () {
   function dateToYYYYmmdd(d) {
     var month = d.getMonth() + 1;
@@ -10,15 +12,15 @@ $(function () {
     }
     return d.getFullYear() + '-' + month + '-' + day;
   }
+
   var timeglider = $('<div id="timeglider"></div>');
   var timeline = $('<div id="timeline"><h3><a href="#">Timeline</a></h3></div>');
+  timeline.hide();
+
+  timeline.accordion({collapsible: true});
   timeline.prependTo($('.box_content'));
-  timeline.accordion({
-    collapsible: true
-  });
   timeglider.appendTo(timeline);
   timeglider.height(200);
-  timeline.accordion({active: false});
 
   var datatable = $('<table id="datatable"/>');
   datatable.hide().appendTo($('body'));
@@ -43,6 +45,11 @@ $(function () {
     var results = data.results;
     var dates = [];
     var cruises = [];
+
+    if (results.length == 0) {
+      return;
+    }
+
     $.each(results, function (i, cruise) {
       if (cruises.indexOf(cruise.id) > -1) {
         return;
@@ -56,7 +63,7 @@ $(function () {
       tr.append($('<td/>').html(cruise.id));
       tr.append($('<td/>'));
       tr.append($('<td/>').html(i + 40));
-      tr.append($('<td/>').html(cruise.obj_url));
+      tr.append($('<td/>').html());
       datatable.append(tr);
       cruises.push(cruise.id);
     });
@@ -77,7 +84,12 @@ $(function () {
       data_source: '#datatable',
       min_zoom: 20,
       max_zoom: 50,
+      show_footer: false,
       display_zoom_level: false
     });
+
+    timeline.accordion('option', 'animate', false);
+    timeline.accordion({active: false}).fadeIn();
+    timeline.accordion('option', 'animate', 100);
   }, 'json');
 });

@@ -1,8 +1,9 @@
 {% extends "base.jinja2" %}
 {%- block head %}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
-  {{ whh.tags.stylesheet_link('/static/js/timeglider/timeglider.css') }}
+  {{ whh.tags.stylesheet_link('/static/timeglider/jquery-ui-1.10.3.custom.min.css') }}
+  {{ whh.tags.stylesheet_link('/static/timeglider/Timeglider.css') }}
+  {{ whh.tags.stylesheet_link('/static/timeglider/timeglider.datepicker.css') }}
 {%- endblock %}
 {%- block title %}{{ query }} - Search{%- endblock %}
 
@@ -70,9 +71,25 @@
     filters='rjsmin,gzip',
     output='gen/search.results.js.gz',
     'js/metaTable.js',
-    'js/jquery-ui-1.8.14.custom.min.js',
-    'js/timeglider/timeglider-0.1.3.min.js',
     'js/search_results.js'
+,
+    'timeglider/jquery-ui-1.10.3.custom.min.js',
+    'timeglider/js/underscore-min.js',
+    'timeglider/js/backbone-min.js',
+    'timeglider/js/json2.js',
+    'timeglider/js/jquery.tmpl.js',
+    'timeglider/js/ba-tinyPubSub.js',
+    'timeglider/js/jquery.mousewheel.js',
+    'timeglider/js/jquery.ui.ipad.js',
+    'timeglider/js/globalize.js',
+
+    'timeglider/TG_Date.js',
+    'timeglider/TG_Org.js',
+    'timeglider/TG_Timeline.js',
+    'timeglider/TG_TimelineView.js',
+    'timeglider/TG_Mediator.js',
+    'timeglider/timeglider.timeline.widget.js',
+    'timeglider/timeglider.datepicker.js'
   %}
      {{ whh.tags.javascript_link(ASSET_URL) }}
   {%- endassets %}

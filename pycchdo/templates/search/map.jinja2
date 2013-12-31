@@ -9,7 +9,7 @@
 {%- block head %}
   {%- assets
     filters='cssmin',
-    output='search.map.css', 
+    output='gen/search.map.css', 
     'css/overcast/jquery-ui-1.7.2.custom.css',
     'cchdomap/css/jquery.jgrowl.css',
     'cchdomap/css/tipTip.css',
@@ -51,7 +51,7 @@
         ]) }}
   {%- assets
     filters='rjsmin',
-    output='search.map.0.js', 
+    output='gen/search.map.0.js', 
     'cchdomap/js/jquery.form.js',
     'cchdomap/js/jquery.jgrowl_minimized.js',
     'cchdomap/js/jquery.tipTipTip.js',
@@ -71,7 +71,7 @@
   {%- endif %}
   {%- assets
     filters='rjsmin',
-    output='search.map.1.js',
+    output='gen/search.map.1.js',
     'cchdomap/js/cchdo.map.js',
     'js/datacart.js'
   %}

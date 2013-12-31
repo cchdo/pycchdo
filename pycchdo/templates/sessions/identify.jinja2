@@ -29,6 +29,5 @@
   {%- endcall %}
 {% endblock %}
 {% block js %}
-  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
   {%- if not request.user %}{% include '_janrain.html' ignore missing %}{%- endif %}
 {% endblock %}

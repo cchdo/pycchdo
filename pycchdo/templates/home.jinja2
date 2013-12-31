@@ -105,8 +105,7 @@
 {% block js %}
   {%- assets
     filters='rjsmin',
-    output='home.js',
-    'js/jquery-1.4.4.min.js',
+    output='gen/home.js',
     'js/basin_selector.js'
   %}
      {{ whh.tags.javascript_link(ASSET_URL) }}

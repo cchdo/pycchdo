@@ -9,6 +9,7 @@
     {{caller()}}
   </div>
 {%- endmacro %}
+{% block content_attrs %} class="submit-data"{% endblock %}
 {% block content -%}
 {% call h.boxed('Submit Data') -%}
   {{ whh.tags.form('', multipart=True) }}
@@ -101,7 +102,7 @@
   {%- endcall %}
   {% set step_num = step_num + 1 %}
   
-  {%- call step(step_num, 'files', 'Data/Documentation Files') %}
+  {%- call step(step_num, 'dfiles', 'Data/Documentation Files') %}
   {%- set files = h.form_entered(request, 'files') %}
   {%- if files %}
     <div id="file_reselect_warn">
@@ -128,6 +129,7 @@
     {%- endif %}
   {%- endif %}
   <div id="files">
+    <p>Multiple files may be selected.</p>
     <p>{{ whh.tags.file('files', multiple='multiple') }}</p>
   </div>
   {%- endcall %}
@@ -145,49 +147,5 @@
   {%- endcall %}
 {%- endblock %}
 {% block js -%}
-  {{ whh.tags.javascript_link('/static/js/jquery-1.4.4.min.js') }}
-  <script>
-    $(document).ready(function () {
-      var files = $('#files');
-      var remove_button = $('<input type="button" title="Remove" value="Remove">');
-      var drop = files.find('p :file');
-      var file_list = $('<ol></ol>').appendTo(files);
-
-      function renumber() {
-        file_list.find(':file').each(function (i, x) {
-          $(this).attr('name', 'files[' + i + ']');
-        });
-      }
-
-      function remove() {
-        $(this).parent().hide('fast', function () {
-          $(this).remove();
-          renumber();
-        });
-      }
-
-      function noop(e) {
-        e.preventDefault();
-        return false;
-      }
-
-      drop.one('change', function () {
-        $('#file_reselect_warn').hide('fast');
-      });
-
-      drop.live('change', function () {
-        if ($(this).val() == null || $(this).val() == '') {
-          return;
-        }
-
-        var f = $(this);
-        var p = f.parent();
-        var c = f.clone();
-        f.click(noop).get(0).addEventListener('drop', noop, false);
-        file_list.append($('<li></li>').append(f).append(remove_button.clone().click(remove)).hide().show('fast'));
-        p.append(c);
-        renumber();
-      });
-    });
-  </script>
+  {{ whh.tags.javascript_link('/static/js/submit.js') }}
 {%- endblock %}

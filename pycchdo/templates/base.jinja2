@@ -53,7 +53,7 @@
     {%- assets
       filters='rjsmin,gzip',
       output='gen/base.js.gz',
-      'js/base.js', 'js/jquery-1.7.1.min.js', 'js/datacart.js'
+      'js/jquery-1.10.2.min.js', 'js/base.js', 'js/datacart.js'
     %}
        {{ whh.tags.javascript_link(ASSET_URL) }}
     {%- endassets %}

@@ -853,6 +853,10 @@ input[type="submit"]:active {
   right: 0;
 }
 
+.submit-data #dfiles input[type=button] {
+  margin-left: 0.5em;
+}
+
 /* Carina */
 #carina-about p {
   margin: 0.5em auto;

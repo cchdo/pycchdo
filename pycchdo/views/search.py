@@ -35,7 +35,7 @@ def search_results(request):
             orderby=orderby)
     except Exception, e:
         log.error('Search failed: %s' % e)
-        results = {'cruise': []}
+        results = {}
     return {
         'query': query,
         'results': results
@@ -53,7 +53,7 @@ def search_results_json(request):
             orderby=orderby)
     except Exception, e:
         log.error('Search failed: %s' % e)
-        results = {'cruise': []}
+        results = {}
 
     cruise_jsons = map(_cruise_to_json, results.get('cruise', {}))
     for person, cruises in results.get('person', {}).items():

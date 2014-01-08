@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-import datetime
+from datetime import datetime
 from cgi import FieldStorage
 import stat
 import tempfile
@@ -1260,22 +1260,6 @@ def _import_events(session):
 
 
 _known_bad_old_submissions = [
-    # File seems to be missing
-    '/incoming_data/old_sys/20041214.085723_STEINFELDT_CARIBINFLOW/20041214.085723_STEINFELDT_CARIBINFLOW_TMP.zip',
-    # File seems to be missing
-    '/incoming_data/old_sys/20041214.084855_STEINFELDT_METEOR53_3/20041214.084855_STEINFELDT_METEOR53_3_ctd.zip',
-    # File seems to be missing; maybe can regenerate from gzipped flat files?
-    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_Archive.zip',
-    # File seems to be missing
-    '/incoming_data/old_sys/20040224.000001_MCTAGGART_PR15/20040224.000001_MCTAGGART_PR15_00_README.gz',
-    # File seems to be missing; maybe can regenerate from gzipped flat files?
-    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_Archive.zip',
-    # File seems to be missing
-    '/incoming_data/old_sys/20040224.000000_MCTAGGART_PR16/20040224.000000_MCTAGGART_PR16_00_README.gz',
-    # File seems to be missing; maybe can regenerate from gzipped flat files?
-    '/incoming_data/old_sys/20030304.000001_MCTAGGART_PR15/20030304.000001_MCTAGGART_PR15_Archive.zip',
-    # File seems to be missing; maybe can regenerate from gzipped flat files?
-    '/incoming_data/old_sys/20030304.000000_MCTAGGART_PR16/20030304.000000_MCTAGGART_PR16_Archive.zip',
 ]
 
 
@@ -1284,45 +1268,54 @@ def _import_old_submissions(session, downloader):
     updater = _get_updater()
     subs = session.query(legacy.OldSubmission).all()
 
-    # Group submissions by folder
+    # Group OldSubmissions by folder into one submission per folder
     map_submissions = {}
     for sub in subs:
         try:
-            submission = map_submissions[sub.Folder]
+            map_submissions[sub.Folder].append(sub)
         except KeyError:
-            submission = OldSubmission.query().filter(
-                OldSubmission.folder == sub.Folder).first()
-            if submission:
-                log.info('Updating OldSubmission %s' % sub.Folder)
-            else:
-                log.info('Creating OldSubmission %s' % sub.Folder)
-                submission = updater.create_accept(OldSubmission)
-                submission.creation_timestamp = sub.created_at
-                submission.judgment_timestamp = sub.updated_at
-                submission.folder = sub.Folder
-                submission.date = _date_to_datetime(sub.Date)
-                submission.stamp = sub.Stamp
-                submission.line = sub.Line
-                submission.submitter = sub.Name
-                submission.files = []
-                DBSession.flush()
-            map_submissions[sub.Folder] = submission
+            map_submissions[sub.Folder] = [sub]
 
-        with downloader.dl(sub.Location) as file:
-            if file is None and not downloader.dryrun:
-                if sub.Location in _known_bad_old_submissions:
-                    log.info(
-                        u'Skipping known bad Old Submission: {0}'.format(
-                            sub.Location))
-                    continue
-                else:
-                    raise ValueError(
-                        u'Unable to find file for old submission: {}'.format(
-                            sub.Location))
-            if (    file and
-                    not any(f.name == sub.Filename for f in submission.files)):
-                submission.files.append(FSFile(file, sub.Filename))
+    for folder, subs in map_submissions.items():
+        submission = OldSubmission.query().filter(
+            OldSubmission.folder == folder).first()
+        if submission:
+            log.info('Updating OldSubmission {0}'.format(folder))
+        else:
+            log.info('Creating OldSubmission {0}'.format(folder))
+            submission = updater.create_accept(OldSubmission)
+            submission.folder = folder
             DBSession.add(submission)
+
+            with closing(StringIO()) as temp:
+                with zipfile.ZipFile(temp, 'w') as zipf:
+                    for sub in subs:
+                        path = sub.Location
+                        with downloader.dl(path) as dfile:
+                            if file is None and not downloader.dryrun:
+                                if sub.Location in _known_bad_old_submissions:
+                                    log.info(
+                                        u'Skipping known bad Old Submission: '
+                                        '{0}'.format(path))
+                                    continue
+                                else:
+                                    raise ValueError(
+                                        u'Unable to find file for old '
+                                        'submission: {0}'.format(path))
+                            lstat = downloader.lstat(path)
+                            zipi = zipfile.ZipInfo(dfile.name)
+                            dtime = datetime.fromtimestamp(lstat.st_mtime)
+                            zipi.date_time = (
+                                dtime.year, dtime.month, dtime.day, dtime.hour,
+                                dtime.minute, dtime.second)
+                            zipi.compress_type = zipfile.ZIP_DEFLATED
+                            zipf.writestr(zipi, dfile.read())
+                submission.file = FSFile(temp, '{0}.zip'.format(folder))
+        sub = subs[0]
+        submission.creation_timestamp = _date_to_datetime(sub.Date)
+        submission.judgment_timestamp = sub.updated_at
+        submission.line = sub.Line
+        submission.submitter = sub.Name
         with su(su_lock=downloader.su_lock):
             DBSession.flush()
 
@@ -1761,6 +1754,14 @@ def _import_submissions(session, downloader):
                                 fs.type = guess_mime_type(fs.filename)
                                 submission.file = FSFile.from_fieldstorage(fs)
                                 tempzipf.close()
+                            elif len(infos) == 0:
+                                log.error(u'Empty submission.')
+                            else:
+                                # multiple file submission. just leave it as is
+                                # for now...
+                                fs.type = guess_mime_type(fs.filename)
+                                submission.file = FSFile.from_fieldstorage(fs)
+                                
                 else:
                     fs.type = guess_mime_type(fs.filename)
                     submission.file = FSFile.from_fieldstorage(fs)
@@ -2452,38 +2453,38 @@ def import_(import_gid, nthreads, args):
     log.info("Connecting to cchdo db")
     nthreads = 2
     with db_session(legacy.session()) as session:
-        if not args.files_only:
-            _import_users(session)
-            _import_contacts(session)
-            _import_collections(session)
+        #if not args.files_only:
+        #    _import_users(session)
+        #    _import_contacts(session)
+        #    _import_collections(session)
 
-            _import_cruises(session, nthreads - 1)
+        #    _import_cruises(session, nthreads - 1)
 
-            _import_track_lines(session)
-            _import_collections_cruises(session)
-            _import_collection_basins(session)
-            _import_contacts_cruises(session)
+        #    _import_track_lines(session)
+        #    _import_collections_cruises(session)
+        #    _import_collection_basins(session)
+        #    _import_contacts_cruises(session)
 
-            _import_events(session)
+        #    _import_events(session)
 
-            _import_spatial_groups(session)
-            _import_internal(session)
-            _import_unused_tracks(session)
+        #    _import_spatial_groups(session)
+        #    _import_internal(session)
+        #    _import_unused_tracks(session)
 
-            _import_parameter_descriptions(session)
-            _import_parameter_groups(session)
-            _import_bottle_dbs(session)
-            _import_parameter_status(session)
-            _import_parameters(session)
+        #    _import_parameter_descriptions(session)
+        #    _import_parameter_groups(session)
+        #    _import_bottle_dbs(session)
+        #    _import_parameter_status(session)
+        #    _import_parameters(session)
 
-        transaction.commit()
-        transaction.begin()
+        #transaction.commit()
+        #transaction.begin()
         with conn_dl(remote_host, args.skip_downloads, import_gid,
                      local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
                     ) as downloader:
             _import_submissions(session, downloader)
-            _import_old_submissions(session, downloader)
-            _import_queue_files(session, downloader)
-            _import_documents(session, downloader, nthreads - 1)
-            _import_argo_files(session, downloader)
+            #_import_old_submissions(session, downloader)
+            #_import_queue_files(session, downloader)
+            #_import_documents(session, downloader, nthreads - 1)
+            #_import_argo_files(session, downloader)
         transaction.commit()

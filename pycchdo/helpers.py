@@ -735,13 +735,16 @@ def link_obj_polymorph(obj):
 
 
 def link_file_holder(fh, full=False):
-    if not fh:
-        return ''
-    if not fh.value:
+    if not fh or not fh.value:
+        log.error(u'Unable to link a fileholder: {0!r}'.format(fh))
         return ''
     name = fh.value.name
     if not full:
         name = os.path.basename(name)
+    if not name:
+        name = fh.value.name
+    if not name:
+        name = 'unnamed_file'
     return tags.link_to(name, data_uri(fh), title=name)
 
 

@@ -12,14 +12,40 @@
 {% endblock %}
 {% block content -%}
   {% call h.boxed('Submissions', id='submissions') -%}
-    <div id="tools">
+    <div class="tools">
       <form>
         {%- for label in lqueries.keys() %}
           {{ whh.tags.radio('ltype', label, checked=(label == ltype), label=label) }}
         {%- endfor %}
       </form>
-      {# TODO filter #}
-      {# TODO sort #}
+      {# TODO filter
+      <div class="filter">
+        <input id="query" name="query" type="text" value=""> <input name="commit" type="submit" value="Filter">
+      </div>
+      #}
+      {# TODO sort
+      <div class="sort">
+          <h1>Sort by:</h1>
+            <input checked="checked" id="sort_submission_date" name="sort" type="radio" value="submission_date">
+            <label for="sort_submission_date">submission_date</label>
+            <input id="sort_name" name="sort" type="radio" value="name">
+            <label for="sort_name">name</label>
+            <input id="sort_institute" name="sort" type="radio" value="institute">
+            <label for="sort_institute">institute</label>
+            <input id="sort_country" name="sort" type="radio" value="Country">
+            <label for="sort_country">Country</label>
+            <input id="sort_email" name="sort" type="radio" value="email">
+            <label for="sort_email">email</label>
+            <input id="sort_line" name="sort" type="radio" value="Line">
+            <label for="sort_line">Line</label>
+            <input id="sort_expocode" name="sort" type="radio" value="ExpoCode">
+            <label for="sort_expocode">ExpoCode</label>
+            <input id="sort_ship_name" name="sort" type="radio" value="Ship_Name">
+            <label for="sort_ship_name">Ship_Name</label>
+            <input id="sort_cruise_date" name="sort" type="radio" value="cruise_date">
+            <label for="sort_cruise_date">cruise_date</label>
+        </div>
+      #}
     </div>
     <div class="help">
       <p>The key here is to attach submissions to specific cruises.</p>
@@ -38,7 +64,7 @@
     </div>
 
     {%- if submissions %}
-      <table class="has-meta-bodies pre-expand autopagerize_page_element">
+      <table class="has-meta-bodies autopagerize_page_element">
         <tr class="header">
           <th class="id">ID</th>
           <th class="identifier">Identifier</th>
@@ -50,32 +76,50 @@
         {%- set attached = submission.attached or None %}
         <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
           {%- set ident = submission.expocode or ' ' %}
-          <td class="id">{{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}</td>
+          <td class="id">
+            <div class="upper">
+              {{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}
+            </div>
+            <div class="lower">
+              {{ h.link_file_holder(submission) }}
+            </div>
+          </td>
           <td class="identifier">
             {# TODO attached can be either None, True, or _Attr. True is when the submission was imported. #}
+            <div class="upper">
             {%- if attached %}
               {{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident), class_='corrected') }}
               {{ h.link_cruise(attached.obj) }}
             {%- else %}
               {{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}
             {%- endif %}
+            </div>
+            <div class="lower">
+              <table class="info">
+                {{ row_if_exists('WOCE Line', submission.line or '') }}
+                {{ row_if_exists('Ship', submission.ship_name or '') }}
+                {{ row_if_exists('Cruise dates', h.pdate(submission.cruise_date)) }}
+              </table>
+            </div>
           </td>
-          <td class="person">{{ h.link_person(submission.creation_person) }}</td>
+          <td class="person">
+            <div class="upper">
+              {{ h.link_person(submission.creation_person) }}
+            </div>
+            <div class="lower date_submitted">
+              {{ h.pdate(submission.creation_timestamp) }}
+            </div>
+          </td>
           <td class="type">{{ submission.type }}</td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
-          <td class="file">{{ h.link_file_holder(submission) }}</td>
-          <td class="identifier">
+          <td class="id">
             <table class="info">
               {{ row_if_exists('Acknowledged by', h.link_person(submission.pending_person)) }}
               {{ row_if_exists('Acknowledged on', h.pdate(submission.pending_timestamp)) }}
-              {{ row_if_exists('Cruise dates', h.pdate(submission.cruise_date)) }}
-              {{ row_if_exists('Ship', submission.ship_name or '') }}
-              {{ row_if_exists('WOCE Line', submission.line or '') }}
             </table>
           </td>
-          <td class="date_submitted">{{ h.pdate(submission.creation_timestamp) }}</td>
-          <td>
+          <td colspan="3">
           {%- if not attached %}
             {{ whh.tags.form('', 'PUT', hidden_fields={'submission_id': submission.id}) }}
             <table class="editor">

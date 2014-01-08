@@ -13,6 +13,7 @@ import pycchdo.models as models
 from pycchdo.models import (
     Cruise, Parameter, Unit, disjoint_load_obj, disjoint_load_list,
     )
+from pycchdo.models.searchsort import sort_list
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -90,9 +91,11 @@ def home(request):
 def project_carina(request):
     collection = models.Collection.get_one_by_attrs({'names': 'CARINA'})
     if collection:
-        return {'cruises': collection.cruises()}
+        cruises = collection.cruises()
+        cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     else:
-        return {'cruises': []}
+        cruises = []
+    return {'cruises': cruises}
 
 
 def _get_params_for_order(order):

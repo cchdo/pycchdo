@@ -3622,13 +3622,29 @@ class ArgoFile(AutoAcceptingObj):
         self.link_attr_key = attr_key
 
 
-old_submissions_files_table = Table('old_submission_files', Base.metadata,
-    Column('fsfile_id', ForeignKey('fsfile.id')),
-    Column('old_submission_id', ForeignKey('old_submissions.id')),
-    )
+class SubmissionMixin(object):
+    """Mixin to map value property to the file property.
+    Also can return a list of cruises based on the submission's cruise identifier.
+
+    """
+
+    @property
+    def value(self):
+        return self.file
+
+    @value.setter
+    def value(self, o):
+        self.file = o
+
+    def cruises_from_identifier(self):
+        try:
+            return Cruise.get_all_by_expocode(self.identifier)
+        except AttributeError:
+            pass
+        return []
 
 
-class OldSubmission(Obj):
+class OldSubmission(Obj, SubmissionMixin):
     """An old submission imported for record keeping.
 
     Other information stored:
@@ -3642,35 +3658,29 @@ class OldSubmission(Obj):
     Columns::
 
     date - the date of the submission
-    stamp - unknown
     submitter - the name of the submitter. Format varies.
     line - the WOCE line number of the submission. May be other things.
     folder - the original folder name of the submission. This is mainly used to
         group the submission files together during import.
-    files - a list of fs ids that store the actual files of the submission.
-        Each file will have the original filename stored along with an attribute
-        "old_submission" marked True.
+    file - a zip of the original files in the folder
 
     """
     __tablename__ = 'old_submissions'
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
-    date = Column(DateTime)
-    stamp = Column(String(6))
     submitter = Column(Unicode)
     line = Column(Unicode)
     folder = Column(Unicode)
-    files = relationship(
-        'FSFile', secondary=old_submissions_files_table,
-        single_parent=True,
-        cascade='all, delete, delete-orphan')
+
+    file_id = Column('file_id', Integer, ForeignKey('fsfile.id'))
+    file = relationship('FSFile', cascade='all, delete')
 
     __mapper_args__ = {
         'polymorphic_identity': 'old_submission',
     }
 
 
-class Submission(Obj):
+class Submission(Obj, SubmissionMixin):
     """A Submission to the CCHDO.
 
     These interface with humans so they need intervention to make everything
@@ -3722,21 +3732,6 @@ class Submission(Obj):
     @property
     def identifier(self):
         return self.expocode
-
-    @property
-    def value(self):
-        return self.file
-
-    @value.setter
-    def value(self, o):
-        self.file = o
-
-    def cruises_from_identifier(self):
-        try:
-            return Cruise.get_all_by_expocode(self.expocode)
-        except AttributeError:
-            pass
-        return []
 
     def attach(self, attr, signer):
         """Attaches the submission to a new _Attr and accepts the submission.

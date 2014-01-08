@@ -33,3 +33,10 @@ table.has-meta-bodies td {
 .attached.odd { background-color: #C9DADD; }
 .attached.even.open { background-color: #D1E2E5; }
 .attached.odd.open { background-color: #C1D2D5; }
+
+.tools label {
+  margin-right: 0.5em;
+}
+.tools input[type=radio] {
+  margin-right: 0.2em;
+}

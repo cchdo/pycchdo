@@ -117,6 +117,7 @@ list_queries = OrderedDict([
     ['Queued', lambda: Submission.query().filter(Submission.attached != None)],
     ['All', lambda: Submission.query()],
     ['Old Submissions', lambda: OldSubmission.query()],
+    ['unassigned', lambda: Submission.query()],
 ])
 
 
@@ -128,20 +129,18 @@ def submissions(request):
             return require_signin(request)
         _moderate_submission(request)
 
-    ltype = request.params.get('ltype', 'not_queued_not_argo')
+    ltype = request.params.get('ltype', 'Not Queued not argo')
 
     try:
         squery = list_queries[ltype]()
     except KeyError:
         if ltype == 'id':
             squery = Submission.query().filter(Submission.id == request.params['query'])
-        elif ltype == 'unassigned':
-            squery = Submission.query()
         else:
             squery = list_queries['Not queued not Argo']()
         
     submissions = squery.\
-        order_by(Submission.creation_timestamp).\
+        order_by(Submission.creation_timestamp.desc()).\
         all()
 
     submissions = paged(request, submissions)

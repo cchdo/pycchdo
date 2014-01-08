@@ -25,7 +25,7 @@
       assigned WOCE flags. All files are Exchange format.
     </p>
 
-    {{ h.cruise_listing(request, cruises) }}
+    {{ h.cruise_listing(request, cruises, pre_expand=True) }}
   {%- endcall %}
 {%- endblock %}
 {% block js %}

@@ -249,11 +249,8 @@ def obj_attr(request):
                         u'Attr key changed to {0!r}'.format(accept_key),
                         'action_taken')
 
-            try:
-                accept_value = request.params['accept_value']
-            except KeyError:
-                accept_value = None
-            if accept_value:
+            accept_value = request.params.get('accept_value', None)
+            if accept_value is not None:
                 try:
                     attr.accept_value(
                         text_to_obj(accept_value,
@@ -262,9 +259,10 @@ def obj_attr(request):
                     request.session.flash(
                         u'Attr change accepted with new value {0!r}'.format(
                             accept_value), 'action_taken')
-                except ValueError:
+                except ValueError, err:
+                    log.error(err)
                     request.session.flash(
-                        u'{0!r} is not valid'.format(accept_key), 'help')
+                        u'{0!r} is not valid'.format(attr.key), 'help')
                     return redirect
             else:
                 attr.accept(request.user)

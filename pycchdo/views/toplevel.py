@@ -160,6 +160,7 @@ def contributions(request):
 def data(request):
     """Returns data."""
     id = request.matchdict['data_id']
+    original = request.params.get('orig', False)
 
     try:
         data = models._Attr.query().get(id)
@@ -190,7 +191,10 @@ def data(request):
     if not data.judgment_stamp and not request.user:
         raise HTTPUnauthorized()
 
-    return file_response(request, data.value)
+    if original:
+        return file_response(request, data.value_original)
+    else:
+        return file_response(request, data.value)
 
 
 def catchall_static(request):

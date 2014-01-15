@@ -131,6 +131,8 @@ def text_to_obj(value, text_type=Unicode):
         return _obj_exists(value)
     if text_type == IDList:
         return [_obj_exists(x.strip()) for x in value.split(',')]
+    if text_type == File:
+        return value
 
     raise ValueError(u'Unknown text type: {0}'.format(text_type))
 

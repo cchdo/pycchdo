@@ -809,7 +809,10 @@ class _AttrValueFile(_AttrValue):
 
         """
         super(_AttrValueFile, self).__init__(*args, **kwargs)
-        self.value = FSFile(value.file, value.filename)
+        try:
+            self.value = FSFile(value.file, value.filename)
+        except AttributeError:
+            self.value = value
 
     @staticmethod
     def _coerce(target, value, oldvalue=None, initiator=None):
@@ -3700,9 +3703,9 @@ class Submission(Obj, SubmissionMixin):
         the corresponding _Attr represents verified information representing
         this submission.
 
-        # TODO this special case should never happen.
-        SPECIAL CASE: This is set to True during legacy import because there
-        is no way to determine it without human help.
+        SPECIAL CASE: This is set to a special attribute of a fake cruise during
+        legacy import because there is no good way to determine it without human
+        help.
 
     """
     __tablename__ = 'submissions'
@@ -3715,7 +3718,8 @@ class Submission(Obj, SubmissionMixin):
     cruise_date = Column(DateTime)
     type = Column(Unicode)
     attached_id = Column(Integer, ForeignKey('attrs.id'))
-    attached = relationship(_Attr, lazy='joined')
+    attached = relationship(_Attr,
+        backref=backref('submission', uselist=False), lazy='joined')
 
     file_id = Column('file_id', Integer, ForeignKey('fsfile.id'))
     file = relationship('FSFile', cascade='all, delete')

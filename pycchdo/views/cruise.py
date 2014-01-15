@@ -1,5 +1,4 @@
 import datetime
-import transaction
 import os
 
 from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound, HTTPSeeOther
@@ -33,6 +32,7 @@ import pycchdo.helpers as h
 
 from . import *
 from pycchdo.views.session import require_signin
+from pycchdo.views.common import get_cruise
 from pycchdo.views import log, staff
 
 
@@ -97,14 +97,14 @@ def cruises_index_json(request):
     elif request.params.get('id'):
         id = request.params.get('id')
         try:
-            cruise = _get_cruise(id)
+            cruise = get_cruise(id)
         except ValueError:
             raise HTTPBadRequest()
         return _cruise_to_json(cruise)
     elif request.params.get('ids'):
         ids = [x.strip() for x in request.params.get('ids').split(',')]
         try:
-            cruises = [_get_cruise(cruise_id) for cruise_id in ids]
+            cruises = [get_cruise(cruise_id) for cruise_id in ids]
         except ValueError:
             raise HTTPBadRequest()
         return [_cruise_to_json(cruise) for cruise in cruises]
@@ -422,38 +422,13 @@ def _add_note(request, cruise_obj):
         Note(request.user, note, action, data_type, summary, not public))
 
 
-def _get_cruise(cruise_id, load_attrs=True):
-    try:
-        if cruise_id:
-            cruise_obj = Cruise.get_by_id(cruise_id)
-        else:
-            cruise_obj = None
-    except ValueError:
-        cruise_obj = None
-        transaction.begin()
-
-    # If the id does not refer to a Cruise, try searching based on ExpoCode
-    if not cruise_obj:
-        cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
-        if not cruise_obj:
-            # If not, try based on aliases.
-            cruise_obj = Cruise.get_one_by_attrs({'aliases': cruise_id})
-            if not cruise_obj:
-                raise ValueError('Not found')
-            else:
-                raise ValueError(cruise_obj.expocode)
-    if load_attrs:
-        disjoint_load_cruise_attrs([cruise_obj])
-    return cruise_obj
-
-
 def cruise_show(request):
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = get_cruise(cruise_id)
     except ValueError, err:
         if str(err) == 'Not found':
             raise HTTPSeeOther(
@@ -528,7 +503,7 @@ def cruise_show_json(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id)
+        cruise_obj = get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -554,7 +529,7 @@ def map_full(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id, load_attrs=False)
+        cruise_obj = get_cruise(cruise_id, load_attrs=False)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -571,7 +546,7 @@ def map_thumb(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = _get_cruise(cruise_id, load_attrs=False)
+        cruise_obj = get_cruise(cruise_id, load_attrs=False)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -613,7 +588,7 @@ def kml(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise = _get_cruise(cruise_id)
+        cruise = get_cruise(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))

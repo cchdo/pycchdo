@@ -1629,6 +1629,148 @@ _KNOWN_MISSING_SUBMISSIONS = [
     ]
 
 
+def _import_submission(session, downloader, updater, imported_submissions, dsug,
+                       sub):
+    import_id = str(sub.id)
+    if import_id in imported_submissions:
+        log.info("Updating Submission %s" % import_id)
+        return
+    else:
+        log.info("Creating Submission %s" % import_id)
+        submission = Submission(updater.importer)
+        updater.attr(submission, 'import_id', import_id)
+
+        submission.creation_timestamp = \
+            _date_to_datetime(sub.submission_date)
+
+        # Information about submitter
+        name = sub.name
+        inst = sub.institute
+        email = sub.email
+        country = sub.country
+
+        submitter, inst = _import_person_inst(
+            updater, name, '', inst, email)
+
+        submission.creation_person_id = submitter.id
+
+        if country:
+            country = _import_country(updater, country)
+            updater.attr(submitter, 'country', country.id)
+
+        request = BaseRequest.blank('')
+        request.date = submission.creation_timestamp
+        request.remote_addr = sub.ip
+        request.user_agent = sub.user_agent
+
+        submission.request_for = RequestFor(request)
+        DBSession.add(submission)
+        DBSession.flush()
+
+        expocode = sub.expocode
+        ship_name = sub.ship_name
+        line = sub.line
+        action = sub.action
+        argo_action = False
+        notes = sub.notes
+        file_path = sub.file
+
+        if expocode:
+            submission.expocode = _ustr2uni(expocode)
+        if ship_name:
+            submission.ship_name = _ustr2uni(ship_name)
+        if line:
+            submission.line = _ustr2uni(line)
+        if action:
+            # Remove Argo import string from list of actions and set the
+            # argo bit
+            if 'Argo' in action:
+                argo_action = True
+                if argo_action_str in action:
+                    removed = action.replace(argo_action_str, '')
+                    action = ','.join(filter(None, removed.split(',')))
+            submission.action = _ustr2uni(action)
+        if notes:
+            submission.notes.append(
+                Note(submitter, _ustr2uni(notes)))
+
+        if file_path in _KNOWN_MISSING_SUBMISSIONS:
+            log.info(u'Skipped known missing submission: %s', file_path)
+            return
+
+        with downloader.dl(file_path) as file:
+            if not file:
+                DBSession.delete(submission)
+                log.warn(
+                    u'unable to get file for Submission %s', import_id)
+                return
+
+            file_name = os.path.basename(file_path)
+            fs = FieldStorage()
+            fs.filename = file_name
+            fs.file = file
+
+            # unzip multiple_files*.zips that are actually just one file
+            if (    file_name.startswith('multiple_files') and
+                    file_name.endswith('.zip')):
+                # ZipFile.open will clobber the file object so make a copy
+                with closing(StringIO()) as temp:
+                    copy_chunked(file, temp)
+                    with zipfile.ZipFile(temp) as zf:
+                        infos = zf.infolist()
+                        if len(infos) == 1:
+                            tempzipf = NamedTemporaryFile()
+                            zippedf = zf.open(infos[0])
+                            copy_chunked(zippedf, tempzipf)
+                            fs.filename = infos[0].filename
+                            fs.file = tempzipf
+                            fs.type = guess_mime_type(fs.filename)
+                            submission.file = FSFile.from_fieldstorage(fs)
+                            tempzipf.close()
+                        elif len(infos) == 0:
+                            log.error(u'Empty submission.')
+                        else:
+                            # multiple file submission. just leave it as is
+                            # for now...
+                            # TODO split it out into multiple submissions?
+                            fs.type = guess_mime_type(fs.filename)
+                            submission.file = FSFile.from_fieldstorage(fs)
+                            
+            else:
+                fs.type = guess_mime_type(fs.filename)
+                submission.file = FSFile.from_fieldstorage(fs)
+
+        with su(su_lock=downloader.su_lock):
+            DBSession.flush()
+
+        submission.type = submission_public_to_type(
+            sub.public, argo_action)
+
+        # "assimilated" is used to color code the submission table according
+        # to whether submission has been put in the queue.
+        # This means, ideally, every assimilated submission has a queue file
+        # entry. Find the imported queue file and attach that one.
+        assimilated = bool(sub.assimilated)
+        if assimilated:
+            if sub.queue_file:
+                import_id = str(sub.queue_file.id)
+                queue_file = FSFile.attr_by_import_id(import_id)
+            else:
+                queue_file = None
+            if not queue_file:
+                log.warn(u'Unable to find queue file {0} for assimilated '
+                    'suggestion {1}'.format(import_id, sub.id))
+                queue_file = dsug
+            log.debug(repr(queue_file))
+            submission.attached = queue_file
+
+        try:
+            submission.cruise_date = _date_to_datetime(sub.cruise_date)
+        except TypeError:
+            log.warn(u'Unable to convert submission {0} date {1!r}'.format(
+                sub.id, sub.cruise_date))
+
+
 def _import_submissions(session, downloader):
     log.info("Importing Submissions")
 
@@ -1638,6 +1780,12 @@ def _import_submissions(session, downloader):
     imported_submissions = set([s.get('import_id') for s in submissions])
 
     # Assimilated cruise
+    # For assimilated submissions that are assimilated and have a queue file,
+    # the original submission is kind of irrelevant.
+    # There are no assimilated files without a queue file, so that case does not
+    # need to be handled. If it were though, assigning it to the cruise as a
+    # pending data_suggestion should be fine.
+
     # We need to create a cruise that does not appear for "assimilated"
     # submissions to be attached to it. This allows them to be marked
     # assimilated.
@@ -1652,138 +1800,15 @@ def _import_submissions(session, downloader):
         fs_assimilated.filename = 'assimilated'
         fs_assimilated.file = SpooledTemporaryFile(max_size=1)
         with su(su_lock=downloader.su_lock):
-            attr = cruise.set('data_suggestion', fs_assimilated, updater.importer)
+            dsug = cruise.set('data_suggestion', fs_assimilated, updater.importer)
             DBSession.flush()
         del fs_assimilated.file
     else:
-        attr = cruise.get_attr('data_suggestion')
+        dsug = cruise.get_attr('data_suggestion')
 
     for sub in session.query(legacy.Submission).all():
-        import_id = str(sub.id)
-        if import_id in imported_submissions:
-            log.info("Updating Submission %s" % import_id)
-            continue
-        else:
-            log.info("Creating Submission %s" % import_id)
-            submission = Submission(updater.importer)
-
-            submission.creation_timestamp = \
-                _date_to_datetime(sub.submission_date)
-
-            # Information about submitter
-            name = sub.name
-            inst = sub.institute
-            email = sub.email
-            country = sub.country
-
-            submitter, inst = _import_person_inst(
-                updater, name, '', inst, email)
-
-            submission.creation_person_id = submitter.id
-
-            if country:
-                country = _import_country(updater, country)
-                updater.attr(submitter, 'country', country.id)
-
-            request = BaseRequest.blank('')
-            request.date = submission.creation_timestamp
-            request.remote_addr = sub.ip
-            request.user_agent = sub.user_agent
-
-            submission.request_for = RequestFor(request)
-            DBSession.add(submission)
-            DBSession.flush()
-
-            expocode = sub.expocode
-            ship_name = sub.ship_name
-            line = sub.line
-            action = sub.action
-            argo_action = False
-            notes = sub.notes
-            file_path = sub.file
-
-            if expocode:
-                submission.expocode = _ustr2uni(expocode)
-            if ship_name:
-                submission.ship_name = _ustr2uni(ship_name)
-            if line:
-                submission.line = _ustr2uni(line)
-            if action:
-                # Remove Argo import string from list of actions and set the
-                # argo bit
-                if 'Argo' in action:
-                    argo_action = True
-                    if argo_action_str in action:
-                        removed = action.replace(argo_action_str, '')
-                        action = ','.join(filter(None, removed.split(',')))
-                submission.action = _ustr2uni(action)
-            if notes:
-                submission.notes.append(
-                    Note(submitter, _ustr2uni(notes)))
-
-            if file_path in _KNOWN_MISSING_SUBMISSIONS:
-                log.info(u'Skipped known missing submission: %s', file_path)
-                continue
-
-            with downloader.dl(file_path) as file:
-                if not file:
-                    DBSession.delete(submission)
-                    log.warn(
-                        u'unable to get file for Submission %s', import_id)
-                    continue
-
-                file_name = os.path.basename(file_path)
-                fs = FieldStorage()
-                fs.filename = file_name
-                fs.file = file
-
-                # unzip multiple_files*.zips that are actually just one file
-                if (    file_name.startswith('multiple_files') and
-                        file_name.endswith('.zip')):
-                    # ZipFile.open will clobber the file object so make a copy
-                    with closing(StringIO()) as temp:
-                        copy_chunked(file, temp)
-                        with zipfile.ZipFile(temp) as zf:
-                            infos = zf.infolist()
-                            if len(infos) == 1:
-                                tempzipf = NamedTemporaryFile()
-                                zippedf = zf.open(infos[0])
-                                copy_chunked(zippedf, tempzipf)
-                                fs.filename = infos[0].filename
-                                fs.file = tempzipf
-                                fs.type = guess_mime_type(fs.filename)
-                                submission.file = FSFile.from_fieldstorage(fs)
-                                tempzipf.close()
-                            elif len(infos) == 0:
-                                log.error(u'Empty submission.')
-                            else:
-                                # multiple file submission. just leave it as is
-                                # for now...
-                                fs.type = guess_mime_type(fs.filename)
-                                submission.file = FSFile.from_fieldstorage(fs)
-                                
-                else:
-                    fs.type = guess_mime_type(fs.filename)
-                    submission.file = FSFile.from_fieldstorage(fs)
-
-            with su(su_lock=downloader.su_lock):
-                DBSession.flush()
-
-            submission.type = submission_public_to_type(
-                sub.public, argo_action)
-
-            # "assimilated" is used to color code the submission table according
-            # to whether submission has been put in the queue.
-            assimilated = bool(sub.assimilated)
-            if assimilated:
-                submission.attached = attr
-
-            try:
-                submission.cruise_date = _date_to_datetime(sub.cruise_date)
-            except TypeError:
-                pass
-
-            updater.attr(submission, 'import_id', import_id)
+        _import_submission(
+            session, downloader, updater, imported_submissions, dsug, sub)
 
 
 def _import_queue_files(session, downloader):
@@ -2482,9 +2507,9 @@ def import_(import_gid, nthreads, args):
         with conn_dl(remote_host, args.skip_downloads, import_gid,
                      local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
                     ) as downloader:
+            _import_queue_files(session, downloader)
             _import_submissions(session, downloader)
             #_import_old_submissions(session, downloader)
-            #_import_queue_files(session, downloader)
             #_import_documents(session, downloader, nthreads - 1)
             #_import_argo_files(session, downloader)
         transaction.commit()

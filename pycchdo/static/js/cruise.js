@@ -404,7 +404,7 @@ $(function () {
   })();
 
   (function plotCruiseTrack() {
-    if (window.CCHDO.cruise.track) {
+    if (window.CCHDO && window.CCHDO.cruise.track) {
       var mapdiv = $('#plot_map').css({height: 300, width: '78.5%'});
       var coordstr = $('#plot textarea').css({height: mapdiv.outerHeight(), width: '19.5%'});
 
@@ -466,4 +466,18 @@ $(function () {
       });
     }
   })();
+
+  // Close all others if sent here with one row of metatable opened
+  function closeAllButOneFor(prefix) {
+    prefix = '#' + prefix;
+    if (window.location.hash.indexOf(prefix + '_') > -1) {
+      if ($(prefix + ' .has-meta-bodies').hasClass('pre-expand')) {
+        $(prefix + ' .has-meta-bodies .header .expander a').click();
+      }
+      $(window.location.hash).find('.expander a').click();
+    }
+  }
+  closeAllButOneFor('history');
+  closeAllButOneFor('as_received');
+  closeAllButOneFor('merged');
 });

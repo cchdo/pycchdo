@@ -524,11 +524,14 @@ def cruise_history_rows(change, i, hl):
             summary = change['value']
         body = ''
 
+    note_id = 'history_{0}'.format(change.id)
+
     return H.tr(
-            H.td(time, class_='date'),
+            H.td(tags.link_to(time, '#' + note_id), class_='date'),
             H.td(data_type, class_='data_type'),
             H.td(action, class_='action'),
             H.td(summary, class_='summary'),
+            id=note_id,
             class_=baseclass + " meta"
         ) + H.tr(
             H.td(person, class_='person'),
@@ -734,18 +737,29 @@ def link_obj_polymorph(obj):
         return obj
 
 
-def link_file_holder(fh, full=False):
-    if not fh or not fh.value:
+def link_file_holder(fh, full=False, original=False):
+    """Return a link to the file that is the given file holder's value.
+
+    File holder is an _Attr.
+    Args:
+    original - link to the original value, not the accepted value
+
+    """
+    if original:
+        val = fh.value_original
+    else:
+        val = fh.value
+    if not fh or not val:
         log.error(u'Unable to link a fileholder: {0!r}'.format(fh))
         return ''
-    name = fh.value.name
+    name = val.name
     if not full:
         name = os.path.basename(name)
     if not name:
-        name = fh.value.name
+        name = val.name
     if not name:
         name = 'unnamed_file'
-    return tags.link_to(name, data_uri(fh), title=name)
+    return tags.link_to(name, data_uri(fh, original), title=name)
 
 
 def link_cruise(c):
@@ -830,6 +844,23 @@ def link_pdf_preview(link):
     return "http://docs.google.com/gview?url={link}".format(link=link)
 
 
+def link_submission(sub):
+    """Return a link to a specific submission."""
+    return tags.link_to(sub.id, '/staff/submissions.html?ltype=id&query=' + sub.id)
+
+
+def link_q(request, attached):
+    """Return a link to a queue file.
+    This is really a link to the cruise page with the queue file fragment.
+
+    """
+    ident = attached.obj.uid
+    return tags.link_to(attached.id,
+        request.route_path(
+            'cruise_show', cruise_id=ident,
+            _anchor='as_received_{0}'.format(attached.id)))
+
+
 def change_pretty(change):
     person = change.creation_person
     if change['deleted']:
@@ -862,14 +893,23 @@ def change_pretty(change):
         class_='change')
 
 
-def data_uri(data):
+def data_uri(data, original=False):
     """ Given an _Attr with a file, provides a link to a file. """
-    if not data or not data.value:
+    if not data:
         log.error('Cannot link to nothing')
-    if type(data.value) is not FSFile:
+    if original:
+        val = data.value_original
+    else:
+        val = data.value
+    if not val:
+        log.error('Cannot link to nothing')
+    if type(val) is not FSFile:
         log.error('Cannot link to non-FSFile value %s' % data.id)
         return '/404.html'
-    return '/data/b/{id}'.format(id=data.id)
+    if original:
+        return '/data/b/{id}?orig=1'.format(id=data.id)
+    else:
+        return '/data/b/{id}'.format(id=data.id)
 
 
 def short_data_type(type):

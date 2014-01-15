@@ -79,6 +79,9 @@
           <td class="id">
             <div class="upper">
               {{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}
+              {%- if attached %}
+                (Q: {{ h.link_q(request, attached) }})
+              {%- endif %}
             </div>
             <div class="lower">
               {{ h.link_file_holder(submission) }}
@@ -88,10 +91,12 @@
             {# TODO attached can be either None, True, or _Attr. True is when the submission was imported. #}
             <div class="upper">
             {%- if attached %}
-              {{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident), class_='corrected') }}
+              {%- if ident != attached.obj.uid %}
+                {{ whh.tags.link_to(ident, request.route_path('cruise_show', cruise_id=ident), class_='corrected') }}
+              {%- endif %}
               {{ h.link_cruise(attached.obj) }}
             {%- else %}
-              {{ whh.tags.link_to(ident, request.route_url('cruise_show', cruise_id=ident)) }}
+              {{ whh.tags.link_to(ident, request.route_path('cruise_show', cruise_id=ident)) }}
             {%- endif %}
             </div>
             <div class="lower">

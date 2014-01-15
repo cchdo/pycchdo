@@ -80,11 +80,26 @@
         </tr>
         {%- for file in updates[subsection_type] %}
           {%- set hl = loop.cycle('even', 'odd') %}
-          <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
-            <td class="file_type">{{ file.key }}</td>
+          {%- set frag = '{0}_{1}'.format(subsection_type, file.id) %}
+          <tr class="mb-link{{ loop.index0 }} meta {{ hl }}" id="{{ frag }}">
+            <td class="file_type">
+              {%- if h.has_edit(request) %}
+                {{ whh.tags.link_to(file.key, request.current_route_path(_anchor=frag)) }}
+              {%- else %}
+                {{ file.key }}
+              {%- endif %}
+              {%- if h.has_edit(request) and file.submission %}
+                ({{ whh.tags.link_to('Submission', request.route_path(
+                  'staff_submissions', _query={'ltype': 'id', 'query': file.submission.id})) }})
+              {%- endif %}
+            </td>
             <td>
               {%- if file.is_acknowledged() or file.is_accepted() %}
-                {{ h.link_file_holder(file) }}
+                {%- if file.v_accepted %}
+                  {{ h.link_file_holder(file, original=True) }}
+                {%- else %}
+                  {{ h.link_file_holder(file) }}
+                {%- endif %}
               {%- else %}
                 {# Unacknowledged files are not shown to the public #}
                 {{ file.value.name }}

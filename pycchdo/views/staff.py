@@ -12,12 +12,14 @@ from collections import OrderedDict
 
 from pyramid.httpexceptions import HTTPUnauthorized
 
-from pycchdo.helpers import link_cruise, pdate, link_person, whtext
+from pycchdo.helpers import (
+    link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_q
+    )
 import pycchdo.models as models
 from pycchdo.models import Submission, OldSubmission
 
 from pycchdo.views import *
-from pycchdo.helpers import has_staff
+from pycchdo.views.common import get_cruise
 from pycchdo.views.session import signin_required, require_signin
 
 
@@ -41,10 +43,7 @@ def index(request):
 
 
 def _submission_short_text(submission):
-    return 'submission by %s on %s called %s' % (
-                link_person(submission.creation_person),
-                pdate(submission.creation_timestamp),
-                submission.identifier)
+    return 'submission {0}'.format(link_submission(submission))
 
 
 def _moderate_submission(request):
@@ -76,37 +75,35 @@ def _moderate_submission(request):
     if action == 'Acknowledge':
         submission.acknowledge(request.user)
         request.session.flash(
-            'Acknowleged %s' % _submission_short_text(submission),
+            'Acknowleged {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
 
     if action == 'Reject':
         submission.reject(request.user)
         request.session.flash(
-            'Rejected %s' % _submission_short_text(submission),
+            'Rejected {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
 
     cruise_id = request.params['cruise_id']
     data_type = request.params['data_type']
 
-    cruise = models.Cruise.get_id(cruise_id)
-    if not cruise:
-        cruises = models.Cruise.get_all_by_expocode(cruise_id)
-        if len(cruises) > 0:
-            cruise = cruises[0]
-        else:
-            request.session.flash(
-                'Could not find a cruise using %s' % cruise_id, 'help')
-            return
+    try:
+        cruise = get_cruise(cruise_id)
+    except ValueError:
+        request.session.flash(
+            'Could not find a cruise using %s' % cruise_id, 'help')
+        return
 
     attr = cruise.set(data_type, submission.file, request.user)
+    attr.accept(request.user)
     submission.attach(attr, request.user)
 
     request.session.flash(
-        'Attached %s to %s as %s' % (_submission_short_text(submission), 
-                                     link_cruise(cruise),
-                                     data_type), 'action_taken')
+        'Attached {0} as Q {1}'.format(
+            _submission_short_text(submission), 
+            link_q(request, attr)), 'action_taken')
 
 
 list_queries = OrderedDict([

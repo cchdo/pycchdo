@@ -6,8 +6,11 @@ Fully re-indexing is also supported via rebuild_index.
 
 """
 import os
+from datetime import datetime
 from contextlib import contextmanager
 from datetime import datetime
+from re import compile as re_compile
+from traceback import format_exc
 
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
@@ -128,6 +131,48 @@ def _create_parsers(schemas):
 
 
 _parsers = _create_parsers(_schemas)
+
+
+class SearchResult(dict):
+    """Search results are returned as a dictionary mapping the group type.
+
+    * Cruises and Notes are returned in a list
+    * Everything else, e.g. Ship, Country, etc. is returned in a dictionary
+        The dictionary maps the ship/country/etc id to its cruises
+
+    """
+    def __nonzero__(self):
+        """The SearchResult is Falsey if all of its groups are empty."""
+        for val in self.values():
+            if val:
+                return True
+        return False
+
+
+def _str_to_date(text):
+    """Convert a string or unicode to a date."""
+    return datetime.strptime(text, '%Y-%m-%d')
+
+
+def _datematch_cruise(cruise, date_match_items):
+    """Determine whether the cruise is in the date range."""
+    for dtype, dt in date_match_items.items():
+        dst = cruise.date_start
+        den = cruise.date_end
+        if dtype == 'dstart':
+            if ((dst and type(dst) is datetime and dst < dt) or
+                (den and type(den) is datetime and den < dt)):
+                return False
+        elif dtype == 'dend':
+            if ((den and type(den) is datetime and den > dt) or
+                (dst and type(dst) is datetime and dst > dt)):
+                return False
+    return True
+
+
+def _filter_cruises_for_date_match(cruises, date_match_items):
+    # Filter out cruises that are not in the date range.
+    return filter(lambda ccc: _datematch_cruise(ccc, date_match_items), cruises)
 
 
 class SearchIndex(object):
@@ -428,9 +473,29 @@ class SearchIndex(object):
             WARNING: results IS NOT homogeneous! Cruise and Note results are
             stored in lists, but ALL OTHER results are stored in a dict that
             maps them to their associated cruises!
+            i.e. 
+            {
+                'cruise': [],
+                'note': [],
+                'ship': {123: Cruise},
+            }
 
         """
-        results = {}
+        results = SearchResult()
+
+        # Pre-strip date range keywords, they should only be in effect for
+        # cruise queries. The filtering will have to be done manually.
+        r_date = re_compile('((?:date_start|from|date_end|to):[^\s]*)')
+        date_match = r_date.findall(query_string)
+        dateless_query = query_string[:]
+        date_match_items = {}
+        for match in date_match:
+            dateless_query = dateless_query.replace(match, '')
+            dtype, val = match.split(':')
+            if dtype in ['date_start', 'from']:
+                date_match_items['dstart'] = _str_to_date(val)
+            elif dtype in ['date_end', 'to']:
+                date_match_items['dend'] = _str_to_date(val)
 
         # Search each model.
         for model_name, model_schema in _schemas.items():
@@ -441,11 +506,13 @@ class SearchIndex(object):
             # Parse the query string in the context of the given model, and get
             # the objects that we will need to search the model index.
             model_parser = _parsers.get(model_name)
+            qstring = dateless_query
             try:
-                query = model_parser.parse(query_string)
+                query = model_parser.parse(qstring)
             except Exception, e:
                 log.error(
-                    'Query parse failed for "%s": %s' % (query_string, e))
+                    'Query parse failed for {0!r}: {1}'.format(qstring, e))
+            log.info(u'Query: {0}\t{1!r}'.format(model_name, query))
             index = self.open_or_create_index(model_name)
 
             with index.searcher() as searcher:
@@ -474,22 +541,25 @@ class SearchIndex(object):
                         # Cruises and Notes are quite simple. They are not
                         # supposed to have cruises associated with them, so we
                         # just put them directly into the results.
-                        results[model_name] = objects
+                        results[model_name] = _filter_cruises_for_date_match(
+                            objects, date_match_items)
                     else:
                         # Everything else can have associated cruises. We will
                         # map each Obj to its associated cruises in the results
-                        container = {}
+                        container = SearchResult()
                         for obj in objects:
-                            container[obj] = obj.cruises()
+                            container[obj] = _filter_cruises_for_date_match(
+                                obj.cruises(), date_match_items)
                         results[model_name] = container
 
                 except NotImplementedError:
                     pass
                 except AttributeError:
                     pass
-                except Exception, e:
+                except Exception:
                     log.error(
-                        'Search failed for "%s": %s' % (query_string, e))
+                        'Search failed for {0!r}: {1}'.format(
+                        query_string, format_exc()))
 
         # WARNING: results IS NOT homogeneous! (see docstring for details.)
         return results

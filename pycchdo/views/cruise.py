@@ -244,7 +244,7 @@ def _edit_attr(request, cruise_obj):
             return
         status = cruise_obj.get(key)
         try:
-            status = status.remove(u'preliminary')
+            status.remove(u'preliminary')
             cruise_obj.set_accept(key, status, request.user)
             request.session.flash(
                 'Marked {0} for {1} as reviewed'.format(

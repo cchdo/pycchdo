@@ -6,7 +6,7 @@
 {%- block content %}
   {% call h.boxed('Cruises') -%}
     <div class="autopagerize_page_element">
-      {{ h.cruise_listing(request, cruises) }}
+      {{ h.cruise_listing(request, cruises, pre_expand=True) }}
     </div>
     {{ h.pager_for(cruises) }}
     <p>

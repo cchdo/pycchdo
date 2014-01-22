@@ -101,7 +101,8 @@ def sort_results(results, orderby=None):
     if orderby is None:
         orderby = 'uid'
     sorter = Sorter(orderby)
-    for category, cruises in results.items():
-        results[category] = sorter.sort(cruises)
+    if results:
+        for category, cruises in results.items():
+            results[category] = sorter.sort(cruises)
     return results
 

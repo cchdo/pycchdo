@@ -1,11 +1,11 @@
 from datetime import datetime
 from urllib import quote_plus
 from re import search as re_search
+from traceback import format_exc
 
 from pyramid.response import Response
 from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest
 
-from pycchdo.util import collapse_dict
 from pycchdo.models.searchsort import sort_results
 from pycchdo.views.cruise import _cruise_to_json
 from pycchdo.log import ColoredLogger, DEBUG
@@ -31,10 +31,10 @@ def search_results(request):
         raise HTTPSeeOther(location=request.route_path('advanced_search'))
     try:
         results = sort_results(
-            collapse_dict(request.search_index.search(unicode(query))),
+            request.search_index.search(unicode(query)),
             orderby=orderby)
-    except Exception, e:
-        log.error('Search failed: %s' % e)
+    except Exception:
+        log.error('Search failed: {0}'.format(format_exc()))
         results = {}
     return {
         'query': query,
@@ -49,10 +49,10 @@ def search_results_json(request):
         raise HTTPBadRequest()
     try:
         results = sort_results(
-            collapse_dict(request.search_index.search(unicode(query))),
+            request.search_index.search(unicode(query)),
             orderby=orderby)
-    except Exception, e:
-        log.error('Search failed: %s' % e)
+    except Exception, err:
+        log.error('Search failed: {0}'.format(format_exc()))
         results = {}
 
     cruise_jsons = map(_cruise_to_json, results.get('cruise', {}))

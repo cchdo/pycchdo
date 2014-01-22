@@ -1225,7 +1225,7 @@ def _import_events(session):
         cruises = Cruise.get_all_by_expocode(event.ExpoCode)
         # No cruises to add the events to? Don't do the work.
         if not cruises:
-            log.warn(u"Event {0}'s cruise {1} does not exist.".format(
+            log.error(u"Event {0}'s cruise {1!r} does not exist".format(
                 event_id, event.ExpoCode))
             continue
 
@@ -2478,38 +2478,38 @@ def import_(import_gid, nthreads, args):
     log.info("Connecting to cchdo db")
     nthreads = 2
     with db_session(legacy.session()) as session:
-        #if not args.files_only:
-        #    _import_users(session)
-        #    _import_contacts(session)
-        #    _import_collections(session)
+        if not args.files_only:
+            _import_users(session)
+            _import_contacts(session)
+            _import_collections(session)
 
-        #    _import_cruises(session, nthreads - 1)
+            _import_cruises(session, nthreads - 1)
 
-        #    _import_track_lines(session)
-        #    _import_collections_cruises(session)
-        #    _import_collection_basins(session)
-        #    _import_contacts_cruises(session)
+            _import_track_lines(session)
+            _import_collections_cruises(session)
+            _import_collection_basins(session)
+            _import_contacts_cruises(session)
 
-        #    _import_events(session)
+            _import_events(session)
 
-        #    _import_spatial_groups(session)
-        #    _import_internal(session)
-        #    _import_unused_tracks(session)
+            _import_spatial_groups(session)
+            _import_internal(session)
+            _import_unused_tracks(session)
 
-        #    _import_parameter_descriptions(session)
-        #    _import_parameter_groups(session)
-        #    _import_bottle_dbs(session)
-        #    _import_parameter_status(session)
-        #    _import_parameters(session)
+            _import_parameter_descriptions(session)
+            _import_parameter_groups(session)
+            _import_bottle_dbs(session)
+            _import_parameter_status(session)
+            _import_parameters(session)
 
-        #transaction.commit()
-        #transaction.begin()
+        transaction.commit()
+        transaction.begin()
         with conn_dl(remote_host, args.skip_downloads, import_gid,
                      local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
                     ) as downloader:
             _import_queue_files(session, downloader)
             _import_submissions(session, downloader)
-            #_import_old_submissions(session, downloader)
-            #_import_documents(session, downloader, nthreads - 1)
-            #_import_argo_files(session, downloader)
+            _import_old_submissions(session, downloader)
+            _import_documents(session, downloader, nthreads - 1)
+            _import_argo_files(session, downloader)
         transaction.commit()

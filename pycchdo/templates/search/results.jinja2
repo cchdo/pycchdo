@@ -42,7 +42,7 @@
           {%- for result in items %}
             <h3>{{- h.link_obj_polymorph(result) }}</h3>
             {%- if items[result]|length > 0 %}
-              {{- h.cruise_listing(request, items[result]) }}
+              {{- h.cruise_listing(request, items[result], pre_expand=True) }}
             {%- endif %}
           {%- endfor %}
         {%- endif %}

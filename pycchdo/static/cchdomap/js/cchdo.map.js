@@ -1357,6 +1357,7 @@ GVTable.prototype.setTableJDOM = function (jdom) {
     var dtrow = self.get_dtrow(this);
     if (dtrow > -1) {
       var link = self._dt.getValue(dtrow, 1);
+      console.log(self._dt, dtrow, link);
       window.open(link, '');
     }
     return true;
@@ -1446,7 +1447,7 @@ GVTable.prototype.get_trid = function (tr) {
 
 GVTable.prototype.add = function (id, info, hasTrack) {
   var data_row = this._dt.addRow([
-    id, '/cruise/' + info.name, info.name, info.programs, info.ship, info.country,
+    id, '/cruise/' + id, info.name, info.programs, info.ship, info.country,
     info.cruise_dates, info.contacts, info.institutions]);
   if (!hasTrack) {
     for (var i = 0; i < this._dt.getNumberOfColumns(); i += 1) {

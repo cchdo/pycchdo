@@ -23,9 +23,6 @@ def get_cruise(cruise_id, load_attrs=True):
     if not cruise_obj:
         # If not, try based on aliases.
         cruise_obj = Cruise.get_one_by_attrs({'aliases': cruise_id})
-        # cruise_show will redirect to the main cruise page when ValueError is
-        # raised with an expocode
-        raise ValueError(cruise_obj.expocode)
     if not cruise_obj:
         raise ValueError('Not found')
 

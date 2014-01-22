@@ -430,12 +430,14 @@ def cruise_show(request):
     try:
         cruise_obj = get_cruise(cruise_id)
     except ValueError, err:
-        if str(err) == 'Not found':
-            raise HTTPSeeOther(
-                location=request.route_path('cruise_new', cruise_id=cruise_id))
-        else:
-            raise HTTPSeeOther(
-                location=request.route_path('cruise_show', cruise_id=str(err)))
+        raise HTTPSeeOther(
+            location=request.route_path('cruise_new', cruise_id=cruise_id))
+
+    # If the uid is different, redirect to it
+    uid = unicode(cruise_obj.uid)
+    if uid != cruise_id:
+        raise HTTPSeeOther(
+            location=request.route_path('cruise_show', cruise_id=uid))
 
     method = http_method(request)
 

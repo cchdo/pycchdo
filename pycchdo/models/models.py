@@ -16,7 +16,7 @@ from sqlalchemy.sql import (
     and_, not_,
     case, select, exists, distinct,
     )
-from sqlalchemy.schema import Index
+from sqlalchemy.schema import Index, CreateSchema
 from sqlalchemy.orm import (
     backref, scoped_session, make_transient, sessionmaker, composite,
     relationship, reconstructor, mapper, joinedload, subqueryload,
@@ -93,13 +93,15 @@ use_cache = True
 
 
 Base = declarative_base()
+Meta = Base.metadata
+Meta.schema = 'pycchdo'
 
 
 def reset_database(engine):
     """Clears the database and recreates schema."""
     drop_everything(engine)
-    meta = Base.metadata
-    meta.create_all(engine)
+    engine.execute(CreateSchema(Meta.schema))
+    Meta.create_all(engine)
 
 
 def reset_fs():

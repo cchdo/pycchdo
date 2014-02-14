@@ -1351,6 +1351,7 @@ class TestView(PersonBaseTest):
     def test_cruise_show(self):
         # XXX HACK because route_url doesn't work without route config
         self.config.add_route('cruise_new', 'test')
+        self.config.add_route('cruise_show', 'test')
         from pycchdo.views.cruise import cruise_show
         request = testing.DummyRequest()
         with self.assertRaises(HTTPBadRequest):
@@ -1360,7 +1361,7 @@ class TestView(PersonBaseTest):
         DBSession.add(ccc)
         DBSession.flush()
 
-        request.matchdict['cruise_id'] = ccc.id
+        request.matchdict['cruise_id'] = ccc.uid
         request.user = None
 
         result = cruise_show(request)
@@ -1368,6 +1369,7 @@ class TestView(PersonBaseTest):
     def test_cruise_show_suggest_file(self):
         # XXX HACK because route_url doesn't work without route config
         self.config.add_route('cruise_new', 'test')
+        self.config.add_route('cruise_show', 'test')
 
         from pycchdo.views.cruise import cruise_show
         from pyramid.renderers import render_to_response
@@ -1380,7 +1382,7 @@ class TestView(PersonBaseTest):
             MockFile('', 'mockfile.txt'), contentType='text/plain')
 
         request = testing.DummyRequest()
-        request.matchdict['cruise_id'] = ccc.id
+        request.matchdict['cruise_id'] = ccc.uid
         request.user = self.testPerson
         request.method = 'POST'
         request.params['_method'] = 'PUT'

@@ -435,7 +435,7 @@ def cruise_show(request):
 
     # If the uid is different, redirect to it
     uid = unicode(cruise_obj.uid)
-    if uid != cruise_id:
+    if uid != unicode(cruise_id):
         raise HTTPSeeOther(
             location=request.route_path('cruise_show', cruise_id=uid))
 

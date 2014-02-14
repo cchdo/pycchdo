@@ -61,7 +61,7 @@ function remove_class(e, c) {
 
 (function menuMods() {
   var menu_expand_ack = 'menu_expand_acknowledged';
-  var menu_prefer_more = 'menu_prefer_more';
+  var menu_prefer_arrows = 'menu_prefer_arrows';
 
   function Expander() {
     this.li = document.createElement('LI');
@@ -107,7 +107,7 @@ function remove_class(e, c) {
 
   var menuArrows = true;
   if (window.localStorage) {
-    menuArrows = window.localStorage.getItem(menu_prefer_more) != '1';
+    menuArrows = window.localStorage.getItem(menu_prefer_arrows) == '1';
   }
 
   var menu = document.getElementById('cchdo_menu');
@@ -131,10 +131,10 @@ function remove_class(e, c) {
       }
       addEvent(expanders[expanders.length - 1], 'dblclick', function(event) {
         if (window.localStorage) {
-          if (window.localStorage.getItem(menu_prefer_more) != '1') {
-            window.localStorage.setItem(menu_prefer_more, '1');
+          if (window.localStorage.getItem(menu_prefer_arrows) != '1') {
+            window.localStorage.setItem(menu_prefer_arrows, '1');
           } else {
-            window.localStorage.setItem(menu_prefer_more, '1');
+            window.localStorage.setItem(menu_prefer_arrows, '1');
           }
         }
       });
@@ -791,7 +791,7 @@ var bannerControl = (function rotateBanner() {
       });
     }
 
-    addToggle(bunny, 'Prefer "More" on menu instead of arrows', 'menu_prefer_more');
+    addToggle(bunny, 'Prefer arrows on menu instead of "More"', 'menu_prefer_arrows');
     addToggle(bunny, 'Freeze the banner image', 'bannerOff');
 
     var d = document.createElement('DIV');

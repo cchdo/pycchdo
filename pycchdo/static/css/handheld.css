@@ -14,8 +14,16 @@ ul, ol, p {
   position: static;
   right: auto;
   text-align: left;
-  border-bottom: 1px solid #DDDDDD;
   padding: 0.2em 0.5em;
+}
+#gheader {
+  height: auto;
+  margin: auto;
+}
+.masthead-block {
+  float: none;
+  height: auto;
+  padding: 0;
 }
 #gsearch {
   position: static;
@@ -65,6 +73,13 @@ ul, ol, p {
   padding: 0 0.35em;
   border-bottom: 1px solid #DDDDDD;
   line-height: 1.5em;
+}
+#cchdo_menu .reverse.expander h1 a {
+  margin-top: 0;
+  background: url('/static/img/icons/disclosure_arrows.png') no-repeat;
+}
+#cchdo_menu .open .reverse.expander h1 a {
+  background-position: 0 9px;
 }
 #cchdo_menu .expander h1 a {
   text-align: center;

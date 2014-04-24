@@ -38,9 +38,9 @@ PLEASE_SIGNIN_MESSAGE = """\
 
 
 FILE_GROUPS = MultiDict([
-    ['Exchange', ['bottle_exchange', 'bottlezip_exchange', 'ctdzip_exchange']],
-    ['NetCDF', ['bottlezip_netcdf', 'ctdzip_netcdf']],
-    ['WOCE', ['bottle_woce', 'ctdzip_woce', 'sum_woce']],
+    ['Exchange', ['btl_ex', 'btlzip_ex', 'ctdzip_ex']],
+    ['NetCDF', ['btlzip_nc', 'ctdzip_nc']],
+    ['WOCE', ['btl_woce', 'ctdzip_woce', 'sum_woce']],
     ['Map', ['map_thumb', 'map_full']],
     ['Documentation', ['doc_txt', 'doc_pdf']],
 ])

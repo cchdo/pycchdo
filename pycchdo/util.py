@@ -190,9 +190,9 @@ def _sorted_tables(self):
 
 
 def _munge_sort_order(sorted_tables):
-    """Swap _Change to come before Person.
+    """Swap Change to come before Person.
 
-    Make _Change come before Person in the foreign key ordering.
+    Make Change come before Person in the foreign key ordering.
 
     """
     table_person = None

@@ -1,12 +1,9 @@
 from datetime import datetime
-from string import capwords
 import re
 import os
 import os.path
 from shutil import rmtree
 from traceback import format_exc
-
-from webob.multidict import MultiDict
 
 from sqlalchemy import (
     event, Column, ForeignKey, Table,
@@ -65,6 +62,7 @@ from pycchdo.models.filestorage import (
 from pycchdo.models.file_types import (
     data_file_human_names, data_file_descriptions,
     )
+from pycchdo.models.attrmgr import AllowableMgr
 from pycchdo.models import log
 
 
@@ -269,9 +267,9 @@ class Notable(object):
 
 
 class Note(StampedCreation, DBQueryable, Base):
-    """A Note that can be attached to any _Change.
+    """A Note that can be attached to any Change.
 
-    A _Change may have many Notes.
+    A Change may have many Notes.
 
     Parameters::
 
@@ -333,7 +331,7 @@ def _deleted_note(mapper, connection, target):
     triggers.deleted_note(target)
 
 
-class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
+class Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     """A Change to the dataset.
 
     Changes will be recorded along with the time and person who changed it.
@@ -352,7 +350,7 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     creation_person_id = Column(Integer, ForeignKey('people.id'))
     creation_stamp = composite(Stamp, creation_person_id, creation_timestamp)
     creation_person = relationship(
-        'Person', primaryjoin="_Change.creation_person_id==Person.id")
+        'Person', primaryjoin="Change.creation_person_id==Person.id")
 
     __mapper_args__ = {
         'polymorphic_on': obj_type,
@@ -366,7 +364,7 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
         )
 
     def __init__(self, person, note=None, allow_blank=False, *args, **kwargs):
-        super(_Change, self).__init__(*args, **kwargs)
+        super(Change, self).__init__(*args, **kwargs)
         self._preload_objs = {}
         self.creation_stamp = Stamp(person.id, allow_blank=allow_blank)
         if note:
@@ -389,14 +387,14 @@ class _Change(StampedCreation, StampedModeration, Notable, DBQueryable, Base):
     pending_stamp = composite(
         Stamp, pending_person_id, pending_timestamp)
     pending_person = relationship(
-        'Person', primaryjoin="_Change.pending_person_id==Person.id")
+        'Person', primaryjoin="Change.pending_person_id==Person.id")
 
     judgment_timestamp = Column(DateTime)
     judgment_person_id = Column(Integer, ForeignKey('people.id'))
     judgment_stamp = composite(
         Stamp, judgment_person_id, judgment_timestamp)
     judgment_person = relationship(
-        'Person', primaryjoin="_Change.judgment_person_id==Person.id")
+        'Person', primaryjoin="Change.judgment_person_id==Person.id")
 
     accepted = Column(Boolean, default=False)
 
@@ -1223,10 +1221,601 @@ class _AttrPermission(DBQueryable, Base):
         self.permission = permission
 
 
-class _Attr(_Change):
-    """An _Attr of an _AttrMgr.
+class AttrMgr(AllowableMgr):
+    """Mixin grouping _Attr related functionality.
 
-    Not for general use. Please defer to _AttrMgr's methods.
+    This includes modifiying _Attrs and querying them.
+
+    AttrMgrs define _Attr keys and types that are to be tracked. The value to
+    be assigned to a key must match the type specified.
+
+    Queries can be performed on AttrMgrs based on the values of _Attrs.
+
+    The main methods that AttrMgrs have are get(), set() and delete().
+    These methods, along with the _Attr implementation, govern how _Attr
+    data is stored.
+
+    Many queries on _Attrs involve their Change status or type. These are
+    easy queries. The tricky ones are obtaining Objs that are associated to
+    other Objs through _Attrs. This involves finding _Attrs whose value
+    contains the ID of one Obj with proper filtering and then collecting the
+    Objs using the _Attrs. E.g. finding Cruises belonging to a Collection.
+
+    TODO better writeup
+
+    It could be best to construct a connection table with _Attr like attributes.
+    However, does this consider the case of non-relational values?
+
+    For example, a Collection to Cruise mapping through _Attr. The mapping
+    should be tracked. This means the mapping has notes, acceptance, and
+    creation, pending, and judgment stamps.
+
+    Possible solution:
+      Create a table for Collections.
+      Create a table for Cruises.
+      Create a mapping table for CruisesCollections with additional association with _Attr.
+      _Attr knows about this mapping table and can pull up the correct Cruise-Collection mapping when called.
+      Create a table for value types
+      _Attr also knows about these value types and can pull up the correct value when called.
+
+    Evaluation:
+    * Does this allow querying in SQL?
+      SQL can find CruisesCollection that match, find _Attr, and then find Cruise.
+    * Does this allow querying values?
+      SQL can find values that match, find _Attr, then find Cruise.
+
+    How does setting an _Attr work then?
+      1. Create an _Attr, saving its creation stamp
+      2. The Mgr knows the _Attr's type. Verify and pass it along to the _Attr.
+      3. The _Attr knows enough to persist its value.
+      4. The _Attr needs to be accepted with a different value. How does it know where to look for its value?
+      5. The _Attr knows its type and puts it in Integer, None, Boolean, etc How to tell apart which one is original and accepted?
+      6. Store with a flag indicating whether the value is original. Filter based on current value?
+        
+    """
+
+    # Relationship cannot be declared on AttrMgr.
+    @declared_attr
+    def attrs(cls):
+        return relationship(
+            '_Attr', primaryjoin='_Attr.obj_id == Obj.id',
+            backref='obj',
+            order_by=Change.judgment_timestamp.desc,
+            cascade='all, delete, delete-orphan',
+            )
+
+    @declared_attr
+    def attrs_accepted(cls):
+        return relationship(
+            '_Attr',
+            primaryjoin=and_(
+                remote(_Attr.obj_id) == cls.id,
+                Change.accepted == True),
+            order_by=Change.judgment_timestamp.desc,
+            cascade='all, delete, delete-orphan')
+
+    @classmethod
+    def _value_class(cls, type):
+        """Get the _AttrValue class corresponding to the type."""
+        if type == String:
+            return _AttrValueUnicode
+        elif type == Unicode:
+            return _AttrValueUnicode
+        elif type == Integer:
+            return _AttrValueInteger
+        elif type == Boolean:
+            return _AttrValueBoolean
+        elif type == DateTime:
+            return _AttrValueDatetime
+        elif type == ID:
+            return _AttrValueInteger
+        elif type == IDList:
+            return _AttrValueListID
+        elif type == TextList:
+            return _AttrValueListText
+        elif type == DecimalList:
+            return _AttrValueListDecimal
+        elif type == File:
+            return _AttrValueFile
+        elif type == LineString:
+            return _AttrValueLineString
+        elif type == ParticipantsType:
+            return _AttrValueParticipants
+        elif type == ParameterInformations:
+            return _AttrValueListParameterInformation
+        raise TypeError(
+            u'Unknown type {0} cannot be stored in _Attr system.'.format(type))
+
+    @classmethod
+    def value_class(cls, attr_type):
+        """Get the _AttrValue class corresponding to the type."""
+        if type(attr_type) == list:
+            return map(cls._value_class, attr_type)
+        return cls._value_class(attr_type)
+
+    @classmethod
+    def attr_class(cls, key):
+        """Return the class for the type allowed for key."""
+        return cls.value_class(cls.attr_type(key))
+
+    def attrsq(self, key=None, accepted_only=True):
+        """Return a query for _Attrs in the AttrMgr with key.
+
+        Arguments::
+        key -- the key (default: None)
+        accepted_only -- whether to limit the query to accepted _Attrs (default:
+            True)
+
+        """
+        attrs = _Attr.query().filter(_Attr.obj_id == self.id).\
+            order_by(Change.judgment_timestamp.desc())
+        if key:
+            attrs = attrs.filter(_Attr.key == key)
+        if accepted_only:
+            attrs = attrs.filter(Change.accepted == True)
+        return attrs
+
+    def get_attr(self, key):
+        """Return the most recent accepted _Attr for key."""
+        key = unicode(key)
+        try:
+            return self.attrs_current[key]
+        except KeyError:
+            log.debug('_Attr for {0!r} is not in {1!r}'.format(
+                key, self.attrs_current))
+            raise KeyError(u"No accepted _Attr for {0!r}".format(key))
+
+    def get_attr_or(self, key, default=None):
+        """Return the most recent accepted _Attr for key or default."""
+        try:
+            return self.get_attr(key)
+        except KeyError:
+            return default
+
+    def get(self, key, default=None):
+        """Return the value of the most recent accepted _Attr for key.
+
+        Arguments::
+        key -- the key to fetch the _Attr for
+        default -- if the key is not defined, return this (default: None)
+
+        """
+        if use_cache:
+            try:
+                return self.cache_obj_avs[key].value
+            except KeyError:
+                return default
+        try:
+            attr = self.get_attr(key)
+            value = attr.value
+            log.debug('{0}.{1!r} = {2!r}'.format(self.id, key, value))
+            if type(value) is _AssociationList:
+                # AssociationList goes out of scope after return; get value now
+                # and copy to list
+                return list(value)
+            return value
+        except (AttributeError, KeyError), e:
+            log.debug(
+                '{0}.{1!r} defaulted: {2!r} ({3!r})'.format(
+                    self.id, key, default, e))
+            return default
+
+    def set(self, key, value, person, note=None):
+        """Set the value for key.
+
+        Raises:
+            ValueError when the key is not allowed.
+
+        """
+        attr_type = self.attr_type(key)
+        attr = _Attr(self, person, key, attr_type, value, note)
+        self.attrs.append(attr)
+        return attr
+
+    def delete(self, key, person, note=None):
+        """Delete the value for key."""
+        attr_type = self.attr_type(key)
+        attr = _Attr(self, person, key, attr_type, note=note, deleted=True)
+        self.attrs.append(attr)
+        return attr
+
+    def set_accept(self, key, value, person, note=None):
+        """Set the value for key and accept immediately."""
+        attr = self.set(key, value, person, note)
+        attr.accept(person)
+        return attr
+
+    def delete_accept(self, key, person, note=None):
+        """Delete the value for key and accept immediately."""
+        attr = self.delete(key, person, note)
+        attr.accept(person)
+        return attr
+
+    def _recache(self, key=None, clear_first=True):
+        """Clear the cached current attrs if specified and recache.
+
+        If key is specified, only recache that key.
+
+        If _cache_off is True, caching is skipped. Use this to manually cache
+        objs when performing many edits at once.
+
+        """
+        try:
+            if self._cache_off:
+                return
+        except AttributeError:
+            pass
+
+        # Make sure obj ids are populated
+        DBSession.flush()
+
+        if clear_first:
+            if key:
+                self.recache_attr_current(key)
+            else:
+                self._clear_cache_attrs_current()
+        CacheObjAttrs.cache(self, key=key)
+
+    def _clear_cache_attrs_current(self, expire=True):
+        try:
+            del self._cache_attrs_current
+        except AttributeError:
+            pass
+        if expire:
+            DBSession.expire(self, ['attrs', 'attrs_accepted'])
+
+    def _attr_current(self, key):
+        """Return the most current _Attr on the AttrMgr for key."""
+        attrs_accepted_for_key = _Attr.query().\
+            filter(and_(_Attr.accepted == True, _Attr.obj_id == self.id,
+                _Attr.key == key)).\
+            options(subqueryload(_Attr.vs.of_type(_AttrValueUnicode))).\
+            order_by(Change.judgment_timestamp.desc()).all()
+        for attr in attrs_accepted_for_key:
+            if attr.deleted:
+                return None
+            return attr
+        return None
+
+    def recache_attr_current(self, key):
+        # Make sure the attr cache is available before fiddling with it
+        self.attrs_current
+
+        # Update the attr cache before trying to get the attrvalue
+        attr = self._attr_current(key)
+        if attr:
+            try:
+                self._cache_attrs_current[key] = attr
+            except AttributeError:
+                self._cache_attrs_current = {key: attr}
+        else:
+            try:
+                del self._cache_attrs_current[key]
+            except (AttributeError, KeyError):
+                pass
+
+    @property
+    def attrs_current(self):
+        """Return a map of the most current _Attrs on the AttrMgr by key."""
+        try:
+            return self._cache_attrs_current
+        except AttributeError:
+            pass
+            
+        curr = {}
+        deleted = set()
+        attrs = self.attrs_accepted
+        for attr in attrs:
+            k = attr.key
+            if k not in curr and k not in deleted:
+                if attr.deleted:
+                    deleted.add(k)
+                else:
+                    curr[k] = attr
+
+        self._cache_attrs_current = curr
+        return curr
+
+    @property
+    def attr_keys(self):
+        """Return list of the _Attrs present for this AttrMgr.
+
+        This list does not include attributes that previously existed but
+        are now deleted.
+
+        """
+        return self.attrs_current.keys()
+
+    @hybrid_property
+    def tracked(self, *args, **kwargs):
+        return self.attrsq(accepted_only=False)
+
+    @hybrid_property
+    def tracked_data(self):
+        return self.tracked.filter(_Attr.str_type == 'File')
+
+    @hybrid_property
+    def unjudged_tracked(self):
+        return self.tracked.filter(Change.judgment_timestamp == None).\
+            filter(Change.judgment_person_id == None)
+
+    @hybrid_property
+    def unjudged_tracked_not_data(self):
+        return self.unjudged_tracked.filter(_Attr.str_type != 'File')
+
+    @hybrid_property
+    def unjudged_tracked_data(self):
+        return self.unjudged_tracked.filter(_Attr.str_type == 'File')
+
+    @hybrid_property
+    def unacknowledged_tracked(self):
+        return self.unjudged_tracked.filter(Change.pending_timestamp == None).\
+            filter(Change.pending_person_id == None)
+
+    @hybrid_property
+    def pending_tracked(self):
+        return self.unjudged_tracked.filter(Change.pending_timestamp != None).\
+            filter(Change.pending_person_id != None)
+
+    @hybrid_property
+    def pending_tracked_data(self):
+        return self.pending_tracked.filter(_Attr.str_type == 'File')
+
+    @hybrid_property
+    def accepted_tracked(self):
+        return self.tracked.filter(Change.accepted == True)
+
+    @hybrid_property
+    def accepted_tracked_data(self):
+        return self.accepted_tracked.filter(_Attr.str_type == 'File')
+
+    @hybrid_property
+    def accepted_tracked_changed_data(self):
+        return self.accepted_tracked_data.filter(_Attr.v_accepted)
+
+    @classmethod
+    def _filter_by_value_scalar(cls, expect_list, query, attr_class, value):
+        """Produce filter for the given scalar value and attr_class."""
+        if use_cache:
+            query = query.\
+                filter(CacheObjAttrs.attrvalue_id == attr_class.id)
+        else:
+            query = query.\
+                filter(_Attr.id == attr_class.attr_id).\
+                filter(_AttrValue.id == attr_class.id)
+        if expect_list:
+            elem_class = attr_class.__elem_class__
+            # Only return obj ids whose _Attr.value matches.
+            # This means that at least one of the List (attr_class) values must
+            # match
+            query = query.filter(attr_class.id == elem_class.attrvalue_id)
+            try:
+                value.match
+                query = query.filter(
+                    elem_class.value.op(
+                        re_flags_to_pg_op(value))(value.pattern))
+            except AttributeError:
+                query = query.filter(elem_class.value == value)
+        else:
+            try:
+                v = attr_class._coerce(None, value)
+            except TypeError, e:
+                log.debug('Failed to coerce: {0}'.format(e))
+                raise e
+            if value is not None and v != value:
+                raise TypeError(
+                    u'Coerced value {0!r} for {1} != {2!r}'.format(
+                        v, attr_class, value))
+            try:
+                value.match
+                query = query.filter(
+                    attr_class.value.op(
+                        re_flags_to_pg_op(value))(value.pattern))
+            except AttributeError:
+                query = query.filter(attr_class.value == value)
+        return query
+
+    @classmethod
+    def _filter_by_key_value(cls, query, attr_class, key, value):
+        """Return filter of Obj.ids for _Attrs with given value and attr_class.
+
+        """
+        log.debug(u'filtering for {0!r} {1!r} = {2!r}'.format(
+            attr_class, key, value))
+
+        expect_list = type(attr_class.value) == AssociationProxy
+
+        if use_cache:
+            q = query.filter(CacheObjAttrs.key == key)
+        else:
+            q = query.filter(_Attr.key == key)
+        if type(value) is list:
+            # Match all the values in the list
+            filters = []
+            for v in value:
+                try:
+                    filters.append(
+                        cls._filter_by_value_scalar(
+                            expect_list, q, attr_class, v))
+                except TypeError, e:
+                    log.debug(e)
+            if filters:
+                q = filters[0].union(*filters[1:])
+        else:
+            try:
+                q = cls._filter_by_value_scalar(
+                    expect_list, q, attr_class, value)
+            except TypeError, e:
+                log.debug(e)
+                return None
+        return q
+
+    @classmethod
+    def filter_by_key_value(cls, query, key, value):
+        """Return filter of Obj.ids for _Attr key and value."""
+        attrclass = cls.attr_class(key)
+
+        # If there are multiple possible types for the key, match for any one of
+        # those types
+        if type(attrclass) is list:
+            filters = []
+            for attr_class in attrclass:
+                filters.append(
+                    cls._filter_by_key_value(query, attr_class, key, value))
+            filters = filter(None, filters)
+            if filters:
+                return filters[0].union(*filters[1:])
+        return cls._filter_by_key_value(query, attrclass, key, value)
+
+    @classmethod
+    def _true_match(cls, obj_v, v):
+        if listlike(obj_v):
+            if listlike(v):
+                if obj_v != v:
+                    return False
+            else:
+                try:
+                    if not any(v.match(x) for x in obj_v):
+                        return False
+                except AttributeError:
+                    if v not in obj_v:
+                        return False
+        else:
+            try:
+                if not v.match(obj_v):
+                    return False
+            except AttributeError:
+                if obj_v != v:
+                    return False
+        return True
+
+    @classmethod
+    def get_by_attrs_true_match(cls, obj, dict, accepted_only=True):
+        """Test resulting objs to ensure the most current values match."""
+        if accepted_only:
+            accepted = 'accepted'
+        else:
+            accepted = 'suggested or accepted'
+        log.debug(
+            u'verify {0} {1!r} match {2!r}'.format(accepted, obj, dict))
+        if obj is None or (accepted_only and not obj.accepted):
+            return False
+            
+        for key, v in dict.items():
+            if key.find('.') >= 0:
+                key, subkey = key.split('.', 1)
+                obj_v = obj.get(key)
+
+                if type(obj_v) == Participants:
+                    for p in obj_v:
+                        if vars(p)[subkey] == v:
+                            return True
+                return False
+            else:
+                obj_v = obj.get(key)
+                if not cls._true_match(obj_v, v):
+                    return False
+        return True
+    
+    @classmethod
+    def get_by_attrs_query(cls, dict={}, accepted_only=True):
+        """Return query for cls instances that have _Attr state matching dict.
+
+        When querying accepted_only state, the CacheObjAttrs can be used.
+
+        """
+        # TODO this should become an attribute on the mapped object so query
+        # works normally
+        base_query = cls.query()
+        if accepted_only:
+            base_query = base_query.filter(Change.accepted == True)
+
+        # filter the base query results for matching the given _Attr keys and
+        # values
+        if use_cache:
+            base_filter_query = DBSession.query(CacheObjAttrs.obj_id)
+        else:
+            base_filter_query = DBSession.query(_Attr.obj_id)
+        filters = []
+        for k, v in dict.items():
+            filters.append(cls.filter_by_key_value(base_filter_query, k, v))
+        filters = filter(None, filters)
+        if filters:
+            log.debug(map(str, filters))
+            intersection = filters[0].intersect(*filters[1:])
+            query = base_query.filter(Change.id.in_(intersection))
+        else:
+            query = base_query
+        return query
+
+    @classmethod
+    def _get_all_by_attrs(cls, dict={}, accepted_only=True,
+                          options=[], hook_objs=None):
+        query = cls.get_by_attrs_query(dict, accepted_only)
+        query = query.options(*options)
+        objs = query.all()
+
+        if hook_objs:
+            hook_objs(objs)
+
+        str_accepted_only = 'any accepted state'
+        if accepted_only:
+            str_accepted_only = 'accepted only'
+        log.debug('found {0} {1} objs that match {2!r}'.format(
+            len(objs), str_accepted_only, dict))
+        if len(objs) > 4:
+            log.warn(
+                u'{} {} found with attrs query {}. True match will take '
+                'a long time. Something is probably wrong the query produced '
+                'by get_by_attrs_query.'.format(len(objs), cls, dict))
+            log.debug(u'{!r}'.format(objs))
+        return objs
+
+    @classmethod
+    def get_one_by_attrs(cls, dict={}, accepted_only=True, options=[],
+                         hook_objs=None):
+        """Return AttrMgr whose _Attrs values match the given dictionary.
+
+        accepted_only -- (bool) limits the returned AttrMgrs to ones whose were
+            accepted.
+
+        """
+        objs = cls._get_all_by_attrs(
+            dict, accepted_only,
+            options + [joinedload_all(
+                'cache_obj_avs',
+                CacheObjAttrs.attrvalue.of_type(_AttrValueUnicode),
+            )], hook_objs)
+        log.debug('got {0} objs by attrs'.format(len(objs)))
+        for obj in objs:
+            if cls.get_by_attrs_true_match(obj, dict, accepted_only):
+                return obj
+        return None
+
+    @classmethod
+    def get_all_by_attrs(
+            cls, dict={}, accepted_only=True, options=[], hook_objs=None):
+        """Return AttrMgrs whose _Attrs values match the given dictionary.
+
+        accepted_only -- (bool) limits the returned AttrMgrs to ones whose were
+            accepted.
+
+        """
+        objs = cls._get_all_by_attrs(
+            dict, accepted_only,
+            options + [joinedload_all(
+                'cache_obj_avs',
+                CacheObjAttrs.attrvalue.of_type(_AttrValueUnicode),
+            )], hook_objs)
+        return filter(
+            lambda o: cls.get_by_attrs_true_match(
+                o, dict, accepted_only), objs)
+
+
+class _Attr(Change):
+    """An _Attr of an AttrMgr.
+
+    Not for general use. Please defer to AttrMgr's methods.
 
     The life of an _Attr
     ====================
@@ -1344,7 +1933,7 @@ class _Attr(_Change):
 
     def __init__(self, obj, person, key, attr_type, value=None, note=None,
                  deleted=False):
-        """Create an _Attr _Change state.
+        """Create an _Attr Change state.
 
         Arguments::
         person -- the person who performed the change
@@ -1380,7 +1969,7 @@ class _Attr(_Change):
     @_attr_type.setter
     def _attr_type(self, attr_types):
         self._attr_types = attr_types
-        self._constructors = _AttrMgr.value_class(self._attr_types)
+        self._constructors = AttrMgr.value_class(self._attr_types)
 
     @reconstructor
     def reconstructor(self):
@@ -1410,7 +1999,7 @@ class _Attr(_Change):
         for constructor, attr_type in zip(constructors, attr_types):
             try:
                 v = constructor(*args, **kwargs)
-                self.str_type = _AttrMgr.attr_type_to_str(attr_type)
+                self.str_type = AttrMgr.attr_type_to_str(attr_type)
                 return v
             except Exception, e:
                 log.debug(
@@ -1579,13 +2168,13 @@ class _Attr(_Change):
 
     @classmethod
     def pending(cls):
-        return _Attr.query().filter(_Change.judgment_stamp == None).all()
+        return _Attr.query().filter(Change.judgment_stamp == None).all()
 
     @classmethod
     def pending_data(cls):
         return _Attr.query().\
             filter(_Attr.str_type == 'File').\
-            filter(_Change.judgment_stamp == None).all()
+            filter(Change.judgment_stamp == None).all()
 
 
 class CacheObjAttrs(DBQueryable, Base):
@@ -1648,701 +2237,7 @@ class CacheObjAttrs(DBQueryable, Base):
                 cls.cache(obj)
 
 
-class _AttrMgr(object):
-    """Mixin grouping _Attr related functionality.
-
-    This includes modifiying _Attrs and querying them.
-
-    _AttrMgrs define _Attr keys and types that are to be tracked. The value to
-    be assigned to a key must match the type specified.
-
-    Queries can be performed on _AttrMgrs based on the values of _Attrs.
-
-    The main methods that _AttrMgrs have are get(), set() and delete().
-    These methods, along with the _Attr implementation, govern how _Attr
-    data is stored.
-
-    Many queries on _Attrs involve their _Change status or type. These are
-    easy queries. The tricky ones are obtaining Objs that are associated to
-    other Objs through _Attrs. This involves finding _Attrs whose value
-    contains the ID of one Obj with proper filtering and then collecting the
-    Objs using the _Attrs. E.g. finding Cruises belonging to a Collection.
-
-    TODO better writeup
-
-    It could be best to construct a connection table with _Attr like attributes.
-    However, does this consider the case of non-relational values?
-
-    For example, a Collection to Cruise mapping through _Attr. The mapping
-    should be tracked. This means the mapping has notes, acceptance, and
-    creation, pending, and judgment stamps.
-
-    Possible solution:
-      Create a table for Collections.
-      Create a table for Cruises.
-      Create a mapping table for CruisesCollections with additional association with _Attr.
-      _Attr knows about this mapping table and can pull up the correct Cruise-Collection mapping when called.
-      Create a table for value types
-      _Attr also knows about these value types and can pull up the correct value when called.
-
-    Evaluation:
-    * Does this allow querying in SQL?
-      SQL can find CruisesCollection that match, find _Attr, and then find Cruise.
-    * Does this allow querying values?
-      SQL can find values that match, find _Attr, then find Cruise.
-
-    How does setting an _Attr work then?
-      1. Create an _Attr, saving its creation stamp
-      2. The Mgr knows the _Attr's type. Verify and pass it along to the _Attr.
-      3. The _Attr knows enough to persist its value.
-      4. The _Attr needs to be accepted with a different value. How does it know where to look for its value?
-      5. The _Attr knows its type and puts it in Integer, None, Boolean, etc How to tell apart which one is original and accepted?
-      6. Store with a flag indicating whether the value is original. Filter based on current value?
-        
-    """
-    __allowed_attrs = {}
-
-    # Relationship cannot be declared on _AttrMgr.
-    @declared_attr
-    def attrs(cls):
-        return relationship(
-            '_Attr', primaryjoin='_Attr.obj_id == Obj.id',
-            backref='obj',
-            order_by=_Change.judgment_timestamp.desc,
-            cascade='all, delete, delete-orphan',
-            )
-
-    @declared_attr
-    def attrs_accepted(cls):
-        return relationship(
-            '_Attr',
-            primaryjoin=and_(
-                remote(_Attr.obj_id) == cls.id,
-                _Change.accepted == True),
-            order_by=_Change.judgment_timestamp.desc,
-            cascade='all, delete, delete-orphan')
-
-    @classmethod
-    def _attr_type_to_str(cls, attr_type):
-        return attr_type.__name__
-
-    @classmethod
-    def attr_type_to_str(cls, attr_type):
-        if type(attr_type) is list:
-            return map(cls._attr_type_to_str, attr_type)
-        return cls._attr_type_to_str(attr_type)
-
-    @classmethod
-    def _allowed_attrs_dict(cls):
-        """Return the allowed attrs dict for this current class."""
-        try:
-            return cls.__allowed_attrs[cls]
-        except KeyError:
-            cls.__allowed_attrs[cls] = MultiDict()
-        return cls.__allowed_attrs[cls]
-
-    @classmethod
-    def _allowed_attrs(cls):
-        """Return the allowed attrs for this class based on polymorphism."""
-        allowed_attrs = cls._allowed_attrs_dict()
-        for c in cls.__bases__:
-            if issubclass(c, _AttrMgr):
-                allowed_attrs.update(c._allowed_attrs())
-        return allowed_attrs
-
-    @classmethod
-    def _update_allowed_attrs_caches(cls):
-        """Update the attr caches.
-
-        These include allowed_attrs, allowed_attrs_list, and
-        allowed_attrs_human_names. These are convenience attributes that should
-        be replaced with function calls.
-
-        TODO replace allowed_attrs, allowed_attrs_list, and
-        allowed_attrs_human_names with functions.
-
-        """
-        attrs = cls._allowed_attrs()
-
-        d = MultiDict()
-        for key, attr in attrs.items():
-            str_type = cls.attr_type_to_str(attr['type'])
-            if type(str_type) is list and len(str_type) > 0:
-                str_type = str_type[0]
-            try:
-                d[str_type].append(key)
-            except KeyError:
-                d[str_type] = [key]
-        cls.allowed_attrs = d
-        cls.allowed_attrs_list = attrs.keys()
-
-        d = {}
-        for key, attr in attrs.items():
-            d[key] = attr['name']
-        cls.allowed_attrs_human_names = d
-        
-    @classmethod
-    def allow_attr(cls, key, attr_type, name=None, batch=False):
-        """Add an _Attr definition to the list of allowed keys.
-
-        Arguments:
-        key -- (str)
-        type -- (sqlalchemy type) the type of data that can be stored for key
-        name -- (str) name of this key for humans (default: capitalized words
-            with underscores converted to spaces)
-
-        """
-        attrs = cls._allowed_attrs_dict()
-
-        if not name:
-            name = capwords(key.replace('_', ' '))
-        d = {'type': attr_type, 'name': name}
-        try:
-            if d != attrs[key]:
-                raise TypeError(u'{} already allowed for {} as {}. Clobbering '
-                    'with {} will cause unexpected behavior.'.format(
-                    key, cls, attrs[key], d))
-        except KeyError:
-            pass
-        attrs[key] = d
-        if not batch:
-            cls._update_allowed_attrs_caches()
-
-    @classmethod
-    def allow_attrs(cls, list):
-        """Add _Attr definitions to the list of allowed keys."""
-        for definition in list:
-            cls.allow_attr(*definition, batch=True)
-        cls._update_allowed_attrs_caches()
-
-    @classmethod
-    def attr_type(cls, key):
-        """Return the type of data allowed for key."""
-        attrs = cls._allowed_attrs()
-        try:
-            return attrs[key]['type']
-        except KeyError:
-            raise ValueError(u'key {} is not allowed for {}'.format(key, cls))
-
-    @classmethod
-    def _value_class(cls, type):
-        """Get the _AttrValue class corresponding to the type."""
-        if type == String:
-            return _AttrValueUnicode
-        elif type == Unicode:
-            return _AttrValueUnicode
-        elif type == Integer:
-            return _AttrValueInteger
-        elif type == Boolean:
-            return _AttrValueBoolean
-        elif type == DateTime:
-            return _AttrValueDatetime
-        elif type == ID:
-            return _AttrValueInteger
-        elif type == IDList:
-            return _AttrValueListID
-        elif type == TextList:
-            return _AttrValueListText
-        elif type == DecimalList:
-            return _AttrValueListDecimal
-        elif type == File:
-            return _AttrValueFile
-        elif type == LineString:
-            return _AttrValueLineString
-        elif type == ParticipantsType:
-            return _AttrValueParticipants
-        elif type == ParameterInformations:
-            return _AttrValueListParameterInformation
-        raise TypeError(
-            u'Unknown type {0} cannot be stored in _Attr system.'.format(type))
-
-    @classmethod
-    def value_class(cls, attr_type):
-        """Get the _AttrValue class corresponding to the type."""
-        if type(attr_type) == list:
-            return map(cls._value_class, attr_type)
-        return cls._value_class(attr_type)
-
-    @classmethod
-    def attr_class(cls, key):
-        """Return the class for the type allowed for key."""
-        return cls.value_class(cls.attr_type(key))
-
-    def attrsq(self, key=None, accepted_only=True):
-        """Return a query for _Attrs in the _AttrMgr with key.
-
-        Arguments::
-        key -- the key (default: None)
-        accepted_only -- whether to limit the query to accepted _Attrs (default:
-            True)
-
-        """
-        attrs = _Attr.query().filter(_Attr.obj_id == self.id).\
-            order_by(_Change.judgment_timestamp.desc())
-        if key:
-            attrs = attrs.filter(_Attr.key == key)
-        if accepted_only:
-            attrs = attrs.filter(_Change.accepted == True)
-        return attrs
-
-    def get_attr(self, key):
-        """Return the most recent accepted _Attr for key."""
-        key = unicode(key)
-        try:
-            return self.attrs_current[key]
-        except KeyError:
-            log.debug('_Attr for {0!r} is not in {1!r}'.format(
-                key, self.attrs_current))
-            raise KeyError(u"No accepted _Attr for {0!r}".format(key))
-
-    def get_attr_or(self, key, default=None):
-        """Return the most recent accepted _Attr for key or default."""
-        try:
-            return self.get_attr(key)
-        except KeyError:
-            return default
-
-    def get(self, key, default=None):
-        """Return the value of the most recent accepted _Attr for key.
-
-        Arguments::
-        key -- the key to fetch the _Attr for
-        default -- if the key is not defined, return this (default: None)
-
-        """
-        if use_cache:
-            try:
-                return self.cache_obj_avs[key].value
-            except KeyError:
-                return default
-        try:
-            attr = self.get_attr(key)
-            value = attr.value
-            log.debug('{0}.{1!r} = {2!r}'.format(self.id, key, value))
-            if type(value) is _AssociationList:
-                # AssociationList goes out of scope after return; get value now
-                # and copy to list
-                return list(value)
-            return value
-        except (AttributeError, KeyError), e:
-            log.debug(
-                '{0}.{1!r} defaulted: {2!r} ({3!r})'.format(
-                    self.id, key, default, e))
-            return default
-
-    def set(self, key, value, person, note=None):
-        """Set the value for key.
-
-        Raises:
-            ValueError when the key is not allowed.
-
-        """
-        attr_type = self.attr_type(key)
-        attr = _Attr(self, person, key, attr_type, value, note)
-        self.attrs.append(attr)
-        return attr
-
-    def delete(self, key, person, note=None):
-        """Delete the value for key."""
-        attr_type = self.attr_type(key)
-        attr = _Attr(self, person, key, attr_type, note=note, deleted=True)
-        self.attrs.append(attr)
-        return attr
-
-    def set_accept(self, key, value, person, note=None):
-        """Set the value for key and accept immediately."""
-        attr = self.set(key, value, person, note)
-        attr.accept(person)
-        return attr
-
-    def delete_accept(self, key, person, note=None):
-        """Delete the value for key and accept immediately."""
-        attr = self.delete(key, person, note)
-        attr.accept(person)
-        return attr
-
-    def _recache(self, key=None, clear_first=True):
-        """Clear the cached current attrs if specified and recache.
-
-        If key is specified, only recache that key.
-
-        If _cache_off is True, caching is skipped. Use this to manually cache
-        objs when performing many edits at once.
-
-        """
-        try:
-            if self._cache_off:
-                return
-        except AttributeError:
-            pass
-
-        # Make sure obj ids are populated
-        DBSession.flush()
-
-        if clear_first:
-            if key:
-                self.recache_attr_current(key)
-            else:
-                self._clear_cache_attrs_current()
-        CacheObjAttrs.cache(self, key=key)
-
-    def _clear_cache_attrs_current(self, expire=True):
-        try:
-            del self._cache_attrs_current
-        except AttributeError:
-            pass
-        if expire:
-            DBSession.expire(self, ['attrs', 'attrs_accepted'])
-
-    def _attr_current(self, key):
-        """Return the most current _Attr on the _AttrMgr for key."""
-        attrs_accepted_for_key = _Attr.query().\
-            filter(and_(_Attr.accepted == True, _Attr.obj_id == self.id,
-                _Attr.key == key)).\
-            options(subqueryload(_Attr.vs.of_type(_AttrValueUnicode))).\
-            order_by(_Change.judgment_timestamp.desc()).all()
-        for attr in attrs_accepted_for_key:
-            if attr.deleted:
-                return None
-            return attr
-        return None
-
-    def recache_attr_current(self, key):
-        # Make sure the attr cache is available before fiddling with it
-        self.attrs_current
-
-        # Update the attr cache before trying to get the attrvalue
-        attr = self._attr_current(key)
-        if attr:
-            try:
-                self._cache_attrs_current[key] = attr
-            except AttributeError:
-                self._cache_attrs_current = {key: attr}
-        else:
-            try:
-                del self._cache_attrs_current[key]
-            except (AttributeError, KeyError):
-                pass
-
-    @property
-    def attrs_current(self):
-        """Return a map of the most current _Attrs on the _AttrMgr by key."""
-        try:
-            return self._cache_attrs_current
-        except AttributeError:
-            pass
-            
-        curr = {}
-        deleted = set()
-        attrs = self.attrs_accepted
-        for attr in attrs:
-            k = attr.key
-            if k not in curr and k not in deleted:
-                if attr.deleted:
-                    deleted.add(k)
-                else:
-                    curr[k] = attr
-
-        self._cache_attrs_current = curr
-        return curr
-
-    @property
-    def attr_keys(self):
-        """Return list of the _Attrs present for this _AttrMgr.
-
-        This list does not include attributes that previously existed but
-        are now deleted.
-
-        """
-        return self.attrs_current.keys()
-
-    @hybrid_property
-    def tracked(self, *args, **kwargs):
-        return self.attrsq(accepted_only=False)
-
-    @hybrid_property
-    def tracked_data(self):
-        return self.tracked.filter(_Attr.str_type == 'File')
-
-    @hybrid_property
-    def unjudged_tracked(self):
-        return self.tracked.filter(_Change.judgment_timestamp == None).\
-            filter(_Change.judgment_person_id == None)
-
-    @hybrid_property
-    def unjudged_tracked_not_data(self):
-        return self.unjudged_tracked.filter(_Attr.str_type != 'File')
-
-    @hybrid_property
-    def unjudged_tracked_data(self):
-        return self.unjudged_tracked.filter(_Attr.str_type == 'File')
-
-    @hybrid_property
-    def unacknowledged_tracked(self):
-        return self.unjudged_tracked.filter(_Change.pending_timestamp == None).\
-            filter(_Change.pending_person_id == None)
-
-    @hybrid_property
-    def pending_tracked(self):
-        return self.unjudged_tracked.filter(_Change.pending_timestamp != None).\
-            filter(_Change.pending_person_id != None)
-
-    @hybrid_property
-    def pending_tracked_data(self):
-        return self.pending_tracked.filter(_Attr.str_type == 'File')
-
-    @hybrid_property
-    def accepted_tracked(self):
-        return self.tracked.filter(_Change.accepted == True)
-
-    @hybrid_property
-    def accepted_tracked_data(self):
-        return self.accepted_tracked.filter(_Attr.str_type == 'File')
-
-    @hybrid_property
-    def accepted_tracked_changed_data(self):
-        return self.accepted_tracked_data.filter(_Attr.v_accepted)
-
-    @classmethod
-    def _filter_by_value_scalar(cls, expect_list, query, attr_class, value):
-        """Produce filter for the given scalar value and attr_class."""
-        if use_cache:
-            query = query.\
-                filter(CacheObjAttrs.attrvalue_id == attr_class.id)
-        else:
-            query = query.\
-                filter(_Attr.id == attr_class.attr_id).\
-                filter(_AttrValue.id == attr_class.id)
-        if expect_list:
-            elem_class = attr_class.__elem_class__
-            # Only return obj ids whose _Attr.value matches.
-            # This means that at least one of the List (attr_class) values must
-            # match
-            query = query.filter(attr_class.id == elem_class.attrvalue_id)
-            try:
-                value.match
-                query = query.filter(
-                    elem_class.value.op(
-                        re_flags_to_pg_op(value))(value.pattern))
-            except AttributeError:
-                query = query.filter(elem_class.value == value)
-        else:
-            try:
-                v = attr_class._coerce(None, value)
-            except TypeError, e:
-                log.debug('Failed to coerce: {0}'.format(e))
-                raise e
-            if value is not None and v != value:
-                raise TypeError(
-                    u'Coerced value {0!r} for {1} != {2!r}'.format(
-                        v, attr_class, value))
-            try:
-                value.match
-                query = query.filter(
-                    attr_class.value.op(
-                        re_flags_to_pg_op(value))(value.pattern))
-            except AttributeError:
-                query = query.filter(attr_class.value == value)
-        return query
-
-    @classmethod
-    def _filter_by_key_value(cls, query, attr_class, key, value):
-        """Return filter of Obj.ids for _Attrs with given value and attr_class.
-
-        """
-        log.debug(u'filtering for {0!r} {1!r} = {2!r}'.format(
-            attr_class, key, value))
-
-        expect_list = type(attr_class.value) == AssociationProxy
-
-        if use_cache:
-            q = query.filter(CacheObjAttrs.key == key)
-        else:
-            q = query.filter(_Attr.key == key)
-        if type(value) is list:
-            # Match all the values in the list
-            filters = []
-            for v in value:
-                try:
-                    filters.append(
-                        cls._filter_by_value_scalar(
-                            expect_list, q, attr_class, v))
-                except TypeError, e:
-                    log.debug(e)
-            if filters:
-                q = filters[0].union(*filters[1:])
-        else:
-            try:
-                q = cls._filter_by_value_scalar(
-                    expect_list, q, attr_class, value)
-            except TypeError, e:
-                log.debug(e)
-                return None
-        return q
-
-    @classmethod
-    def filter_by_key_value(cls, query, key, value):
-        """Return filter of Obj.ids for _Attr key and value."""
-        attrclass = cls.attr_class(key)
-
-        # If there are multiple possible types for the key, match for any one of
-        # those types
-        if type(attrclass) is list:
-            filters = []
-            for attr_class in attrclass:
-                filters.append(
-                    cls._filter_by_key_value(query, attr_class, key, value))
-            filters = filter(None, filters)
-            if filters:
-                return filters[0].union(*filters[1:])
-        return cls._filter_by_key_value(query, attrclass, key, value)
-
-    @classmethod
-    def _true_match(cls, obj_v, v):
-        if listlike(obj_v):
-            if listlike(v):
-                if obj_v != v:
-                    return False
-            else:
-                try:
-                    if not any(v.match(x) for x in obj_v):
-                        return False
-                except AttributeError:
-                    if v not in obj_v:
-                        return False
-        else:
-            try:
-                if not v.match(obj_v):
-                    return False
-            except AttributeError:
-                if obj_v != v:
-                    return False
-        return True
-
-    @classmethod
-    def get_by_attrs_true_match(cls, obj, dict, accepted_only=True):
-        """Test resulting objs to ensure the most current values match."""
-        if accepted_only:
-            accepted = 'accepted'
-        else:
-            accepted = 'suggested or accepted'
-        log.debug(
-            u'verify {0} {1!r} match {2!r}'.format(accepted, obj, dict))
-        if obj is None or (accepted_only and not obj.accepted):
-            return False
-            
-        for key, v in dict.items():
-            if key.find('.') >= 0:
-                key, subkey = key.split('.', 1)
-                obj_v = obj.get(key)
-
-                if type(obj_v) == Participants:
-                    for p in obj_v:
-                        if vars(p)[subkey] == v:
-                            return True
-                return False
-            else:
-                obj_v = obj.get(key)
-                if not cls._true_match(obj_v, v):
-                    return False
-        return True
-    
-    @classmethod
-    def get_by_attrs_query(cls, dict={}, accepted_only=True):
-        """Return query for cls instances that have _Attr state matching dict.
-
-        When querying accepted_only state, the CacheObjAttrs can be used.
-
-        """
-        # TODO this should become an attribute on the mapped object so query
-        # works normally
-        base_query = cls.query()
-        if accepted_only:
-            base_query = base_query.filter(_Change.accepted == True)
-
-        # filter the base query results for matching the given _Attr keys and
-        # values
-        if use_cache:
-            base_filter_query = DBSession.query(CacheObjAttrs.obj_id)
-        else:
-            base_filter_query = DBSession.query(_Attr.obj_id)
-        filters = []
-        for k, v in dict.items():
-            filters.append(cls.filter_by_key_value(base_filter_query, k, v))
-        filters = filter(None, filters)
-        if filters:
-            log.debug(map(str, filters))
-            intersection = filters[0].intersect(*filters[1:])
-            query = base_query.filter(_Change.id.in_(intersection))
-        else:
-            query = base_query
-        return query
-
-    @classmethod
-    def _get_all_by_attrs(cls, dict={}, accepted_only=True,
-                          options=[], hook_objs=None):
-        query = cls.get_by_attrs_query(dict, accepted_only)
-        query = query.options(*options)
-        objs = query.all()
-
-        if hook_objs:
-            hook_objs(objs)
-
-        str_accepted_only = 'any accepted state'
-        if accepted_only:
-            str_accepted_only = 'accepted only'
-        log.debug('found {0} {1} objs that match {2!r}'.format(
-            len(objs), str_accepted_only, dict))
-        if len(objs) > 4:
-            log.warn(
-                u'{} {} found with attrs query {}. True match will take '
-                'a long time. Something is probably wrong the query produced '
-                'by get_by_attrs_query.'.format(len(objs), cls, dict))
-            log.debug(u'{!r}'.format(objs))
-        return objs
-
-    @classmethod
-    def get_one_by_attrs(cls, dict={}, accepted_only=True, options=[],
-                         hook_objs=None):
-        """Return _AttrMgr whose _Attrs values match the given dictionary.
-
-        accepted_only -- (bool) limits the returned _AttrMgrs to ones whose were
-            accepted.
-
-        """
-        objs = cls._get_all_by_attrs(
-            dict, accepted_only,
-            options + [joinedload_all(
-                'cache_obj_avs',
-                CacheObjAttrs.attrvalue.of_type(_AttrValueUnicode),
-            )], hook_objs)
-        log.debug('got {0} objs by attrs'.format(len(objs)))
-        for obj in objs:
-            if cls.get_by_attrs_true_match(obj, dict, accepted_only):
-                return obj
-        return None
-
-    @classmethod
-    def get_all_by_attrs(
-            cls, dict={}, accepted_only=True, options=[], hook_objs=None):
-        """Return _AttrMgrs whose _Attrs values match the given dictionary.
-
-        accepted_only -- (bool) limits the returned _AttrMgrs to ones whose were
-            accepted.
-
-        """
-        objs = cls._get_all_by_attrs(
-            dict, accepted_only,
-            options + [joinedload_all(
-                'cache_obj_avs',
-                CacheObjAttrs.attrvalue.of_type(_AttrValueUnicode),
-            )], hook_objs)
-        return filter(
-            lambda o: cls.get_by_attrs_true_match(
-                o, dict, accepted_only), objs)
-
-
-class _IDAttrMgr(_AttrMgr):
+class _IDAttrMgr(AttrMgr):
     """Mixin of _Attr tracking and id related methods.
 
     This is mixed in for Obj and Person because linking Person to changes causes
@@ -2356,6 +2251,11 @@ class _IDAttrMgr(_AttrMgr):
 
     @property
     def mtime(self):
+        """Last modified time.
+        This is either the object creation time or the latest attribute creation
+        time.
+
+        """
         creation_time = self.creation_timestamp
         accepted = self.accepted_tracked.all()
         if not accepted:
@@ -2392,13 +2292,13 @@ class _IDAttrMgr(_AttrMgr):
         return u'%s(%s)' % (type(self).__name__, kws)
 
 
-class Obj(_Change, _IDAttrMgr):
+class Obj(Change, _IDAttrMgr):
     """Base object for all tracked objects in the system.
 
     Objs may have two types of attributes:
     1. system attributes (columns) - written directly into the object
     2. tracked attributes (_Attrs) - written as _Attrs which are
-        _Changes themselves. These should only be edited using the _AttrMgr
+        Changes themselves. These should only be edited using the AttrMgr
         interface.
 
     """
@@ -3119,16 +3019,16 @@ class Person(CruiseParticipantAssociate, Obj):
 
     def merge_(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
-        cs = _Change.query().\
-            filter(_Change.creation_person_id.in_(mergee_ids)).all()
+        cs = Change.query().\
+            filter(Change.creation_person_id.in_(mergee_ids)).all()
         for c in cs:
             c.creation_person_id = self.id
-        cs = _Change.query().\
-            filter(_Change.pending_person_id.in_(mergee_ids)).all()
+        cs = Change.query().\
+            filter(Change.pending_person_id.in_(mergee_ids)).all()
         for c in cs:
             c.pending_person_id = self.id
-        cs = _Change.query().\
-            filter(_Change.judgment_person_id.in_(mergee_ids)).all()
+        cs = Change.query().\
+            filter(Change.judgment_person_id.in_(mergee_ids)).all()
         for c in cs:
             c.judgment_person_id = self.id
 
@@ -4106,5 +4006,5 @@ pg_funcs[WKBSpatialElement] = 'ST_GeomFromBinary'
 @event.listens_for(mapper, 'after_configured')
 def _after_mapper_configured_reorder_tables():
     """Change the order of tables so that Person ends up behind Obj."""
-    _Change.__mapper__._sorted_tables = _sorted_tables(_Change.__mapper__)
+    Change.__mapper__._sorted_tables = _sorted_tables(Change.__mapper__)
     CacheObjAttrs.check()

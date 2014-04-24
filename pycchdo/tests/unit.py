@@ -15,7 +15,7 @@ import pycchdo.models.models as models
 from pycchdo.models.models import (
     Session, DBSession,
     String, Integer, LineString, File, TextList, ID, IDList, DateTime, Unicode, 
-    Institution, Stamp, Obj, _Change, _Attr, Note, Participant, Participants,
+    Institution, Stamp, Obj, Change, _Attr, Note, Participant, Participants,
     Country, Cruise, Person, Collection, Ship, CacheObjAttrs, Parameter,
     ParameterInformation,
     ArgoFile,
@@ -30,7 +30,7 @@ class TestModelChange(PersonBaseTest):
         """Newly created objects have correct values for stamps and notes."""
         before = datetime.utcnow()
 
-        change = _Change(self.testPerson)
+        change = Change(self.testPerson)
         DBSession.add(change)
         DBSession.flush()
 
@@ -41,7 +41,7 @@ class TestModelChange(PersonBaseTest):
         self.assertFalse(bool(change.judgment_stamp))
         self.assertFalse(change.accepted)
 
-        change1 = _Change(
+        change1 = Change(
             self.testPerson,
             note=Note(
                 self.testPerson, 'body', 'action', 'data_type', 'subject'))
@@ -56,26 +56,26 @@ class TestModelChange(PersonBaseTest):
         self.assertEqual(note.body, 'body')
 
     def test_accept(self):
-        """Acceptance of _Change."""
-        change = _Change(self.testPerson)
+        """Acceptance of Change."""
+        change = Change(self.testPerson)
         change.accept(self.testPerson)
         self.assertTrue(change.is_accepted())
 
     def test_acknowledge(self):
-        """Acknowledgement of _Change."""
-        change = _Change(self.testPerson)
+        """Acknowledgement of Change."""
+        change = Change(self.testPerson)
         change.acknowledge(self.testPerson)
         self.assertTrue(change.is_acknowledged())
 
     def test_reject(self):
-        """Rejection of _Change."""
-        change = _Change(self.testPerson)
+        """Rejection of Change."""
+        change = Change(self.testPerson)
         change.reject(self.testPerson)
         self.assertTrue(change.is_rejected())
 
     def test_stamp_properties(self):
         """The stamps should only be available depending on object state."""
-        ccc = _Change(self.testPerson)
+        ccc = Change(self.testPerson)
         DBSession.add(ccc)
         DBSession.flush()
         self.assertTrue(ccc.creation_stamp != None)
@@ -87,8 +87,8 @@ class TestModelChange(PersonBaseTest):
         self.assertTrue(ccc.judgment_stamp != None)
 
     def test_state(self):
-        """Test _Change state checkers."""
-        ccc = _Change(self.testPerson)
+        """Test Change state checkers."""
+        ccc = Change(self.testPerson)
         DBSession.add(ccc)
         DBSession.flush()
         self.assertFalse(ccc.is_acknowledged())
@@ -106,13 +106,13 @@ class TestModelChange(PersonBaseTest):
         self.assertFalse(ccc.is_accepted())
 
     def test_has_notes(self):
-        """A _Change can have notes added about it.
+        """A Change can have notes added about it.
 
         Consider a Cruise gets email or someone would like to make an arbitrary
         note about an Institution but aren't sure of its validity.
 
         """
-        obj = _Change(self.testPerson)
+        obj = Change(self.testPerson)
         DBSession.add(obj)
         DBSession.flush()
 
@@ -159,7 +159,7 @@ class TestModelAttr(PersonBaseTest):
         self.assertTrue(type(obj.set(key, 'v', self.testPerson)) is _Attr)
 
     def test_new(self):
-        """New Attrs are instances of _Change."""
+        """New Attrs are instances of Change."""
         key = self._testMethodName
         o = Obj(self.testPerson)
         Obj.allow_attr(key, String)
@@ -167,7 +167,7 @@ class TestModelAttr(PersonBaseTest):
         DBSession.flush()
 
         attr = o.set(key, 'value', self.testPerson)
-        self.assertTrue(isinstance(attr, _Change))
+        self.assertTrue(isinstance(attr, Change))
 
     def test_allow_attrs(self):
         """Only allow _Attrs to be set when the key has been allowed."""
@@ -512,11 +512,11 @@ class TestModelAttr(PersonBaseTest):
 
 class TestModelObj(PersonBaseTest):
     def test_new(self):
-        """New Objs are instances of _Change."""
+        """New Objs are instances of Change."""
         obj = Obj(self.testPerson)
         DBSession.add(obj)
         DBSession.flush()
-        self.assertTrue(isinstance(obj, _Change))
+        self.assertTrue(isinstance(obj, Change))
 
     def test_remove(self):
         """Removing an Obj also removes all Attrs it is associated with."""

@@ -10,10 +10,13 @@ from pyramid.paster import (
     setup_logging,
     )
 
-from pycchdo.models import reset_database
+from pycchdo.models.serial import reset_database, Meta
 
 
 argparser = ArgumentParser(description='Reset database')
+argparser.add_argument(
+    '--create-additional', action='store_true', default=False,
+    help='Skips resetting and just creates new schema')
 argparser.add_argument(
     '--full-reset', action='store_true', default=False,
     help='Whether to drop the database first')
@@ -69,3 +72,5 @@ ALTER DATABASE {dbname} OWNER TO {owner};
     engine = engine_from_config(settings)
     if args.full_reset:
         reset_database(engine)
+    if args.create_additional:
+        Meta.create_all(engine)

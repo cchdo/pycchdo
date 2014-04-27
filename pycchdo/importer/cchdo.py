@@ -30,7 +30,6 @@ from webob.request import BaseRequest
 import transaction
 
 import libcchdo
-from libcchdo import memoize
 from libcchdo.fns import uniquify
 import libcchdo.db.model.convert as lcconvert
 std = lcconvert.std
@@ -38,19 +37,21 @@ legacy = lcconvert.legacy
 
 from pycchdo import models
 from pycchdo.util import pyStringIO, StringIO, MemFile
-from pycchdo.models import (
-    DBSession,
+from pycchdo.models.serial import (
+    store_context, DBSession,
     Note,
     FSFile,
-    Cruise, Person, Institution, Country, Participant, Participants, ArgoFile,
-    Collection, Submission, OldSubmission, Unit, Ship, Parameter,
-    ParameterOrder, 
+    Change,
+    Cruise, Person, Institution, Country, Participant, Participants, 
+    ArgoFile,
+    Collection,
+    Submission, OldSubmission, 
+    Unit, Ship, Parameter,
+    ParameterGroup, 
     RequestFor,
     ParameterInformation, 
-    _Attr, 
     )
 from pycchdo.models.types import DateTime
-from pycchdo.models.models import joinedload
 from pycchdo.importer import * 
 from pycchdo.views import text_to_obj
 
@@ -59,6 +60,17 @@ __all__ = ['import_Collection', 'import_person']
 
 
 remote_host = 'ghdc.ucsd.edu'
+
+
+def get_by_import_id(cls, import_id):
+    return cls.query().filter(cls.import_id == import_id).first()
+
+
+def _log_progress(i, total):
+    if total == 0:
+        log.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, 1.))
+        return
+    log.info(u'{0!r} / {1!r} = {2:g}'.format(i, total, float(i) / total))
 
         
 def rewrite_dl_path_to_local(path):
@@ -106,17 +118,15 @@ def import_Collection(updater, name, type):
     differentiate between the fields it came from in the original database.
 
     """
-    collection = Collection.get_one_by_attrs({'names': name, 'type': type})
+    collection = Collection.query().filter(Collection._names.any(name=name)).\
+        filter(Collection.type == type).first()
     if collection:
         log.info(u'Updating Collection {!r} {!r}'.format(name, type))
     else:
         log.info(u'Creating Collection {!r} {!r}'.format(name, type))
         collection = updater.create_accept(Collection)
-        collection._cache_off = True
         updater.attr(collection, 'names', [name])
         updater.attr(collection, 'type', type)
-        del collection._cache_off
-        collection._recache()
     return collection
 
 
@@ -539,7 +549,7 @@ def _import_inst(updater, name):
     if not name:
         return None
     name = _ustr2uni(name)
-    inst = Institution.get_one_by_attrs({'name': name})
+    inst = Institution.query().filter(Institution.name == name).first()
     if inst:
         log.info(u"Updating Institution {0!r}".format(name))
     else:
@@ -550,14 +560,10 @@ def _import_inst(updater, name):
     return inst
 
 
-def _import_contact(
-        updater, name_last, name_first, institution=None, email=None,
-        name=None):
-    inst_id = None
-    if institution is not None:
-        inst_id = institution.id
+def _import_contact(updater, name_last, name_first, institution=None,
+                    email=None, name=None):
     return import_person(updater, name_last, name_first, None,
-                         institution=inst_id, email=email, name=name)
+                         institution=institution, email=email, name=name)
 
 
 def _import_person_inst(
@@ -575,12 +581,9 @@ def _import_users(session):
     for user in users:
         person = import_person(
             updater, None, user.username, user.username)
-        person._cache_off = True
         updater.attr(person, 'password_hash', user.password_hash)
         updater.attr(person, 'password_salt', user.password_salt)
-        updater.attr(person, 'import_id', str(user.id))
-        del person._cache_off
-        person._recache()
+        person.import_id = str(user.id)
 
 
 def _import_contacts(session):
@@ -593,7 +596,6 @@ def _import_contacts(session):
             _ustr2uni(contact.Institute), _ustr2uni(contact.email))
         # Since CCHDO currently has no concept of an Institution separate from
         # a contact, differentiate them here.
-        person._cache_off = True
         if contact.Address:
             updater.attr(person, 'address', _ustr2uni(contact.Address))
         if contact.telephone:
@@ -602,14 +604,11 @@ def _import_contacts(session):
             updater.attr(person, 'fax', contact.fax)
         if contact.title:
             updater.attr(person, 'title', contact.title)
-        updater.attr(person, 'import_id', str(contact.id))
-        del person._cache_off
-        person._recache()
-    DBSession.flush()
+        person.import_id = str(contact.id)
 
 
 def _import_ship(updater, ship_name):
-    ship = Ship.get_one_by_attrs({'name': ship_name})
+    ship = Ship.query().filter(Ship.name == ship_name).first()
     if ship:
         log.info('Updating Ship %s' % ship_name)
     else:
@@ -673,15 +672,15 @@ def _import_country(updater, country_name):
     if country_name in known_country_names.keys():
         country_name = known_country_names[country_name]
     country = Country.query().filter(
-        Country.iso_3166_1 == country_name).first()
+        Country.name == country_name).first()
     if country:
         log.info('Updating Country %s' % country_name)
     else:
         log.info('Creating Country %s' % country_name)
         country = updater.create_accept(Country)
-        country.iso_3166_1 = country_name
+        country.name = country_name
         try:
-            country.iso_3166_1_alpha_2 = known_country_2_codes[country_name]
+            country.alpha2 = known_country_2_codes[country_name]
         except KeyError:
             pass
     return country
@@ -691,15 +690,14 @@ def _import_cruise(cruise, dblock):
     import_id = str(cruise.id)
     with lock(dblock):
         updater = _get_updater()
-        c = Cruise.get_one_by_attrs({'import_id': import_id})
+        c = get_by_import_id(Cruise, import_id)
         if c:
             log.info('Updating Cruise %s %s' % (import_id, cruise.ExpoCode))
         else:
             log.info('Creating Cruise %s %s' % (import_id, cruise.ExpoCode))
             c = updater.create_accept(Cruise)
 
-    c._cache_off = True
-    updater.attr(c, 'import_id', import_id)
+    c.import_id = import_id
     updater.attr(c, 'expocode', cruise.ExpoCode)
 
     if cruise.Begin_Date:
@@ -713,12 +711,12 @@ def _import_cruise(cruise, dblock):
     if cruise.Country:
         with lock(dblock):
             country = _import_country(updater, cruise.Country)
-        updater.attr(c, 'country', country.id)
+        updater.attr(c, 'country', country)
 
     if cruise.Ship_Name:
         with lock(dblock):
             ship = _import_ship(updater, cruise.Ship_Name)
-        updater.attr(c, 'ship', ship.id)
+        updater.attr(c, 'ship', ship)
 
     if cruise.Alias:
         # Hope that Alias fields are all comma separated...
@@ -728,42 +726,21 @@ def _import_cruise(cruise, dblock):
     collections = []
     if cruise.Line:
         with lock(dblock):
-            collections.append(import_Collection(updater, cruise.Line, 'WOCE line').id)
+            collections.append(import_Collection(updater, cruise.Line, 'WOCE line'))
     if cruise.Group:
         groups = [x.strip() for x in cruise.Group.split(',')]
         for group in groups:
             with lock(dblock):
-                collections.append(import_Collection(updater, group, 'group').id)
+                collections.append(import_Collection(updater, group, 'group'))
     if cruise.Program:
         programs = [x.strip() for x in cruise.Program.split(',')]
         for program in programs:
             with lock(dblock):
-                collections.append(import_Collection(updater, program, 'program').id)
+                collections.append(import_Collection(updater, program, 'program'))
 
     collections = uniquify(collections)
     updater.attr(c, 'collections', collections)
     
-    if cruise.Chief_Scientist:
-        person_insts = _cchdo_pi_to_person_insts(
-            _ustr2uni(cruise.Chief_Scientist), cruise, updater)
-
-        participants = []
-        for pi in person_insts:
-            participants.append(Participant('Chief Scientist', *pi))
-        participants = uniquify(participants)
-
-        if c.get('participants', None) is None:
-            c.set_accept(
-                'participants', Participants(participants), updater.importer)
-        else:
-            c.participants._replace(participants)
-        if c.participants:
-            log.debug(
-                'Participants for cruise %s: %s' % (cruise.id, c.participants))
-
-    del c._cache_off
-    c._recache()
-
     log.debug('imported cruise %s' % cruise.id)
 
 
@@ -798,17 +775,10 @@ def _import_cruises(session, nthreads):
     #    importers.append(CruisesImporter(cruise, dblock))
     #_run_importers(importers, nthreads=1)
 
-    for i, cruise in enumerate(cruises):
+    plog = ProgressLog(cruises, nthreads)
+    for cruise in cruises:
         _import_cruise(cruise, dblock)
-        if i % nthreads == 0:
-            _log_progress(i, len(cruises))
-
-
-def _log_progress(i, total):
-    if total == 0:
-        log.info(u'{0!r} / {1!r} = {2!r}'.format(i, total, 1.))
-        return
-    log.info(u'{0!r} / {1!r} = {2:g}'.format(i, total, float(i) / total))
+        plog.log()
     
 
 def _run_importers(importers, nthreads=6, remote_downloads=False, sleep=0.5):
@@ -889,7 +859,7 @@ def _import_track_lines(session):
                 u'Unable to convert trackline {0} to linestring'.format(tl.id))
             continue
 
-        cruise = Cruise.get_one_by_attrs({'expocode': tl.ExpoCode})
+        cruise = Cruise.query().filter(Cruise.expocode == tl.ExpoCode).first()
         if not cruise:
             log.info("Creating Cruise {0} for track line {1}".format(
                 tl.ExpoCode, tl.id))
@@ -938,34 +908,21 @@ def import_person(updater, name_last, name_first,
     else:
         log.info(u"Creating person %s" % query)
 
-        # Make sure there is either an identifier or both names
-        try:
-            query['identifier']
-        except KeyError:
-            try:
-                query['name_last']
-            except KeyError:
-                query['name_last'] = ''
-            try:
-                query['name_first']
-            except KeyError:
-                query['name_first'] = ''
-            try:
-                query['name']
-            except KeyError:
-                query['name'] = ''
-
-        person = Person(**query)
-        DBSession.add(person)
-        DBSession.flush()
         if updater is None:
-            person.accept(person)
+            person = Person.create().obj
         else:
-            person.accept(updater.importer)
+            person = Person.create(updater.importer).obj
+
+        # Make sure there is either an identifier or both names
+        person.set_id_names(
+            identifier=query.get('identifier', None),
+            name=query.get('name', None),
+            name_last=query.get('name_last', None),
+            name_first=query.get('name_first', None))
+        person.email = query.get('email', None)
 
         if institution:
             updater.attr(person, 'institution', institution)
-    DBSession.flush()
     return person
 
 
@@ -987,7 +944,7 @@ def _collections_merge(signer):
         if len(same) < 2:
             continue
         log.info(u'Merging {} with {}'.format(same[0], same[1:]))
-        same[0].merge(signer, *same[1:])
+        same[0].merge_(signer, *same[1:])
 
     # Pass 2: same name and similar types
     log.info('Collection merge pass 2: same name, similar type')
@@ -1045,7 +1002,7 @@ def _import_collections(session):
 
     imported_id_colls = {}
     for coll in new_collections:
-        imported_id_colls[coll.get('import_id', None)] = coll
+        imported_id_colls[coll.import_id] = coll
 
     for coll in collections:
         import_id = str(coll.id)
@@ -1057,44 +1014,62 @@ def _import_collections(session):
             log.info("Creating Collection %s %s" % (
                 import_id, coll.Name))
             newcoll = updater.create_accept(Collection)
-        newcoll._cache_off = True
         updater.attr(newcoll, 'names', [coll.Name])
-        updater.attr(newcoll, 'import_id', import_id)
-        del newcoll._cache_off
-        newcoll._recache()
-    DBSession.flush()
+        newcoll.import_id = import_id
 
 
 def _import_collections_cruises(session):
     log.info("Importing CollectionsCruises")
     updater = _get_updater()
     collections_cruises = session.query(legacy.CollectionsCruise).all()
+
+    cruise_colls = {}
+    colls_by_ids = {}
+
     for cc in collections_cruises:
-        log.debug(
-            u'{0} belongs to {1}'.format(cc.cruise_id, cc.collection_id))
-        if cc.collection is None or cc.cruise is None:
-            log.warn(u'bad pair {0} {1}'.format(cc.collection_id, cc.cruise_id))
+        log.debug(u'{0} belongs to {1}'.format(cc.cruise_id, cc.collection_id))
+        if cc.collection_id is None:
+            log.warn(u'bad pair {0} {1}, no collection'.format(
+                cc.collection_id, cc.cruise_id))
+            continue
+        if cc.cruise_id is None:
+            log.warn(u'bad pair {0} {1}, no cruise'.format(
+                cc.collection_id, cc.cruise_id))
             continue
 
-        collection = Collection.get_one_by_attrs(
-            {'import_id': str(cc.collection.id)})
-        if not collection:
-            log.warn('Could not find collection %d' % cc.collection_id)
-            continue
+        collid = cc.collection_id
+        try:
+            colls_by_ids[collid]
+        except KeyError:
+            colls_by_ids[collid] = get_by_import_id(Collection, str(collid))
+            if not colls_by_ids[collid]:
+                log.error('Could not find imported collection {0}'.format(collid))
+                continue
 
-        cruise = Cruise.get_one_by_attrs({'import_id': str(cc.cruise.id)})
+        try:
+            cruise_colls[cc.cruise_id].append(collid)
+        except KeyError:
+            cruise_colls[cc.cruise_id] = [collid]
+
+    items = cruise_colls.items()
+    plog = ProgressLog(items)
+    for cid, collids in items:
+        plog.log()
+        cruise = get_by_import_id(Cruise, str(cid))
         if not cruise:
-            log.warn('Could not find cruise %d' % cc.cruise_id)
+            log.error('Could not find imported cruise {0}'.format(cid))
             continue
 
-        cruise_collections = cruise.get('collections')
-        if collection.id in cruise_collections:
-            log.debug('Collection already present in Cruise collections')
-        else:
-            log.debug('Adding Collection %s to Cruise %s collections' % \
-                        (collection.id, cruise.id))
-            updater.attr(
-                cruise, 'collections', cruise_collections + [collection.id])
+        cruise_colls = cruise.collections
+        new_colls = [colls_by_ids[cid] for cid in sorted(collids)]
+        colls_to_add = list(set(new_colls) - set(cruise_colls))
+
+        if not colls_to_add:
+            continue
+
+        log.info('Adding Collections {0} to Cruise {1} collections'.format(
+            colls_to_add, cruise))
+        updater.attr(cruise, 'collections', cruise_colls + colls_to_add)
 
     # Do this after all collections and changes to them have been imported
     # Otherwise there will be missing collections while importing.
@@ -1161,6 +1136,7 @@ def _import_contacts_cruises(session):
     log.info("Importing ContactsCruises")
     updater = _get_updater()
     contacts_cruises = session.query(legacy.ContactsCruise).all()
+    cruise_contacts = {}
     for cc in contacts_cruises:
         if not cc.cruise:
             log.info("Bad Cruise ID %s" % (cc.cruise_id))
@@ -1169,39 +1145,72 @@ def _import_contacts_cruises(session):
             log.info("Bad Contact ID %s" % (cc.contact_id))
             continue
 
-        import_id = str(cc.cruise_id)
-        cruise = Cruise.get_one_by_attrs({'import_id': import_id})
-        if not cruise:
-            log.warn("Could not import ContactsCruise pair because cruise "
-                        '%s does not exist.' % import_id)
-            continue
-
-        import_id = str(cc.contact.id)
-        person = Person.get_one_by_attrs({'import_id': import_id})
-        if not person:
-            log.warn("Could not import ContactsCruise pair because person "
-                     '{0} does not exist.'.format(import_id))
-            continue
-
         role = cc.function
         if not role:
             role = 'Chief Scientist'
+
+        cruiseid = str(cc.cruise_id)
+        contactid = str(cc.contact_id)
+        inst = cc.institution
+
         try:
-            if person in [pi.person for pi in cruise.participants.with_role(role)]:
-                log.info(
-                    "Updating participant %s %s to %s" % (person, role, cruise))
-                continue
+            cruise_contacts[cruiseid].append((role, contactid, inst))
         except KeyError:
-            pass
-        log.info(
-            "Adding participant %s to cruise %s as %s" % (
-                person, cruise.id, role))
-        participant = Participant(role, person)
-        if cruise.get('participants', None) is None:
-            cruise.set_accept(
-                'participants', Participants([participant]), updater.importer)
-        else:
-            cruise.participants._append(participant)
+            cruise_contacts[cruiseid] = [(role, contactid, inst)]
+
+        # TODO institution
+
+    for cruiseid, contacts in cruise_contacts.items():
+        cruise = get_by_import_id(Cruise, cruiseid)
+        if not cruise:
+            log.error("Could not import ContactsCruise pair because cruise "
+                        '%s was not imported.' % cruise_id)
+            continue
+
+        participants = cruise.participants
+        new_participants = []
+
+        for role, contactid, inst in contacts:
+            person = get_by_import_id(Person, contactid)
+            if not person:
+                log.error("Could not import ContactsCruise pair because person "
+                         '{0} does not exist.'.format(contactid))
+                continue
+            inst = _import_inst(updater, inst)
+
+            matching_participants = filter(
+                lambda ppp: ppp.role == role and ppp.person == person,
+                participants)
+
+            if not matching_participants:
+                new_participants.append(
+                    Participant.create(role, person, inst))
+                continue
+
+            missing_inst = None
+            present = False
+            for ppp in matching_participants:
+                if ppp.institution == inst:
+                    # The participant is already present, we're done.
+                    present = True
+                    break
+                if missing_inst is None and ppp.institution is None:
+                    missing_inst = ppp
+            if present:
+                continue
+
+            # The role-person matches don't have this institution
+            if missing_inst:
+                missing_inst.institution = inst
+            else:
+                log.info(u'All participants for {0} and {1} already have '
+                         'institution. Adding new Participant.'.format(
+                    role, person))
+                new_participants.append(
+                    Participant.create(role, person, inst))
+
+        cruise.set(updater.importer,
+            'participants', participants + new_participants)
 
 
 def _import_events(session):
@@ -1211,18 +1220,16 @@ def _import_events(session):
     cache_person = {}
 
     events = session.query(legacy.Event).all()
-    len_events = len(events)
-    for i, event in enumerate(events):
-        if i % 100 == 0:
-            log.info('{0:d}/{1:d} = {2:f}'.format(
-                i, len_events, float(i) / len_events))
+    plog = ProgressLog(events)
+    for event in events:
+        plog.log()
         event_id = str(event.ID)
-        note = Note.query().filter(Note.import_id == event_id).first()
+        note = get_by_import_id(Note, event_id)
         if note:
             log.info("Updating Event {0}".format(event_id))
             continue
 
-        cruises = Cruise.get_all_by_expocode(event.ExpoCode)
+        cruises = Cruise.query().filter(Cruise.expocode == event.ExpoCode).all()
         # No cruises to add the events to? Don't do the work.
         if not cruises:
             log.error(u"Event {0}'s cruise {1!r} does not exist".format(
@@ -1250,7 +1257,7 @@ def _import_events(session):
             cache_person[(lname, fname)] = person
 
         note = Note(person, body, action, data_type, summary)
-        note.creation_timestamp = _date_to_datetime(event.Date_Entered)
+        note.ts_c = _date_to_datetime(event.Date_Entered)
         note.import_id = event_id
 
         for cruise in cruises:
@@ -1310,14 +1317,14 @@ def _import_old_submissions(session, downloader):
                                 dtime.minute, dtime.second)
                             zipi.compress_type = zipfile.ZIP_DEFLATED
                             zipf.writestr(zipi, dfile.read())
-                submission.file = FSFile(temp, '{0}.zip'.format(folder))
+                with su(su_lock=downloader.su_lock):
+                    submission.file = FSFile(temp, '{0}.zip'.format(folder))
+                    DBSession.flush()
         sub = subs[0]
-        submission.creation_timestamp = _date_to_datetime(sub.Date)
-        submission.judgment_timestamp = sub.updated_at
+        submission.ts_c = _date_to_datetime(sub.Date)
+        submission.ts_j = sub.updated_at
         submission.line = sub.Line
         submission.submitter = sub.Name
-        with su(su_lock=downloader.su_lock):
-            DBSession.flush()
 
 
 def _import_spatial_groups(session):
@@ -1344,7 +1351,7 @@ def _import_spatial_groups(session):
             log.info("Skipping non Cruise for spatial_groups")
             continue
 
-        cruise = Cruise.get_one_by_attrs({'expocode': sg.expocode})
+        cruise = Cruise.query().filter(Cruise.expocode == sg.expocode).first()
         if not cruise:
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', sg.expocode)
@@ -1352,8 +1359,7 @@ def _import_spatial_groups(session):
         log.info("Updating Cruise %s for spatial_groups" % sg.expocode)
         collections = uniquify(cruise.collections + [collection])
         if cruise.collections != collections:
-            ids = [c.id for c in collections]
-            updater.attr(cruise, 'collections', ids)
+            updater.attr(cruise, 'collections', collections)
 
 
 def _import_internal(session):
@@ -1366,7 +1372,7 @@ def _import_internal(session):
             log.warn("Skipping internal {0}, no expocode".format(i.id))
             continue
 
-        cruises = Cruise.get_all_by_expocode(i.expocode)
+        cruises = Cruise.query().filter(Cruise.expocode == i.expocode).all()
         if cruises:
             log.info("Updating Cruise %s for internal" % i.expocode)
             cruise = cruises[0]
@@ -1378,7 +1384,7 @@ def _import_internal(session):
         # TODO it may be better to map the cruise to the collection and let
         # basin attribute on collection figure out the rest.
         collection = import_Collection(updater, i.Basin, 'basin')
-        collections = cruise.get('collections', []) + [collection.id]
+        collections = cruise.get('collections', []) + [collection]
         collections = uniquify(collections)
         log.info(u'add collection {0} to cruise {1}'.format(
             collection.id, i.expocode))
@@ -1394,7 +1400,7 @@ def _import_unused_tracks(session):
             log.info(
                 u"Skipping unused track {0!r}, no expocode.".format(t.id))
             continue
-        cruise = Cruise.get_one_by_attrs({'expocode': t.expocode})
+        cruise = Cruise.query().filter(Cruise.expocode == t.expocode).first()
         if cruise:
             log.info("Updating Cruise %s for unused track" % t.expocode)
         else:
@@ -1403,24 +1409,19 @@ def _import_unused_tracks(session):
             updater.attr(cruise, 'expocode', t.expocode)
 
         collection = import_Collection(updater, t.Basin, 'basin')
-        collections = cruise.get('collections', []) + [collection.id]
+        collections = cruise.get('collections', []) + [collection]
         collections = uniquify(collections)
         updater.attr(cruise, 'collections', collections)
 
 
 def _import_unit(updater, unit):
     import_id = str(unit.id)
-    u = Unit.get_one_by_attrs({'import_id': import_id})
+    u = Unit.query().filter(Unit.import_id == import_id).first()
     if not u:
         u = updater.create_accept(Unit)
-        DBSession.add(u)
-        DBSession.flush()
-    u._cache_off = True
-    updater.attr(u, 'import_id', import_id)
+    u.import_id = import_id
     updater.attr(u, 'name', unit.name)
     updater.attr(u, 'mnemonic', unit.mnemonic)
-    del u._cache_off
-    u._recache()
     return u
 
 
@@ -1431,27 +1432,24 @@ def _import_parameter_descriptions(session):
     try:
         parameters = std_session.query(std.Parameter).all()
         for parameter in parameters:
-            p = Parameter.get_one_by_attrs({'name': parameter.name})
+            p = Parameter.query().filter(Parameter.name == parameter.name).first()
             if p:
                 log.info("Updating Parameter %s" % parameter.name)
             else:
                 log.info("Creating Parameter %s" % parameter.name)
                 p = updater.create_accept(Parameter)
-            p._cache_off = True
             updater.attr(p, 'name', parameter.name)
             updater.attr(p, 'full_name', parameter.full_name)
             updater.attr(p, 'name_netcdf', parameter.name_netcdf)
-            updater.attr(p, 'description', parameter.description)
+            updater.attr(p, 'description', parameter.description or '')
             updater.attr(p, 'format', parameter.format)
             if parameter.units:
                 updater.attr(
-                    p, 'unit', _import_unit(updater, parameter.units).id)
+                    p, 'units', _import_unit(updater, parameter.units))
             updater.attr(
                 p, 'bounds', (parameter.bound_lower, parameter.bound_upper))
             aliases = [a.name for a in parameter.aliases]
             updater.attr(p, 'aliases', aliases)
-            del p._cache_off
-            p._recache()
     except OperationalError, e:
         log.error("unable to convert parameters: %s" % traceback.print_exc(e))
     finally:
@@ -1460,33 +1458,29 @@ def _import_parameter_descriptions(session):
 
 
 def _import_parameter_groups(session):
+    log.info("Importing Parameter Groups")
     std_session = std.session()
     updater = _get_updater()
     groups = session.query(legacy.ParameterGroup).all()
     std_session.close()
     for group in groups:
-        g = ParameterOrder.get_one_by_attrs({'name': group.group})
+        g = ParameterGroup.query().filter(ParameterGroup.name == group.group).first()
         if not g:
-            g = ParameterOrder(updater.importer)
-            g.accept(updater.importer)
-            DBSession.add(g)
-            DBSession.flush()
-            g._cache_off = True
+            g = updater.create_accept(ParameterGroup)
             updater.attr(g, 'name', group.group)
             order = group.ordered_parameters
             porder = []
             for p in order:
-                parameter = Parameter.get_one_by_attrs({'name': p})
+                parameter = Parameter.query().filter(Parameter.name == p).first()
                 if not parameter:
-                    log.warn("Could not find parameter %s for order" % p)
+                    log.warn('Could not find parameter {0} for order {1}. '
+                        'Created parameter.'.format(p, group.id))
                     parameter = updater.create_accept(Parameter)
                     updater.attr(parameter, 'name', p)
                     updater.attr(
                         parameter, 'in_groups_but_did_not_exist', True)
-                porder.append(parameter.id)
+                porder.append(parameter)
             updater.attr(g, 'order', porder)
-            del g._cache_off
-            g._recache()
 
 
 def _import_bottle_dbs(session):
@@ -1512,37 +1506,25 @@ def _import_parameters(session):
 
     parameters = {}
     for param in legacy.CruiseParameterInfo._PARAMETERS:
-        parameter = Parameter.get_one_by_attrs({'name': param})
+        parameter = Parameter.query().filter(Parameter.name == param).first()
         if parameter:
             log.info("Found Parameter %s for CPI" % param)
         else:
             log.info("Created Parameter %s for CPI" % param)
-            parameter = Parameter(updater.importer)
-            parameter.accept(updater.importer)
-            DBSession.add(parameter)
-            DBSession.flush()
-        parameter._cache_off = True
+            parameter = Parameter.create(updater.importer).obj
         updater.attr(parameter, 'name', param)
-        updater.attr(parameter, 'import_id', 'cruise_param_info')
-        del parameter._cache_off
-        parameter._recache()
+        parameter.import_id = 'cruise_param_info'
         parameters[param] = parameter
-    DBSession.flush()
 
     for p in session.query(legacy.CruiseParameterInfo).all():
-        cruise = Cruise.get_one_by_attrs({'expocode': p.ExpoCode})
+        cruise = Cruise.query().filter(Cruise.expocode == p.ExpoCode).first()
         if cruise:
             log.info("Found Cruise %s for CPI" % p.ExpoCode)
         else:
             log.info("Creating Cruise %s for CPI" % p.ExpoCode)
-            cruise = Cruise(updater.importer)
-            cruise.accept(updater.importer)
-            DBSession.add(cruise)
-            DBSession.flush()
-        cruise._cache_off = True
+            cruise = Cruise.create(updater.importer).obj
         updater.attr(cruise, 'expocode', p.ExpoCode)
-        updater.attr(cruise, 'import_id', 'cruise_param_info')
-        DBSession.flush()
+        cruise.import_id = 'cruise_param_info'
 
         param_infos = []
         for param in legacy.CruiseParameterInfo._PARAMETERS:
@@ -1588,9 +1570,6 @@ def _import_parameters(session):
 
         param_infos = filter(lambda x: not x.is_empty(), param_infos)
         updater.attr(cruise, 'parameter_informations', param_infos)
-        del cruise._cache_off
-        cruise._recache()
-        DBSession.flush()
 
 
 argo_action_str = \
@@ -1637,11 +1616,10 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
         return
     else:
         log.info("Creating Submission %s" % import_id)
-        submission = Submission(updater.importer)
-        updater.attr(submission, 'import_id', import_id)
+        submission = Submission.create(updater.importer).obj
+        submission.import_id = import_id
 
-        submission.creation_timestamp = \
-            _date_to_datetime(sub.submission_date)
+        submission.ts_c = _date_to_datetime(sub.submission_date)
 
         # Information about submitter
         name = sub.name
@@ -1649,23 +1627,19 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
         email = sub.email
         country = sub.country
 
-        submitter, inst = _import_person_inst(
-            updater, name, '', inst, email)
-
-        submission.creation_person_id = submitter.id
+        submitter, inst = _import_person_inst(updater, name, '', inst, email)
+        submission.p_c = submitter
 
         if country:
             country = _import_country(updater, country)
-            updater.attr(submitter, 'country', country.id)
+            updater.attr(submitter, 'country', country)
 
         request = BaseRequest.blank('')
-        request.date = submission.creation_timestamp
+        request.date = submission.ts_c
         request.remote_addr = sub.ip
         request.user_agent = sub.user_agent
 
         submission.request_for = RequestFor(request)
-        DBSession.add(submission)
-        DBSession.flush()
 
         expocode = sub.expocode
         ship_name = sub.ship_name
@@ -1700,7 +1674,7 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
 
         with downloader.dl(file_path) as file:
             if not file:
-                DBSession.delete(submission)
+                submission.delete()
                 log.warn(
                     u'unable to get file for Submission %s', import_id)
                 return
@@ -1725,7 +1699,8 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
                             fs.filename = infos[0].filename
                             fs.file = tempzipf
                             fs.type = guess_mime_type(fs.filename)
-                            submission.file = FSFile.from_fieldstorage(fs)
+                            with su(su_lock=downloader.su_lock):
+                                submission.file = FSFile.from_fieldstorage(fs)
                             tempzipf.close()
                         elif len(infos) == 0:
                             log.error(u'Empty submission.')
@@ -1734,14 +1709,13 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
                             # for now...
                             # TODO split it out into multiple submissions?
                             fs.type = guess_mime_type(fs.filename)
-                            submission.file = FSFile.from_fieldstorage(fs)
+                            with su(su_lock=downloader.su_lock):
+                                submission.file = FSFile.from_fieldstorage(fs)
                             
             else:
                 fs.type = guess_mime_type(fs.filename)
-                submission.file = FSFile.from_fieldstorage(fs)
-
-        with su(su_lock=downloader.su_lock):
-            DBSession.flush()
+                with su(su_lock=downloader.su_lock):
+                    submission.file = FSFile.from_fieldstorage(fs)
 
         submission.type = submission_public_to_type(
             sub.public, argo_action)
@@ -1777,7 +1751,7 @@ def _import_submissions(session, downloader):
     updater = _get_updater()
 
     submissions = Submission.query().all()
-    imported_submissions = set([s.get('import_id') for s in submissions])
+    imported_submissions = set([s.import_id for s in submissions])
 
     # Assimilated cruise
     # For assimilated submissions that are assimilated and have a queue file,
@@ -1789,22 +1763,19 @@ def _import_submissions(session, downloader):
     # We need to create a cruise that does not appear for "assimilated"
     # submissions to be attached to it. This allows them to be marked
     # assimilated.
-    cruise = Cruise.get_one_by_attrs({'import_id': 'submissions_assimilated'})
+    cruise = get_by_import_id(Cruise, 'submissions_assimilated')
     if not cruise:
-        cruise = Cruise(updater.importer)
-        DBSession.add(cruise)
-        DBSession.flush()
-        cruise.set_accept(
-            'import_id', 'submissions_assimilated', updater.importer)
+        cruise = Cruise.create(updater.importer).obj
+        cruise.import_id = 'submissions_assimilated'
         fs_assimilated = FieldStorage()
         fs_assimilated.filename = 'assimilated'
         fs_assimilated.file = SpooledTemporaryFile(max_size=1)
         with su(su_lock=downloader.su_lock):
-            dsug = cruise.set('data_suggestion', fs_assimilated, updater.importer)
-            DBSession.flush()
+            dsug = cruise.set(updater.importer, 'data_suggestion',
+                FSFile.from_fieldstorage(fs_assimilated))
         del fs_assimilated.file
     else:
-        dsug = cruise.get_attr('data_suggestion')
+        dsug = cruise.get_attr_change('data_suggestion')
 
     for sub in session.query(legacy.Submission).all():
         _import_submission(
@@ -1819,7 +1790,7 @@ def _import_queue_files(session, downloader):
 
     queue_files = session.query(legacy.QueueFile).all()
     for qfile in queue_files:
-        cruises = Cruise.get_all_by_expocode(qfile.expocode)
+        cruises = Cruise.query().filter(Cruise.expocode == qfile.expocode).all()
         if cruises:
             cruise = cruises[0]
         else:
@@ -1863,18 +1834,16 @@ def _import_queue_files(session, downloader):
                 # correctly 100% with the given information so attach it as a
                 # data_suggestion.
                 with su(su_lock=downloader.su_lock):
-                    queue_file = cruise.set(
-                        'data_suggestion', actual_file, updater.importer)
+                    actual_file = FSFile.from_fieldstorage(actual_file)
+                    queue_file = cruise.set(updater.importer,
+                        'data_suggestion', actual_file)
                 # Set the import id on the FSFile
                 queue_file.value.import_id = import_id
 
-            with su(su_lock=downloader.su_lock):
-                DBSession.flush()
-
-            queue_file.creation_person = submitter
+            queue_file.p_c = submitter
             if not date_received:
                 date_received = downloader.mtime(unprocessed_input)
-            queue_file.creation_timestamp = date_received
+            queue_file.ts_c = date_received
         else:
             log.info('Updating Queue File %s' % import_id)
 
@@ -1884,8 +1853,8 @@ def _import_queue_files(session, downloader):
             contact = updater.importer
 
         log.info(u'acknowledged by CCHDO contact {0}'.format(contact))
-        queue_file.acknowledge(contact)
-        queue_file.pending_timestamp = date_received
+        queue_file.acknowledge(DBSession, contact)
+        queue_file.ts_ack = date_received
 
         # merged status codes
         # 0 - unmerged, shown online
@@ -1902,12 +1871,11 @@ def _import_queue_files(session, downloader):
                 date_merged = downloader.mtime(unprocessed_input)
             else:
                 date_merged = _date_to_datetime(date_merged)
-            queue_file.judgment_timestamp = date_merged
-            DBSession.flush()
+            queue_file.ts_j = date_merged
         if qfile.merged == 2 or qfile.hidden:
             # file is hidden
             log.info(u'rejected by CCHDO contact {0}'.format(contact))
-            queue_file.reject(contact)
+            queue_file.reject(DBSession, contact)
 
         # processed_input is obsolete according to cberys
         # hidden flag is obsolete according to cberys
@@ -1962,7 +1930,7 @@ _DOCS_RE_IGNORE = map(re.compile, [
 
 _DOCS_TYPE_TO_PYCCHDO_TYPE = {
     'Directory': 'directory',
-    'CTD File': 'woce_ctd',
+    'CTD File': 'ctd_woce',
     'Documentation': 'doc_txt',
     'PDF Documentation': 'doc_pdf',
     'Encrypted file': 'encrypted',
@@ -1971,20 +1939,20 @@ _DOCS_TYPE_TO_PYCCHDO_TYPE = {
     # HOT OR missing & mislabeled files for SAVE.
     'Exchange Bottle (Zipped)': 'ignore',
     'Exchange CTD': 'ctd_exchange',
-    'Exchange CTD (Zipped)': 'ctdzip_exchange',
+    'Exchange CTD (Zipped)': 'ctd_zip_exchange',
     'JGOFS File': 'jgofs',
     'Small Plot': 'map_thumb',
     'Large Plot': 'map_full',
-    'Large Volume file': 'large_volume_samples_woce',
-    'Trace Metals file': 'trace_metals_samples_woce',
+    'Large Volume file': 'large_volume_samples_exchange',
+    'Trace Metals file': 'trace_metals_exchange',
     'Matlab file': 'matlab',
-    'NetCDF Bottle': 'bottlezip_netcdf',
-    'NetCDF CTD': 'ctdzip_netcdf',
+    'NetCDF Bottle': 'bottle_zip_netcdf',
+    'NetCDF CTD': 'ctd_zip_netcdf',
     'SEA file': 'sea',
     'Sum File': 'sum_woce',
     'WCT CTD File': 'ctd_wct',
     'Woce Bottle': 'bottle_woce',
-    'Woce CTD (Zipped)': 'ctdzip_woce',
+    'Woce CTD (Zipped)': 'ctd_zip_woce',
     'Woce Sum': 'sum_woce',
 }
 
@@ -2006,92 +1974,93 @@ def _import_documents_unaccounted(
         downloader, updater, cruise, remote_dir, accounted_files,
         tempdir='/tmp/pycchdoimp'):
     # Import unaccounted files as an archive
-    archive_import_id = str(cruise.id)
-    log.info(u'Packaging unaccounted files for {0}'.format(archive_import_id))
-    archive_attr = cruise.attrsq('archive').first()
+    archive_import_id = cruise.import_id
+    log.info(u'Packaging unaccounted files for cruise {0}'.format(archive_import_id))
+    archive_attr = cruise.get_attr_change('archive')
     if archive_attr:
         log.info('%s archive already imported' % archive_import_id)
         return
 
-    log.debug(u'generating tempdir')
     # Use a shorter temp root so long path names don't get too long. Mac OS X
     # limits to 1024 bytes.
+    log.debug(u'generating tempdir')
     with su(su_lock=downloader.su_lock):
         try:
             os.makedirs(tempdir)
         except OSError:
             pass
         local_dir = tempfile.mkdtemp(dir=tempdir)
-    log.info(u'collecting unaccounted files in tempdir %s' % local_dir)
+    log.info(u'collecting unaccounted files from {0} to tempdir {1}'.format(
+        remote_dir, local_dir))
 
-    log.info(u'scan for unaccounted files in {0}'.format(remote_dir))
     try:
-        dirlist = downloader.listdir(remote_dir)
-    except (OSError, IOError), e:
-        log.error(
-            u'Could not list remote dir {0} to find unaccounted files:\n'
-            '{1!r}'.format(remote_dir, e))
-        return
-    any_unaccounted = False
-    for entry in dirlist:
-        if entry in _DOCS_FILES_IGNORE:
-            continue
-        if entry in accounted_files:
-            continue
-        if any(regexp.match(entry) for regexp in _DOCS_RE_IGNORE):
-            continue
-
-        any_unaccounted = True
-
-        log.info('not accounted: %s' % entry)
-
-        remote_path = os.path.join(remote_dir, entry)
-        local_path = os.path.join(local_dir, entry)
-
-        r_lstat = downloader.lstat(remote_path)
         try:
-            if stat.S_ISDIR(r_lstat.st_mode):
-                downloader.dl_dir(remote_path, local_path)
-            else:
-                with downloader.dl(remote_path) as file:
-                    with open(local_path, 'wb') as ostream:
-                        copy_chunked(file, ostream) 
+            dirlist = downloader.listdir(remote_dir)
         except (OSError, IOError), e:
             log.error(
-                u'Unable to download unaccounted file/dir {0}\n{1!r}'.format(
-                remote_path, e))
+                u'Could not list remote dir {0} to find unaccounted files:\n'
+                '{1!r}'.format(remote_dir, e))
+            return
+        any_unaccounted = False
+        for entry in dirlist:
+            if entry in _DOCS_FILES_IGNORE:
+                continue
+            if entry in accounted_files:
+                continue
+            if any(regexp.match(entry) for regexp in _DOCS_RE_IGNORE):
+                continue
 
-    if any_unaccounted:
-        archive_name = 'archive_{0}.tar'.format(cruise.id)
-        log.info(u'packaging {0} to {1}...'.format(local_dir, archive_name))
-        unaccounted_archive = SpooledTemporaryFile(max_size=2**20)
-        log.info(u'opening tarfile')
-        ua_tar = tarfile.open(mode='w', fileobj=unaccounted_archive)
-        with su(su_lock=downloader.su_lock):
-            with pushd(local_dir):
-                ua_tar.add('.')
-        ua_tar.close()
-        unaccounted_archive.seek(0)
+            any_unaccounted = True
 
-        log.info(u'removing tempdir {0}'.format(local_dir))
+            log.info('not accounted: %s' % entry)
+
+            remote_path = os.path.join(remote_dir, entry)
+            local_path = os.path.join(local_dir, entry)
+
+            r_lstat = downloader.lstat(remote_path)
+            try:
+                if stat.S_ISDIR(r_lstat.st_mode):
+                    downloader.dl_dir(remote_path, local_path)
+                else:
+                    with downloader.dl(remote_path) as file:
+                        with open(local_path, 'wb') as ostream:
+                            copy_chunked(file, ostream) 
+            except (OSError, IOError), e:
+                log.error(
+                    u'Unable to download unaccounted file/dir {0}\n{1!r}'.format(
+                    remote_path, e))
+
+        if any_unaccounted:
+            archive_name = 'archive_{0}.tar'.format(cruise.id)
+            log.info(u'packaging {0} to {1}...'.format(local_dir, archive_name))
+            unaccounted_archive = SpooledTemporaryFile(max_size=2**20)
+            ua_tar = tarfile.open(mode='w', fileobj=unaccounted_archive)
+            try:
+                with su(su_lock=downloader.su_lock), pushd(local_dir):
+                    ua_tar.add('.')
+            finally:
+                ua_tar.close()
+            unaccounted_archive.seek(0)
+
+            fs_archive = FieldStorage()
+            fs_archive.filename = archive_name
+            fs_archive.file = unaccounted_archive
+            fs_archive.type = 'application/x-tar'
+
+            with su(su_lock=downloader.su_lock):
+                fsf = FSFile.from_fieldstorage(fs_archive)
+                archive_attr = updater.attr(cruise, 'archive', fsf)
+                fsf.import_id = archive_import_id
+                archive_attr.permissions_read = ['staff', ]
+            unaccounted_archive.close()
+    finally:
+        log.debug(u'removing tempdir {0}'.format(local_dir))
         with su(su_lock=downloader.su_lock):
             shutil.rmtree(local_dir)
 
-        fs_archive = FieldStorage()
-        fs_archive.filename = archive_name
-        fs_archive.file = unaccounted_archive
-        fs_archive.type = 'application/x-tar'
-
-        with su(su_lock=downloader.su_lock):
-            archive_attr = updater.attr(cruise, 'archive', fs_archive)
-            archive_attr.attr_value.import_id = archive_import_id
-            archive_attr.permissions_read = ['staff', ]
-            DBSession.flush()
-        unaccounted_archive.close()
-
 
 def _import_documents_for_cruise(downloader, docs, expocode):
-    cruises = Cruise.get_all_by_expocode(expocode)
+    cruises = Cruise.query().filter(Cruise.expocode == expocode).all()
     updater = _get_updater()
     if docs:
         log.info("Importing documents for %s" % expocode)
@@ -2128,7 +2097,7 @@ def _import_documents_for_cruise(downloader, docs, expocode):
             if doc.FileName.endswith('lv_hy1.csv'):
                 pycchdo_type = 'large_volume_samples_exchange'
             if doc.FileName.endswith('tm_hy1.csv'):
-                pycchdo_type = 'trace_metals_samples_exchange'
+                pycchdo_type = 'trace_metals_exchange'
 
         try:
             mapped_doc = mapped_docs[pycchdo_type]
@@ -2142,9 +2111,9 @@ def _import_documents_for_cruise(downloader, docs, expocode):
 
     # Add the cruise's directory entry as import record
     try:
-        dir = mapped_docs['directory'].FileName
+        remote_dir = mapped_docs['directory'].FileName
         del mapped_docs['directory']
-        updater.attr(cruise, 'data_dir', dir)
+        updater.attr(cruise, 'data_dir', remote_dir)
     except KeyError:
         log.error(
             '%s has no directory registered. Cannot import.' % expocode)
@@ -2206,12 +2175,10 @@ def _import_documents_for_cruise(downloader, docs, expocode):
 
             field.file = file
             with su(su_lock=downloader.su_lock):
-                attr = updater.attr(cruise, data_type, field)
-                attr.attr_value.import_path = doc.FileName
-                attr.attr_value.import_id = doc_import_id
-
-        with su(su_lock=downloader.su_lock):
-            DBSession.flush()
+                fsf = FSFile.from_fieldstorage(field)
+                fsf.import_path = doc.FileName
+                fsf.import_id = doc_import_id
+                attr = updater.attr(cruise, data_type, fsf)
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
@@ -2228,18 +2195,17 @@ def _import_documents_for_cruise(downloader, docs, expocode):
                     attr, ','.join(date_creations), 'dates_updated',
                     creation_timestamp=date_creations[-1])
             else:
-                attr.creation_timestamp = date_creation
+                attr.ts_c = date_creation
         if date_accepted:
             log.debug('setting accept date')
-            attr.creation_timestamp = parse_dt(date_accepted)
-            attr.judgment_timestamp = parse_dt(date_accepted)
+            attr.ts_c = parse_dt(date_accepted)
+            attr.ts_j = parse_dt(date_accepted)
 
         accounted_files.append(field.filename)
         log.debug('accounted')
 
     log.debug('accounted files: {0}'.format(accounted_files))
 
-    remote_dir = os.path.dirname(doc.FileName)
     _import_documents_unaccounted(
         downloader, updater, cruise, remote_dir, accounted_files)
 
@@ -2276,11 +2242,9 @@ def _import_documents(session, downloader, nthreads):
     # import documents for each cruise
     # TODO FIXME what about the files with no ExpoCode? or ExpoCode == 'NULL'?
     # package those up?
-    expocode_attrs = _Attr.query().filter(_Attr.key == 'expocode').\
-        filter(_Attr.accepted == True).all()
-    expocodes = [a.value for a in expocode_attrs]
+    expocodes = [ccc.expocode for ccc in DBSession.query(Cruise.expocode).all()]
 
-    log.debug(u'Found {0} expocodes. initializing threads...'.format(
+    log.info(u'Found {0} expocodes. initializing threads...'.format(
         len(expocodes)))
 
     docs_by_expocode = {}
@@ -2294,6 +2258,7 @@ def _import_documents(session, downloader, nthreads):
                 docs_by_expocode[doc.ExpoCode] = [doc]
 
     if nthreads > 1:
+        log.info('running with threads')
         previous_su_lock = downloader.su_lock
         try:
             downloader.su_lock = Lock()
@@ -2309,16 +2274,21 @@ def _import_documents(session, downloader, nthreads):
         finally:
             downloader.su_lock = previous_su_lock
     else:
+        log.info('running without threads')
+        batchsize = 4
+        plog = ProgressLog(expocodes, 4)
         for i, expocode in enumerate(expocodes):
+            log.info(expocode)
             try:
                 docs = docs_by_expocode[expocode]
             except KeyError:
                 continue
+            log.info(repr(docs))
             _import_documents_for_cruise(downloader, docs, expocode)
-            if i % 3 == 0:
+            if i % batchsize == 0:
                 transaction.commit()
-                _log_progress(i, len(expocodes))
                 transaction.begin()
+            plog.log()
 
 
 class FakeWebObRequest(object):
@@ -2331,17 +2301,17 @@ libcchdo_to_pycchdo_file_type = {
     'sumhot': 'summary_hot',
     'sumwoce': 'summary_woce',
     'botwoce': 'bottle_woce',
-    'lvbotex': 'bottle_exchange',
-    'tmbotex': 'bottle_exchange',
+    'lvbotex': 'large_volume_samples_exchange',
+    'tmbotex': 'trace_metals_exchange',
     'botex': 'bottle_exchange',
     'botnc': 'bottle_netcdf',
-    'botzipnc': 'bottlezip_netcdf',
+    'botzipnc': 'bottle_zip_netcdf',
     'ctdex': 'ctd_exchange',
     'ctdwoce': 'ctd_woce',
-    'ctdzipex': 'ctdzip_exchange',
-    'ctdzipwoce': 'ctdzip_woce',
+    'ctdzipex': 'ctd_zip_exchange',
+    'ctdzipwoce': 'ctd_zip_woce',
     'ctdnc': 'ctd_netcdf',
-    'ctdzipnc': 'ctdzip_netcdf',
+    'ctdzipnc': 'ctd_zip_netcdf',
     'coriolis': 'coriolis',
     'polarstern': 'ctd_polarstern',
     'nodc_sd2': 'nodc_sd2',
@@ -2379,7 +2349,7 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
                     u'Unable to get ExpoCode for linked ArgoFile {0}.'.format(file.id))
 
         if expocode:
-            cruise = Cruise.get_one_by_attrs({'expocode': expocode})
+            cruise = Cruise.query().filter(Cruise.expocode == expocode).first()
             if cruise:
                 file_type = libcchdo.fns.guess_file_type(symlink_target)
                 if file_type:
@@ -2412,13 +2382,12 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
     with downloader.dl(remote_path) as f:
         if f:
             fs_argo.file = f
-            argo_file.file = FSFile.from_fieldstorage(fs_argo)
+            with su(su_lock=downloader.su_lock):
+                argo_file.file = FSFile.from_fieldstorage(fs_argo)
         else:
             log.error(
                 u'Unable to attach argo file by download: could not '
                 'download {0}'.format(remote_path))
-    with su(su_lock=downloader.su_lock):
-        DBSession.flush()
 
 
 def _import_argo_files(session, downloader):
@@ -2431,19 +2400,16 @@ def _import_argo_files(session, downloader):
 
         argo_file = ArgoFile.query().\
             filter(ArgoFile.text_identifier == file.expocode).\
-            filter(ArgoFile.creation_timestamp == file.created_at).first()
+            filter(Change.ts_c == file.created_at).first()
         if not argo_file:
             log.info(
                 u'Creating Argo File ({0}, {1}, {2})'.format(
                     file.id, filename, file.created_at))
-            user = Person.get_one_by_attrs({'import_id': str(file.user.id)})
+            user = get_by_import_id(Person, str(file.user.id))
             if not user:
                 user = updater.importer
-            argo_file = ArgoFile(user)
-            argo_file.creation_timestamp = file.created_at
-            DBSession.add(argo_file)
-            DBSession.flush()
-            argo_file.accept(user)
+            argo_file = ArgoFile.create(user).obj
+            argo_file.change.ts_c = file.created_at
         else:
             log.info(u'Updating Argo File ({0}, {1}, {2}) = {3}'.format(
                 file.id, filename, file.created_at, argo_file.id))
@@ -2474,42 +2440,63 @@ def _get_updater():
     return Updater(import_person(None, 'importer', 'CCHDO', 'CCHDO_importer'))
 
 
-def import_(import_gid, nthreads, args):
+def import_(import_gid, nthreads, fsstore, args):
     log.info("Connecting to cchdo db")
     nthreads = 2
-    with db_session(legacy.session()) as session:
-        if not args.files_only:
-            _import_users(session)
-            _import_contacts(session)
-            _import_collections(session)
+    try:
+        with db_session(legacy.session()) as session:
+            if not args.files_only:
+                _import_users(session)
+                _import_contacts(session)
+                _import_collections(session)
 
-            _import_cruises(session, nthreads - 1)
+                transaction.commit()
+                transaction.begin()
 
-            _import_track_lines(session)
-            _import_collections_cruises(session)
-            _import_collection_basins(session)
-            _import_contacts_cruises(session)
+                _import_cruises(session, nthreads - 1)
 
-            _import_events(session)
+                transaction.commit()
+                transaction.begin()
 
-            _import_spatial_groups(session)
-            _import_internal(session)
-            _import_unused_tracks(session)
+                _import_track_lines(session)
+                _import_collections_cruises(session)
+                _import_collection_basins(session)
+                _import_contacts_cruises(session)
 
-            _import_parameter_descriptions(session)
-            _import_parameter_groups(session)
-            _import_bottle_dbs(session)
-            _import_parameter_status(session)
-            _import_parameters(session)
+                transaction.commit()
+                transaction.begin()
 
-        transaction.commit()
-        transaction.begin()
-        with conn_dl(remote_host, args.skip_downloads, import_gid,
-                     local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
-                    ) as downloader:
-            _import_queue_files(session, downloader)
-            _import_submissions(session, downloader)
-            _import_old_submissions(session, downloader)
-            _import_documents(session, downloader, nthreads - 1)
-            _import_argo_files(session, downloader)
-        transaction.commit()
+                _import_events(session)
+
+                transaction.commit()
+                transaction.begin()
+
+                _import_spatial_groups(session)
+                _import_internal(session)
+                _import_unused_tracks(session)
+
+                _import_parameter_descriptions(session)
+
+                transaction.commit()
+                transaction.begin()
+
+                _import_parameter_groups(session)
+                _import_bottle_dbs(session)
+                _import_parameter_status(session)
+                _import_parameters(session)
+
+                transaction.commit()
+                transaction.begin()
+            with conn_dl(remote_host, args.skip_downloads, import_gid,
+                         local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
+                        ) as downloader, store_context(fsstore):
+                _import_queue_files(session, downloader)
+                _import_submissions(session, downloader)
+                _import_old_submissions(session, downloader)
+                _import_documents(session, downloader, nthreads - 1)
+                _import_argo_files(session, downloader)
+            transaction.commit()
+    except (KeyboardInterrupt, Exception):
+        log.info('aborted transaction')
+        transaction.abort()
+        raise

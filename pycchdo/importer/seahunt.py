@@ -16,9 +16,10 @@ from shapely import wkb
 from pycchdo.importer import *
 from pycchdo.importer.cchdo import *
 import pycchdo.models as models
-from pycchdo.models import (
-    DBSession,
-    Cruise, Person, Obj, _Attr, Institution, Country, Ship, Collection, 
+from pycchdo.models.serial import (
+    store_context, DBSession,
+    FSFile,
+    Cruise, Person, Obj, Institution, Country, Ship, Collection, 
     Participant, Participants, 
     )
 
@@ -291,26 +292,23 @@ class Suggestion(Base, TrackHolder):
 
 
 def _ensure_cruise(cruise, updater):
-    import_id = 'seahunt%s' % str(cruise.id)
-    ccc = Cruise.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    import_id = 'seahunt{0}'.format(cruise.id)
+    ccc = Cruise.query().filter(Cruise.import_id == import_id).first()
     if ccc:
         log.info('Updating Seahunt Cruise %s: %s' % (import_id, ccc.id))
     else:
         log.info('Creating Seahunt Cruise %s' % import_id)
-        ccc = Cruise(updater.importer)
-        DBSession.add(ccc)
-        DBSession.flush()
-    updater.attr(ccc, 'import_id', import_id)
+        ccc = Cruise.create(updater.importer).obj
+    ccc.import_id = import_id
     return ccc
 
 
 def _import_cruise(updater, cruise, downloader):
     c = _ensure_cruise(cruise, updater)
-    c.acknowledge(updater.importer)
-    c.creation_timestamp = cruise.created_at
-    c.pending_timestamp = cruise.updated_at
-    DBSession.flush()
+    cc = c.change
+    cc.acknowledge(DBSession, updater.importer)
+    cc.ts_c = cruise.created_at
+    cc.ts_ack = cruise.updated_at
 
     aliases = [a.alias for a in cruise.aliases.all()]
     if cruise.identifier:
@@ -334,33 +332,25 @@ def _import_cruise(updater, cruise, downloader):
 
     if cruise.country:
         country = _import_country(cruise.country, updater)
-        updater.attr(c, 'country', country.id)
+        updater.attr(c, 'country', country)
 
     if cruise.ship:
         ship = _import_ship(cruise.ship, updater)
-        updater.attr(c, 'ship', ship.id)
-
-    DBSession.flush()
+        updater.attr(c, 'ship', ship)
 
     if cruise.contacts:
-        participants = []
+        participants = Participants()
         for contact in cruise.contacts:
             participants.append(Participant(
-                'contact',
-                 _import_contact(contact, updater)))
-        if participants:
-            if c.get('participants', None) is None:
-                c.set_accept(
-                    'participants', Participants(participants),
-                    updater.importer)
-            else:
-                c.participants._replace(participants)
+                'contact', _import_contact(contact, updater)))
+        if participants != c.participants:
+            c.set(updater.importer, 'participants', participants)
 
     if cruise.institutions:
         institutions = []
         for inst in cruise.institutions:
-            institutions.append(_import_inst(inst, updater).id)
-        if institutions:
+            institutions.append(_import_inst(inst, updater))
+        if institutions != c.institutions:
             updater.attr(c, 'institutions', institutions)
 
     collections = []
@@ -372,7 +362,7 @@ def _import_cruise(updater, cruise, downloader):
         collections.append(_import_program(program, updater))
 
     if collections:
-        updater.attr(c, 'collections', [col.id for col in collections])
+        updater.attr(c, 'collections', collections)
 
     for resource in cruise.resources:
         _import_resource(resource, updater, downloader)
@@ -403,25 +393,24 @@ def _import_cruises(downloader, sesh, updater):
 
 def _ensure_inst(updater, inst_id):
     import_id = 'seahunt%d' % inst_id
-    institution = Institution.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    institution = Institution.query().filter(
+        Institution.import_id == import_id).first()
     if institution:
-        log.info("Updating Seahunt Institution {}: {}".format(
-            import_id, institution.id))
+        log.info("Updating Seahunt Institution {0}: {1}".format(
+            import_id, institution))
     else:
         log.info("Creating Institution %s" % import_id)
-        institution = Institution(updater.importer)
-        DBSession.add(institution)
-        DBSession.flush()
-        updater.attr(institution, 'import_id', import_id)
+        institution = Institution.create(updater.importer).obj
+        institution.import_id = import_id
     return institution
 
 
 def _import_inst(inst, updater):
     institution = _ensure_inst(updater, inst.id)
-    institution.acknowledge(updater.importer)
-    institution.creation_timestamp = inst.created_at
-    institution.pending_timestamp = inst.updated_at
+    delta = institution.change
+    delta.acknowledge(DBSession, updater.importer)
+    delta.ts_c = inst.created_at
+    delta.ts_ack = inst.updated_at
 
     names = filter(None, [inst.name, inst.full_name])
     if names:
@@ -438,7 +427,7 @@ def _import_inst(inst, updater):
         updater.attr(institution, 'url', inst.url)
     if inst.country:
         country = _import_country(inst.country, updater)
-        updater.attr(institution, 'country', country.id)
+        updater.attr(institution, 'country', country)
     return institution
 
 
@@ -450,37 +439,35 @@ def _import_institutions(sesh, updater):
 
 def _ensure_country(updater, country_id):
     import_id = 'seahunt%d' % country_id
-    c = Country.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    c = Country.query().filter(
+        Country.import_id == import_id).first()
     if c:
         log.info("Updating Country %s: %s" % (import_id, c.id))
     else:
         log.info("Creating Country %s" % import_id)
-        c = Country(updater.importer)
-        DBSession.add(c)
-        DBSession.flush()
-        updater.attr(c, 'import_id', import_id)
+        c = Country.create(updater.importer).obj
+        c.import_id = import_id
     return c
 
 
 def _import_country(country, updater):
     c = _ensure_country(updater, country.id)
-    c.iso_3166_1 = country.name
-    c.iso_3166_1_alpha_2 = country.country_code
+    c.name = country.name
+    c.alpha2 = country.country_code
     return c
 
 
 def _import_contact(contact, updater):
     import_id = 'seahunt%d' % contact.id
-    p = Person.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    p = Person.query().filter(
+        Person.import_id == import_id).first()
     if p:
         log.info('Updating Seahunt Contact %s: %s' % (import_id, p.id))
     else:
         log.info('Creating Seahunt Contact %s' % import_id)
         p = import_person(updater, import_id, None, identifier=import_id)
-        p.creation_timestamp = contact.created_at
-        updater.attr(p, 'import_id', import_id)
+        p.ts_c = contact.created_at
+        p.import_id = import_id
 
     if contact.first_name:
         p.name_first = contact.first_name
@@ -492,7 +479,7 @@ def _import_contact(contact, updater):
         p.email = contact.email
     if contact.institution:
         inst = _import_inst(contact.institution, updater)
-        updater.attr(p, 'institution', inst.id)
+        updater.attr(p, 'institution', inst)
     DBSession.flush()
 
     if contact.title:
@@ -510,7 +497,7 @@ def _import_contact(contact, updater):
     for program in contact.programs:
         programs.append(_import_program(program, updater))
     if programs:
-        updater.attr(p, 'programs', [x.id for x in programs])
+        updater.attr(p, 'programs', programs)
 
     if contact.notes:
         updater.note(p, contact.notes)
@@ -525,19 +512,17 @@ def _import_contacts(sesh, updater):
 
 def _ensure_ship(updater, ship_id):
     import_id = 'seahunt%d' % ship_id
-    s = Ship.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    s = Ship.query().filter(
+        Ship.import_id == import_id).first()
     if not s:
-        s = Ship(updater.importer)
-        updater.attr(s, 'import_id', import_id)
-        DBSession.add(s)
-        DBSession.flush()
+        s = Ship.create(updater.importer).obj
+        s.import_id = import_id
     return s
 
 
 def _import_ship(ship, updater):
     s = _ensure_ship(updater, ship.id)
-    s.creation_timestamp = _date_to_datetime(ship.created_at)
+    s.ts_c = _date_to_datetime(ship.created_at)
     if ship.full_name:
         updater.attr(s, 'name', ship.full_name)
     if ship.shipcode:
@@ -546,32 +531,32 @@ def _import_ship(ship, updater):
         updater.attr(s, 'url', ship.url)
     if ship.country:
         country = _import_country(ship.country, updater)
-        updater.attr(s, 'country', country.id)
+        updater.attr(s, 'country', country)
     return s
 
 
 def _import_program(program, updater):
     import_id = 'seahunt%d' % program.id
-    col = Collection.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    col = Collection.query().filter(
+        Collection.import_id == import_id).first()
     if not col:
         col = updater.create_accept(Collection)
-        col.creation_timestamp = program.created_at
-        updater.attr(col, 'import_id', import_id)
+        col.ts_c = program.created_at
+        col.import_id = import_id
 
     updater.attr(col, 'names', filter(None, [program.name, program.notes]))
     attr = updater.attr(col, 'date_start', program.dates, accept=False)
-    attr.accept_value(program.realdate_start, updater.importer)
+    attr.accept(updater.importer, program.realdate_start)
     updater.attr(col, 'date_end', program.realdate_end)
     updater.attr(col, 'url', program.url)
 
     if program.institution_id:
         updater.attr(
             col, 'institution',
-            _ensure_inst(updater, program.institution_id).id)
+            _ensure_inst(updater, program.institution_id))
     if program.country_id:
         updater.attr(
-            col, 'country', _ensure_country(updater, program.country_id).id)
+            col, 'country', _ensure_country(updater, program.country_id))
     return col
 
 
@@ -581,11 +566,9 @@ def _import_resource(resource, updater, downloader):
         return None
     cruise = _ensure_cruise(resource.cruise, updater)
     if resource.type == 'URLResource':
-        a = cruise.set('link', resource.url, updater.importer)
+        a = cruise.set(updater.importer, 'link', resource.url)
         updater.note(a, resource.description, resource.note)
-        a.creation_timestamp = resource.created_at
-        DBSession.add(a)
-        DBSession.flush()
+        a.ts_c = resource.created_at
     elif resource.type == 'NoteResource':
         updater.note(cruise, resource.note, resource.description)
     elif (resource.type == 'FileResource' or
@@ -596,20 +579,21 @@ def _import_resource(resource, updater, downloader):
         file.type = resource.file_content_type
         if not file.type:
             file.type = guess_mime_type(file.filename)
-        cruise_id = cruise.get('import_id').replace('seahunt', '')
+        cruise_id = cruise.import_id.replace('seahunt', '')
         path = os.path.join(docs_root, 'ids', cruise_id,
                             file.filename)
         with downloader.dl(path) as downloaded:
             if downloaded:
                 file.file = downloaded
                 with su():
+                    file = FSFile.from_fieldstorage(file)
                     if resource.type == 'FileResource':
                         a = updater.attr(cruise, 'data_suggestion', file)
                     elif resource.type == 'ThumbMapResource':
                         a = updater.attr(cruise, 'map_thumb', file)
                     elif resource.type == 'MapResource':
                         a = updater.attr(cruise, 'map_full', file)
-                a.creation_timestamp = resource.file_updated_at
+                a.ts_c = resource.file_updated_at
                 if resource.description or resource.note:
                     updater.note(a, resource.note, resource.description)
     else:
@@ -622,13 +606,13 @@ def _import_suggestion_contact(name, email, updater):
     if name is None:
         name = email
     import_id = 'seahunt%s' % name
-    person = Person.get_one_by_attrs(
-        {'import_id': import_id}, accepted_only=False)
+    person = Person.query().filter(
+        Person.import_id == import_id).first()
     if not person:
         person = Person(name=name, email=email)
         DBSession.add(person)
         DBSession.flush()
-        updater.attr(person, 'import_id', import_id)
+        person.import_id = import_id
     return person
 
 
@@ -644,7 +628,7 @@ def _import_suggestion(suggestion, updater):
     suggestion.id = '_suggestion%d' % suggestion.id
     cruise = _ensure_cruise(suggestion, updater)
 
-    updater.attr(cruise, 'import_id', 'seahunt%s' % str(suggestion.id))
+    cruise.import_id = 'seahunt%s' % str(suggestion.id)
 
     updater.attr(cruise, 'expocode', suggestion.name, accept=False)
     updater.attr(cruise, 'ports', [suggestion.location], accept=False)
@@ -682,26 +666,20 @@ def clear():
     objs = [x.obj for x in attrs]
 
     if person:
-        objs = objs + Obj.query().filter(
-            Obj.creation_person_id == person.id).all()
+        objs = objs + Obj.query().filter(Obj.p_c == person).all()
 
-    lobjs = float(len(objs))
-    for i, obj in enumerate(objs):
+    plog = ProgressLog(objs)
+    for obj in objs:
         DBSession.remove(obj)
-        if i % 10 == 0:
-            log.info('%d/%d = %f' % (i, lobjs, i / lobjs))
+        plog.log()
 
-    max_id = Obj.query().order(Obj.creation_timestamp.desc()).first().id
-
-    #if models.ObjId.peek_id() != max_id:
-    #    models.ObjId.set_id(max_id)
-    #    log.info('Reset max ObjId to %d' % max_id)
+    max_id = Obj.query().order(Obj.ts_c.desc()).first().id
 
     log.info('Cleared Seahunt imports')
     return 
 
 
-def import_(import_gid, args):
+def import_(import_gid, fsstore, args):
     dl_files = not args.skip_downloads
 
     log.info("Get/Create Seahunt Importer to take blame")
@@ -709,7 +687,7 @@ def import_(import_gid, args):
         import_person(None, 'importer', 'Seahunt', 'Seahunt_importer'))
 
     log.info('Connecting to seahunt db')
-    with db_session(session()) as sesh:
+    with db_session(session()) as sesh, store_context(fsstore):
         su = (sesh, updater)
 
         with conn_dl('sui.ucsd.edu', args.skip_downloads,

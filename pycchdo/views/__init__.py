@@ -13,7 +13,7 @@ from webob.multidict import MultiDict
 
 from pycchdo.models import Obj
 from pycchdo.models.types import *
-from pycchdo.models.file_types import data_file_human_names
+from pycchdo.models.file_types import DataFileTypes
 from pycchdo.util import guess_mime_type, collapse_dict
 from pycchdo.log import ColoredLogger, DEBUG
 
@@ -38,9 +38,9 @@ PLEASE_SIGNIN_MESSAGE = """\
 
 
 FILE_GROUPS = MultiDict([
-    ['Exchange', ['btl_ex', 'btlzip_ex', 'ctdzip_ex']],
-    ['NetCDF', ['btlzip_nc', 'ctdzip_nc']],
-    ['WOCE', ['btl_woce', 'ctdzip_woce', 'sum_woce']],
+    ['Exchange', ['bottle_exchange', 'bottle_zip_exchange', 'ctd_zip_exchange']],
+    ['NetCDF', ['bottle_zip_netcdf', 'ctd_zip_netcdf']],
+    ['WOCE', ['bottle_woce', 'ctd_zip_woce', 'sum_woce']],
     ['Map', ['map_thumb', 'map_full']],
     ['Documentation', ['doc_txt', 'doc_pdf']],
 ])
@@ -49,7 +49,7 @@ FILE_GROUPS = MultiDict([
 FILE_GROUPS_SELECT = []
 for k, v in FILE_GROUPS.items():
     FILE_GROUPS_SELECT.append(
-        ([(x, data_file_human_names[x]) for x in v], k))
+        ([(x, DataFileTypes.human_names[x]) for x in v], k))
 FILE_GROUPS_SELECT.append('Other')
 
 

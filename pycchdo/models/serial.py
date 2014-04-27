@@ -4,8 +4,9 @@ import sys
 from contextlib import closing
 from cgi import FieldStorage
 from StringIO import StringIO
-from json import loads, dumps
+from json import JSONEncoder, loads, dumps
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     create_engine, Table, Column, Integer, Unicode, String, Boolean, ForeignKey,
@@ -23,6 +24,9 @@ from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
     collection, InstrumentedList,
     )
+from sqlalchemy.schema import CreateSchema
+
+from zope.sqlalchemy import ZopeTransactionExtension
 
 import geojson
 
@@ -33,29 +37,46 @@ from geoalchemy.postgis import PGComparator
 
 from sqlalchemy_imageattach.context import current_store, store_context
 
+from libcchdo.recipes.orderedset import OrderedSet
+
 from pycchdo.models.attrmgr import AllowableMgr
 from pycchdo.models.types import *
 from pycchdo.models.filestorage import AdaptedFile, FSStore
 from pycchdo.models.file_types import (
-    data_file_human_names, data_file_descriptions,
+    DataFileTypes,
+    data_file_descriptions,
     )
-from pycchdo.util import (
-    timestamp_now
-    )
-
-from pycchdo.log import ColoredLogger, INFO, DEBUG
-log = ColoredLogger(__name__)
-log.setLevel(DEBUG)
+from pycchdo.util import drop_everything, is_valid_ip
+from pycchdo.models import log
+#from pycchdo.log import DEBUG
+#log.setLevel(DEBUG)
 
 Base = declarative_base()
+Meta = Base.metadata
+Meta.schema = 'pycchdo'
 
-engine = create_engine('sqlite:///zzerial.db')
-
-Session = sessionmaker(bind=engine)
+Session = sessionmaker(extension=ZopeTransactionExtension())
 DBSession = scoped_session(Session)
 
 
+def reset_database(engine):
+    """Clears the database and recreates schema."""
+    drop_everything(engine)
+    engine.execute(CreateSchema(Meta.schema))
+    Meta.create_all(engine)
+
+
+def reset_fs(fsstore):
+    fss_root = fsstore.path
+    for root, dirs, files in os.walk(fss_root):
+        for f in files:
+            os.unlink(os.path.join(root, f))
+        for d in dirs:
+            rmtree(os.path.join(root, d))
+
+
 # TODO Store a UOW object that links to multiple changes?
+
 
 def _repr_state(obj):
     if obj.accepted:
@@ -72,7 +93,17 @@ class MixinCreation(object):
         return cls.ts_c
 
 
-class Note(Base, MixinCreation):
+class DBQueryable(object):
+    """Mixin to obtain query on this class for global database session."""
+    @classmethod
+    def query(cls, *args):
+        """Return a query for this class on the global database session."""
+        if args:
+            return DBSession.query(*args)
+        return DBSession.query(cls)
+
+
+class Note(Base, DBQueryable, MixinCreation):
     """A Note that can be attached to any Change.
 
     A Change may have many Notes.
@@ -92,7 +123,7 @@ class Note(Base, MixinCreation):
 
     p_id_c = Column(Integer, ForeignKey('people.id'))
     p_c = relationship('Person', foreign_keys=[p_id_c])
-    ts_c = Column(DateTime, default=timestamp_now)
+    ts_c = Column(DateTime, default=func.now())
 
     body = Column(Unicode)
     action = Column(Unicode)
@@ -137,7 +168,9 @@ class ChangePermission(Base):
     """
     __tablename__ = 'permissions'
     change_id = Column(ForeignKey('changes.id'), primary_key=True)
-    perm_type = Column(Enum('read', 'write'), default='read', primary_key=True)
+    perm_type = Column(
+        Enum('read', 'write', name='perm_type'), default='read',
+        primary_key=True)
     permission = Column('perm', Unicode, primary_key=True)
 
     def __init__(self, perm_type, permission):
@@ -145,7 +178,7 @@ class ChangePermission(Base):
         self.permission = permission
 
 
-class Change(Base, MixinCreation):
+class Change(Base, MixinCreation, DBQueryable):
     """A log of each change in the database.
 
     Each change can be proposed, acknowledged, accepted, or rejected.
@@ -163,8 +196,11 @@ class Change(Base, MixinCreation):
     __tablename__ = 'changes'
     id = Column(Integer, primary_key=True)
 
-    obj_id = Column(Integer, ForeignKey('objs.id'))
-    obj = relationship('Obj', backref=backref('_changes', lazy='dynamic'))
+    obj_id = Column(Integer, ForeignKey('objs.id'), nullable=False)
+    obj = relationship('Obj',
+        backref=backref(
+            '_changes', lazy='dynamic', cascade='all, delete-orphan'))
+
     attr = Column(String, default=None)
     _value = Column('value', String, default=None)
     _value_accepted = Column('value_accepted', String, default=None)
@@ -173,7 +209,7 @@ class Change(Base, MixinCreation):
 
     p_id_c = Column(Integer, ForeignKey('people.id'))
     p_c = relationship('Person', foreign_keys=[p_id_c])
-    ts_c = Column(DateTime, default=timestamp_now)
+    ts_c = Column(DateTime, default=func.now())
 
     p_id_ack = Column(Integer, ForeignKey('people.id'))
     p_ack = relationship('Person', foreign_keys=[p_id_ack])
@@ -277,7 +313,7 @@ class Change(Base, MixinCreation):
     def is_rejected(self):
         return self.is_judged() and not self.accepted
 
-    def accept(self, sesh, person, replacement=None):
+    def accept(self, person, replacement=None):
         """Accept a Change.
 
         This means bookkeeping as well as updating the Obj's (if any) attribute
@@ -401,24 +437,29 @@ class RequestFor(Base):
 class AllowableSerialMgr(AllowableMgr):
     """Manages which attributes are tracked as well as serialization."""
 
-    serializers = {}
-    deserializers = {}
+    __serializers = {}
+    __deserializers = {}
 
     @classmethod
-    def register_serializer_pair(cls, attr, serializer, deserializer):
+    def register_serializer_pair(cls, attr, serializer, deserializer=None):
         """Register serializer/deserializer for the attribute key."""
+        # If only one argument given for serializers, assume it is a Serializer
+        # object
+        if deserializer is None:
+            deserializer = getattr(serializer, 'deserialize')
+            serializer = getattr(serializer, 'serialize')
         try:
-            serializer = cls.serializers[attr]
+            serializer = cls.__serializers[attr]
             log.warn(u'Serializer   for {0}.{1} already registered: {2}'.format(
                 cls, attr, serializer))
         except KeyError:
-            cls.serializers[attr] = serializer
+            cls.__serializers[attr] = serializer
         try:
-            deserializer = cls.deserializers[attr]
+            deserializer = cls.__deserializers[attr]
             log.warn(u'Deserializer for {0}.{1} already registered: {2}'.format(
                 cls, attr, deserializer))
         except KeyError:
-            cls.deserializers[attr] = deserializer
+            cls.__deserializers[attr] = deserializer
 
     def serialize(self, attr, value):
         """Serialize the value from a python object to a string."""
@@ -451,15 +492,15 @@ class AllowableSerialMgr(AllowableMgr):
 class Creatable(object):
     """Creatable objects can be created and added to the database at once."""
     @classmethod
-    def create(cls, sesh, *args, **kwargs):
+    def create(cls, *args, **kwargs):
         """Create and add an object to the database."""
         obj = cls(*args, **kwargs)
-        sesh.add(obj)
-        sesh.flush()
+        DBSession.add(obj)
+        DBSession.flush()
         return obj
 
 
-class Obj(Base, Creatable, AllowableSerialMgr):
+class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     """
 
     The ideal is to provide an Obj with the relevant current attr values stored
@@ -476,6 +517,8 @@ class Obj(Base, Creatable, AllowableSerialMgr):
 
     accepted = Column(Boolean, default=False)
     ts_j = Column(DateTime)
+
+    import_id = Column(Unicode)
 
     __mapper_args__ = {
         'polymorphic_on': obj_type,
@@ -555,23 +598,23 @@ class Obj(Base, Creatable, AllowableSerialMgr):
         changes = self.changes_query(state, replaced).all()
         return self.changes_filter_data(changes)
 
-    def sugg(self, sesh, person, attr, value):
+    def sugg(self, person, attr, value):
         """Suggest that an attribute's value should be."""
         change = Change(self, person, attr, value)
-        sesh.add(change)
+        DBSession.add(change)
         return change
 
-    def set(self, sesh, person, attr, value):
+    def set(self, person, attr, value):
         """Set the attribute's value."""
-        change = self.sugg(sesh, person, attr, value)
-        change.accept(sesh, person)
+        change = self.sugg(person, attr, value)
+        change.accept(person)
         return change
 
-    def _get_attr_change(self, sesh, attr):
+    def get_attr_change(self, attr):
         """Return the last Change for this Obj's attr."""
         return self._changes.filter(Change.attr == attr).first()
 
-    def get(self, sesh, attr, default=None, force_original=False, force_change=False):
+    def get(self, attr, default=None, force_original=False, force_change=False):
         """Get the attribute's value.
 
         default - the default value if unable to get value (TODO)
@@ -582,7 +625,7 @@ class Obj(Base, Creatable, AllowableSerialMgr):
 
         """
         if force_original or force_change:
-            change = self._get_attr_change(sesh, attr)
+            change = self.get_attr_change(attr)
             if force_original:
                 return change.value_original
             else:
@@ -590,22 +633,28 @@ class Obj(Base, Creatable, AllowableSerialMgr):
         try:
             return getattr(self, attr)
         except AttributeError:
-            return self.get(
-                sesh, attr, default, force_original, force_change=True)
+            return self.get(attr, default, force_original, force_change=True)
+
+    def delete(self):
+        """Delete this Obj from the database and remove its Changes."""
+        # This option purges the Changes as well.
+        # Is this desirable because there would no longer be a log of that obj's
+        # creation?
+        DBSession.delete(self)
 
     @classmethod
-    def propose(cls, sesh, person):
+    def propose(cls, person):
         """Propose a Change to add a new instance of this class."""
         change = Change(cls(), person, None, None)
-        sesh.add(change)
-        sesh.flush()
+        DBSession.add(change)
+        DBSession.flush()
         return change
 
     @classmethod
-    def create(cls, sesh, person):
+    def create(cls, person):
         """Propose and accept a Change to add a new instance of this class."""
-        change = cls.propose(sesh, person)
-        change.accept(sesh, person)
+        change = cls.propose(person)
+        change.accept(person)
         return change
 
     @property
@@ -627,10 +676,18 @@ class Obj(Base, Creatable, AllowableSerialMgr):
 Obj.allow_attr('import_id', String, 'Import ID')
 
 
+class ExtrasJSONEncoder(JSONEncoder):
+   def default(self, obj):
+       if isinstance(obj, Decimal):
+           return str(obj)
+       # Let the base class default method raise the TypeError
+       return json.JSONEncoder.default(self, obj)
+
+
 class Serializer(object):
     @classmethod
     def serialize(cls, value):
-        return dumps(value)
+        return dumps(value, cls=ExtrasJSONEncoder)
 
     @classmethod
     def deserialize(cls, value):
@@ -642,11 +699,17 @@ class SerializerDateTime(Serializer):
     format_string = '%Y-%m-%dT%H:%M:%S.%f'
     @classmethod
     def serialize(cls, value):
-        return value.strftime(cls.format_string)
+        try:
+            return value.strftime(cls.format_string)
+        except AttributeError:
+            return super(SerializerDateTime, cls).serialize(value)
 
     @classmethod
     def deserialize(cls, value):
-        return datetime.strptime(value, cls.format_string)
+        try:
+            return datetime.strptime(value, cls.format_string)
+        except ValueError:
+            return None
 
 
 class SerializerTrack(Serializer):
@@ -677,7 +740,7 @@ class SerializerObj(Serializer):
     @classmethod
     def deserialize(cls, obj, value):
         oid = loads(value)
-        return DBSession.query(obj).get(oid)
+        return obj.query().get(oid)
 
 
 class SerializerObjs(SerializerObj):
@@ -688,6 +751,9 @@ class SerializerObjs(SerializerObj):
     @classmethod
     def deserialize(cls, obj, value):
         ids = loads(value)
+        # Fast track empty lists, avoid SQL generation error
+        if not ids:
+            return []
         objs = query_in_order_ids(DBSession.query(obj), obj.id, ids).all()
         return objs
 
@@ -784,20 +850,13 @@ class SerializerParticipants(object):
     def deserialize(cls, value):
         return query_in_order_ids(
             DBSession.query(Participant), Participant.id, loads(value)).all()
-    
-
-# TODO store the store with teh configuration, not here
-store = FSStore(
-    path='/Users/myshen/var/store',
-    base_url='/',
-)
 
 
-class FSFile(Base, AdaptedFile):
+class FSFile(Obj, AdaptedFile):
     """A file record that points to the filesystem file."""
     __tablename__ = 'fsfiles'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     name = Column(Unicode)
 
@@ -806,8 +865,14 @@ class FSFile(Base, AdaptedFile):
     import_id = Column(Unicode)
     import_path = Column(Unicode)
 
+    __mapper_args__ = {
+        'polymorphic_identity': 'fsfile',
+    }
+
     def __init__(self, fobj=None, filename=None, mimetype=None,
                  store=current_store):
+        if not mimetype:
+            mimetype = 'application/octet-stream'
         super(FSFile, self).__init__(mimetype=mimetype)
         self.file = fobj
         self.store = store
@@ -818,8 +883,6 @@ class FSFile(Base, AdaptedFile):
         fobj = fst.file
         filename = fst.filename
         mime = fst.type
-        if not mime:
-            mime = 'application/octet-stream'
         fsf = FSFile(fobj, filename, mime)
         DBSession.add(fsf)
         DBSession.flush()
@@ -827,10 +890,10 @@ class FSFile(Base, AdaptedFile):
 
     @classmethod
     def attr_by_import_id(cls, import_id):
-        """Return _Attr matching FSFile import_id.
+        """Return attr Change matching FSFile import_id.
 
         """
-        return _Attr.query().join(_AttrValueFile).join(FSFile).\
+        return Change.query().join(FSFile).\
             filter(FSFile.import_id == import_id).first()
 
     def __unicode__(self):
@@ -838,19 +901,6 @@ class FSFile(Base, AdaptedFile):
 
     def __repr__(self):
         return unicode(self)
-
-
-class SerializerFile(Serializer):
-    @classmethod
-    def serialize(cls, value):
-        """Return the key for the file storage system."""
-        return dumps(value.id)
-
-    @classmethod
-    def deserialize(cls, value):
-        """Converts key for the file storage system back to cgi.FieldStorage"""
-        fsfid = loads(value)
-        return DBSession.query(FSFile).get(fsfid)
 
 
 class Country(Obj):
@@ -890,7 +940,7 @@ class Country(Obj):
         return self.name
 
     # TODO make merge work
-    def merge_(self, signer, *mergees):
+    def merge(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
 
         attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
@@ -903,7 +953,7 @@ class Country(Obj):
                 person.set_accept('country', self.id, signer)
 
         for mergee in mergees:
-            DBSession.delete(mergee)
+            mergee.delete()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Country."""
@@ -941,7 +991,7 @@ class Institution(Obj):
     }
 
 # TODO make merge work
-    def merge_(self, signer, *mergees):
+    def merge(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
 
         participants = Participant.query().\
@@ -959,7 +1009,7 @@ class Institution(Obj):
             attr.obj_id = self.id
 
         for mergee in mergees:
-            DBSession.delete(mergee)
+            mergee.delete()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Institution."""
@@ -994,6 +1044,9 @@ class Ship(Obj):
 
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
+    name = Column(Unicode)
+    nodc_platform_code = Column(String)
+
     country_id = Column(Integer, ForeignKey('countries.id'))
     country = relationship('Country', foreign_keys=[country_id],
         backref="ships")
@@ -1002,11 +1055,8 @@ class Ship(Obj):
         'polymorphic_identity': 'ship',
     }
 
-    name = Column(Unicode)
-    nodc_platform_code = Column(String)
-
 # TODO make merge work
-    def merge_(self, signer, *mergees):
+    def merge(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
 
         attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
@@ -1014,7 +1064,7 @@ class Ship(Obj):
             attr.obj_id = self.id
 
         for mergee in mergees:
-            DBSession.delete(mergee)
+            mergee.delete()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Ship."""
@@ -1094,6 +1144,19 @@ class Person(Obj):
         'polymorphic_identity': 'person',
     }
 
+    def set_id_names(self, identifier=None, name=None, name_last=None,
+                     name_first=None):
+        self.identifier = identifier
+        self.name = name
+        self.name_last = name_last
+        self.name_first = name_first
+        if self.name_last or self.name_first and not self.name:
+            self.name = ' '.join(
+                filter(None, (self.name_first, self.name_last)))
+        if self.identifier is None and self.name is None:
+            raise ValueError(
+                'Person must be initialized with either identifier or names.')
+
     @hybrid_property
     def full_name(cls):
         return cls.name
@@ -1115,7 +1178,7 @@ class Person(Obj):
         return False
 
     # TODO make merge work
-    def merge_(self, signer, *mergees):
+    def merge(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
         cs = Change.query().\
             filter(Change.creation_person_id.in_(mergee_ids)).all()
@@ -1192,18 +1255,13 @@ class Person(Obj):
         for attr in attrs:
             attr.obj_id = self.id
 
-        cavs = CacheObjAttrs.query().\
-            filter(CacheObjAttrs.obj_id.in_(mergee_ids)).all()
-        for cav in cavs:
-            DBSession.delete(cav)
-
         for mergee in mergees:
-            DBSession.delete(mergee)
+            mergee.delete()
 
         self._recache()
 
     @classmethod
-    def propose(cls, sesh, sponsor=None):
+    def propose(cls, sponsor=None):
         """Propose a new Person.
 
         Override because a Person can be their own sponsor.
@@ -1213,21 +1271,21 @@ class Person(Obj):
         if sponsor is None:
             sponsor = person
         change = Change(person, sponsor, None, None)
-        sesh.add(change)
-        sesh.flush()
+        DBSession.add(change)
+        DBSession.flush()
         return change
 
     @classmethod
-    def create(cls, sesh, sponsor=None):
+    def create(cls, sponsor=None):
         """Create a new Person.
 
         Override because a Person can be their own sponsor.
 
         """ 
-        change = cls.propose(sesh, sponsor)
+        change = cls.propose(sponsor)
         if sponsor is None:
             sponsor = change.obj
-        change.accept(sesh, sponsor)
+        change.accept(sponsor)
         return change
 
     def to_nice_dict(self):
@@ -1358,49 +1416,47 @@ class Collection(MultiName, Obj):
         'polymorphic_identity': 'collection',
     }
 
-# TODO make merge work
-    def merge_(self, signer, *mergees):
-        """Merge this Collection with others, leaving this one."""
-        names = self.names
-        types = []
-        mergee_ids = []
+    def merge(self, signer, *mergees):
+        """Merge other Collections into this one."""
+        names = OrderedSet(self.names)
+        types = OrderedSet(filter(None, [self.type]))
+        basins = OrderedSet(self.basins)
+        cruises = OrderedSet()
+        mergee_ids = OrderedSet()
         for mergee in mergees:
-            names.extend(mergee.names)
+            names |= OrderedSet(mergee.names)
             if mergee.type:
-                types.append(mergee.type)
-            mergee_ids.append(mergee.id)
+                types.add(mergee.type)
+            mergee_ids.add(mergee.id)
+            cruises |= OrderedSet(mergee.cruises)
+            basins |= OrderedSet(mergee.basins)
+        names = list(names)
 
-        names = uniquify(names)
-        self.set_accept('names', names, signer)
+        if names != self.names:
+            self.set(signer, 'names', names)
 
-        if self.type is None and types:
+        # If the current collection doesn't have a type, pick up the type of
+        # first mergee.
+        if types:
+            new_type = list(types)[0]
             if len(types) > 1:
-                log.debug(
-                    u'Merging {0} with types {1}. Picked {2}'.format(
-                        self, types, types[0]))
-            self.set_accept('type', types[0], signer)
+                log.warn(u'Merging {0} with types {1}. Picked {2}'.format(
+                    self, types, new_type))
+            if new_type != self.type:
+                self.set(signer, 'type', new_type)
 
-        basins = list(self.get('basins', []))
-        basins += list(mergee.get('basins', []))
-        basins = uniquify(basins)
         if basins:
-            self.set_accept('basins', basins, signer)
+            self.set(signer, 'basins', list(basins))
 
-        # Replace all instances of mergees in cruises.collections with this one.
-        cruises = self._mergee_cruises(*mergees)
+        # Cruises referencing mergees via collections need to be redirected to
+        # this collection instead.
         for cruise in cruises:
-            colls = cruise.get(self.cruise_associate_key, [])
-            for mergee_id in mergee_ids:
-                try:
-                    colls.remove(mergee_id)
-                except ValueError:
-                    pass
-                if not self.id in colls:
-                    colls.append(self.id)
-                cruise.set_accept(self.cruise_associate_key, colls, signer)
+            colls = OrderedSet(cruise.collections)
+            colls = colls - OrderedSet(mergees)
+            cruise.set(signer, 'collections', colls)
 
         for mergee in mergees:
-            DBSession.delete(mergee)
+            mergee.delete()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Collection."""
@@ -1418,9 +1474,9 @@ class Collection(MultiName, Obj):
 
 
 Collection.register_serializer_pair(
-    'names', Serializer.serialize, Serializer.deserialize)
+    'names', Serializer)
 Collection.register_serializer_pair(
-    'basins', Serializer.serialize, Serializer.deserialize)
+    'basins', Serializer)
 
 Collection.allow_attrs([
     ('type', Unicode),
@@ -1542,13 +1598,13 @@ class Parameter(Obj):
 
 
 Parameter.register_serializer_pair(
-    'aliases', Serializer.serialize, Serializer.deserialize)
+    'aliases', Serializer)
 Parameter.register_serializer_pair(
-    'bounds', Serializer.serialize, Serializer.deserialize)
+    'bounds', Serializer)
 Parameter.register_serializer_pair(
     'units', SerializerObj.serialize, SerializerObj.Deserializer(Unit))
 Parameter.register_serializer_pair(
-    'in_groups_but_did_not_exist', Serializer.serialize, Serializer.deserialize)
+    'in_groups_but_did_not_exist', Serializer)
 
 Parameter.allow_attrs([
     ('name', Unicode, 'WOCE mnemonic'),
@@ -1587,7 +1643,7 @@ class ParameterGroup(Obj):
     
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
-    name = Column(Unicode)
+    name = Column(Unicode, unique=True)
     _order = relationship(_ParameterGroupOrder, uselist=True)
     order = association_proxy('_order', 'parameter')
 
@@ -1608,6 +1664,279 @@ ParameterGroup.allow_attrs([
     ('name', Unicode),
     ('order', IDList),
     ])
+
+
+class ParameterInformation(Base, DBQueryable):
+    """Metadata about a parameter.
+
+    Columns:
+
+    parameter - the parameter
+    status - the status of the parameter; one of the following: online,
+        reformatted, submitted, not_measured, proposed, no_information
+    pi - the principal investigator for the parameter on the cruise
+    inst - the institution that the pi was operating for
+    ts - some date attached to the status and PI of the parameter
+
+    """
+    __tablename__ = 'param_infos'
+
+    id = Column(Integer, primary_key=True)
+
+    parameter_id = Column(Integer, ForeignKey('parameters.id'))
+    parameter = relationship('Parameter')
+    status = Column(
+        Enum('online', 'reformatted', 'submitted', 'not_measured', 'proposed',
+             'no_information', name='status'))
+    pi_id = Column(Integer, ForeignKey('people.id'))
+    pi = relationship('Person')
+    inst_id = Column(Integer, ForeignKey('institutions.id'))
+    inst = relationship('Institution')
+    ts = Column(DateTime)
+
+    def __init__(self, parameter, status, pi, inst, ts):
+        self.parameter_id = parameter.id
+        self.status = status
+        if pi:
+            self.pi_id = pi.id
+        if inst:
+            self.inst_id = inst.id
+        self.ts = ts
+    
+    def is_empty(self):
+        """Return whether ParameterInformation has no details about parameter.
+
+        """
+        return (
+            self.status is None and self.pi_id is None and
+            self.inst_id is None and self.ts is None)
+
+    def __eq__(self, other):
+        return (
+            self.parameter_id == other.parameter_id and
+            self.status == other.status and
+            self.pi_id == other.pi_id and
+            self.inst_id == other.inst_id and 
+            self.ts == other.ts
+            )
+
+    def __repr__(self):
+        return u'ParameterInformation({0}, {1}, {2}, {3}, {4})'.format(
+            self.parameter_id, self.status, self.pi_id,
+            self.inst_id, self.ts)
+
+
+class FileHolder(object):
+    """Mixin to map value property to the file property.
+    Also can return a list of cruises based on the submission's cruise identifier.
+
+    """
+
+    @property
+    def value(self):
+        return self.file
+
+    @value.setter
+    def value(self, o):
+        self.file = o
+
+    def cruises_from_identifier(self):
+        try:
+            return Cruise.query().filter(
+                Cruise.expocode == self.identifier).all()
+        except AttributeError:
+            return []
+
+
+argo_file_requests_for = Table('argo_file_requests_for', Base.metadata,
+    Column('argo_file_id', ForeignKey('argo_files.id')),
+    Column('request_for_id', ForeignKey('requests_for.id')),
+    )
+
+
+class ArgoFile(Obj, FileHolder):
+    """Files that are given to the CCHDO for Argo calibration only.
+
+    THESE ARE NOT PUBLIC DATA and are only to be shown in the Argo Secure File
+    Repository.
+
+    There are two types of ArgoFile::
+
+    1. Provided files
+
+       These are given to us to be put online and appear nowhere else.
+
+    2. Linked files
+
+       These are actually part of the CCHDO holdings and need to exist as a
+       link to the most recent version of the data.
+
+    Columns::
+
+    text_identifier - some text that makes the file quickly identifiable to a
+        human. Usually an ExpoCode
+    file - either an id that is the file in the filesystem or a tuple like
+           (id, attribute) that describes which attr of which obj holds the
+           file.
+    description - a description of the file
+    display - whether or not the file is meant to be visible
+
+    """
+    __tablename__ = 'argo_files'
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
+
+    text_identifier = Column(Unicode)
+    description = Column(Unicode)
+    display = Column(Boolean)
+
+    file_id = Column(Integer, ForeignKey('fsfiles.id'))
+    file = relationship(
+        'FSFile', foreign_keys=[file_id], single_parent=True,
+        cascade='all, delete-orphan')
+
+    link_cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    link_cruise = relationship(
+        'Cruise', primaryjoin='ArgoFile.link_cruise_id == Cruise.id')
+    link_attr_key = Column(Unicode)
+
+    request_for_id = Column(Integer, ForeignKey('requests_for.id'))
+    requests_for = relationship(
+        'RequestFor', secondary=argo_file_requests_for, single_parent=True,
+        uselist=True, cascade='all, delete-orphan')
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'argo_file',
+    }
+
+    @property
+    def value(self):
+        """Return the file that the ArgoFile refers to."""
+        if self.link_cruise:
+            return self.link_cruise.get(self.link_attr_key, None)
+        return self.file
+
+    @value.setter
+    def value(self, f):
+        self.file = f
+
+    def link(self, cruise, attr_key):
+        """Populates the ArgoFile as a linked file."""
+        try:
+            cruise.get(attr_key)
+        except KeyError:
+            raise ValueError('%s does not exist for %s' % (attr_key, cruise))
+        self.link_cruise = cruise
+        self.link_attr_key = attr_key
+
+
+class OldSubmission(Obj, FileHolder):
+    """An old submission imported for record keeping.
+
+    Other information stored:
+
+    * The creation timestamp is the create time for the submission record.
+    * The judgment timestamp is the update time for the submission record.
+
+    Since it appears that the submissions were created using a script, only the
+    first encountered time is recorded.
+    
+    Columns::
+
+    date - the date of the submission
+    submitter - the name of the submitter. Format varies.
+    line - the WOCE line number of the submission. May be other things.
+    folder - the original folder name of the submission. This is mainly used to
+        group the submission files together during import.
+    file - a zip of the original files in the folder
+
+    """
+    __tablename__ = 'old_submissions'
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
+
+    submitter = Column(Unicode)
+    line = Column(Unicode)
+    folder = Column(Unicode)
+
+    file_id = Column(Integer, ForeignKey('fsfiles.id'))
+    file = relationship(
+        'FSFile', foreign_keys=[file_id], single_parent=True,
+        cascade='all, delete-orphan')
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'old_submission',
+    }
+
+
+class Submission(Obj, FileHolder):
+    """A Submission to the CCHDO.
+
+    These interface with humans so they need intervention to make everything
+    behaves nicely before going into the system.
+
+    Columns::
+
+    expocode
+    ship_name
+    line
+    action
+    type -- the type of submission {public, non-public, argo}
+    cruise_date -- the date of the cruise being submitted
+    file -- the file that is being suggested
+    attached -- an _Attr id.
+        When this is set, the submission has been looked at by a human and
+        the corresponding _Attr represents verified information representing
+        this submission.
+
+        SPECIAL CASE: This is set to a special attribute of a fake cruise during
+        legacy import because there is no good way to determine it without human
+        help.
+
+    """
+    __tablename__ = 'submissions'
+    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
+
+    expocode = Column(Unicode)
+    ship_name = Column(Unicode)
+    line = Column(Unicode)
+    action = Column(Unicode)
+    cruise_date = Column(DateTime)
+    type = Column(Unicode)
+
+    attached_id = Column(Integer, ForeignKey('changes.id'))
+    attached = relationship(Change,
+        backref=backref('submission', uselist=False), lazy='joined')
+
+    file_id = Column(Integer, ForeignKey('fsfiles.id'))
+    file = relationship(
+        'FSFile', foreign_keys=[file_id], single_parent=True,
+        cascade='all, delete-orphan')
+
+    request_for_id = Column(Integer, ForeignKey('requests_for.id'))
+    request_for = relationship(
+        'RequestFor', uselist=False, single_parent=True,
+        cascade='all, delete, delete-orphan')
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'submission',
+    }
+
+    # TODO is this used?
+    @property
+    def identifier(self):
+        return self.expocode
+
+    def attach(self, attr, signer):
+        """Attaches the submission to a new Change and accepts the submission.
+
+        """
+        self.attached = attr
+        self.accept(signer)
+
+    @classmethod
+    def unacknowledged(cls):
+        """Return Submissions that have not yet been reviewed."""
+        # TODO
+        return []
 
 
 cruise_collections = Table('cruise_collections', Base.metadata,
@@ -1741,15 +2070,15 @@ class Cruise(Obj):
 #GeometryDDL(Cruise.__table__)
 
 Cruise.register_serializer_pair(
-    'date_start', SerializerDateTime.serialize, SerializerDateTime.deserialize)
+    'date_start', SerializerDateTime)
 Cruise.register_serializer_pair(
-    'date_end', SerializerDateTime.serialize, SerializerDateTime.deserialize)
+    'date_end', SerializerDateTime)
 Cruise.register_serializer_pair(
-    'statuses', Serializer.serialize, Serializer.deserialize)
+    'statuses', Serializer)
 Cruise.register_serializer_pair(
-    'aliases', Serializer.serialize, Serializer.deserialize)
+    'aliases', Serializer)
 Cruise.register_serializer_pair(
-    'ports', Serializer.serialize, Serializer.deserialize)
+    'ports', Serializer)
 Cruise.register_serializer_pair(
     'ship', SerializerObj.serialize, SerializerObj.Deserializer(Ship))
 Cruise.register_serializer_pair(
@@ -1759,11 +2088,17 @@ Cruise.register_serializer_pair(
 Cruise.register_serializer_pair(
     'institutions', SerializerObjs.serialize, SerializerObjs.Deserializer(Institution))
 Cruise.register_serializer_pair(
-    'track', SerializerTrack.serialize, SerializerTrack.deserialize)
+    'track', SerializerTrack)
 Cruise.register_serializer_pair(
-    'participants', SerializerParticipants.serialize, SerializerParticipants.deserialize)
+    'participants', SerializerParticipants)
 Cruise.register_serializer_pair(
-    'data_suggestion', SerializerFile.serialize, SerializerFile.deserialize)
+    'parameter_informations', SerializerObjs.serialize, SerializerObjs.Deserializer(ParameterInformation))
+Cruise.register_serializer_pair(
+    'data_suggestion', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
+Cruise.register_serializer_pair(
+    'data_dir', Serializer)
+Cruise.register_serializer_pair(
+    'archive', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
 
 
 # TODO move this into the class definition so it only gets called once even if
@@ -1797,12 +2132,12 @@ __cruise_allow_attrs = [
     ('data_dir', Unicode, 'Import data directory'),
     ('archive', File, 'Import archive'),
     ]
-for key, name in data_file_human_names.items():
+for key, name in DataFileTypes.human_names.items():
     Cruise.register_serializer_pair(
-        key, SerializerFile.serialize, SerializerFile.deserialize)
+        key, SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
     status_key = '{0}_status'.format(key)
     Cruise.register_serializer_pair(
-        status_key, Serializer.serialize, Serializer.deserialize)
+        status_key, Serializer)
 
     # TODO it might be need to store links to FSFiles, not doing at this time
     # using a sqlalchemy key map
@@ -1815,19 +2150,30 @@ Cruise.allow_attrs(__cruise_allow_attrs)
 
 
 def main(argv):
-    Base.metadata.create_all(engine)
+    engine = create_engine('sqlite:///zserial.db')
+    Session = sessionmaker(bind=engine)
+    DBSession = scoped_session(Session)
+
+    #engine.execute(CreateSchema(Meta.schema))
+    Meta.schema = ''
+    Meta.create_all(engine)
+
+    store = FSStore(
+        path='/Users/myshen/var/store',
+        base_url='/',
+    )
 
     sesh = DBSession()
 
-    ppp = Person.create(sesh).obj
+    ppp = Person.create().obj
 
-    suggcr = Cruise.propose(sesh, ppp)
+    suggcr = Cruise.propose(ppp)
     print sesh.query(Cruise).all()
     cruise = suggcr.obj
-    suggcr.accept(sesh, ppp)
+    suggcr.accept(ppp)
     print sesh.query(Cruise).all()
-    cruise.set(sesh, ppp, 'expocode', '33RR20090320')
-    suggexp = cruise.sugg(sesh, ppp, 'expocode', '33RR20099999')
+    cruise.set(ppp, 'expocode', '33RR20090320')
+    suggexp = cruise.sugg(ppp, 'expocode', '33RR20099999')
     suggexp.reject(sesh, ppp)
     print cruise.expocode == '33RR20090320'
 
@@ -1835,16 +2181,22 @@ def main(argv):
     print len(suggcr.obj.changes('accepted')) == 1
 
     # reject Obj proposal
-    suggcr = Cruise.propose(sesh, ppp)
+    suggcr = Cruise.propose(ppp)
     suggcr.reject(sesh, ppp)
 
-    ccc1 = Cruise.create(sesh, ppp).obj
-    ccc1.set(sesh, ppp, 'expocode', 'C1')
-    ccc2 = Cruise.create(sesh, ppp).obj
-    ccc2.set(sesh, ppp, 'expocode', 'C2')
+    print Change.query().all()
 
-    ccc1.set(sesh, ppp, 'date_start', datetime.now())
-    ccc1.set(sesh, ppp, 'track', geojson.LineString([(0, 1), (2, 3)]))
+    suggcr.delete()
+
+    print Change.query().all()
+
+    ccc1 = Cruise.create(ppp).obj
+    ccc1.set(ppp, 'expocode', 'C1')
+    ccc2 = Cruise.create(ppp).obj
+    ccc2.set(ppp, 'expocode', 'C2')
+
+    ccc1.set(ppp, 'date_start', datetime.now())
+    ccc1.set(ppp, 'track', geojson.LineString([(0, 1), (2, 3)]))
 
     # File storage
     fst = FieldStorage()
@@ -1852,24 +2204,24 @@ def main(argv):
     contents = 'contents'
     fst.file = StringIO(contents)
     with store_context(store):
-        ccc1.set(sesh, ppp, 'data_suggestion', FSFile.from_fieldstorage(fst))
+        ccc1.set(ppp, 'data_suggestion', FSFile.from_fieldstorage(fst))
 
     with store_context(store):
-        print contents == ccc1.get(sesh, 'data_suggestion').make_blob()
+        print contents == ccc1.get('data_suggestion').make_blob()
 
     fst = FieldStorage()
     fst.filename = 'asdf_hy1.csv'
     contents = 'BOTTLE,123456'
     fst.file = StringIO(contents)
     with store_context(store):
-        ccc1.set(sesh, ppp, 'btl_ex', FSFile.from_fieldstorage(fst))
+        ccc1.set(ppp, 'btl_ex', FSFile.from_fieldstorage(fst))
 
     with store_context(store):
-        print contents == ccc1.get(sesh, 'btl_ex').make_blob()
+        print contents == ccc1.get('btl_ex').make_blob()
         sesh.commit()
 
-    suggexp = cruise.sugg(sesh, ppp, 'expocode', 'badexpo')
-    suggexp.accept(sesh, ppp, 'goodexpo')
+    suggexp = cruise.sugg(ppp, 'expocode', 'badexpo')
+    suggexp.accept(ppp, 'goodexpo')
     print suggexp.value == suggexp.value_accepted
     print 'badexpo' == suggexp.value_original
     print 'goodexpo' == suggexp.obj.expocode
@@ -1884,13 +2236,13 @@ def main(argv):
     contents1 = 'BOTTLE,98765'
     fst1.file = StringIO(contents1)
     with store_context(store):
-        suggfff = ccc1.sugg(sesh, ppp, 'btl_ex', FSFile.from_fieldstorage(fst))
-        suggfff.accept(sesh, ppp, FSFile.from_fieldstorage(fst1))
+        suggfff = ccc1.sugg(ppp, 'btl_ex', FSFile.from_fieldstorage(fst))
+        suggfff.accept(ppp, FSFile.from_fieldstorage(fst1))
         sesh.commit()
 
     with store_context(store):
-        print contents1 == ccc1.get(sesh, 'btl_ex').make_blob()
-        print contents0 == ccc1.get(sesh, 'btl_ex', force_original=True).make_blob()
+        print contents1 == ccc1.get('btl_ex').make_blob()
+        print contents0 == ccc1.get('btl_ex', force_original=True).make_blob()
 
     # getting tracked data
     # retrieve attr Changes on a cruise that store files
@@ -1898,20 +2250,20 @@ def main(argv):
     print [suggfff] == ccc1.changes_data('accepted', replaced=True)
 
     # collections
-    coll0 = Collection.create(sesh, ppp).obj
-    coll0.set(sesh, ppp, 'names', ['000'])
-    coll1 = Collection.create(sesh, ppp).obj
-    coll1.set(sesh, ppp, 'names', ['111'])
+    coll0 = Collection.create(ppp).obj
+    coll0.set(ppp, 'names', ['000'])
+    coll1 = Collection.create(ppp).obj
+    coll1.set(ppp, 'names', ['111'])
     log.info('accepting cruises suggested to a collection')
-    scr = ccc1.sugg(sesh, ppp, 'collections', [coll1, coll0])
-    scr.accept(sesh, ppp)
+    scr = ccc1.sugg(ppp, 'collections', [coll1, coll0])
+    scr.accept(ppp)
     print ccc1.collections[0] == coll1
     print ccc1.collections[1] == coll0
 
-    colbassug = coll1.sugg(sesh, ppp, 'basins', [u'southern'])
+    colbassug = coll1.sugg(ppp, 'basins', [u'southern'])
     print coll0 == sesh.query(Collection).filter(Collection.names.contains('000')).all()[0]
     print sesh.query(Collection).filter(Collection.basins.contains('southern')).count() == 0
-    colbassug.accept(sesh, ppp)
+    colbassug.accept(ppp)
     print coll1 == sesh.query(Collection).filter(Collection.basins.contains('southern')).first()
 
     # notes
@@ -1922,40 +2274,40 @@ def main(argv):
     log.debug( ccc1.notes_discussion)
 
     # country
-    cou0 = Country.create(sesh, ppp).obj
+    cou0 = Country.create(ppp).obj
     cou0.name = 'United States of America'
     cou0.alpha2 = 'US'
     cou0.alpha3 = 'USA'
 
     cou = sesh.query(Country).filter(Country.alpha3 == 'USA').first()
     print cou == cou0
-    ppp.set(sesh, ppp, 'country', cou0)
+    ppp.set(ppp, 'country', cou0)
     print cou.people
 
     # Parameter
-    param0 = Parameter.create(sesh, ppp).obj
-    unit0 = Unit.create(sesh, ppp).obj
-    unit0.set(sesh, ppp, 'name', 'decibars')
-    unit0.set(sesh, ppp, 'mnemonic', 'DBAR')
-    param0.set(sesh, ppp, 'name', 'CTDPRS')
-    param0.set(sesh, ppp, 'full_name', 'CTDPRS')
-    param0.set(sesh, ppp, 'units', unit0)
+    param0 = Parameter.create(ppp).obj
+    unit0 = Unit.create(ppp).obj
+    unit0.set(ppp, 'name', 'decibars')
+    unit0.set(ppp, 'mnemonic', 'DBAR')
+    param0.set(ppp, 'name', 'CTDPRS')
+    param0.set(ppp, 'full_name', 'CTDPRS')
+    param0.set(ppp, 'units', unit0)
 
-    pg0 = ParameterGroup.create(sesh, ppp).obj
-    pg0.set(sesh, ppp, 'name', 'Primary')
-    pg0.set(sesh, ppp, 'order', [param0])
+    pg0 = ParameterGroup.create(ppp).obj
+    pg0.set(ppp, 'name', 'Primary')
+    pg0.set(ppp, 'order', [param0])
     print pg0.order == [param0]
 
     sesh.flush()
 
     # Participants
-    part0 = Participant.create(sesh, 'chief_scientist', ppp)
-    part1 = Participant.create(sesh, 'cochief_scientist', ppp)
+    part0 = Participant.create('chief_scientist', ppp)
+    part1 = Participant.create('cochief_scientist', ppp)
 
     participants = Participants(part0, part1)
-    part = cruise.sugg(sesh, ppp, 'participants', participants)
+    part = cruise.sugg(ppp, 'participants', participants)
     print [] == cruise.participants
-    part.accept(sesh, ppp)
+    part.accept(ppp)
     print participants == cruise.participants
 
     # permissions
@@ -1968,8 +2320,8 @@ def main(argv):
     print 
     print 'this one should fail for now'
     somedict = {'a': 1, 'b': 2}
-    suggsom = cruise.sugg(sesh, ppp, 'something', somedict)
-    suggsom.accept(sesh, ppp)
+    suggsom = cruise.sugg(ppp, 'something', somedict)
+    suggsom.accept(ppp)
 
     #from libcchdo.tools import HistoryConsole
     #console = HistoryConsole(locals=locals())
@@ -1981,4 +2333,3 @@ def main(argv):
 
 if __name__ == '__main__':
 	sys.exit(main(sys.argv))
-

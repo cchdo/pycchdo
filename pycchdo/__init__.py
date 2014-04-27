@@ -21,10 +21,14 @@ from sqlalchemy import engine_from_config
 
 from pycchdo import models, helpers
 from pycchdo.routes import configure_routes
-from pycchdo.models import DBSession, FSFile, Person, preload_person
-from pycchdo.models.filestorage import DirFileSystemStorage
+from pycchdo.models import preload_person
+from pycchdo.models.serial import DBSession, Person
 from pycchdo.models.search import SearchIndex
+from pycchdo.models.filestorage import FSStore
 from pycchdo.views.datacart import get_datacart
+
+
+fsstore = None
 
 
 class RequestFactory(Request):
@@ -43,6 +47,10 @@ class RequestFactory(Request):
     @reify
     def models(self):
         return models
+
+    @reify
+    def fsstore(self):
+        return fsstore
 
     @reify
     def datacart(self):
@@ -115,9 +123,13 @@ def create_config(settings):
 
 def main(global_config, **settings):
     """This function returns a Pyramid WSGI application."""
+    global fsstore
     engine = engine_from_config(settings, 'sqlalchemy.')
     DBSession.configure(bind=engine)
-    FSFile.fs_setup(root=settings['fs_root'])
+    fsstore = FSStore(
+        path=settings['fs_root'],
+        base_url='/',
+    )
 
     config = create_config(settings)
     _configure(config)

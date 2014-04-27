@@ -13,12 +13,14 @@ from sqlalchemy import engine_from_config
 from sqlalchemy.orm import lazyload
 
 from pycchdo import models
-from pycchdo.models import (
-    DBSession, reset_database, reset_fs, _Attr, FSFile,
+from pycchdo.models.serial import (
+    Change,
+    DBSession, reset_database, reset_fs, 
     log as model_log,
     )
 from pycchdo.models.search import SearchIndex
 from pycchdo.models.filestorage import copy_chunked
+from pycchdo.models.filestorage import FSStore
 from pycchdo.util import guess_mime_type
 from pycchdo.log import ColoredLogger, DEBUG, INFO, WARN, ERROR
 
@@ -27,7 +29,8 @@ from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
 
 __all__ = [
     'log', 'db_session', 'su', 'guess_mime_type', 'conn_dl', '_ustr2uni',
-    '_date_to_datetime', 'copy_chunked', 'Updater', 'pushd', 'lock', ]
+    '_date_to_datetime', 'copy_chunked', 'Updater', 'pushd', 'lock',
+    'ProgressLog',]
 
 
 log = ColoredLogger(__name__)
@@ -94,11 +97,7 @@ class Updater:
         self.importer = importer
 
     def create_accept(self, klass):
-        obj = klass(self.importer)
-        obj.accept(self.importer)
-        DBSession.add(obj)
-        DBSession.flush()
-        return obj
+        return klass.create(self.importer).obj
 
     def note(self, obj, note, data_type=None, creation_timestamp=None):
         if not note:
@@ -119,10 +118,8 @@ class Updater:
              note_data_type=None, creation_time=None, attr=None):
         log.debug('setting {0!r}.{1!r} to {2!r}'.format(obj, key, value))
         if attr is None:
-            attr = obj.attrsq(key, accepted_only=False).\
-                order_by(_Attr.creation_timestamp).\
-                options(lazyload('vs')).\
-                first()
+            attr = obj.changes_query().filter(Change.attr == key).\
+                order_by(Change.ts_c).first()
             log.debug(
                 u'finding {0!r}.{1!r} ({2!r}) = {3!r}'.format(
                     obj, key, attr, value))
@@ -134,7 +131,7 @@ class Updater:
             log.debug(u'modifying {0} {1} to match {2}'.format(
                 attr, attr.value, value))
             if attr.value != value:
-                attr._set(value)
+                attr.value = value
                 log.debug(u'done setting')
             log.debug(u'setting accept to {0}'.format(accept))
             attr.accepted = accept
@@ -143,15 +140,28 @@ class Updater:
                 attr.judgment_timestamp = None
         else:
             if accept:
-                attr = obj.set_accept(key, value, self.importer)
+                attr = obj.set(self.importer, key, value)
             else:
-                attr = obj.set(key, value, self.importer)
+                attr = obj.sugg(self.importer, key, value)
         if attr:
             if creation_time is not None:
                 attr.creation_timestamp = creation_time
             if note is not None:
                 self.note(attr, note, note_data_type)
         return attr
+
+
+class ProgressLog(object):
+    def __init__(self, items, batchnum=100):
+        self.length = len(items)
+        self.batchnum = batchnum
+        self.count = 0
+
+    def log(self):
+        self.count += 1
+        if self.count % self.batchnum == 0:
+            log.info('{0:d}/{1:d} = {2:f}'.format(
+                self.count, self.length, float(self.count) / self.length))
 
 
 argparser = argparse.ArgumentParser(description='Import CCHDO/Seahunt data')
@@ -262,7 +272,10 @@ def do_import():
         pool_logger.setLevel(DEBUG)
 
     DBSession.configure(bind=engine)
-    FSFile.fs_setup(root=args.settings['fs_root'])
+    fsstore = FSStore(
+        path=args.settings['fs_root'],
+        base_url='/',
+    )
 
     if not args.search_index_only:
 
@@ -273,17 +286,17 @@ def do_import():
         if args.tabula_rasa or args.clear_filesystem:
             log.info(u'resetting fs')
             with su():
-                reset_fs()
+                reset_fs(fsstore)
 
         if args.clear_seahunt:
             seahunt.clear()
             return 0
 
         if not args.skip_cchdo:
-            cchdo.import_(wwwuser.pw_gid, pool_size, args)
+            cchdo.import_(wwwuser.pw_gid, pool_size, fsstore, args)
 
         if not args.skip_seahunt:
-            seahunt.import_(wwwuser.pw_gid, args)
+            seahunt.import_(wwwuser.pw_gid, fsstore, args)
 
     if not args.skip_search_index:
         log.info("indexing...")

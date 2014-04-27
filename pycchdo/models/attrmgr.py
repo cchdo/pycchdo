@@ -67,7 +67,7 @@ class AllowableMgr(object):
         
     @classmethod
     def allow_attr(cls, key, attr_type, name=None, batch=False):
-        """Add an _Attr definition to the list of allowed keys.
+        """Add an attr definition to the list of allowed keys.
 
         Arguments:
         key -- (str)
@@ -94,7 +94,7 @@ class AllowableMgr(object):
 
     @classmethod
     def allow_attrs(cls, list):
-        """Add _Attr definitions to the list of allowed keys."""
+        """Add attr definitions to the list of allowed keys."""
         for definition in list:
             cls.allow_attr(*definition, batch=True)
         cls._update_allowed_attrs_caches()

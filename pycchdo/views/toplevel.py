@@ -9,9 +9,9 @@ from pyramid.httpexceptions import \
 
 from jinja2.exceptions import TemplateNotFound
 
-import pycchdo.models as models
-from pycchdo.models import (
-    Cruise, Parameter, Unit, disjoint_load_obj, disjoint_load_list,
+from pycchdo.models.serial import (
+    Change, Cruise, Parameter, Unit, ParameterGroup, Collection, 
+    Submission,
     )
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views import *
@@ -89,7 +89,7 @@ def home(request):
 
 
 def project_carina(request):
-    collection = models.Collection.get_one_by_attrs({'names': 'CARINA'})
+    collection = Collection.query().filter(Collection._names.any('CARINA')).first()
     if collection:
         cruises = collection.cruises()
         cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
@@ -100,13 +100,9 @@ def project_carina(request):
 
 def _get_params_for_order(order):
     try:
-        param_order = models.ParameterOrder.get_one_by_attrs({'name': order})
-        disjoint_load_obj([param_order], 'order', Parameter, single=False)
-        order = param_order.order
-        disjoint_load_list(order, 'aliases')
-        disjoint_load_list(order, 'bounds')
-        disjoint_load_obj(order, 'unit', Unit, single=True)
-        return order
+        param_order = ParameterGroup.query().filter(
+            ParameterGroup.name == order).first()
+        return list(param_order.order)
     except (AttributeError, IndexError):
         return []
 
@@ -163,13 +159,13 @@ def data(request):
     original = request.params.get('orig', False)
 
     try:
-        data = models._Attr.query().get(id)
+        data = Change.query().get(id)
     except TypeError:
         raise HTTPNotFound()
 
     if not data:
         try:
-            data = models.Submission.query().get(id)
+            data = Submission.query().get(id).value
         except ValueError:
             raise HTTPNotFound()
 
@@ -188,7 +184,9 @@ def data(request):
                 raise HTTPUnauthorized()
         except AttributeError:
             raise HTTPUnauthorized()
-    if not data.judgment_stamp and not request.user:
+
+    # If data is not accepted, only show it to signed in users.
+    if not data.is_accepted() and not request.user:
         raise HTTPUnauthorized()
 
     if original:
@@ -205,13 +203,14 @@ def catchall_static(request):
         raise HTTPNotFound()
 
     static_path = 'static'
-    relpath = os.path.join(static_path, subpath)
+    relpath = os.path.join('pycchdo:templates', static_path, subpath)
 
     try:
         return render_to_response(relpath, {}, request)
-    except TemplateNotFound, e:
-        log.error(u'template not found: {0}\n{1}'.format(relpath, e))
-        raise HTTPNotFound()
+    except TemplateNotFound, err:
+        log.error(u'template not found: {0}\n{1!r}\n{1}'.format(relpath, err))
+        raise
+        #raise HTTPNotFound()
     except (ValueError, TypeError), e:
         log.error(u'Failed rendering catchall static: {0!r}'.format(e))
         raise HTTPNotFound()

@@ -1,4 +1,4 @@
-{%- extends "base.jinja2" %}
+{%- extends "/base.jinja2" %}
 {%- block head %}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
 {%- endblock %}
@@ -48,7 +48,7 @@
       {{ whh.tags.end_form() }}
     </div>
     {%- endif %}
-    {%- set cruises = person.cruises() %}
+    {%- set cruises = person.cruises %}
     {%- if cruises %}
       <div class="subsection">
         <h2>Cruises</h2>

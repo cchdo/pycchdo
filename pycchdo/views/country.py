@@ -7,20 +7,19 @@ from sqlalchemy.exc import DataError
 
 from . import *
 import pycchdo.helpers as h
-from pycchdo.models import DBSession, Country
-from pycchdo.models.models import preload_cached_avs
+from pycchdo.models.serial import DBSession, Country
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
 def countries_index(request):
-    countries = preload_cached_avs(Country, Country.query()).all()
+    countries = Country.query().all()
     countries = sorted(countries, key=lambda x: x.name)
     return {'countries': countries}
 
 
 def countries_index_json(request):
-    countries = preload_cached_avs(Country, Country.query()).all()
+    countries = Country.query().all()
     countries = sorted(countries, key=lambda x: x.name)
     countries = [c.to_nice_dict() for c in countries]
     return countries
@@ -29,13 +28,11 @@ def countries_index_json(request):
 def _get_country(request):
     c_id = request.matchdict.get('country_id')
     try:
-        return preload_cached_avs(Country, Country.query()).get(c_id)
+        return Country.query().get(c_id)
     except DataError:
         transaction.begin()
         try:
-            return preload_cached_avs(
-                Country,
-                Country.query().filter(Country.iso_3166_1 == c_id)).first()
+            return Country.query().filter(Country.name == c_id).first()
         except DataError:
             return None
 
@@ -49,7 +46,7 @@ def country_show(request):
     country = _get_country(request)
     if not country:
         raise HTTPNotFound()
-    cruises = country.cruises(accepted_only=False)
+    cruises = country.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'country': country, 'cruises': cruises}
 
@@ -70,9 +67,9 @@ def country_edit(request):
     iso2 = request.params.get('iso_3166-1_alpha-2', '')
     iso3 = request.params.get('iso_3166-1_alpha-3', '')
 
-    country.iso_3166_1 = name
-    country.iso_3166_1_alpha_2 = iso2
-    country.iso_3166_1_alpha_3 = iso3
+    country.name = name
+    country.alpha2 = iso2
+    country.alpha3 = iso3
 
     country_id = country.id
     transaction.commit()
@@ -97,7 +94,7 @@ def country_merge(request):
     except KeyError:
         request.session.flash('No mergee country given', 'help')
         return redirect_response
-    mergee = preload_cached_avs(Country, Country.query()).get(mergee_id)
+    mergee = Country.query().get(mergee_id)
     if not mergee:
         request.session.flash(
             'Invalid mergee country %s given' % mergee_id, 'help')

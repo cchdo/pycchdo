@@ -4,8 +4,9 @@ from pyramid.httpexceptions import HTTPUnauthorized, HTTPSeeOther, HTTPNotFound
 
 from . import *
 from pycchdo.helpers import has_argo, has_staff
-from pycchdo.models import (
-    timestamp_now, DBSession, ArgoFile, RequestFor, FSFile,
+from pycchdo.util import timestamp_now
+from pycchdo.models.serial import (
+    DBSession, ArgoFile, RequestFor, FSFile,
     )
 from pycchdo.views.session import signin_required, require_signin
 

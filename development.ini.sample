@@ -54,7 +54,9 @@ port = 65432
 [pshell]
 p = pycchdo
 m = pycchdo.models.models
+M = pycchdo.models.serial
 s = pycchdo.models.models.DBSession
+S = pycchdo.models.serial.DBSession
 v = pycchdo.views
 t = transaction
 

@@ -20,13 +20,11 @@ from webhelpers import text as whtext
 from sqlalchemy.orm import noload, lazyload, joinedload
 from sqlalchemy.ext.associationproxy import _AssociationList
 
-from pycchdo.models import (
+from pycchdo.models.file_types import data_file_descriptions
+from pycchdo.models.serial import (
     DBSession,
-    data_file_descriptions, _Attr, Cruise, Note, Person, Institution, FSFile,
+    Change, Cruise, Note, Person, Institution, FSFile,
     Participants, Participant,
-    )
-from pycchdo.models.models import (
-    preload_cached_avs, disjoint_load_cruise_attrs, _AttrValueUnicode,
     )
 import pycchdo.helpers as h
 
@@ -79,14 +77,12 @@ def _cruises(request, subtypes=None, defer_load=False):
     cruises = preload_cached_avs(Cruise, query, subtypes=subtypes).all()
     cruises = sorted(cruises, key=lambda c: c.uid)
     if not defer_load:
-        disjoint_load_cruise_attrs(cruises)
         h.reduce_specificity(request, *cruises)
     return cruises
 
 
 def cruises_index(request):
     cruises = paged(request, _cruises(request, defer_load=True))
-    disjoint_load_cruise_attrs(cruises)
     h.reduce_specificity(request, *cruises)
     return {'cruises': cruises}
 
@@ -364,7 +360,7 @@ def _add_note_to_attr(request):
     except KeyError:
         public = False
 
-    attr_obj = _Attr.query().get(attr_id)
+    attr_obj = Change.query().get(attr_id)
     if not attr_obj:
         request.response_status = '404 Not Found'
         request.session.flash(
@@ -390,7 +386,7 @@ def _add_note_to_file(request):
     except KeyError:
         public = False
 
-    file_obj = _Attr.query().get(file_id)
+    file_obj = Change.query().get(file_id)
     if not file_obj:
         request.response_status = '404 Not Found'
         request.session.flash(
@@ -470,7 +466,7 @@ def cruise_show(request):
         else:
             history = cruise_obj.notes_public
 
-        unjudged = cruise_obj.unjudged_tracked_not_data.all()
+        unjudged = cruise_obj.changes_data('unjudged')
         suggested_attrs = []
         for attr in unjudged:
             if attr.key in Cruise.allowed_attrs_list:
@@ -478,10 +474,10 @@ def cruise_show(request):
 
         # Only show unacknowledged suggestions to mods
         if h.has_mod(request):
-            as_received = cruise_obj.unjudged_tracked_data.all()
+            as_received = cruise_obj.changes_data('unjudged')
         else:
-            as_received = cruise_obj.pending_tracked_data.all()
-        merged = cruise_obj.accepted_tracked_data.all()
+            as_received = cruise_obj.changes_data('pending')
+        merged = cruise_obj.changes_data('accepted')
         updates = {
             'attrs': suggested_attrs,
             'as_received': as_received,
@@ -536,10 +532,10 @@ def map_full(request):
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
 
-    a = cruise_obj.get('map_full', None)
-    if not a:
+    data = cruise_obj.get('map_full', None)
+    if not data:
         raise HTTPNotFound()
-    return file_response(request, a)
+    return file_response(request, data)
 
 
 def map_thumb(request):
@@ -758,7 +754,7 @@ def kml(request):
 
 
 def _contributions(request):
-    pending_cruises = Cruise.only_if_accepted_is(False).all()
+    pending_cruises = Cruise.query().filter(Cruise.accepted == False).all()
     def has_track(c):
         try:
             c.get_attr('track')

@@ -73,8 +73,8 @@
             {%- if dates %}
               <p><strong>Dates:</strong> <span class="date-cruise" title="{{ '/'.join(dates[:2]) }}">{{ dates[2] }}</span></p>
             {%- endif %}
-            <p><strong>Updated:</strong> <span class="date-updated">{{ h.pdate(update.judgment_stamp.timestamp) }}</span></p>
-            <p><strong>Type:</strong> <span class="key-updated">{{ update.key }}</span></p>
+            <p><strong>Updated:</strong> <span class="date-updated">{{ h.pdate(update.ts_j) }}</span></p>
+            <p><strong>Type:</strong> <span class="key-updated">{{ update.attr }}</span></p>
           </div>
         </li>
         {%- endif %}

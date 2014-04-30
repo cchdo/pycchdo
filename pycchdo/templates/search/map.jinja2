@@ -1,4 +1,4 @@
-{%- extends "fullwidth.jinja2" %}
+{%- extends "/fullwidth.jinja2" %}
 {%- block title %}
   {%- if commands %}
     Contributions
@@ -21,7 +21,7 @@
 {%- endblock %}
 {%- block content %}
 <div id="map_space">
-  {%- include "_noscript_warning.txt" %}
+  {%- include "/_noscript_warning.txt" %}
 </div>
 {%- endblock %}
 {%- block js %}

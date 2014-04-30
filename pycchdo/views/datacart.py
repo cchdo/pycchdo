@@ -13,7 +13,8 @@ from pyramid.httpexceptions import (
 from webhelpers.text import plural
 
 from pycchdo.views import *
-from pycchdo.models.models import Datacart, _Attr, Cruise
+from pycchdo.models.datacart import Datacart
+from pycchdo.models.serial import Change, Cruise
 
 
 ZIP_FILE_LIMIT = 20
@@ -54,7 +55,7 @@ def add(request):
     except (KeyError, ValueError):
         raise HTTPNotFound()
     
-    dattr = _Attr.get_id(id)
+    dattr = Change.query().get(id)
     if not dattr:
         request.session.flash('Error adding file to data cart.', 'error')
         raise HTTPNotFound()
@@ -75,7 +76,7 @@ def remove(request):
     except (KeyError, ValueError):
         raise HTTPNotFound()
     
-    dattr = _Attr.get_id(id)
+    dattr = Change.query().get(id)
     if not dattr:
         request.session.flash('Error removing file from data cart.', 'error')
         raise HTTPNotFound()
@@ -214,7 +215,7 @@ def clear(request):
 
 def _add_single_cruise(request, cruise_id):
     try:
-        cruise_obj = Cruise.get_by_id(cruise_id)
+        cruise_obj = Cruise.query().get(cruise_id)
         if cruise_obj is None:
             raise ValueError()
     except ValueError:
@@ -240,7 +241,7 @@ def _add_single_cruise(request, cruise_id):
 
 def _remove_single_cruise(request, cruise_id):
     try:
-        cruise_obj = Cruise.get_by_id(cruise_id)
+        cruise_obj = Cruise.query().get(cruise_id)
     except ValueError:
         request.session.flash(
             'Error removing cruise dataset from data cart', 'error')
@@ -277,7 +278,7 @@ def download(request):
     start = archive * ZIP_FILE_LIMIT
     to_dl = list(request.datacart)[start:start + ZIP_FILE_LIMIT]
 
-    attrs = _Attr.by_ids(to_dl)
+    attrs = Change.by_ids(to_dl)
     with SpooledTemporaryFile(max_size=2**10) as tfile:
         with ZipFile(tfile, 'w', ZIP_DEFLATED) as zfile:
            for attr in attrs:

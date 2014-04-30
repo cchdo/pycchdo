@@ -11,8 +11,8 @@ from webhelpers. paginate import Page
 
 from webob.multidict import MultiDict
 
-from pycchdo.models import Obj
 from pycchdo.models.types import *
+from pycchdo.models.serial import store_context, Obj
 from pycchdo.models.file_types import DataFileTypes
 from pycchdo.util import guess_mime_type, collapse_dict
 from pycchdo.log import ColoredLogger, DEBUG
@@ -175,38 +175,26 @@ def file_response(request, file, disposition='inline'):
     # Let's set one for almost a month so we have the opportunity to change it.
     resp.cache_control.max_age = 60 * 60 * 24 * 30
 
-    try:
-        resp.app_iter = file.file
-    except AttributeError:
-        resp.app_iter = file
-    try:
-        resp.content_length = file.length
-    except AttributeError:
-        pass
-    try:
-        # TODO TEST that this must be string.
-        if file.content_type is not None and file.content_type != 'None':
-            resp.content_type = str(file.content_type)
-        else:
+    with store_context(request.fsstore):
+        resp.app_iter = file.open_file()
+        try:
+            resp.content_length = file.length
+        except AttributeError:
+            pass
+        try:
+            # TODO TEST that this must be string.
+            if file.content_type is not None and file.content_type != 'None':
+                resp.content_type = str(file.content_type)
+            else:
+                resp.content_type = guess_mime_type(file.name)
+        except AttributeError:
             resp.content_type = guess_mime_type(file.name)
-    except AttributeError:
-        pass
-    try:
-        resp.content_disposition = '{disposition}; filename="{name}"'.format(
-            disposition=disposition, name=file.name)
-    except AttributeError:
-        resp.content_disposition = disposition
-
-    # HACK detect corrupted files (data in fs missing) before the framework gets
-    # handed the file to send
-    try:
-        resp.app_iter.read(1)
-        resp.app_iter.seek(0)
-    except Exception, e:
-        log.error('Missing file {0}:\n{1!r}'.format(file.id, e))
-        raise HTTPNotFound()
-
-    return resp
+        try:
+            resp.content_disposition = '{disp}; filename="{name}"'.format(
+                disp=disposition, name=file.name)
+        except AttributeError:
+            resp.content_disposition = disposition
+        return resp
 
 
 def notfound_view(request):

@@ -1,3 +1,8 @@
+from libcchdo.recipes.orderedset import OrderedSet
+
+from pycchdo.models.serial import Change
+
+
 class Datacart(OrderedSet):
     """A Datacart contains files that are meant to be downloaded in bulk.
 
@@ -5,7 +10,8 @@ class Datacart(OrderedSet):
 
     """
     def files(self):
-        return _Attr.by_ids(list(self))
+        print repr(list(self))
+        return Change.get_all_by_ids(list(self))
 
     @classmethod
     def is_file_type_allowed(cls, ftype):

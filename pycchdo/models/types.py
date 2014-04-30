@@ -33,3 +33,6 @@ class ParticipantsType(TypeEngine):
 class ParameterInformations(TypeEngine):
     pass
 
+
+class LineString(TypeEngine):
+    pass

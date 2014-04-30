@@ -1,7 +1,7 @@
 {%- if cruise_id %}
-  {%- extends "base.jinja2" %}
+  {%- extends "/base.jinja2" %}
 {%- else %}
-  {%- extends "fullwidth.jinja2" %}
+  {%- extends "/fullwidth.jinja2" %}
 {%- endif %}
 {%- block title %}Suggest {{ cruise_id }}{%- endblock %}
 {%- block subtitle %} | Cruise{%- endblock %}

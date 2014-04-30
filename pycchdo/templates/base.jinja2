@@ -12,8 +12,8 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="apple-touch-icon-precomposed" type="image/png" href="/static/img/iphone_icon.png">
   {%- assets
-    filters='cssmin,gzip',
-    output='gen/screen.css.gz',
+    filters='cssmin',
+    output='gen/screen.css',
     'css/normalize.css',
     'css/screen.css'
   %}
@@ -51,8 +51,8 @@
   </div>
   <div id="scripts">
     {%- assets
-      filters='rjsmin,gzip',
-      output='gen/base.js.gz',
+      filters='rjsmin',
+      output='gen/base.js',
       'js/jquery-1.10.2.min.js', 'js/base.js', 'js/datacart.js'
     %}
        {{ whh.tags.javascript_link(ASSET_URL) }}

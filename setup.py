@@ -18,12 +18,11 @@ if version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')
 _requires_db_fs = [
     'psycopg2',
-    'SQLAlchemy>=0.8.4',
-    'geoalchemy',
+    'SQLAlchemy',
+    'Geoalchemy2',
     'transaction',
     'pyramid_tm',
     'zope.sqlalchemy',
-    'django',
 ]
 _requires_assets = [
     'cssmin',

@@ -22,7 +22,7 @@ from whoosh.qparser.dateparse import DateParserPlugin
 
 from pycchdo.models import triggers
 from pycchdo.log import ColoredLogger, ERROR, DEBUG
-from pycchdo.models import (
+from pycchdo.models.serial import (
     DBSession,
     Cruise, Person, Ship, Country, Institution, Collection, Note,
     )

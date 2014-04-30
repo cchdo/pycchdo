@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from StringIO import StringIO
+from cgi import FieldStorage
 
 import transaction
 
@@ -11,12 +13,16 @@ import shapely.geometry.polygon
 import geojson
 
 import pycchdo
-import pycchdo.models.models as models
-from pycchdo.models.models import (
-    Session, DBSession,
-    String, Integer, LineString, File, TextList, ID, IDList, DateTime, Unicode, 
-    Institution, Stamp, Obj, Change, _Attr, Note, Participant, Participants,
-    Country, Cruise, Person, Collection, Ship, CacheObjAttrs, Parameter,
+from pycchdo.models.types import (
+    String, Integer, File, TextList, ID, IDList, DateTime, Unicode, 
+)
+from pycchdo.models.serial import (
+    DBSession, store_context,
+    LineString, 
+    Change, Obj,
+    Institution, Note, Participant, Participants,
+    Country, Cruise, Person, Collection, Ship, Parameter, ParameterGroup,
+    Unit,
     ParameterInformation,
     ArgoFile,
     FSFile,
@@ -26,120 +32,174 @@ from . import *
 
 
 class TestModelChange(PersonBaseTest):
-    def test_new(self):
-        """Newly created objects have correct values for stamps and notes."""
-        before = datetime.utcnow()
+    def test_new_ts(self):
+        """Newly created objects have correct values for timestamps."""
+        before = datetime.now() - timedelta(seconds=1)
+        after = datetime.now() + timedelta(seconds=1)
+        change = Obj.propose(self.testPerson)
 
-        change = Change(self.testPerson)
-        DBSession.add(change)
-        DBSession.flush()
-
-        after = datetime.utcnow()
-        self.assertTrue(change.creation_timestamp >= before)
-        self.assertTrue(change.creation_timestamp <= after)
-        self.assertFalse(bool(change.pending_stamp))
-        self.assertFalse(bool(change.judgment_stamp))
+        self.assertTrue(change.ts_c >= before)
+        self.assertTrue(change.ts_c <= after)
+        self.assertFalse(change.is_acknowledged())
+        self.assertFalse(change.is_judged())
         self.assertFalse(change.accepted)
-
-        change1 = Change(
-            self.testPerson,
-            note=Note(
-                self.testPerson, 'body', 'action', 'data_type', 'subject'))
-
-        DBSession.add(change1)
-        DBSession.flush()
-
-        note = change1.notes[0]
-        self.assertEqual(note.action, 'action')
-        self.assertEqual(note.data_type, 'data_type')
-        self.assertEqual(note.subject, 'subject')
-        self.assertEqual(note.body, 'body')
 
     def test_accept(self):
         """Acceptance of Change."""
-        change = Change(self.testPerson)
+        change = Obj.propose(self.testPerson)
         change.accept(self.testPerson)
+        self.assertTrue(change.is_judged())
         self.assertTrue(change.is_accepted())
 
     def test_acknowledge(self):
         """Acknowledgement of Change."""
-        change = Change(self.testPerson)
+        change = Obj.propose(self.testPerson)
         change.acknowledge(self.testPerson)
         self.assertTrue(change.is_acknowledged())
+        self.assertFalse(change.is_judged())
 
     def test_reject(self):
         """Rejection of Change."""
-        change = Change(self.testPerson)
+        change = Obj.propose(self.testPerson)
         change.reject(self.testPerson)
         self.assertTrue(change.is_rejected())
 
     def test_stamp_properties(self):
         """The stamps should only be available depending on object state."""
-        ccc = Change(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
-        self.assertTrue(ccc.creation_stamp != None)
-        self.assertTrue(ccc.pending_stamp == None)
-        self.assertTrue(ccc.judgment_stamp == None)
+        ccc = Obj.propose(self.testPerson)
+        self.assertTrue(ccc.ts_c != None)
+        self.assertTrue(ccc.ts_ack == None)
+        self.assertTrue(ccc.ts_j == None)
+
         ccc.acknowledge(self.testPerson)
-        self.assertTrue(ccc.pending_stamp != None)
+        self.assertIsNotNone(ccc.ts_ack)
+
         ccc.accept(self.testPerson)
-        self.assertTrue(ccc.judgment_stamp != None)
+        self.assertIsNotNone(ccc.ts_j)
 
     def test_state(self):
         """Test Change state checkers."""
-        ccc = Change(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Obj.propose(self.testPerson)
         self.assertFalse(ccc.is_acknowledged())
         self.assertFalse(ccc.is_judged())
         self.assertFalse(ccc.is_accepted())
         self.assertFalse(ccc.is_rejected())
+
         ccc.acknowledge(self.testPerson)
         self.assertTrue(ccc.is_acknowledged())
         self.assertFalse(ccc.is_judged())
+
         ccc.accept(self.testPerson)
         self.assertTrue(ccc.is_accepted())
         self.assertFalse(ccc.is_rejected())
+
         ccc.reject(self.testPerson)
         self.assertTrue(ccc.is_rejected())
         self.assertFalse(ccc.is_accepted())
 
+    def test_delete(self):
+        """Test delete Obj removes the associated Change as well."""
+        obj = Obj.propose(self.testPerson).obj
+        change = obj.change
+        obj.delete()
+        self.assertTrue(change not in Change.query().all())
+
+    def test_caching(self):
+        """Cached attr values are saved on the Obj."""
+        suggcr = Cruise.propose(self.testPerson)
+        self.assertEqual(DBSession.query(Cruise).filter(Obj.accepted).all(), [])
+        cruise = suggcr.obj
+        suggcr.accept(self.testPerson)
+        self.assertEqual(DBSession.query(Cruise).filter(Obj.accepted).all(), [cruise])
+
+        correctexpo = 'correctexpo'
+        cruise.set(self.testPerson, 'expocode', correctexpo)
+        suggexp = cruise.sugg(self.testPerson, 'expocode', 'incorrect')
+        suggexp.reject(self.testPerson)
+        self.assertEqual(cruise.expocode, correctexpo)
+
+    def test_get_attr_changes(self):
+        """Objs have changes, the creation and attr changes."""
+        obj = Unit.propose(self.testPerson).obj
+
+        obj.set(self.testPerson, 'name', 'CTDPRS')
+        obj.sugg(self.testPerson, 'name', 'CTDOXY')
+
+        self.assertEqual(len(obj.changes()), 2)
+        self.assertEqual(len(obj.changes('accepted')), 1)
+
     def test_has_notes(self):
         """A Change can have notes added about it.
 
-        Consider a Cruise gets email or someone would like to make an arbitrary
+        Use case: a Cruise gets email or someone would like to make an arbitrary
         note about an Institution but aren't sure of its validity.
 
         """
-        obj = Change(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.propose(self.testPerson).obj
+        note = Note(self.testPerson, 'test note')
+        obj.change._notes.append(note)
+        # TODO improve notes interface
+        self.assertEqual(obj.notes, [note])
 
-        self.assertTrue(hasattr(obj, 'notes'))
-        note = obj.notes.append(Note(self.testPerson, 'test note'))
-        self.assertEqual(len(obj.notes), 1)
+    def test_new_note(self):
+        """Newly created objects have correct values for notes."""
+        change1 = Obj.create(self.testPerson)
+        change1._notes.append(Note(
+                self.testPerson, 'body', 'action', 'data_type', 'subject'))
+
+        note = change1.obj.notes[0]
+        self.assertEqual(note.action, 'action')
+        self.assertEqual(note.data_type, 'data_type')
+        self.assertEqual(note.subject, 'subject')
+        self.assertEqual(note.body, 'body')
+
+    def test_note_discussion(self):
+        """Notes can be for discussion only."""
+        change1 = Obj.create(self.testPerson)
+
+        note0 = Note(self.testPerson, 'note0', subject='note0s')
+        note1 = Note(self.testPerson, 'note1', subject='note1s', discussion=True)
+        change1._notes.append(note0)
+        change1._notes.append(note1)
+
+        obj = change1.obj
+
+        self.assertEqual(obj.notes, [note0, note1])
+        self.assertEqual(obj.notes_public, [note0])
+        self.assertEqual(obj.notes_discussion, [note1])
 
 
 class TestModelAttrValue(PersonBaseTest):
     def test_attrvalue(self):
-        iii = Institution(self.testPerson)
-        DBSession.add(iii)
-        DBSession.flush()
-        iii.set_accept('name', 'hello', self.testPerson)
+        iii = Institution.create(self.testPerson).obj
+        iii.set(self.testPerson, 'name', 'hello')
         self.assertEqual('hello', iii.get('name', None))
+
+
+class TestModelParameter(PersonBaseTest):
+    def test_creation(self):
+        param0 = Parameter.create(self.testPerson).obj
+        unit0 = Unit.create(self.testPerson).obj
+        unit0.set(self.testPerson, 'name', 'decibars')
+        unit0.set(self.testPerson, 'mnemonic', 'DBAR')
+        param0.set(self.testPerson, 'name', 'CTDPRS')
+        param0.set(self.testPerson, 'full_name', 'CTDPRS')
+        param0.set(self.testPerson, 'units', unit0)
+
+    def test_parameter_group(self):
+        param0 = Parameter.create(self.testPerson).obj
+        pg0 = ParameterGroup.create(self.testPerson).obj
+        pg0.set(self.testPerson, 'name', 'Primary')
+        pg0.set(self.testPerson, 'order', [param0])
+        self.assertEqual(pg0.order, [param0])
 
 
 class TestModelParameterInformation(PersonBaseTest):
     def test_delete(self):
         engine_loglevel(DEBUG)
-        cruise = Cruise(self.testPerson)
-        param = Parameter(self.testPerson)
-        inst = Institution(self.testPerson)
-        DBSession.add(cruise)
-        DBSession.add(param)
-        DBSession.add(inst)
-        DBSession.flush()
+        cruise = Cruise.create(self.testPerson).obj
+        param = Parameter.create(self.testPerson).obj
+        inst = Institution.create(self.testPerson).obj
         pis = [ParameterInformation(param, 'online', self.testPerson, inst, datetime.utcnow())]
         attr = cruise.set('parameter_informations', pis, self.testPerson)
         DBSession.flush()
@@ -150,9 +210,7 @@ class TestModelParameterInformation(PersonBaseTest):
 class TestModelAttr(PersonBaseTest):
     def test_set_returns_attr(self):
         """Setting a value on an Obj returns an _Attr."""
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, String, 'test')
 
@@ -161,10 +219,8 @@ class TestModelAttr(PersonBaseTest):
     def test_new(self):
         """New Attrs are instances of Change."""
         key = self._testMethodName
-        o = Obj(self.testPerson)
+        o = Obj.create(self.testPerson).obj
         Obj.allow_attr(key, String)
-        DBSession.add(o)
-        DBSession.flush()
 
         attr = o.set(key, 'value', self.testPerson)
         self.assertTrue(isinstance(attr, Change))
@@ -188,7 +244,7 @@ class TestModelAttr(PersonBaseTest):
 
         #key = self._testMethodName
         #Obj.allow_attr(key, String)
-        #ccc = Collection(self.testPerson)
+        #ccc = Collection.create(self.testPerson).obj
         #ccc.set(key, 'test', self.testPerson)
 
         #ooo = Obj(self.testPerson)
@@ -198,10 +254,8 @@ class TestModelAttr(PersonBaseTest):
 
     def test_accepted_changes(self):
         """Accepted changes."""
-        o = Obj(self.testPerson)
+        o = Obj.create(self.testPerson).obj
         o.allow_attr(self._testMethodName, String, 'test')
-        DBSession.add(o)
-        DBSession.flush()
         self.assertEquals([], o.accepted_tracked.all())
         aaa = o.set(self._testMethodName, 'b', self.testPerson)
         self.assertEquals([], o.accepted_tracked.all())
@@ -210,10 +264,8 @@ class TestModelAttr(PersonBaseTest):
 
     def test_current_attr_keys(self):
         """Current _Attr keys."""
-        o = Obj(self.testPerson)
+        o = Obj.create(self.testPerson).obj
         o.allow_attr(self._testMethodName, String, 'test')
-        DBSession.add(o)
-        DBSession.flush()
         self.assertEquals([], o.attr_keys)
         aaa = o.set(self._testMethodName, 'b', self.testPerson)
         aaa.accept(self.testPerson)
@@ -222,10 +274,8 @@ class TestModelAttr(PersonBaseTest):
     def test_get_value_by_accept_order(self):
         """Getting a value for key returns the last accepted _Attr's value."""
         key = self._testMethodName
-        obj = Obj(self.testPerson)
+        obj = Obj.create(self.testPerson).obj
         obj.allow_attr(key, String, 'test')
-        DBSession.add(obj)
-        DBSession.flush()
 
         aaa = obj.set(key, '0', self.testPerson)
         bbb = obj.set(key, '1', self.testPerson)
@@ -248,9 +298,7 @@ class TestModelAttr(PersonBaseTest):
 
     def test_get_default(self):
         """Getting a non-existant value should return default."""
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         self.assertEquals(obj.get('a'), None)
         self.assertEquals(obj.get('a', 'b'), 'b')
 
@@ -259,15 +307,13 @@ class TestModelAttr(PersonBaseTest):
         key = self._testMethodName
         Obj.allow_attr(key, [DateTime, Unicode])
 
-        ooo = Obj(self.testPerson)
-        DBSession.add(ooo)
-        DBSession.flush()
+        ooo = Obj.create(self.testPerson).obj
 
-        aaa = ooo.set_accept(key, 'testunicode', self.testPerson)
+        aaa = ooo.set(self.testPerson, key, 'testunicode')
         self.assertEqual(aaa.value, 'testunicode')
 
         testdate = datetime.utcnow()
-        bbb = ooo.set_accept(key, testdate, self.testPerson)
+        bbb = ooo.set(self.testPerson, key, testdate)
         self.assertEqual(bbb.value, testdate)
 
     def test_find_multi_type(self):
@@ -276,14 +322,8 @@ class TestModelAttr(PersonBaseTest):
         Obj.allow_attr(key, [DateTime, Unicode])
         testdate = datetime.utcnow()
 
-        ooo = Obj(self.testPerson)
-        DBSession.add(ooo)
-        DBSession.flush()
-
-        ooo.accept(self.testPerson)
-        aaa = ooo.set_accept(key, testdate, self.testPerson)
-        DBSession.add(ooo)
-        DBSession.flush()
+        ooo = Obj.create(self.testPerson).obj
+        aaa = ooo.set(self.testPerson, key, testdate)
         ooo_id = ooo.id
 
         ppp = Obj.get_one_by_attrs({key: testdate})
@@ -296,9 +336,7 @@ class TestModelAttr(PersonBaseTest):
         The latest accepted key value pair should be the value.
         
         """
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
 
         key = self._testMethodName
         key0 = self._testMethodName + '0'
@@ -327,14 +365,12 @@ class TestModelAttr(PersonBaseTest):
         obj.unacknowledged_tracked.first().accept(self.testPerson)
         self.assertEquals(None, obj.get(key))
 
-        aaa = obj.set_accept(key0, 1, self.testPerson)
+        aaa = obj.set(self.testPerson, key0, 1)
         self.assertEquals(aaa.value, 1)
 
     def test_set_list(self):
         """Setting a list on an Obj's attrs stores a list."""
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         key0 = self._testMethodName + '0'
         key1 = self._testMethodName + '1'
         obj.allow_attr(key0, TextList, 'test')
@@ -370,11 +406,9 @@ class TestModelAttr(PersonBaseTest):
         value = '0'
         Obj.allow_attr(key, String, 'test')
 
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
 
-        aaa = obj.set_accept(key, value, self.testPerson)
+        aaa = obj.set(self.testPerson, key, value)
         self.assertEquals(value, obj.get(key))
 
     def test_delete(self):
@@ -389,11 +423,9 @@ class TestModelAttr(PersonBaseTest):
         key = self._testMethodName
         Obj.allow_attr(key, String, 'test')
 
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
 
-        obj.set_accept(key, 'b', self.testPerson)
+        obj.set(self.testPerson, key, 'b')
         self.assertTrue(key in obj.attr_keys)
         obj.delete_accept(key, self.testPerson)
         self.assertFalse(key in obj.attr_keys)
@@ -407,9 +439,9 @@ class TestModelAttr(PersonBaseTest):
         p = Person(identifier=key0)
         DBSession.add(p)
         DBSession.flush()
-        aaa = p.set_accept(key0, 1, self.testPerson)
+        aaa = p.set(self.testPerson, key0, 1)
 
-        bbb = p.set_accept(key1, [1, 2], self.testPerson)
+        bbb = p.set(self.testPerson, key1, [1, 2])
         DBSession.flush()
 
         aaa._set(2)
@@ -426,9 +458,7 @@ class TestModelAttr(PersonBaseTest):
         value of the Attribute.
 
         """
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, Integer, 'test')
 
@@ -450,11 +480,9 @@ class TestModelAttr(PersonBaseTest):
             DBSession.add(testPerson)
             DBSession.flush()
 
-            ooo = Obj(testPerson)
-            DBSession.add(ooo)
-            DBSession.flush()
+            ooo = Obj.create(testPerson).obj
 
-            ooo.set_accept(key, mockfs, testPerson)
+            ooo.set(testPerson, key, mockfs)
             ooo_id = ooo.id
 
         with transaction.manager:
@@ -473,9 +501,7 @@ class TestModelAttr(PersonBaseTest):
         MIME type.
 
         """
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, File, 'testfile')
 
@@ -493,9 +519,7 @@ class TestModelAttr(PersonBaseTest):
         or shapely.geometry.linestring.LineString.
 
         """
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, LineString, 'Test Track')
 
@@ -512,17 +536,13 @@ class TestModelAttr(PersonBaseTest):
 
 class TestModelObj(PersonBaseTest):
     def test_new(self):
-        """New Objs are instances of Change."""
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
-        self.assertTrue(isinstance(obj, Change))
+        """New Objs have a Change."""
+        obj = Obj.create(self.testPerson).obj
+        self.assertTrue(isinstance(obj.change, Change))
 
     def test_remove(self):
         """Removing an Obj also removes all Attrs it is associated with."""
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, String, 'test')
 
@@ -543,12 +563,9 @@ class TestModelObj(PersonBaseTest):
         Obj.allow_attr('a', Integer, 'testa')
         Obj.allow_attr('b', Integer, 'testb')
         for i in range(0, num + 1):
-            obj = Obj(self.testPerson)
-            DBSession.add(obj)
-            DBSession.flush()
-            obj.accept(self.testPerson)
-            obj.set_accept('a', i, self.testPerson)
-            obj.set_accept('b', num - i, self.testPerson)
+            obj = Obj.create(self.testPerson).obj
+            obj.set(self.testPerson, 'a', i)
+            obj.set(self.testPerson, 'b', num - i)
             objs.append(obj)
             if i == 3:
                 ans = obj
@@ -573,12 +590,9 @@ class TestModelObj(PersonBaseTest):
         Obj.allow_attr(key, TextList)
         Obj.allow_attr(key0, IDList)
 
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-        DBSession.flush()
-        obj.accept(self.testPerson)
-        obj.set_accept(key, ['aaa', 'bbb'], self.testPerson)
-        obj.set_accept(key0, [1, 2, 3], self.testPerson)
+        obj = Obj.create(self.testPerson).obj
+        obj.set(self.testPerson, key, ['aaa', 'bbb'])
+        obj.set(self.testPerson, key0, [1, 2, 3])
 
         objs_gotten = Obj.get_all_by_attrs({key: 'aaa'})
         self.assertEquals(len(objs_gotten), 1)
@@ -598,13 +612,10 @@ class TestModelObj(PersonBaseTest):
         objs_gotten = Obj.get_all_by_attrs({key: 'aaa', key0: 3})
         self.assertEquals(len(objs_gotten), 1)
 
-        ccc = Collection(self.testPerson)
-        ccc.accept(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Collection.create(self.testPerson).obj
 
-        aaa = ccc.set_accept('names', ['aaa'], self.testPerson)
-        bbb = ccc.set_accept('type', 'ccc', self.testPerson)
+        aaa = ccc.set(self.testPerson, 'names', ['aaa'])
+        bbb = ccc.set(self.testPerson, 'type', 'ccc')
         self.assertEqual(
             ccc, Collection.get_one_by_attrs({'type': 'ccc'}))
         aaa._set(['bbb'])
@@ -641,14 +652,11 @@ class TestModelObj(PersonBaseTest):
 
         """
         key = self._testMethodName
-        ooo = Obj(self.testPerson)
+        ooo = Obj.create(self.testPerson).obj
         Obj.allow_attr(key, String, 'test')
-        ooo.accept(self.testPerson)
-        DBSession.add(ooo)
-        DBSession.flush()
 
         # _AttrMgr need to be accepted before it can be found
-        aaa = ooo.set_accept(key, 'first', self.testPerson)
+        aaa = ooo.set(self.testPerson, key, 'first')
 
         found = Obj.get_all_by_attrs({key: 'first'})
         self.assertEquals(len(found), 1)
@@ -662,7 +670,7 @@ class TestModelObj(PersonBaseTest):
         self.assertEquals(len(found), 0)
 
         # Make sure it finds the correct _Attr for the most recent value.
-        bbb = ooo.set_accept(key, 'third', self.testPerson)
+        bbb = ooo.set(self.testPerson, key, 'third')
         self.assertEquals(ooo.get(key), 'third')
 
         found = Obj.get_all_by_attrs({key: 'first'})
@@ -678,16 +686,9 @@ class TestModelObj(PersonBaseTest):
         will return a list with Objs, Cruises and Persons, not just Objs.
 
         """
-        obj = Obj(self.testPerson)
-        DBSession.add(obj)
-
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-
-        s = Ship(self.testPerson)
-        DBSession.add(s)
-
-        DBSession.flush()
+        obj = Obj.create(self.testPerson).obj
+        c = Cruise.create(self.testPerson).obj
+        s = Ship.create(self.testPerson).obj
 
         objs = Obj.query().all()
 
@@ -697,6 +698,10 @@ class TestModelObj(PersonBaseTest):
         self.assertTrue(Cruise in types)
         self.assertTrue(Ship in types)
 
+    def test_mtime(self):
+        cruise = Cruise.create(self.testPerson).obj
+        cruise.mtime
+
 
 class TestModelCacheObjAttrs(PersonBaseTest):
     def test_check(self):
@@ -704,12 +709,8 @@ class TestModelCacheObjAttrs(PersonBaseTest):
         value = '000'
         Obj.allow_attr(key, String)
 
-        ooo = Obj(self.testPerson)
-        DBSession.add(ooo)
-        DBSession.flush()
-
-        ooo.set_accept(key, value, self.testPerson)
-        DBSession.flush()
+        ooo = Obj.create(self.testPerson).obj
+        ooo.set(self.testPerson, key, value)
 
         self.assertEqual(ooo.cache_obj_avs[key].value, value)
 
@@ -719,13 +720,8 @@ class TestModelCacheObjAttrs(PersonBaseTest):
         """
         key = self._testMethodName
         Obj.allow_attr(key, String)
-        ooo = Obj(self.testPerson)
-        DBSession.add(ooo)
-        DBSession.flush()
-        ooo.accept(self.testPerson)
-
-        ooo.set_accept(key, '000', self.testPerson)
-        DBSession.flush()
+        ooo = Obj.create(self.testPerson).obj
+        ooo.set(self.testPerson, key, '000')
         
         ooos = Obj.get_all_by_attrs({key: '000'})
 
@@ -794,125 +790,154 @@ class TestModelPerson(PersonBaseTest):
         3. A person is authorized if they are in any of the requested groups.
 
         """
-        p = Person(identifier='person')
-        DBSession.add(p)
-        DBSession.flush()
+        ppp = Person.create().obj
 
-        self.assertTrue(p.is_authorized([]))
+        self.assertTrue(ppp.is_authorized([]))
 
         perms = ['testgroup', ]
 
-        self.assertFalse(p.is_authorized(perms))
+        self.assertFalse(ppp.is_authorized(perms))
 
-        p.permissions = ['nogoodgroup']
-        self.assertFalse(p.is_authorized(perms))
+        ppp.permissions = ['nogoodgroup']
+        self.assertFalse(ppp.is_authorized(perms))
 
-        p.permissions = ['testgroup']
-        self.assertTrue(p.is_authorized(perms))
+        ppp.permissions = ['testgroup']
+        self.assertTrue(ppp.is_authorized(perms))
         
-        p.permissions = ['nogoodgroup', 'testgroup', ]
-        self.assertTrue(p.is_authorized(perms))
+        ppp.permissions = ['nogoodgroup', 'testgroup', ]
+        self.assertTrue(ppp.is_authorized(perms))
         
         # Staff users have super powers!
-        p.permissions = ['staff', ]
-        self.assertTrue(p.is_authorized(perms))
+        ppp.permissions = ['staff', ]
+        self.assertTrue(ppp.is_authorized(perms))
+
+    def test_attr_permissions(self):
+        """Attributes may have read/write permissions restrictions.
+
+        """
+        ccc = Cruise.create(self.testPerson).obj
+
+        fst = MockFieldStorage(
+            MockFile('asdf_hy1.csv', 'BOTTLE,12345'))
+        attr = ccc.set(self.testPerson, 'archive', FSFile.from_fieldstorage(fst))
+        attr.permissions_read = ['argo']
+
+        argo = Person.create().obj
+        argo.permissions = ['argo']
+
+        staff = Person.create().obj
+        staff.permissions = ['staff']
+
+        self.assertFalse(self.testPerson.is_authorized(attr.permissions_read))
+        self.assertTrue(argo.is_authorized(attr.permissions_read))
+
+        # Staff has superpowers and can read anything
+        self.assertTrue(staff.is_authorized(attr.permissions_read))
 
 
 class TestModelCruise(PersonBaseTest):
+    def test_cache_files(self):
+        ccc = Cruise.create(self.testPerson).obj
+
+        fst = FieldStorage()
+        fst.filename = 'testfile'
+        contents = 'contents'
+        fst.file = StringIO(contents)
+        fsf = FSFile.from_fieldstorage(fst)
+        ccc.set(self.testPerson, 'bottle_exchange', fsf)
+        self.assertEqual(ccc.get('bottle_exchange'), fsf)
+
+    def test_date(self):
+        ccc = Cruise.create(self.testPerson).obj
+        ccc.set(self.testPerson, 'date_start', datetime.now())
+
+    def test_track(self):
+        ccc = Cruise.create(self.testPerson).obj
+        ccc.set(self.testPerson, 'track', geojson.LineString([(0, 1), (2, 3)]))
+
+    def test_file_store(self):
+        ccc = Cruise.create(self.testPerson).obj
+
+        fst = FieldStorage()
+        fst.filename = 'testfile'
+        contents = 'contents'
+        fst.file = StringIO(contents)
+        ccc.set(self.testPerson, 'data_suggestion', FSFile.from_fieldstorage(fst))
+
+        self.assertEqual(contents, ccc.get('data_suggestion').make_blob())
+
+    def test_file_store2(self):
+        ccc = Cruise.create(self.testPerson).obj
+
+        fst = FieldStorage()
+        fst.filename = 'asdf_hy1.csv'
+        contents = 'BOTTLE,123456'
+        fst.file = StringIO(contents)
+        with store_context(store):
+            ccc.set(self.testPerson, 'btl_ex', FSFile.from_fieldstorage(fst))
+
+        with store_context(store):
+            self.assertEqual(contents, ccc.get('btl_ex').make_blob())
+        # TODO test that files get deleted if transaction is rolled back
+
+    def test_accept_replacement(self):
+        """It is possible to accept an attr with a replacement value"""
+        unit = Unit.create(self.testPerson).obj
+        sugg = unit.sugg(self.testPerson, 'name', 'badname')
+        sugg.accept(self.testPerson, 'goodname')
+        self.assertEqual(sugg.value, sugg.value_accepted)
+        self.assertEqual('badname', sugg.value_original)
+        self.assertEqual('goodname', sugg.obj.name)
+
+    def test_accept_replacement_file(self):
+        """It is possible to accept an attr with a replacement value"""
+        mock0 = MockFieldStorage(
+            MockFile('asdf_hy1.csv', 'BOTTLE,12345'))
+        mock1 = MockFieldStorage(
+            MockFile('qwer_hy1.csv', 'BOTTLE,98765'))
+
+        ccc = Cruise.create(self.testPerson).obj
+
+        suggfff = ccc.sugg(ppp, 'bottle_exchange', FSFile.from_fieldstorage(mock0))
+        suggfff.accept(ppp, FSFile.from_fieldstorage(mock1))
+        sesh.commit()
+
+        self.assertEqual(mock1.file.getdata(), ccc.get('bottle_exchange').make_blob())
+        self.assertEqual(mock0.file.getdata(), ccc.get('bottle_exchange', force_original=True).make_blob())
+
+    def test_file_attrs(self):
+        """Get a Cruise's file Changes."""
+        ccc = Cruise.create(self.testPerson).obj
+        mockctdzipnc = MockFieldStorage(
+            MockFile('ctdzipnc', 'ctdzip_nc_ctd.zip'))
+        sugg = ccc.set(self.testPerson, 'ctd_zip_netcdf',
+                FSFile.from_fieldstorage(mockctdzipnc))
+        self.assertEqual(ccc.file_attrs['ctd_zip_netcdf'], sugg)
+
     def test_has_country(self):
         """Get a Cruise's country."""
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        country = Country(self.testPerson)
-        DBSession.add(country)
-        DBSession.flush()
+        ccc = Cruise.create(self.testPerson).obj
+        country = Country.create(self.testPerson).obj
 
-        c.set_accept('country', country.id, self.testPerson)
-        self.assertTrue(c.country is not None)
-        self.assertTrue(c.country.id, country.id)
+        country.name = 'United States of America'
+        country.alpha2 = 'US'
+        country.alpha3 = 'USA'
 
-    def test_add_participant(self):
-        """Add participants to a cruise."""
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
+        ccc.set(self.testPerson, 'country', country)
+        self.assertTrue(ccc.country is not None)
+        self.assertTrue(ccc.country.id, country.id)
+        self.assertTrue(ccc.country.name, country.name)
+        self.assertTrue(ccc.country.alpha2, country.alpha2)
+        self.assertTrue(ccc.country.alpha3, country.alpha3)
 
-        c.participants.extend_(
-            c, self.testPerson,
-            Participant('Chief Scientist', self.testPerson)
-            ).accept(self.testPerson)
+        self.assertEqual(
+            country, Country.query().filter(Country.alpha3 == 'USA').first())
 
-        self.assertEquals(
-            [self.testPerson], [pi.person for pi in c.chief_scientists])
-
-        c.participants.extend_(c, self.testPerson,
-            Participant('Co-Chief Scientist', self.testPerson)
-            ).accept(self.testPerson)
-        self.assertEquals(
-            [(self.testPerson, 'Chief Scientist'),
-             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
-
-    def test_remove_participant(self):
-        """Remove participants from a cruise."""
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
-
-        ppp = Participant('Chief Scientist', self.testPerson)
-
-        c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
-        self.assertEquals(
-            [self.testPerson], [pi.person for pi in c.chief_scientists])
-
-        c.participants.remove_(c, self.testPerson, ppp).accept(self.testPerson)
-        self.assertEquals([], c.participants.roles)
-
-    def test_replace_participants(self):
-        """Replace participants for a cruise."""
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
-
-        ppp = Participant('Chief Scientist', self.testPerson)
-
-        c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
-        self.assertEquals(
-            [self.testPerson], [pi.person for pi in c.chief_scientists])
-
-        qqq = Participant('Co-Chief Scientist', self.testPerson)
-
-        c.participants.replace_(c, self.testPerson, qqq).accept(self.testPerson)
-        self.assertEquals(
-            [(self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
-
-    def test_replace_participants_attrvalue(self):
-        """Replace the participants directly for an _AttrValue."""
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
-
-        count_pre = DBSession.query(models._AttrValueParticipants).count()
-
-        ppp = Participant('Chief Scientist', self.testPerson)
-
-        a = c.participants.extend_(c, self.testPerson, ppp)
-        a.accept(self.testPerson)
-        DBSession.flush()
-
-        qqq = Participant('Co-Chief Scientist', self.testPerson)
-
-        aaa = c.get_attr('participants')
-        aaa._set(Participants([ppp, qqq]))
-        self.assertEquals(
-            [(self.testPerson, 'Chief Scientist'),
-             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
-        DBSession.flush()
-
-        # Make sure only one participants object was added.
-        # TODO
-        #self.assertEquals(
-        #    count_pre + 1,
-        #    DBSession.query(models._AttrValueParticipants).count())
+    def test_country_has_people(self):
+        country = Country.create(self.testPerson).obj
+        ppp = Person.create().obj
+        ppp.set(self.testPerson, 'country', country)
+        self.assertEqual(country.people, [ppp])
 
     def test_track(self):
         """Getting a Cruise's track either gives None or a
@@ -920,12 +945,10 @@ class TestModelCruise(PersonBaseTest):
         
         """
         coords = [(0.0, 0.0), (1.0, 1.0)]
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
+        c = Cruise.create(self.testPerson).obj
         t = c.track
         self.assertTrue(t is None)
-        c.set_accept('track', coords, self.testPerson)
+        c.set(self.testPerson, 'track', coords)
         t = c.track
         self.assertTrue(t is not None)
         self.assertTrue(type(t) is shapely.geometry.linestring.LineString)
@@ -933,16 +956,11 @@ class TestModelCruise(PersonBaseTest):
 
     def test_filter_geo(self):
         """Filter a list of Cruises by a geo function."""
-        c0 = Cruise(self.testPerson)
-        DBSession.add(c0)
+        c0 = Cruise.create(self.testPerson).obj
+        c1 = Cruise.create(self.testPerson).obj
 
-        c1 = Cruise(self.testPerson)
-        DBSession.add(c1)
-
-        DBSession.flush()
-
-        c0.set_accept('track', [[0, 0], [0, 1]], self.testPerson)
-        c1.set_accept('track', [[2, 0], [3, 1]], self.testPerson)
+        c0.set(self.testPerson, 'track', [[0, 0], [0, 1]])
+        c1.set(self.testPerson, 'track', [[2, 0], [3, 1]])
 
         cs = [c0, c1]
 
@@ -958,42 +976,63 @@ class TestModelCruise(PersonBaseTest):
                 lambda t: p1.intersects(t) or p1.contains(t), cs),
             [c1])
 
-    def test_pending_tracked_data(self):
-        """Retrieve a list of files that make up the data suggestion history for
-        the cruise. The model has a map of recognized file types which is the
-        basis for which Attrs will be selected for.
-                
-        """
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
+    def test_replaced_data(self):
+        """Retrieve a list of data that has been accepted with a replacement
+        value.  
 
-        self.assertEquals(c.tracked_data.all(), [])
+        """
+        c = Cruise.create(self.testPerson).obj
+
+        self.assertEquals(c.changes_data(), [])
 
         f0 = MockFieldStorage(
-            MockFile('mock_botex', 'f0_hy1.csv'),
-            contentType='text/csv')
-        a0 = c.set_accept('bottle_exchange', f0, self.testPerson)
+            MockFile('mock_btlex', 'f0_hy1.csv'), contentType='text/csv')
+        a0 = c.sugg(self.testPerson, 'bottle_exchange', FSFile.from_fieldstorage(f0))
+        f1 = MockFieldStorage(
+            MockFile('mock_btlex', 'f1_hy1.csv'), contentType='text/csv')
+        a0.accept(self.testPerson, FSFile.from_fieldstorage(f1))
 
-        self.assertEquals(c.tracked_data.all(), [a0])
+        f2 = MockFieldStorage(
+            MockFile('mock_ctdex', 'f2_ct1.csv'), contentType='text/csv')
+        a1 = c.set(self.testPerson, 'ctd_exchange', FSFile.from_fieldstorage(f0))
+
+        self.assertEquals(c.changes_data('pending'), [])
+        self.assertEquals(c.changes_data('accepted'), [a0, 1])
+        self.assertEquals(c.changes_data('accepted', replaced=True), [a0])
+
+    def test_pending_data(self):
+        """Retrieve a list of files that make up the data suggestion history for
+        the cruise. The model has a map of recognized file types which is the
+        basis for which attr Changes will be selected for.
+                
+        """
+        c = Cruise.create(self.testPerson).obj
+
+        self.assertEquals(c.changes_data(), [])
+
+        f0 = MockFieldStorage(
+            MockFile('mock_botex', 'f0_hy1.csv'), contentType='text/csv')
+        a0 = c.sugg(self.testPerson, 'bottle_exchange', FSFile.from_fieldstorage(f0))
+        a0.acknowledge(self.testPerson)
+
+        self.assertEquals(c.changes_data('pending'), [a0])
+        self.assertEquals(c.changes_data('accepted'), [])
 
     def test_files(self):
         """cruise.files should be a dict mapping data_file_human_names to the
         actual value for that cruise.
 
         """
-        c = Cruise(self.testPerson)
-        DBSession.add(c)
-        DBSession.flush()
+        c = Cruise.create(self.testPerson).obj
 
         mockbotex = MockFieldStorage(MockFile('botex', 'botex_hy1.csv'))
         mockctdzipnc = MockFieldStorage(
             MockFile('ctdzipnc', 'ctdzip_nc_ctd.zip'))
         mockdocpdf = MockFieldStorage(MockFile('docpdf', 'do.pdf'))
 
-        c.set_accept('bottle_exchange', mockbotex, self.testPerson)
-        c.set_accept('ctdzip_netcdf', mockctdzipnc, self.testPerson)
-        c.set_accept('doc_pdf', mockdocpdf, self.testPerson)
+        c.set(self.testPerson, 'bottle_exchange', mockbotex)
+        c.set(self.testPerson, 'ctdzip_netcdf', mockctdzipnc)
+        c.set(self.testPerson, 'doc_pdf', mockdocpdf)
 
         files = c.files
         self.assertEquals(set(files.keys()), set([
@@ -1022,36 +1061,117 @@ class TestModelCruise(PersonBaseTest):
         cruise.
 
         """
-        c0 = Collection(self.testPerson)
-        DBSession.add(c0)
-        cr0 = Cruise(self.testPerson)
-        DBSession.add(cr0)
+        col0 = Collection.create(self.testPerson).obj
+        col1 = Collection.create(self.testPerson).obj
+        cr0 = Cruise.create(self.testPerson).obj
+
+        cr0.set(self.testPerson, 'collections', [col1, col0])
+
+        self.assertEquals(cr0.collections, [col1, col0])
+
+
+class TestParticipant(PersonBaseTest):
+    def test_set(self):
+        """Setting participants."""
+        cruise = Cruise.create(self.testPerson).obj
+        part0 = Participant.create('chief_scientist', self.testPerson)
+        part1 = Participant.create('cochief_scientist', self.testPerson)
+
+        participants = Participants(part0, part1)
+        part = cruise.sugg(self.testPerson, 'participants', participants)
+        self.assertEqual([], cruise.participants)
+        part.accept(self.testPerson)
+        self.assertEqual(participants, cruise.participants)
+
+    def test_add_participant(self):
+        """Add participants to a cruise."""
+        c = Cruise.create(self.testPerson).obj
+
+        c.participants.extend_(
+            c, self.testPerson,
+            Participant('Chief Scientist', self.testPerson)
+            ).accept(self.testPerson)
+
+        self.assertEquals(
+            [self.testPerson], [pi.person for pi in c.chief_scientists])
+
+        c.participants.extend_(c, self.testPerson,
+            Participant('Co-Chief Scientist', self.testPerson)
+            ).accept(self.testPerson)
+        self.assertEquals(
+            [(self.testPerson, 'Chief Scientist'),
+             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
+
+    def test_remove_participant(self):
+        """Remove participants from a cruise."""
+        c = Cruise.create(self.testPerson).obj
+
+        ppp = Participant('Chief Scientist', self.testPerson)
+
+        c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
+        self.assertEquals(
+            [self.testPerson], [pi.person for pi in c.chief_scientists])
+
+        c.participants.remove_(c, self.testPerson, ppp).accept(self.testPerson)
+        self.assertEquals([], c.participants.roles)
+
+    def test_replace_participants(self):
+        """Replace participants for a cruise."""
+        c = Cruise.create(self.testPerson).obj
+
+        ppp = Participant('Chief Scientist', self.testPerson)
+
+        c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
+        self.assertEquals(
+            [self.testPerson], [pi.person for pi in c.chief_scientists])
+
+        qqq = Participant('Co-Chief Scientist', self.testPerson)
+
+        c.participants.replace_(c, self.testPerson, qqq).accept(self.testPerson)
+        self.assertEquals(
+            [(self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
+
+    def test_replace_participants_attrvalue(self):
+        """Replace the participants directly for an _AttrValue."""
+        c = Cruise.create(self.testPerson).obj
+
+        count_pre = DBSession.query(models._AttrValueParticipants).count()
+
+        ppp = Participant('Chief Scientist', self.testPerson)
+
+        a = c.participants.extend_(c, self.testPerson, ppp)
+        a.accept(self.testPerson)
         DBSession.flush()
 
-        cr0.set_accept('collections', [c0.id], self.testPerson)
+        qqq = Participant('Co-Chief Scientist', self.testPerson)
 
-        self.assertEquals(cr0.collections, [c0])
+        aaa = c.get_attr('participants')
+        aaa._set(Participants([ppp, qqq]))
+        self.assertEquals(
+            [(self.testPerson, 'Chief Scientist'),
+             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
+        DBSession.flush()
+
+        # Make sure only one participants object was added.
+        # TODO
+        #self.assertEquals(
+        #    count_pre + 1,
+        #    DBSession.query(models._AttrValueParticipants).count())
+
 
 
 class TestModelCruiseAssociate(PersonBaseTest):
     def test_cruises(self):
         """CruiseAssociates provide a way to get the associated cruises."""
-        sss = Ship(self.testPerson)
-        ccc = Cruise(self.testPerson)
-        ccc.accept(self.testPerson)
-        DBSession.add(sss)
-        DBSession.add(ccc)
-        DBSession.flush()
-        ccc.set_accept('ship', sss.id, self.testPerson)
+        sss = Ship.create(self.testPerson).obj
+        ccc = Cruise.create(self.testPerson).obj
+        ccc.set(self.testPerson, 'ship', sss.id)
         self.assertEqual(sss.cruises(), [ccc])
 
-        ooo = Collection(self.testPerson)
-        ddd = Cruise(self.testPerson)
-        DBSession.add(ooo)
-        DBSession.add(ddd)
-        DBSession.flush()
-        ddd.set_accept('collections', [ooo.id], self.testPerson)
-        ccc.set_accept('collections', [ooo.id], self.testPerson)
+        ooo = Collection.create(self.testPerson).obj
+        ddd = Cruise.create(self.testPerson).obj
+        ddd.set(self.testPerson, 'collections', [ooo.id])
+        ccc.set(self.testPerson, 'collections', [ooo.id])
         self.assertEqual(ooo.cruises(), [ccc])
 
         del ooo._preload_objs['cruises']
@@ -1067,34 +1187,42 @@ class TestModelCollection(PersonBaseTest):
         The first name takes precedence.
 
         """
-        ccc = Collection(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Collection.create(self.testPerson).obj
 
         n0 = 'collnameA'
         n1 = 'collnameB'
         names = [n0, n1]
 
-        ccc.set_accept('names', names, self.testPerson)
+        ccc.set(self.testPerson, 'names', names)
 
         self.assertEqual(ccc.names, names)
         self.assertEqual(ccc.name, n0)
 
     def test_names_order(self):
         """Collections may have multiple names with which order matters."""
-        ccc = Collection(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Collection.create(self.testPerson).obj
 
         n0 = u'collnameA'
         n1 = u'collnameB'
         n2 = u'collnameC'
         names = [n2, n0, n1]
 
-        ccc.set_accept('names', names, self.testPerson)
+        ccc.set(self.testPerson, 'names', names)
 
         self.assertEqual(ccc.names, names)
         self.assertEqual(ccc.name, n2)
+
+    def test_basins(self):
+        coll1 = Collection.create(self.testPerson).obj
+        coll1.set(self.testPerson, 'names', ['000'])
+        colbassug = coll1.sugg(self.testPerson, 'basins', [u'southern'])
+        self.assertEqual(coll1, Collection.query().filter(
+            Collection.names.contains('000')).first())
+        self.assertEqual(Collection.query().filter(
+            Collection.basins.contains('southern')).count(), 0)
+        colbassug.accept(self.testPerson)
+        self.assertEqual(coll1, Collection.query().filter(
+            Collection.basins.contains('southern')).first())
 
     def test_merge(self):
         """Collections can be merged.
@@ -1110,53 +1238,44 @@ class TestModelCollection(PersonBaseTest):
         The mergee is deleted.
 
         """
-        c0 = Collection(self.testPerson)
-        c1 = Collection(self.testPerson)
-        DBSession.add(c0)
-        DBSession.add(c1)
-        DBSession.flush()
+        c0 = Collection.create(self.testPerson).obj
+        c1 = Collection.create(self.testPerson).obj
 
-        c0.set_accept('names', [u'collnameA', u'collnameB'], self.testPerson)
-        c1.set_accept('names', [u'collnameC', u'collnameB'], self.testPerson)
-        c0.set_accept('type', u'group', self.testPerson)
-        c1.set_accept('type', u'WOCE line', self.testPerson)
-        c0.set_accept('basins', [u'basinA', u'basinB'], self.testPerson)
-        c1.set_accept('basins', [u'basinC', u'basinB'], self.testPerson)
+        c0.set(self.testPerson, 'names', [u'collnameA', u'collnameB'])
+        c1.set(self.testPerson, 'names', [u'collnameC', u'collnameB'])
+        c0.set(self.testPerson, 'type', u'group')
+        c1.set(self.testPerson, 'type', u'WOCE line')
+        c0.set(self.testPerson, 'basins', [u'basinA', u'basinB'])
+        c1.set(self.testPerson, 'basins', [u'basinC', u'basinB'])
 
-        cr0 = Cruise(self.testPerson)
-        cr1 = Cruise(self.testPerson)
-        DBSession.add(cr0)
-        DBSession.add(cr1)
-        DBSession.flush()
+        cr0 = Cruise.create(self.testPerson).obj
+        cr1 = Cruise.create(self.testPerson).obj
 
-        cr0.set_accept('collections', [c1.id], self.testPerson)
-        cr1.set_accept('collections', [c0.id, c1.id], self.testPerson)
+        cr0.set(self.testPerson, 'collections', [c1])
+        cr1.set(self.testPerson, 'collections', [c0, c1])
 
         c0.merge(self.testPerson, c1)
 
         self.assertEquals(
             c0.get('names'), ['collnameA', 'collnameB', 'collnameC'])
         self.assertEquals(c0.get('type'), 'group')
-        self.assertEquals(cr0.get('collections'), [c0.id])
-        self.assertEquals(cr1.get('collections'), [c0.id])
+        self.assertEquals(cr0.get('collections'), [c0])
+        self.assertEquals(cr1.get('collections'), [c0])
         DBSession.flush()
         self.assertEquals(Collection.query().get(c1.id), None)
         self.assertEquals(
             c0.get('basins'), ['basinA', 'basinB', 'basinC'])
 
-        c2 = Collection(self.testPerson)
-        DBSession.add(c2)
-        DBSession.flush()
-
-        c2.set_accept('names', ['collnameC'], self.testPerson)
+        c2 = Collection.create(self.testPerson).obj
+        c2.set(self.testPerson, 'names', ['collnameC'])
 
         # Order of names is important
         c2.merge(self.testPerson, c0)
         self.assertEquals(
             c2.get('names'), ['collnameC', 'collnameA', 'collnameB'])
         self.assertEquals(c2.get('type'), 'group')
-        self.assertEquals(cr0.get('collections'), [c2.id])
-        self.assertEquals(cr1.get('collections'), [c2.id])
+        self.assertEquals(cr0.get('collections'), [c2])
+        self.assertEquals(cr1.get('collections'), [c2])
         DBSession.flush()
         self.assertEquals(Collection.query().get(c0.id), None)
 
@@ -1180,9 +1299,7 @@ class TestModelFSFile(PersonBaseTest):
         be closed already).
 
         """
-        ccc = Cruise(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Cruise.create(self.testPerson).obj
 
         key = 'data_suggestion'
 
@@ -1192,7 +1309,7 @@ class TestModelFSFile(PersonBaseTest):
         if attr0:
             attr0._set(file0)
         else:
-            attr0 = ccc.set_accept(key, file0, self.testPerson)
+            attr0 = ccc.set(self.testPerson, key, file0)
         attr0.attr_value.value.import_id = '0'
         DBSession.flush()
         file0.file.close()
@@ -1203,7 +1320,7 @@ class TestModelFSFile(PersonBaseTest):
         if attr1:
             attr1._set(file1)
         else:
-            attr1 = ccc.set_accept(key, file1, self.testPerson)
+            attr1 = ccc.set(self.testPerson, key, file1)
         attr1.attr_value.value.import_id = '1'
         DBSession.flush()
         file1.file.close()
@@ -1278,16 +1395,10 @@ class TestModelArgoFile(PersonBaseTest):
             MockFile(data, 'test_hy1.csv'), 
             contentType='text/csv')
 
-        ccc = Cruise(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
-
-        ccc.set_accept('bottle_exchange', mockfs, self.testPerson)
+        ccc = Cruise.create(self.testPerson).obj
+        ccc.set(self.testPerson, 'bottle_exchange', mockfs)
 
         argo = ArgoFile(self.testPerson)
-        DBSession.add(argo)
-        DBSession.flush()
-
         argo.link(ccc, 'bottle_exchange')
         argo_str = argo.file.read()
         self.assertEqual(argo_str, data)
@@ -1307,13 +1418,12 @@ class TestHelper(PersonBaseTest):
         key = self._testMethodName
         Person.allow_attr(key, File)
 
-        ppp = Person(identifier='test' + key)
-        DBSession.add(ppp)
-        DBSession.flush()
+        ppp = Person.create().obj
+        ppp.set_id_names(identifier='test' + key)
 
         file = MockFieldStorage(
             MockFile('', 'testfile.txt'), contentType='text/plain')
-        data = ppp.set_accept(key, file, self.testPerson)
+        data = ppp.set(self.testPerson, key, file)
         DBSession.flush()
 
         answer_parts = [
@@ -1357,9 +1467,7 @@ class TestView(PersonBaseTest):
         with self.assertRaises(HTTPBadRequest):
             cruise_show(request)
 
-        ccc = Cruise(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Cruise.create(self.testPerson).obj
 
         request.matchdict['cruise_id'] = ccc.uid
         request.user = None
@@ -1374,9 +1482,7 @@ class TestView(PersonBaseTest):
         from pycchdo.views.cruise import cruise_show
         from pyramid.renderers import render_to_response
 
-        ccc = Cruise(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
+        ccc = Cruise.create(self.testPerson).obj
 
         mock_file = MockFieldStorage(
             MockFile('', 'mockfile.txt'), contentType='text/plain')

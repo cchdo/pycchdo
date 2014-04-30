@@ -1,4 +1,4 @@
-{% extends "objs/base.jinja2" %}
+{% extends "base.jinja2" %}
 {% block title %}Obj | Suggested {{ obj.id }}{% endblock %}
 {% block content %}
   {% call h.boxed('New Obj %s suggested' % obj.id, class='objs new') -%}

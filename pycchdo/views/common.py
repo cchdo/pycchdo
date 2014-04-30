@@ -1,8 +1,7 @@
 import transaction
 
 from pycchdo.views import log
-from pycchdo.models import Cruise
-from pycchdo.models.models import disjoint_load_cruise_attrs
+from pycchdo.models.serial import Cruise
 
 
 def get_cruise(cruise_id, load_attrs=True):
@@ -13,21 +12,19 @@ def get_cruise(cruise_id, load_attrs=True):
 
     try:
         cid = int(cruise_id)
-        cruise_obj = Cruise.get_by_id(cid)
+        cruise_obj = Cruise.query().get(cid)
     except ValueError:
         pass
 
     # If the id does not refer to a Cruise, try searching based on ExpoCode
     if not cruise_obj:
-        cruise_obj = Cruise.get_one_by_attrs({'expocode': cruise_id})
+        cruise_obj = Cruise.get_by_expocode(cruise_id)
     if not cruise_obj:
         # If not, try based on aliases.
-        cruise_obj = Cruise.get_one_by_attrs({'aliases': cruise_id})
+        cruise_obj = Cruise.query().filter(
+            Cruise.aliases.any(cruise_id)).first()
     if not cruise_obj:
         raise ValueError('Not found')
-
-    if load_attrs:
-        disjoint_load_cruise_attrs([cruise_obj])
     return cruise_obj
 
 

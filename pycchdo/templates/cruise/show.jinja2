@@ -1,9 +1,9 @@
 {%- if 'US Repeat Hydrography' in h.collection_names(cruise.collections) %}
-  {% extends "ushydro.jinja2" %}
+  {% extends "/ushydro.jinja2" %}
 {%- else %}
-  {% extends "base.jinja2" %}
+  {% extends "/base.jinja2" %}
 {%- endif %}
-{%- from "_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
+{%- from "/_notes.jinja2" import show_notes, note_editor, show_notes_with_editor with context %}
 {% block title %}Cruise {{cruise.uid or ''}}{% endblock %}
 {% block head -%}
   {{ whh.tags.stylesheet_link('/static/css/overcast/jquery-ui-1.7.2.custom.css') }}
@@ -84,7 +84,7 @@
           <tr class="mb-link{{ loop.index0 }} meta {{ hl }}" id="{{ frag }}">
             <td class="file_type">
               {%- if h.has_edit(request) %}
-                {{ whh.tags.link_to(file.key, request.current_route_path(_anchor=frag)) }}
+                {{ whh.tags.link_to(file.attr, request.current_route_path(_anchor=frag)) }}
               {%- else %}
                 {{ file.key }}
               {%- endif %}
@@ -300,14 +300,14 @@
                 {%- for attr in updates['attrs'] %}
                   {%- set hl = loop.cycle('even', 'odd') %}
                   <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
-                    <td>{{ attr.key }}</td>
+                    <td>{{ attr.attr }}</td>
                     <td>{{ h.link_person(attr.creation_person) }}</td>
                     <td class="date">{{ h.pdatetime(attr.creation_timestamp) }}</td>
                   </tr>
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
                     <td class="change">
                       {%- if attr.deleted %}
-                        delete <span class="key">{{ attr.key }}</span>
+                        delete <span class="key">{{ attr.attr }}</span>
                       {%- else %}
                         <span class="value">{{ attr.value }}</span>
                       {%- endif %}
@@ -363,7 +363,7 @@
   </div>
   {%- if cruise.track %}
     {%- call h.boxed('Plot', id='plot') %}
-      {%- include "_noscript_warning.txt" %}
+      {%- include "/_noscript_warning.txt" %}
       <div id="plot_map"></div>
       <textarea>{{ h.track_as_string(cruise.track)}}</textarea>
     {%- endcall %}
@@ -401,8 +401,8 @@
               </td>
             </tr>
           {%- endif %}
-          {%- for change in history|reverse %}
-            {{ h.cruise_history_rows(change, loop.index0, loop.cycle('even', 'odd')) }}
+          {%- for note in history|reverse %}
+            {{ h.cruise_history_rows(note, loop.index0, loop.cycle('even', 'odd')) }}
           {%- endfor %}
         </table>
         {%- if h.has_edit(request) %}

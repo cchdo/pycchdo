@@ -4,11 +4,11 @@ from pyramid.response import Response
 from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
                                    HTTPUnauthorized
 
-import pycchdo.models as models
-
 from . import *
 from pycchdo.log import ColoredLogger
-from pycchdo.models import DBSession, Note, Cruise, Obj
+from pycchdo.models import serial as model
+from pycchdo.models.serial import DBSession, Change, Note, Cruise, Obj
+from pycchdo.models.file_types import data_file_descriptions
 from pycchdo.helpers import has_mod
 from pycchdo.views import log
 from pycchdo.views.staff import staff_signin_required
@@ -47,7 +47,7 @@ def obj_new(request):
             notes.append(v)
 
     try:
-        obj = models.__dict__[obj_type](request.user)
+        obj = model.__dict__[obj_type](request.user)
         DBSession.add(obj)
         DBSession.flush()
     except KeyError:
@@ -199,7 +199,7 @@ def obj_attrs(request):
 def obj_attr(request):
     obj_id = request.matchdict['obj_id']
     key = request.matchdict['key']
-    attr = models._Attr.query().get(key)
+    attr = Change.query().get(key)
     if not attr:
         log.error(u'No attr with key {0!r}'.format(key))
         raise HTTPNotFound()
@@ -238,7 +238,7 @@ def obj_attr(request):
                         'You must provide a new key that is a file type',
                         'help')
                     return redirect
-                if accept_key not in models.data_file_descriptions.keys():
+                if accept_key not in data_file_descriptions.keys():
                     request.session.flash(
                         u'{0} is not a valid file type'.format(accept_key),
                         'help')

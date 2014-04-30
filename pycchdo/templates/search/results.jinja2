@@ -1,4 +1,4 @@
-{% extends "base.jinja2" %}
+{% extends "/base.jinja2" %}
 {%- block head %}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
   {{ whh.tags.stylesheet_link('/static/timeglider/jquery-ui-1.10.3.custom.min.css') }}
@@ -68,8 +68,8 @@
 
 {%- block js %}
   {%- assets
-    filters='rjsmin,gzip',
-    output='gen/search.results.js.gz',
+    filters='rjsmin',
+    output='gen/search.results.js',
     'js/metaTable.js',
     'js/search_results.js'
 ,

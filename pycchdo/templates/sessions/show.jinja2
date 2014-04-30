@@ -1,4 +1,4 @@
-{%- extends "base.jinja2" %}
+{%- extends "/base.jinja2" %}
 {%- set description = "No one is signed in" %}
 {%- if person %}
   {%- set description = h.link_person(person) + " is signed in" %}

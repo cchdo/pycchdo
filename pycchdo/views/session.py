@@ -8,7 +8,7 @@ import transaction
 from pyramid.security import remember, forget
 from pyramid.httpexceptions import HTTPSeeOther, HTTPInternalServerError
 
-from pycchdo.models import DBSession, Person
+from pycchdo.models.serial import DBSession, Person
 from pycchdo.log import ColoredLogger
 
 

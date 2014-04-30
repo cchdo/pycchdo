@@ -15,8 +15,7 @@ from pyramid.httpexceptions import HTTPUnauthorized
 from pycchdo.helpers import (
     link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_q
     )
-import pycchdo.models as models
-from pycchdo.models import Submission, OldSubmission
+from pycchdo.models.serial import Submission, OldSubmission, Change
 
 from pycchdo.views import *
 from pycchdo.views.common import get_cruise
@@ -49,7 +48,7 @@ def _submission_short_text(submission):
 def _moderate_submission(request):
     try:
         submission_id = request.params['submission_id']
-        submission = models.Submission.get_id(submission_id)
+        submission = Submission.get_id(submission_id)
     except KeyError:
         request.session.flash(
             'A submission must be specified', 'help')
@@ -152,7 +151,7 @@ def submissions(request):
 
 def _moderate_attribute(request):
     try:
-        attr = models._Attr.get_id(request.params['attr'])
+        attr = Change.get_id(request.params['attr'])
     except KeyError:
         request.response_status = '400 No attribute to modify'
         return
@@ -190,7 +189,7 @@ def moderation(request):
             return require_signin(request)
         _moderate_attribute(request)
 
-    #pending = models._Attr.pending()
+    #pending = Change.pending()
 
     #files_by_parameters = {}
     #for attr in pending:
@@ -212,7 +211,7 @@ def moderation(request):
     files_by_parameters = []
 
     dtc_to_q = {}
-    pending = models._Attr.pending_data()
+    pending = Change.pending_data()
     attr_sub = {}
     for attr in pending:
         key = (attr.creation_stamp.timestamp, attr.obj)
@@ -286,10 +285,7 @@ def archive(request, cruises, filename='archive.tbz', formats=['exchange'],
             filepath = os.path.join(path, file.name)
 
             with open(filepath, 'w') as f:
-                try:
-                    f.write(file.read())
-                except models.CorruptGridFile:
-                    pass
+                f.write(file.read())
 
             now = time.time()
             d = file.upload_date

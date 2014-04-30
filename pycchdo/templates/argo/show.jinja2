@@ -1,5 +1,5 @@
 {% set subtitle = 'Edit file' %}
-{% extends "argo/base.jinja2" %}
+{% extends "base.jinja2" %}
 {% block argo_content -%}
   {{ whh.tags.form(request.url, method='PUT') }}
     <h2>{{ whh.tags.title('Identifier', label_for='expocode') }}</h2>

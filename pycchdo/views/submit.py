@@ -5,9 +5,8 @@ from pyramid.httpexceptions import HTTPBadRequest, HTTPUnauthorized
 from pyramid_mailer import get_mailer
 from pyramid_mailer.message import Message
 
-from pycchdo import models
 from pycchdo import helpers as h
-from pycchdo.models import DBSession, FSFile
+from pycchdo.models.serial import DBSession, FSFile, Submission, Note
 from pycchdo.views.session import require_signin
 from pycchdo.log import ColoredLogger
 from . import *
@@ -165,7 +164,7 @@ def submit(request):
         submissions = []
         # Create one submission per file with duplicated information
         for file in files:
-            sub = models.Submission(user)
+            sub = Submission(user)
             DBSession.add(sub)
             if d['identifier']:
                 sub.expocode = d['identifier']
@@ -181,7 +180,7 @@ def submit(request):
                 sub.type = d['public_status']
             sub.file = FSFile.from_fieldstorage(file)
             if d['notes']:
-                sub.notes.append(models.Note(user, d['notes']))
+                sub.notes.append(Note(user, d['notes']))
             DBSession.flush()
             submissions.append(sub)
             # TODO record submitter useragent and ip

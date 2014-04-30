@@ -1,4 +1,4 @@
-{% extends "staff.jinja2" %}
+{% extends "/staff.jinja2" %}
 {% block title %}Home | Staff{% endblock %}
 {% block content -%}
   {% call h.boxed('Hi %s!' % request.user.name) -%}

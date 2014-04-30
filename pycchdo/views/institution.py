@@ -4,21 +4,20 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 
 from . import *
 import pycchdo.helpers as h
-from pycchdo.models import Institution
-from pycchdo.models.models import preload_cached_avs
+from pycchdo.models.serial import Institution
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
 def institutions_index(request):
-    institutions = preload_cached_avs(Institution, Institution.query()).all()
+    institutions = Institution.query().all()
     institutions = sorted(institutions, key=lambda x: x.name)
     institutions = paged(request, institutions)
     return {'institutions': institutions}
 
 
 def institutions_index_json(request):
-    institutions = preload_cached_avs(Institution, Institution.query()).all()
+    institutions = Institution.query().all()
     institutions = sorted(institutions, key=lambda x: x.name)
     institutions = [i.to_nice_dict() for i in institutions]
     return institutions
@@ -26,8 +25,7 @@ def institutions_index_json(request):
 
 def _get_institution(request):
     institution_id = request.matchdict.get('institution_id')
-    return preload_cached_avs(
-        Institution, Institution.query()).get(institution_id)
+    return Institution.query().get(institution_id)
 
 
 def _redirect_response(request, id):
@@ -39,7 +37,7 @@ def institution_show(request):
     institution = _get_institution(request)
     if not institution:
         raise HTTPNotFound()
-    cruises = institution.cruises(accepted_only=False)
+    cruises = institution.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'institution': institution, 'cruises': cruises}
 
@@ -48,7 +46,7 @@ def institution_archive(request):
     institution = _get_institution(request)
     if not institution:
         raise HTTPNotFound()
-    return staff.archive(request, institution.cruises())
+    return staff.archive(request, institution.cruises)
 
 
 def institution_edit(request):
@@ -82,7 +80,7 @@ def institution_merge(request):
     except KeyError:
         request.session.flash('No mergee institution given', 'help')
         return redirect_response
-    mergee = preload_cached_avs(Institution, Institution.query()).get(mergee_id)
+    mergee = Institution.query().get(mergee_id)
     if not mergee:
         request.session.flash(
             'Invalid mergee institution %s given' % mergee_id, 'help')

@@ -1263,7 +1263,7 @@ def _import_events(session):
         for cruise in cruises:
             log.info("Creating Event {0} for cruise {1} {2}".format(
                 event_id, event.ExpoCode, cruise.id))
-            cruise.notes.append(note)
+            cruise.change._notes.append(note)
 
 
 _known_bad_old_submissions = [
@@ -1853,7 +1853,7 @@ def _import_queue_files(session, downloader):
             contact = updater.importer
 
         log.info(u'acknowledged by CCHDO contact {0}'.format(contact))
-        queue_file.acknowledge(DBSession, contact)
+        queue_file.acknowledge(contact)
         queue_file.ts_ack = date_received
 
         # merged status codes
@@ -1875,7 +1875,7 @@ def _import_queue_files(session, downloader):
         if qfile.merged == 2 or qfile.hidden:
             # file is hidden
             log.info(u'rejected by CCHDO contact {0}'.format(contact))
-            queue_file.reject(DBSession, contact)
+            queue_file.reject(contact)
 
         # processed_input is obsolete according to cberys
         # hidden flag is obsolete according to cberys
@@ -2461,6 +2461,10 @@ def import_(import_gid, nthreads, fsstore, args):
                 _import_track_lines(session)
                 _import_collections_cruises(session)
                 _import_collection_basins(session)
+
+                transaction.commit()
+                transaction.begin()
+
                 _import_contacts_cruises(session)
 
                 transaction.commit()

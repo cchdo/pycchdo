@@ -20,8 +20,11 @@ from webhelpers import text as whtext
 from pyramid.url import route_path
 
 from pycchdo.log import ColoredLogger, INFO, DEBUG
-from pycchdo.models import (
-    Note, FSFile, data_file_descriptions,
+from pycchdo.models.serial import (
+    Note, FSFile
+    )
+from pycchdo.models.file_types import data_file_descriptions
+from pycchdo.models.serial import (
     Person, Country, Cruise, Collection, Ship, Institution,
     )
 from pycchdo.util import collapse_dict
@@ -471,7 +474,7 @@ def cruise_map_thumb(request, cruise, show_full_link=True):
 
 
 def cruise_suggested_attr(attr):
-    person = link_person(attr.creation_person)
+    person = link_person(attr.p_c)
     if attr.deleted:
         verb = 'deleting'
         obj_phrase = [H.span(attr.key, class_='key')]
@@ -479,10 +482,10 @@ def cruise_suggested_attr(attr):
         verb = 'changing'
         obj_phrase = [H.span(attr.key, class_='key'), ' to ',
                       H.span(attr.value, class_='value')]
-    when = attr.creation_timestamp
-    if attr.pending_stamp:
+    when = attr.ts_c
+    if attr.ts_ack:
         followup = \
-           '(Under review as of %s)' % (attr.pending_timestamp)
+           '(Under review as of %s)' % (attr.ts_ack)
     else:
         followup = ''
 
@@ -504,8 +507,8 @@ def cruise_history_rows(change, i, hl):
     baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
 
     if type(change) == Note:
-        time = pdate(change.creation_timestamp, '%Y-%m-%d')
-        person = link_person(change.creation_person)
+        time = pdate(change.ts_c, '%Y-%m-%d')
+        person = link_person(change.p_c)
         data_type = change.data_type
         action = change.action
         summary = change.subject
@@ -513,15 +516,15 @@ def cruise_history_rows(change, i, hl):
         if change.discussion:
             baseclass += ' discussion'
     else:
-        time = pdate(change.creation_timestamp, '%Y-%m-%d')
-        person = link_person(change.creation_person)
-        data_type = change['key']
-        if change['deleted']:
+        time = pdate(change.ts_c, '%Y-%m-%d')
+        person = link_person(change.p_c)
+        data_type = change.attr
+        if change.deleted:
             action = 'Deleted'
             summary = 'Deleted'
         else:
             action = 'Updated'
-            summary = change['value']
+            summary = change.value
         body = ''
 
     note_id = 'history_{0}'.format(change.id)
@@ -862,7 +865,7 @@ def link_q(request, attached):
 
 
 def change_pretty(change):
-    person = change.creation_person
+    person = change.p_c
     if change['deleted']:
         status = 'deleted'
     else:
@@ -889,7 +892,7 @@ def change_pretty(change):
         span(person.full_name, class_='person'), status,
         span(change.key, class_='key'), ' to ',
         span(change.value, class_='value'), ' at ',
-        span(change.creation_timestamp, class_='date'),
+        span(change.ts_c, class_='date'),
         class_='change')
 
 
@@ -936,52 +939,33 @@ def collect_data_files(cruise_obj):
     if not cruise_obj:
         return {}
 
-    from pycchdo.models.models import disjoint_load_obj, FSFile
-
-    ftypes = [
-        'ctdzip_exchange',
-        'bottle_exchange',
-        'large_volume_samples_exchange',
-        'trace_metals_exchange',
-        'ctdzip_netcdf',
-        'bottlezip_netcdf',
-        'doc_txt',
-        'doc_pdf',
-        'bottle_woce',
-        'ctdzip_woce',
-        'sum_woce',
-        'large_volume_samples_woce',
-    ]
-    #for ftype in ftypes:
-    #    disjoint_load_obj([cruise_obj], ftype, FSFile)
+    mapped = cruise_obj.file_attrs
 
     data_files = OrderedDict()
     data_files['exchange'] = {
-        'ctdzip_exchange': cruise_obj.get_attr_or('ctdzip_exchange'),
-        'bottle_exchange': cruise_obj.get_attr_or('bottle_exchange'),
-        'large_volume_samples_exchange': cruise_obj.get_attr_or(
+        'ctdzip_exchange': mapped.get('ctdzip_exchange'),
+        'bottle_exchange': mapped.get('bottle_exchange'),
+        'large_volume_samples_exchange': mapped.get(
             'large_volume_samples_exchange'),
-        'trace_metals_exchange': cruise_obj.get_attr_or(
-            'trace_metals_exchange'),
+        'trace_metals_exchange': mapped.get('trace_metals_exchange'),
     }
     data_files['netcdf'] = {
-        'ctdzip_netcdf': cruise_obj.get_attr_or('ctdzip_netcdf'),
-        'bottlezip_netcdf': cruise_obj.get_attr_or('bottlezip_netcdf'),
+        'ctdzip_netcdf': mapped.get('ctdzip_netcdf'),
+        'bottlezip_netcdf': mapped.get('bottlezip_netcdf'),
     }
     data_files['doc'] = {
-        'doc_txt': cruise_obj.get_attr_or('doc_txt'),
-        'doc_pdf': cruise_obj.get_attr_or('doc_pdf'),
+        'doc_txt': mapped.get('doc_txt'),
+        'doc_pdf': mapped.get('doc_pdf'),
     }
     data_files['woce'] = {
-        'bottle_woce': cruise_obj.get_attr_or('bottle_woce'),
-        'ctdzip_woce': cruise_obj.get_attr_or('ctdzip_woce'),
-        'sum_woce': cruise_obj.get_attr_or('sum_woce'),
-        'large_volume_samples_woce': cruise_obj.get_attr_or(
-            'large_volume_samples_woce'),
+        'bottle_woce': mapped.get('bottle_woce'),
+        'ctdzip_woce': mapped.get('ctdzip_woce'),
+        'sum_woce': mapped.get('sum_woce'),
+        'large_volume_samples_woce': mapped.get('large_volume_samples_woce'),
     }
     data_files['map'] = {
-        'full': cruise_obj.get_attr_or('map_full'),
-        'thumb': cruise_obj.get_attr_or('map_thumb'),
+        'full': mapped.get('map_full'),
+        'thumb': mapped.get('map_thumb'),
     }
     return collapse_dict(data_files) or {}
 

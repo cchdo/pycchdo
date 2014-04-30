@@ -1,7 +1,9 @@
 import os
+import os.path
 from unittest import TestCase
 from logging import getLogger, StreamHandler, DEBUG, INFO, CRITICAL
 from sys import stderr
+from tempfile import mkdtemp
 from ConfigParser import SafeConfigParser
 
 from pyramid import testing
@@ -12,10 +14,14 @@ import transaction
 from sqlalchemy import engine_from_config
 from sqlalchemy.exc import InvalidRequestError
 
+from sqlalchemy_imageattach.context import (
+    pop_store_context, push_store_context)
+
 from pycchdo.util import StringIO, pyStringIO, MemFile as MockFile
-from pycchdo.models.models import (
-    DBSession, Base, reset_fs, FSFile, Person, 
+from pycchdo.models.serial import (
+    DBSession, reset_fs, Person, 
     )
+from pycchdo.models.filestorage import FSStore
 from pycchdo.log import ColoredLogger, ColoredFormatter
 
 
@@ -34,14 +40,16 @@ engine = None
 logger = None
 
 
+fsstore = FSStore(path=mkdtemp(), base_url='/')
+
+
 def setUpModule():
     global engine, logger
     if engine is None:
-        env = bootstrap(os.path.join(os.getcwd(), 'test.ini'))
+        env = bootstrap(os.path.join(os.path.dirname(__file__), '..', '..', 'test.ini'))
         settings = env['registry'].settings
         engine = engine_from_config(settings, 'sqlalchemy.')
         DBSession.configure(bind=engine)
-        FSFile.fs_setup()
 
         if db_echo:
             logger = _add_logger('sqlalchemy.engine')
@@ -63,12 +71,13 @@ def _add_logger(logger_name):
 
 
 def tearDownModule():
-    reset_fs()
+    reset_fs(fsstore)
     engine = None
 
 
 class BaseTest(TestCase):
     def setUp(self):
+        push_store_context(fsstore)
         self.config = testing.setUp()
         transaction.get().doom()
 
@@ -77,19 +86,19 @@ class BaseTest(TestCase):
         DBSession.flush()
         DBSession.rollback()
         testing.tearDown()
+        pop_store_context()
 
 
 class PersonBaseTest(BaseTest):
     def setUp(self):
         super(PersonBaseTest, self).setUp()
-        self.testPerson = Person(identifier='testperson')
-        DBSession.add(self.testPerson)
+        self.testPerson = Person.create().obj
+        self.testPerson.set_id_names('testperson')
         try:
             DBSession.flush()
         except InvalidRequestError:
             transaction.begin()
             transaction.get().doom()
-        self.testPerson.accept(self.testPerson)
 
     def tearDown(self):
         super(PersonBaseTest, self).tearDown()

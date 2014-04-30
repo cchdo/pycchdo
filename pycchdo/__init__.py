@@ -19,9 +19,8 @@ import geojson
 
 from sqlalchemy import engine_from_config
 
-from pycchdo import models, helpers
+from pycchdo import helpers
 from pycchdo.routes import configure_routes
-from pycchdo.models import preload_person
 from pycchdo.models.serial import DBSession, Person
 from pycchdo.models.search import SearchIndex
 from pycchdo.models.filestorage import FSStore
@@ -37,8 +36,7 @@ class RequestFactory(Request):
         userid = unauthenticated_userid(self)
         if userid is not None:
             # this should return None if the user doesn't exist
-            p = preload_person(Person, Person.query()).get(userid)
-            return p
+            return Person.query().get(userid)
 
     @reify
     def search_index(self):
@@ -62,11 +60,15 @@ class RequestFactory(Request):
 
 
 def _configure_bindings(config):
+    # get_jinja2_environment may return None if config is not committed
+    config.commit()
     config.add_jinja2_extension('webassets.ext.jinja2.AssetsExtension')
+    config.add_jinja2_extension('webassets.ext.jinja2.AssetsExtension', '.html')
     assets_env = config.get_webassets_env()
     config.get_jinja2_environment().assets_environment = assets_env
-    # This needs to come after the assets_environment set
+    config.get_jinja2_environment('.html').assets_environment = assets_env
     config.add_jinja2_search_path('pycchdo:templates')
+    config.add_jinja2_search_path('pycchdo:templates', '.html')
 
 
 def _add_renderer_globals(event):
@@ -81,7 +83,7 @@ def _add_renderer_globals(event):
 
 def _configure_renderers(config):
     config.add_subscriber(_add_renderer_globals, BeforeRender)
-    config.add_renderer('.html', 'pyramid_jinja2.renderer_factory')
+    config.add_jinja2_renderer('.html')
     config.add_renderer('json', 'pycchdo.renderer_factory.json')
 
 
@@ -97,8 +99,8 @@ def _configure_error_views(config):
 
 
 def _configure(config):
-    _configure_bindings(config)
     _configure_renderers(config)
+    _configure_bindings(config)
     _configure_error_views(config)
     configure_routes(config)
 

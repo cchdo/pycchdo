@@ -28,7 +28,8 @@ import libcchdo.formats.ctd.zip.netcdf_oceansites as ctdzipnc_os
 import libcchdo.formats.bottle.exchange as botex
 
 from pycchdo import models, helpers as h
-from pycchdo.models.models import disjoint_load_cruise_attrs
+from pycchdo.models.serial import Cruise
+from pycchdo.models.file_types import data_file_descriptions
 from pycchdo.views import file_response
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.util import StringIO
@@ -276,7 +277,7 @@ def dumps_sqlite(request):
         conn.commit()
 
         ctd_formats = filter(lambda x: x.startswith('ctd'),
-                             models.data_file_descriptions.keys())
+                             data_file_descriptions.keys())
 
         insert_vals = [
             'filename', 'dac', 'id', 'date', 'latitude', 'longitude', 
@@ -285,8 +286,7 @@ def dumps_sqlite(request):
 
         dac = 'CCHDO'
         profile_type = 'ctd'
-        cruises = models.Cruise.query().all()
-        disjoint_load_cruise_attrs(cruises)
+        cruises = Cruise.query().all()
         h.reduce_specificity(request, *cruises)
         for c in cruises:
             if any(c.get(format) for format in ctd_formats):
@@ -359,14 +359,13 @@ def dumps_sqlite(request):
         conn.commit()
 
         ctd_formats = filter(lambda x: x.startswith('ctd'),
-                             models.data_file_descriptions.keys())
+                             data_file_descriptions.keys())
 
         insert_vals = [
             'id', 'aliases', 'collections', 'ship', 'country', 'chi_sci', 
             'ports', 'date_start', 'date_end', 'track', ]
 
-        cruises_seahunt = models.Cruise.only_if_accepted_is(False).all()
-        disjoint_load_cruise_attrs(cruises_seahunt)
+        cruises_seahunt = Cruise.only_if_accepted_is(False).all()
         h.reduce_specificity(request, *cruises_seahunt)
         for c in cruises_seahunt:
             id = c.uid

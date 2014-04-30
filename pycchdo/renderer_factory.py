@@ -4,7 +4,7 @@ from datetime import datetime, date
 
 from sqlalchemy.ext.associationproxy import _AssociationList
 
-from pycchdo.models import (
+from pycchdo.models.serial import (
     Participants, Participant, Parameter,
     )
 

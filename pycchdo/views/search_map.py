@@ -15,9 +15,8 @@ from webhelpers import html as whh
 from shapely.geometry import polygon as poly
 
 from pycchdo import models, helpers as h
-from pycchdo.models import (
-    Cruise, search, _Attr, 
-    )
+from pycchdo.models import search
+from pycchdo.models.serial import Cruise, Change
 from pycchdo.views import file_response
 from pycchdo.log import ColoredLogger, DEBUG
 

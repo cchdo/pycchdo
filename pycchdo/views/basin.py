@@ -9,8 +9,7 @@ from sqlalchemy import distinct
 
 from pycchdo.helpers import cruises_sort_by_date_start
 from pycchdo.views.toplevel import catchall_static
-import pycchdo.models as models
-from pycchdo.models import Collection
+from pycchdo.models.serial import Collection
 from pycchdo.log import ColoredLogger
 
 
@@ -28,27 +27,17 @@ def _sorted_by_name(collections):
 
 def _coll_cruises(colls):
     """Return dict mapping collection to its cruises."""
-    cc = models.batch_load_cruises(Collection, colls)
-    for coll in cc:
-        cc[coll] = cruises_sort_by_date_start(cc[coll])
+    cc = {}
+    for coll in colls:
+        cc[coll] = cruises_sort_by_date_start(coll.cruises)
     return cc
-
-
-def load_coll(objs):
-    """Load collection basins and names.
-
-    get_all_by_attrs allows for a hook_objs to load this before true match.
-
-    """
-    models.disjoint_load_list(objs, 'basins', 'names')
 
 
 def _arctic():
     """Provide a list of collections with cruises in the Arctic circle.
 
     """
-    colls = Collection.get_all_by_attrs(
-        {'basins': u'arctic'}, hook_objs=load_coll)
+    colls = Collection.query().filter(Collection.basins.contains(u'arctic')).all()
 
     results = {'default': colls}
     _sort_results(results)
@@ -56,8 +45,7 @@ def _arctic():
 
 
 def _indian():
-    colls = Collection.get_all_by_attrs(
-        {'basins': 'indian'}, hook_objs=load_coll)
+    colls = Collection.query().filter(Collection.basins.contains(u'indian')).all()
 
     results = {
         u'indian': [],
@@ -84,8 +72,7 @@ def _sort_results(results):
 
 
 def _southern():
-    colls = Collection.get_all_by_attrs(
-        {'basins': u'southern'}, hook_objs=load_coll)
+    colls = Collection.query().filter(Collection.basins.contains(u'southern')).all()
 
     results = {
         u'southern': [],

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import sys
+import os
+import os.path
+from shutil import rmtree
 from contextlib import closing
 from cgi import FieldStorage
 from StringIO import StringIO
@@ -9,9 +12,11 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    create_engine, Table, Column, Integer, Unicode, String, Boolean, ForeignKey,
-    DateTime,
+    event,
+    Table, Column, ForeignKey, 
+    Integer, Unicode, String, Boolean, DateTime,
     )
+from sqlalchemy.exc import DataError
 from sqlalchemy.sql import (
     func, and_, not_, or_,
     )
@@ -22,7 +27,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, scoped_session, sessionmaker, backref
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
-    collection, InstrumentedList,
+    collection, InstrumentedList, attribute_mapped_collection,
     )
 from sqlalchemy.schema import CreateSchema
 
@@ -30,15 +35,13 @@ from zope.sqlalchemy import ZopeTransactionExtension
 
 import geojson
 
-from geoalchemy import (
-    GeometryColumn, LineString, GeometryDDL, 
-    )
-from geoalchemy.postgis import PGComparator
+from geoalchemy2.types import Geography 
 
 from sqlalchemy_imageattach.context import current_store, store_context
 
 from libcchdo.recipes.orderedset import OrderedSet
 
+from pycchdo.models import triggers
 from pycchdo.models.attrmgr import AllowableMgr
 from pycchdo.models.types import *
 from pycchdo.models.filestorage import AdaptedFile, FSStore
@@ -46,7 +49,7 @@ from pycchdo.models.file_types import (
     DataFileTypes,
     data_file_descriptions,
     )
-from pycchdo.util import drop_everything, is_valid_ip
+from pycchdo.util import drop_everything, is_valid_ip, timestamp_now
 from pycchdo.models import log
 #from pycchdo.log import DEBUG
 #log.setLevel(DEBUG)
@@ -207,6 +210,8 @@ class Change(Base, MixinCreation, DBQueryable):
 
     accepted = Column(Boolean, default=False)
 
+    deleted = Column(Boolean, default=False)
+
     p_id_c = Column(Integer, ForeignKey('people.id'))
     p_c = relationship('Person', foreign_keys=[p_id_c])
     ts_c = Column(DateTime, default=func.now())
@@ -302,10 +307,10 @@ class Change(Base, MixinCreation, DBQueryable):
         return self.attr is None and self._value is None
 
     def is_judged(self):
-        return bool(self.ts_j)
+        return self.ts_j is not None
 
     def is_acknowledged(self):
-        return bool(self.ts_ack)
+        return self.ts_ack is not None
 
     def is_accepted(self):
         return self.is_judged() and self.accepted
@@ -336,22 +341,18 @@ class Change(Base, MixinCreation, DBQueryable):
             self.obj.ts_j = func.now()
         else:
             try:
-                setattr(self.obj, self.attr, value)
-            except AssertionError:
-                lll = getattr(self.obj, self.attr)
-                log.debug(repr(lll))
-                for val in value:
-                    lll.append(val)
-            except AttributeError:
-                # If the Obj does not declare this attribute, it doesn't really
-                # care if the value is cached.
-                pass
+                self.obj._set_cache(self.attr, value)
+            except (DataError, TypeError):
+                # If the value does not store well in the Obj cache, we'll have
+                # to leave it in string form. Communicate to the Obj that the
+                # cache is not valid.
+                delattr(self.obj, self.attr)
 
-    def acknowledge(self, sesh, person):
+    def acknowledge(self, person):
         self.p_ack = person
         self.ts_ack = func.now()
 
-    def reject(self, sesh, person):
+    def reject(self, person):
         self.p_j = person
         self.ts_j = func.now()
         self.accepted = False
@@ -439,32 +440,39 @@ class AllowableSerialMgr(AllowableMgr):
 
     __serializers = {}
     __deserializers = {}
+        
+    @classmethod
+    def allow_attr(cls, key, attr_type, name=None, batch=False):
+        super(AllowableSerialMgr, cls).allow_attr(key, attr_type, name, batch)
 
     @classmethod
     def register_serializer_pair(cls, attr, serializer, deserializer=None):
         """Register serializer/deserializer for the attribute key."""
+        attrdef = cls._allowed_attrs_dict()[attr]
+
         # If only one argument given for serializers, assume it is a Serializer
         # object
         if deserializer is None:
             deserializer = getattr(serializer, 'deserialize')
             serializer = getattr(serializer, 'serialize')
         try:
-            serializer = cls.__serializers[attr]
+            serializer = attrdef['serializer']
             log.warn(u'Serializer   for {0}.{1} already registered: {2}'.format(
                 cls, attr, serializer))
         except KeyError:
-            cls.__serializers[attr] = serializer
+            attrdef['serializer'] = serializer
         try:
-            deserializer = cls.__deserializers[attr]
+            deserializer = attrdef[attr]
             log.warn(u'Deserializer for {0}.{1} already registered: {2}'.format(
                 cls, attr, deserializer))
         except KeyError:
-            cls.__deserializers[attr] = deserializer
+            attrdef['deserializer'] = deserializer
 
     def serialize(self, attr, value):
         """Serialize the value from a python object to a string."""
+        attrdef = self._allowed_attrs_dict()[attr]
         try:
-            return self.serializers[attr](value)
+            return attrdef['serializer'](value)
         except KeyError:
             if not isinstance(value, basestring):
                 if attr is not None or value is not None:
@@ -480,8 +488,8 @@ class AllowableSerialMgr(AllowableMgr):
     def deserialize(self, attr, value):
         """Deserialize the value from a string to a python object."""
         try:
-            deserializer = self.deserializers[attr]
-            return deserializer(value)
+            attrdef = self._allowed_attrs_dict()[attr]
+            return attrdef['deserializer'](value)
         except KeyError:
             return value
         except Exception, err:
@@ -598,6 +606,33 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         changes = self.changes_query(state, replaced).all()
         return self.changes_filter_data(changes)
 
+    def get_attr(self, attr):
+        """Return the most recent accepted Change for key.
+
+        Raises: KeyError if none
+
+        """
+        change = self.changes_query('accepted').filter(Change.attr == attr).\
+            order_by(Change.ts_j).first()
+        if change is None:
+            raise KeyError(attr)
+        return change
+
+    def get_attr_or(self, attr, default=None):
+        """Return the most recent accepted Change for key or default."""
+        try:
+            return self.get_attr(attr)
+        except KeyError:
+            return default
+
+    def get_attrs_or(self, attrs, default=None):
+        """Return the most recent accepted Change for the keys or default."""
+# TODO make sure this actually returns the most recently accepted Change for each attr
+# I believe this may return all of them
+        change = self.changes_query('accepted').filter(Change.attr.in_(attrs)).\
+            order_by(Change.ts_j).all()
+        return change
+
     def sugg(self, person, attr, value):
         """Suggest that an attribute's value should be."""
         change = Change(self, person, attr, value)
@@ -614,6 +649,22 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         """Return the last Change for this Obj's attr."""
         return self._changes.filter(Change.attr == attr).first()
 
+    def _set_cache(self, attr, value):
+        """Set the attribute value to cache."""
+        try:
+            setattr(self, attr, value)
+        except AttributeError:
+            # If the Obj does not declare this attribute, it doesn't really care
+            # if the value is cached.
+            pass
+
+    def _get_cache(self, attr):
+        """Attempt to get the attribute value from cache."""
+        try:
+            return getattr(self, attr)
+        except AttributeError:
+            return None
+
     def get(self, attr, default=None, force_original=False, force_change=False):
         """Get the attribute's value.
 
@@ -626,14 +677,16 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         """
         if force_original or force_change:
             change = self.get_attr_change(attr)
+            if not change:
+                return default
             if force_original:
                 return change.value_original
             else:
                 return change.value
-        try:
-            return getattr(self, attr)
-        except AttributeError:
-            return self.get(attr, default, force_original, force_change=True)
+        value = self._get_cache(attr)
+        if value is not None:
+            return value
+        return self.get(attr, default, force_original, force_change=True)
 
     def delete(self):
         """Delete this Obj from the database and remove its Changes."""
@@ -731,7 +784,7 @@ def query_in_order_ids(query, field, ids):
 class SerializerObj(Serializer):
     @classmethod
     def serialize(cls, value):
-        return dumps(value.id)
+        return dumps({'obj_type': str(cls), 'id': value.id})
 
     @classmethod
     def Deserializer(cls, obj):
@@ -739,18 +792,33 @@ class SerializerObj(Serializer):
 
     @classmethod
     def deserialize(cls, obj, value):
-        oid = loads(value)
+        oid = loads(value)['id']
+        return obj.query().get(oid)
+
+
+class SerializerFSFile(SerializerObj):
+    @classmethod
+    def serialize(cls, value):
+        return dumps({'obj_type': str(cls), 'id': value.id})
+
+    @classmethod
+    def Deserializer(cls, obj):
+        return lambda value: cls.deserialize(obj, value)
+
+    @classmethod
+    def deserialize(cls, obj, value):
+        oid = loads(value)['id']
         return obj.query().get(oid)
 
 
 class SerializerObjs(SerializerObj):
     @classmethod
     def serialize(cls, value):
-        return dumps([obj.id for obj in value])
+        return dumps({'obj_type': str(cls), 'ids': [obj.id for obj in value]})
 
     @classmethod
     def deserialize(cls, obj, value):
-        ids = loads(value)
+        ids = loads(value)['ids']
         # Fast track empty lists, avoid SQL generation error
         if not ids:
             return []
@@ -773,10 +841,10 @@ class Participant(Base, Creatable):
     cruise_id = Column(ForeignKey('cruises.id'))
 
     person_id = Column(ForeignKey('people.id'), nullable=False)
-    person = relationship('Person')
+    person = relationship('Person', lazy='joined', backref='participants')
 
     institution_id = Column(Integer, ForeignKey('institutions.id'))
-    institution = relationship('Institution')
+    institution = relationship('Institution', backref='participants')
 
     def __init__(self, role, person, institution=None):
         self.role = role
@@ -841,24 +909,26 @@ class Participants(InstrumentedList):
         return u'Participants({0!r})'.format(self)
 
 
-class SerializerParticipants(object):
-    @classmethod
-    def serialize(cls, value):
-        return dumps([participant.id for participant in value])
+class FSFile(Base, DBQueryable, AdaptedFile):
+    """A file record that points to the filesystem file.
 
-    @classmethod
-    def deserialize(cls, value):
-        return query_in_order_ids(
-            DBSession.query(Participant), Participant.id, loads(value)).all()
+    # FIXME
+    FSFile is stored as an Obj because it is difficult to find a Change based on
+    FSFile import id if the only link is via a string id.
+    Actually... I don't understand. If attr_by_import_id is only used for import
+    reimplement to not have FSfile inherit from Obj.
 
-
-class FSFile(Obj, AdaptedFile):
-    """A file record that points to the filesystem file."""
+    """
     __tablename__ = 'fsfiles'
 
-    id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
+    id = Column(Integer, primary_key=True)
 
     name = Column(Unicode)
+
+    change_id = Column(ForeignKey('changes.id'))
+    change = relationship(Change,
+        backref=backref('file', single_parent=True,
+                        cascade='all, delete-orphan'))
 
     # Stores information used by pycchdo.importer.cchdo to correlate ArgoFiles
     # with Documents and QueueFiles with QueueFiles.
@@ -877,6 +947,7 @@ class FSFile(Obj, AdaptedFile):
         self.file = fobj
         self.store = store
         self.name = unicode(filename)
+# TODO calculate md5 for etagging?
 
     @staticmethod
     def from_fieldstorage(fst):
@@ -1026,9 +1097,6 @@ class Institution(Obj):
         return u'Institution({0!r})'.format(self.name)
 
 
-Institution.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
-
 Institution.allow_attrs([
     ('name', Unicode),
     ('phone', Unicode),
@@ -1037,6 +1105,8 @@ Institution.allow_attrs([
     
     ('country', ID),
     ])
+Institution.register_serializer_pair(
+    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
 
 
 class Ship(Obj):
@@ -1082,8 +1152,6 @@ class Ship(Obj):
     def __repr__(self):
         return unicode(self)
 
-Ship.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
 
 Ship.allow_attrs([
     ('name', Unicode),
@@ -1092,6 +1160,8 @@ Ship.allow_attrs([
     
     ('country', ID),
     ])
+Ship.register_serializer_pair(
+    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
 
 
 class _PersonPermission(Base):
@@ -1130,6 +1200,8 @@ class Person(Obj):
     country_id = Column(Integer, ForeignKey('countries.id'))
     country = relationship('Country', foreign_keys=[country_id],
         backref=backref('people', uselist=True))
+
+    cruises = association_proxy('participants', 'cruise')
 
     _permissions = relationship(
         _PersonPermission, single_parent=True,
@@ -1309,11 +1381,6 @@ class Person(Obj):
             _repr_state(self), self.name)
 
 
-Person.register_serializer_pair(
-    'institution', SerializerObj.serialize, SerializerObj.Deserializer(Institution))
-Person.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
-
 Person.allow_attrs([
     ('title', Unicode),
     ('job_title', Unicode),
@@ -1330,6 +1397,10 @@ Person.allow_attrs([
     ('password_hash', String),
     ('password_salt', String),
     ])
+Person.register_serializer_pair(
+    'institution', SerializerObj.serialize, SerializerObj.Deserializer(Institution))
+Person.register_serializer_pair(
+    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
 
 
 class MultiName(object):
@@ -1396,10 +1467,10 @@ class Collection(MultiName, Obj):
 
     type = Column(Unicode)
 
-    _names = relationship('_CollectionName', uselist=True)
+    _names = relationship('_CollectionName', lazy='joined', uselist=True)
     names = association_proxy('_names', 'name')
 
-    _basins = relationship('_CollectionBasin', uselist=True)
+    _basins = relationship('_CollectionBasin', lazy='joined', uselist=True)
     basins = association_proxy('_basins', 'basin')
 
     date_start = Column(DateTime)
@@ -1415,6 +1486,13 @@ class Collection(MultiName, Obj):
     __mapper_args__ = {
         'polymorphic_identity': 'collection',
     }
+
+    @property
+    def name(self):
+        try:
+            return self.names[0]
+        except IndexError:
+            return None
 
     def merge(self, signer, *mergees):
         """Merge other Collections into this one."""
@@ -1473,11 +1551,6 @@ class Collection(MultiName, Obj):
             _repr_state(self), self.names, self.type, self.basins)
 
 
-Collection.register_serializer_pair(
-    'names', Serializer)
-Collection.register_serializer_pair(
-    'basins', Serializer)
-
 Collection.allow_attrs([
     ('type', Unicode),
     ('basins', TextList),
@@ -1490,6 +1563,10 @@ Collection.allow_attrs([
     ('institution', ID), 
     ('country', ID), 
     ])
+Collection.register_serializer_pair(
+    'names', Serializer)
+Collection.register_serializer_pair(
+    'basins', Serializer)
 
 
 class Unit(Obj):
@@ -1574,7 +1651,7 @@ class Parameter(Obj):
 
     @property
     def bounds(self):
-        bounds = self._bounds
+        bounds = loads(self._bounds)
 
         # If all bounds are None, there are no bounds
         if all(x is None for x in bounds):
@@ -1583,7 +1660,7 @@ class Parameter(Obj):
 
     @bounds.setter
     def bounds(self, value):
-        self._bounds = value
+        self._bounds = dumps(value)
 
     @property
     def display_order(self):
@@ -1597,15 +1674,6 @@ class Parameter(Obj):
         return unicode(self)
 
 
-Parameter.register_serializer_pair(
-    'aliases', Serializer)
-Parameter.register_serializer_pair(
-    'bounds', Serializer)
-Parameter.register_serializer_pair(
-    'units', SerializerObj.serialize, SerializerObj.Deserializer(Unit))
-Parameter.register_serializer_pair(
-    'in_groups_but_did_not_exist', Serializer)
-
 Parameter.allow_attrs([
     ('name', Unicode, 'WOCE mnemonic'),
     ('aliases', TextList),
@@ -1617,6 +1685,14 @@ Parameter.allow_attrs([
     ('units', ID),
     ('in_groups_but_did_not_exist', Boolean), 
     ])
+Parameter.register_serializer_pair(
+    'aliases', Serializer)
+Parameter.register_serializer_pair(
+    'bounds', Serializer)
+Parameter.register_serializer_pair(
+    'units', SerializerObj.serialize, SerializerObj.Deserializer(Unit))
+Parameter.register_serializer_pair(
+    'in_groups_but_did_not_exist', Serializer)
 
 
 class _ParameterGroupOrder(Base):
@@ -1657,13 +1733,12 @@ class ParameterGroup(Obj):
     def __repr__(self):
         return unicode(self)
 
-Parameter.register_serializer_pair(
-    'order', SerializerObjs.serialize, SerializerObjs.Deserializer(Parameter))
-
 ParameterGroup.allow_attrs([
     ('name', Unicode),
     ('order', IDList),
     ])
+ParameterGroup.register_serializer_pair(
+    'order', SerializerObjs.serialize, SerializerObjs.Deserializer(Parameter))
 
 
 class ParameterInformation(Base, DBQueryable):
@@ -1788,11 +1863,6 @@ class ArgoFile(Obj, FileHolder):
     text_identifier = Column(Unicode)
     description = Column(Unicode)
     display = Column(Boolean)
-
-    file_id = Column(Integer, ForeignKey('fsfiles.id'))
-    file = relationship(
-        'FSFile', foreign_keys=[file_id], single_parent=True,
-        cascade='all, delete-orphan')
 
     link_cruise_id = Column(Integer, ForeignKey('cruises.id'))
     link_cruise = relationship(
@@ -1951,6 +2021,54 @@ cruise_institutions = Table('cruise_institutions', Base.metadata,
 )
 
 
+class _CruiseAlias(Base):
+    __tablename__ = 'cruise_aliases'
+    id = Column(Integer, primary_key=True)
+    cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    alias = Column(Unicode)
+
+    def __init__(self, alias):
+        self.alias = alias
+
+
+class _CruiseStatus(Base):
+    __tablename__ = 'cruise_statuses'
+    id = Column(Integer, primary_key=True)
+    cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    status = Column(Unicode)
+
+    def __init__(self, status):
+        self.status = status
+
+
+class _CruiseFileStatus(Base):
+    __tablename__ = 'cruise_file_statuses'
+    id = Column(Integer, primary_key=True)
+    cruisefile_id = Column(Integer, ForeignKey('cruise_files.id'))
+    status = Column(Unicode)
+
+    def __init__(self, status):
+        self.status = status
+
+
+class _CruiseFile(Base):
+    __tablename__ = 'cruise_files'
+    id = Column(Integer, primary_key=True)
+    cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    attr = Column(Unicode)
+
+    file_id = Column(ForeignKey('fsfiles.id'))
+    file = relationship(FSFile, lazy='joined')
+
+    _statuses = relationship(_CruiseFileStatus, lazy='joined', uselist=True)
+    statuses = association_proxy('_statuses', 'status')
+
+    def __init__(self, attr, file=None, statuses=[]):
+        self.attr = attr
+        self.file = file
+        self.statuses = statuses
+
+
 class Cruise(Obj):
     """The basic unit of metadata storage.
 
@@ -2013,26 +2131,37 @@ class Cruise(Obj):
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
     expocode = Column(String)
 
+    _aliases = relationship('_CruiseAlias', lazy='joined', uselist=True)
+    aliases = association_proxy('_aliases', 'alias')
+
+    _statuses = relationship('_CruiseStatus', lazy='joined', uselist=True)
+    statuses = association_proxy('_statuses', 'status')
+
+    files = relationship(_CruiseFile,
+        collection_class=attribute_mapped_collection('attr'),
+        cascade='all, delete-orphan')
+
     date_start = Column(DateTime)
     date_end = Column(DateTime)
 
     ship_id = Column(Integer, ForeignKey('ships.id'))
-    ship = relationship(Ship, foreign_keys=[ship_id])
+    ship = relationship(Ship, foreign_keys=[ship_id], lazy='joined', backref='cruises')
     country_id = Column(Integer, ForeignKey('countries.id'))
-    country = relationship(Country, foreign_keys=[country_id])
+    country = relationship(
+        Country, foreign_keys=[country_id], lazy='joined', backref='cruises')
 
     collections = relationship(
-        'Collection', secondary=cruise_collections, backref='cruises')
+        'Collection', secondary=cruise_collections, lazy='joined',
+        backref=backref('cruises', lazy='joined'))
     institutions = relationship(
-        'Institution', secondary=cruise_institutions, backref='cruises')
+        'Institution', secondary=cruise_institutions, lazy='joined', backref='cruises')
 
-# TODO
-#    track = GeometryColumn(
-#        LineString(2, spatial_index=False), comparator=PGComparator)
+    track = Column(Geography(geometry_type='LINESTRING', srid=4326, dimension=2))
 
     participants = relationship(
         Participant, uselist=True, collection_class=Participants,
-        cascade='all, delete-orphan')
+        backref='cruise',
+        lazy='joined', cascade='all, delete-orphan')
 
     __mapper_args__ = {
         'polymorphic_identity': 'cruise',
@@ -2063,43 +2192,168 @@ class Cruise(Obj):
                     return True
         return 'preliminary' in self.get('statuses', []) 
 
+    @property
+    def chief_scientists(self):
+        try:
+            return self.participants.with_role('Chief Scientist')
+        except KeyError:
+            return []
+
+    @property
+    def file_attrs(self):
+        file_attrs = {}
+        for attr in self.get_attrs_or(data_file_descriptions.keys()):
+            file_attrs[attr.attr] = attr
+        return file_attrs
+
+    def _set_cache(self, attr, value):
+        """Set the attribute value to cache."""
+        if attr in data_file_descriptions.keys():
+            try:
+                self.files[attr].file = value
+            except KeyError:
+                self.files[attr] = _CruiseFile(attr, value)
+            return
+        if attr.endswith('_status'):
+            try:
+                self.files[attr].statuses = value
+            except KeyError:
+                self.files[attr] = _CruiseFile(attr, None, value)
+            return
+        return super(Cruise, self)._set_cache(attr, value)
+
+    def _get_cache(self, attr):
+        """Attempt to get the attribute value from cache."""
+        try:
+            if attr in data_file_descriptions.keys():
+                return self.files[attr].file
+            ending = '_status'
+            if attr.endswith(ending):
+                return self.files[attr[:-len(ending)]].statuses
+        except KeyError:
+            pass
+        return super(Cruise, self)._get_cache(attr)
+
+    @classmethod
+    def get_by_expocode(cls, expocode):
+        return cls.query().filter(Cruise.expocode == expocode).first()
+
+    @classmethod
+    def updated(cls, limit):
+        """Provide list of _Attrs that have been recently approved."""
+        file_types = data_file_descriptions.keys()
+        file_types.remove('map_thumb')
+        file_types.remove('map_full')
+
+        skip = 0
+        step = limit * 4
+        updated = []
+        cruise_ids = set()
+
+        while len(updated) < limit:
+            attrs = Change.query().\
+                filter(Change.accepted==True).\
+                filter(Change.attr.in_(file_types)).\
+                order_by(Change.ts_j.desc()).\
+                offset(skip).limit(step).all()
+            if not attrs:
+                break
+            for attr in attrs:
+                cruise_id = attr.obj_id
+                if cruise_id not in cruise_ids:
+                    cruise_ids.add(cruise_id)
+                    updated.append(attr)
+                if len(updated) >= limit:
+                    break
+            skip += step
+        return updated
+
+    @classmethod
+    def pending_with_date_starts(cls, offset=None, limit=None):
+        """Gives a list of all pending cruises that have start dates"""
+        pending = Cruise.query().\
+            filter(Cruise.accepted==False).\
+            filter(Cruise.id.in_(
+                Change.query(Change.obj_id).\
+                    filter(Change.attr == 'date_start').\
+                    filter(Change.accepted)
+                )
+            )
+        if offset:
+            pending = pending.offset(offset)
+        if limit:
+            pending = pending.limit(limit)
+        return pending
+
+    @classmethod
+    def upcoming(cls, limit):
+        now = timestamp_now()
+        query = Cruise.pending_with_date_starts()
+
+        i = limit
+        hardlimit = query.count()
+        upcoming = []
+
+        while len(upcoming) < limit and i <= hardlimit:
+            upcoming = query.limit(i).all()
+            try:
+                upcoming = sorted(upcoming, key=lambda c: c.date_start)
+            except TypeError:
+                upcoming = []
+            upcoming = filter(
+                lambda x: x.date_start and now <= x.date_start, upcoming)
+            i += limit
+        return upcoming[:limit]
+
+
+    @classmethod
+    def pending_years(cls):
+        """Gives a list of integer years that have pending cruises."""
+        pending_with_date_starts = Cruise.pending_with_date_starts().all()
+        years = set()
+        for cruise in pending_with_date_starts:
+            years.add(cruise.date_start.year)
+        return list(years)
+
+    @classmethod
+    def cruises_in_selection(
+            cls, selection, time_range, roi_result_limit=50):
+        """Return cruises in selected polygon and time range.
+
+        Returns a tuple of the matching cruises and also whether or not there
+        were more results than the limit.
+
+        """
+        polygon = list(selection.exterior.coords)
+        query = _Attr.query().filter(_Attr.key == 'track').\
+            join(_AttrValueLineString).\
+            filter(_AttrValueLineString.value_.intersects(str(selection))).\
+            limit(roi_result_limit)
+        attrs = query.all()
+
+        limited = False
+        if len(attrs) == roi_result_limit:
+            limited = query.count() > roi_result_limit
+
+        objs = set(attr.obj for attr in attrs)
+        cruises = [obj for obj in objs if isinstance(obj, Cruise)]
+
+        def date_filter(cruise):
+            def d2y(d):
+                try:
+                    return d.date().year
+                except AttributeError:
+                    try:
+                        return int(d)
+                    except (TypeError, ValueError):
+                        return time_range[0]
+            return time_range[0] <= d2y(cruise.date_start) and \
+                   d2y(cruise.date_end) <= time_range[1]
+        return (filter(date_filter, cruises), limited)
+
     def __repr__(self):
         return u'Cruise({0}, {1})'.format(
             _repr_state(self), self.expocode)
-
-#GeometryDDL(Cruise.__table__)
-
-Cruise.register_serializer_pair(
-    'date_start', SerializerDateTime)
-Cruise.register_serializer_pair(
-    'date_end', SerializerDateTime)
-Cruise.register_serializer_pair(
-    'statuses', Serializer)
-Cruise.register_serializer_pair(
-    'aliases', Serializer)
-Cruise.register_serializer_pair(
-    'ports', Serializer)
-Cruise.register_serializer_pair(
-    'ship', SerializerObj.serialize, SerializerObj.Deserializer(Ship))
-Cruise.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
-Cruise.register_serializer_pair(
-    'collections', SerializerObjs.serialize, SerializerObjs.Deserializer(Collection))
-Cruise.register_serializer_pair(
-    'institutions', SerializerObjs.serialize, SerializerObjs.Deserializer(Institution))
-Cruise.register_serializer_pair(
-    'track', SerializerTrack)
-Cruise.register_serializer_pair(
-    'participants', SerializerParticipants)
-Cruise.register_serializer_pair(
-    'parameter_informations', SerializerObjs.serialize, SerializerObjs.Deserializer(ParameterInformation))
-Cruise.register_serializer_pair(
-    'data_suggestion', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
-Cruise.register_serializer_pair(
-    'data_dir', Serializer)
-Cruise.register_serializer_pair(
-    'archive', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
-
 
 # TODO move this into the class definition so it only gets called once even if
 # the module is reimported
@@ -2132,204 +2386,70 @@ __cruise_allow_attrs = [
     ('data_dir', Unicode, 'Import data directory'),
     ('archive', File, 'Import archive'),
     ]
+to_register = []
 for key, name in DataFileTypes.human_names.items():
-    Cruise.register_serializer_pair(
-        key, SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
+    to_register.append((
+        key, SerializerObj.serialize, SerializerObj.Deserializer(FSFile)))
     status_key = '{0}_status'.format(key)
-    Cruise.register_serializer_pair(
-        status_key, Serializer)
-
-    # TODO it might be need to store links to FSFiles, not doing at this time
-    # using a sqlalchemy key map
+    to_register.append((status_key, Serializer))
 
     __cruise_allow_attrs.extend([
         (key, File, name),
         (status_key, TextList),
         ])
+
 Cruise.allow_attrs(__cruise_allow_attrs)
+for item in to_register:
+    Cruise.register_serializer_pair(*item)
+Cruise.register_serializer_pair(
+    'date_start', SerializerDateTime)
+Cruise.register_serializer_pair(
+    'date_end', SerializerDateTime)
+Cruise.register_serializer_pair(
+    'statuses', Serializer)
+Cruise.register_serializer_pair(
+    'aliases', Serializer)
+Cruise.register_serializer_pair(
+    'ports', Serializer)
+Cruise.register_serializer_pair(
+    'ship', SerializerObj.serialize, SerializerObj.Deserializer(Ship))
+Cruise.register_serializer_pair(
+    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
+Cruise.register_serializer_pair(
+    'collections', SerializerObjs.serialize, SerializerObjs.Deserializer(Collection))
+Cruise.register_serializer_pair(
+    'institutions', SerializerObjs.serialize, SerializerObjs.Deserializer(Institution))
+Cruise.register_serializer_pair(
+    'track', SerializerTrack)
+Cruise.register_serializer_pair(
+    'participants', SerializerObjs.serialize, SerializerObjs.Deserializer(Participant))
+Cruise.register_serializer_pair(
+    'parameter_informations', SerializerObjs.serialize, SerializerObjs.Deserializer(ParameterInformation))
+Cruise.register_serializer_pair(
+    'data_suggestion', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
+Cruise.register_serializer_pair(
+    'data_dir', Serializer)
+Cruise.register_serializer_pair(
+    'archive', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
 
 
-def main(argv):
-    engine = create_engine('sqlite:///zserial.db')
-    Session = sessionmaker(bind=engine)
-    DBSession = scoped_session(Session)
-
-    #engine.execute(CreateSchema(Meta.schema))
-    Meta.schema = ''
-    Meta.create_all(engine)
-
-    store = FSStore(
-        path='/Users/myshen/var/store',
-        base_url='/',
-    )
-
-    sesh = DBSession()
-
-    ppp = Person.create().obj
-
-    suggcr = Cruise.propose(ppp)
-    print sesh.query(Cruise).all()
-    cruise = suggcr.obj
-    suggcr.accept(ppp)
-    print sesh.query(Cruise).all()
-    cruise.set(ppp, 'expocode', '33RR20090320')
-    suggexp = cruise.sugg(ppp, 'expocode', '33RR20099999')
-    suggexp.reject(sesh, ppp)
-    print cruise.expocode == '33RR20090320'
-
-    print len(suggcr.obj.changes()) == 2
-    print len(suggcr.obj.changes('accepted')) == 1
-
-    # reject Obj proposal
-    suggcr = Cruise.propose(ppp)
-    suggcr.reject(sesh, ppp)
-
-    print Change.query().all()
-
-    suggcr.delete()
-
-    print Change.query().all()
-
-    ccc1 = Cruise.create(ppp).obj
-    ccc1.set(ppp, 'expocode', 'C1')
-    ccc2 = Cruise.create(ppp).obj
-    ccc2.set(ppp, 'expocode', 'C2')
-
-    ccc1.set(ppp, 'date_start', datetime.now())
-    ccc1.set(ppp, 'track', geojson.LineString([(0, 1), (2, 3)]))
-
-    # File storage
-    fst = FieldStorage()
-    fst.filename = 'testfile'
-    contents = 'contents'
-    fst.file = StringIO(contents)
-    with store_context(store):
-        ccc1.set(ppp, 'data_suggestion', FSFile.from_fieldstorage(fst))
-
-    with store_context(store):
-        print contents == ccc1.get('data_suggestion').make_blob()
-
-    fst = FieldStorage()
-    fst.filename = 'asdf_hy1.csv'
-    contents = 'BOTTLE,123456'
-    fst.file = StringIO(contents)
-    with store_context(store):
-        ccc1.set(ppp, 'btl_ex', FSFile.from_fieldstorage(fst))
-
-    with store_context(store):
-        print contents == ccc1.get('btl_ex').make_blob()
-        sesh.commit()
-
-    suggexp = cruise.sugg(ppp, 'expocode', 'badexpo')
-    suggexp.accept(ppp, 'goodexpo')
-    print suggexp.value == suggexp.value_accepted
-    print 'badexpo' == suggexp.value_original
-    print 'goodexpo' == suggexp.obj.expocode
-
-    fst = FieldStorage()
-    fst.filename = 'asdf_hy1.csv'
-    contents0 = 'BOTTLE,123456'
-    fst.file = StringIO(contents0)
-
-    fst1 = FieldStorage()
-    fst1.filename = 'qwer_hy1.csv'
-    contents1 = 'BOTTLE,98765'
-    fst1.file = StringIO(contents1)
-    with store_context(store):
-        suggfff = ccc1.sugg(ppp, 'btl_ex', FSFile.from_fieldstorage(fst))
-        suggfff.accept(ppp, FSFile.from_fieldstorage(fst1))
-        sesh.commit()
-
-    with store_context(store):
-        print contents1 == ccc1.get('btl_ex').make_blob()
-        print contents0 == ccc1.get('btl_ex', force_original=True).make_blob()
-
-    # getting tracked data
-    # retrieve attr Changes on a cruise that store files
-    print len(ccc1.changes_data('accepted')) == 3
-    print [suggfff] == ccc1.changes_data('accepted', replaced=True)
-
-    # collections
-    coll0 = Collection.create(ppp).obj
-    coll0.set(ppp, 'names', ['000'])
-    coll1 = Collection.create(ppp).obj
-    coll1.set(ppp, 'names', ['111'])
-    log.info('accepting cruises suggested to a collection')
-    scr = ccc1.sugg(ppp, 'collections', [coll1, coll0])
-    scr.accept(ppp)
-    print ccc1.collections[0] == coll1
-    print ccc1.collections[1] == coll0
-
-    colbassug = coll1.sugg(ppp, 'basins', [u'southern'])
-    print coll0 == sesh.query(Collection).filter(Collection.names.contains('000')).all()[0]
-    print sesh.query(Collection).filter(Collection.basins.contains('southern')).count() == 0
-    colbassug.accept(ppp)
-    print coll1 == sesh.query(Collection).filter(Collection.basins.contains('southern')).first()
-
-    # notes
-    ccc1.change._notes.append(Note(ppp, 'note0', subject='note0s'))
-    ccc1.change._notes.append(Note(ppp, 'note1', subject='note1s', discussion=True))
-    log.debug( ccc1.notes)
-    log.debug( ccc1.notes_public)
-    log.debug( ccc1.notes_discussion)
-
-    # country
-    cou0 = Country.create(ppp).obj
-    cou0.name = 'United States of America'
-    cou0.alpha2 = 'US'
-    cou0.alpha3 = 'USA'
-
-    cou = sesh.query(Country).filter(Country.alpha3 == 'USA').first()
-    print cou == cou0
-    ppp.set(ppp, 'country', cou0)
-    print cou.people
-
-    # Parameter
-    param0 = Parameter.create(ppp).obj
-    unit0 = Unit.create(ppp).obj
-    unit0.set(ppp, 'name', 'decibars')
-    unit0.set(ppp, 'mnemonic', 'DBAR')
-    param0.set(ppp, 'name', 'CTDPRS')
-    param0.set(ppp, 'full_name', 'CTDPRS')
-    param0.set(ppp, 'units', unit0)
-
-    pg0 = ParameterGroup.create(ppp).obj
-    pg0.set(ppp, 'name', 'Primary')
-    pg0.set(ppp, 'order', [param0])
-    print pg0.order == [param0]
-
-    sesh.flush()
-
-    # Participants
-    part0 = Participant.create('chief_scientist', ppp)
-    part1 = Participant.create('cochief_scientist', ppp)
-
-    participants = Participants(part0, part1)
-    part = cruise.sugg(ppp, 'participants', participants)
-    print [] == cruise.participants
-    part.accept(ppp)
-    print participants == cruise.participants
-
-    # permissions
-    print [] == part.permissions_read
-    part.permissions_read.append('staff')
-    print ['staff'] == part.permissions_read
-
-    print cruise.mtime
-
-    print 
-    print 'this one should fail for now'
-    somedict = {'a': 1, 'b': 2}
-    suggsom = cruise.sugg(ppp, 'something', somedict)
-    suggsom.accept(ppp)
-
-    #from libcchdo.tools import HistoryConsole
-    #console = HistoryConsole(locals=locals())
-    #print repr(locals())
-    #console.interact('hi')
-
-    return 0
+@event.listens_for(Note, 'after_insert')
+@event.listens_for(Note, 'after_update')
+def _saved_note(mapper, connection, target):
+    triggers.saved_note(target)
 
 
-if __name__ == '__main__':
-	sys.exit(main(sys.argv))
+@event.listens_for(Note, 'after_delete')
+def _deleted_note(mapper, connection, target):
+    triggers.deleted_note(target)
+
+
+@event.listens_for(Obj, 'after_insert')
+@event.listens_for(Obj, 'after_update')
+def _saved_obj(mapper, connection, target):
+    triggers.saved_obj(target)
+
+
+@event.listens_for(Obj, 'after_delete')
+def _deleted_obj(mapper, connection, target):
+    triggers.deleted_obj(target)

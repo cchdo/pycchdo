@@ -4,7 +4,7 @@ from webob.multidict import MultiDict
 
 
 class AllowableMgr(object):
-    __allowed_attrs = {}
+    __allowed_attrs_by_cls = {}
 
     @classmethod
     def _attr_type_to_str(cls, attr_type):
@@ -20,10 +20,10 @@ class AllowableMgr(object):
     def _allowed_attrs_dict(cls):
         """Return the allowed attrs dict for this current class."""
         try:
-            return cls.__allowed_attrs[cls]
+            return cls.__allowed_attrs_by_cls[cls]
         except KeyError:
-            cls.__allowed_attrs[cls] = MultiDict()
-        return cls.__allowed_attrs[cls]
+            cls.__allowed_attrs_by_cls[cls] = MultiDict()
+        return cls.__allowed_attrs_by_cls[cls]
 
     @classmethod
     def _allowed_attrs(cls):

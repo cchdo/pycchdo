@@ -6,31 +6,28 @@ import transaction
 
 from . import *
 import pycchdo.helpers as h
-from pycchdo.models import Person, DBSession
+from pycchdo.models.serial import Person, DBSession
 from pycchdo.models.types import ID, TextList
-from pycchdo.models.models import preload_person
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
 
 
 def people_index(request):
-    people = preload_person(Person, Person.query()).\
-        order_by(Person.name_last).all()
+    people = Person.query().order_by(Person.name_last).all()
     people = paged(request, people)
     return {'people': people}
 
 
 def people_index_json(request):
-    people = preload_person(Person, Person.query()).\
-        order_by(Person.name_last).all()
+    people = Person.query().order_by(Person.name_last).all()
     people = [p.to_nice_dict() for p in people]
     return people
 
 
 def _get_person(request):
     person_id = request.matchdict.get('person_id')
-    return preload_person(Person, Person.query()).get(person_id)
+    return Person.query().get(person_id)
 
 
 def _redirect_response(request, id):
@@ -42,7 +39,7 @@ def person_show(request):
     person = _get_person(request)
     if not person:
         raise HTTPNotFound()
-    cruises = person.cruises(accepted_only=False)
+    cruises = person.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'person': person, 'cruises': cruises}
 
@@ -51,7 +48,7 @@ def person_archive(request):
     person = _get_person(request)
     if not person:
         raise HTTPNotFound()
-    return staff.archive(request, person.cruises())
+    return staff.archive(request, person.cruises)
 
 
 @staff_signin_required
@@ -131,7 +128,7 @@ def person_merge(request):
     except KeyError:
         request.session.flash('No mergee person given', 'help')
         return redirect_response
-    mergee = preload_person(Person, Person.query()).get(mergee_id)
+    mergee = Person.query().get(mergee_id)
     if not mergee:
         request.session.flash(
             u'Invalid mergee person {0} given'.format(mergee_id), 'help')

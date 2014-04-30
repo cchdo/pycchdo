@@ -8,7 +8,7 @@ from pyramid.paster import (
     setup_logging,
     )
 
-from pycchdo.models.models import DBSession, FSFile
+from pycchdo.models.serial import DBSession, FSFile
 
 
 argparser = ArgumentParser(description='Clean the filesystem of unlinked files')

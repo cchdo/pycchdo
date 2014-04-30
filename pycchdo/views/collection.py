@@ -4,25 +4,21 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, H
 
 from . import *
 import pycchdo.helpers as h
-from pycchdo.models import Collection
+from pycchdo.models.serial import Collection
 from pycchdo.models.types import TextList, Unicode
-from pycchdo.models.models import (
-    preload_cached_avs, disjoint_load_collection_attrs, )
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views import log, staff
 
 
 def collections_index(request):
-    collections = preload_cached_avs(Collection, Collection.query()).all()
-    disjoint_load_collection_attrs(collections)
+    collections = Collection.query().all()
     collections = sorted(collections, key=lambda c: c.name)
     collections = paged(request, collections)
     return {'collections': collections}
 
 
 def collections_index_json(request):
-    collections = preload_cached_avs(Collection, Collection.query()).all()
-    disjoint_load_collection_attrs(collections)
+    collections = Collection.query().all()
     collections = sorted(collections, key=lambda c: c.name)
     collections = [c.to_nice_dict() for c in collections]
     return collections
@@ -30,8 +26,7 @@ def collections_index_json(request):
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    collection =  preload_cached_avs(Collection, Collection.query()).get(coll_id)
-    disjoint_load_collection_attrs([collection])
+    collection = Collection.query().get(coll_id)
     return collection
 
 
@@ -44,7 +39,7 @@ def collection_show(request):
     collection = _get_collection(request)
     if not collection:
         raise HTTPNotFound()
-    cruises = collection.cruises(accepted_only=False)
+    cruises = collection.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     return {'collection': collection, 'cruises': cruises}
 
@@ -118,8 +113,7 @@ def collection_merge(request):
     except KeyError:
         request.session.flash('No mergee collection given', 'help')
         return redirect_response
-    mergee = preload_cached_avs(Collection, Collection.query()).get(mergee_id)
-    disjoint_load_collection_attrs([mergee])
+    mergee = Collection.query().get(mergee_id)
     if not mergee:
         request.session.flash(
             u'Invalid mergee collection {0} given'.format(mergee_id), 'help')

@@ -25,13 +25,6 @@ from pycchdo.models.filestorage import FSStore
 from pycchdo.log import ColoredLogger, ColoredFormatter
 
 
-__all__ = [
-    'log', 'BaseTest', 'PersonBaseTest', 'MockFile', 'MockFieldStorage',
-    'MockSession', 'engine_loglevel', 'DEBUG', 'CRITICAL', 'setUpModule',
-    'tearDownModule', 'fsstore',
-    ]
-
-
 log = ColoredLogger(__name__)
 
 
@@ -127,10 +120,10 @@ class MockSession:
         return 'Mock Session value for', key, default
 
     def __setitem__(self, key, value):
-        log.info('Mock set {0!r} {1!r}'.format(key, value))
+        log.debug('Mock set {0!r} {1!r}'.format(key, value))
 
     def flash(self, queue, msg):
-        log.info('Mock Flash {0!r} {1!r}'.format(queue, msg))
+        log.debug('Mock Flash {0!r} {1!r}'.format(queue, msg))
 
     def peek_flash(self, queue):
         return 'Mock Flash peek for', queue

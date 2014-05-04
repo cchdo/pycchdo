@@ -2,7 +2,7 @@ from pyramid import testing
 from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
 
-from . import *
+from pycchdo.tests import BaseTest, fsstore, MockFieldStorage, MockFile
 from pycchdo.models.serial import DBSession, Cruise, Person, FSFile
 
 
@@ -42,9 +42,8 @@ class ViewIntegrationTests(BaseTest):
         request = testing.DummyRequest()
         request.fsstore = fsstore
 
-        person = request.user = Person(identifier=u'person')
-        DBSession.add(person)
-        DBSession.flush()
+        person = request.user = Person.create().obj
+        person.set_id_names(identifier=u'person')
 
         cruise = Cruise.create(person).obj
         data_attr = cruise.set(

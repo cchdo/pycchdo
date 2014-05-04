@@ -3,7 +3,7 @@ from pyramid.httpexceptions import HTTPSeeOther
 
 from jinja2 import Template as Jinja2Template
 
-from . import *
+from pycchdo.tests import PersonBaseTest
 from pycchdo.models.serial import DBSession, Cruise
 
 

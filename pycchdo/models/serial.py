@@ -35,6 +35,8 @@ from zope.sqlalchemy import ZopeTransactionExtension
 
 import geojson
 
+from shapely.geometry import asShape
+
 from geoalchemy2.types import Geography 
 
 from sqlalchemy_imageattach.context import current_store, store_context
@@ -230,8 +232,8 @@ class Change(Base, MixinCreation, DBQueryable):
             '_changes', lazy='dynamic', cascade='all, delete-orphan'))
 
     attr = Column(String, default=None)
-    _value = Column('value', String, default=None)
-    _value_accepted = Column('value_accepted', String, default=None)
+    _value = Column('value', Unicode, default=None)
+    _value_accepted = Column('value_accepted', Unicode, default=None)
 
     accepted = Column(Boolean, default=False)
 
@@ -781,21 +783,31 @@ class SerializerDateTime(Serializer):
     @classmethod
     def serialize(cls, value):
         try:
-            return value.strftime(cls.format_string)
+            value = {'type': 'dt', 'val': value.strftime(cls.format_string)}
         except AttributeError:
-            return super(SerializerDateTime, cls).serialize(value)
+            value = {'type': 'u', 'val': value}
+        return super(SerializerDateTime, cls).serialize(value)
 
     @classmethod
     def deserialize(cls, value):
-        try:
-            return datetime.strptime(value, cls.format_string)
-        except ValueError:
+        serial = loads(value)
+        if serial['type'] == 'dt':
+            try:
+                return datetime.strptime(serial['val'], cls.format_string)
+            except ValueError:
+                return None
+        elif serial['type'] == 'u':
+            return serial['val']
+        else:
+            log.error(u'Invalid serialization for datetime: {0!r}'.format(serial))
             return None
 
 
 class SerializerTrack(Serializer):
     @classmethod
     def serialize(cls, value):
+        if isinstance(value, list):
+            value = geojson.LineString(value)
         return geojson.dumps(value)
 
     @classmethod
@@ -806,7 +818,10 @@ class SerializerTrack(Serializer):
 class SerializerObj(Serializer):
     @classmethod
     def serialize(cls, value):
-        return dumps({'obj_type': str(cls), 'id': value.id})
+        try:
+            return dumps({'type': 'obj', 'obj_type': str(cls), 'val': value.id})
+        except AttributeError:
+            return dumps({'type': 'u', 'val': value})
 
     @classmethod
     def Deserializer(cls, obj):
@@ -814,8 +829,14 @@ class SerializerObj(Serializer):
 
     @classmethod
     def deserialize(cls, obj, value):
-        oid = loads(value)['id']
-        return obj.query().get(oid)
+        serial = loads(value)
+        if serial['type'] == 'obj':
+            return obj.query().get(serial['val'])
+        elif serial['type'] == 'u':
+            return serial['val']
+        else:
+            log.error(u'Invalid serialization for obj: {0!r}'.format(serial))
+            return None
 
 
 class SerializerFSFile(SerializerObj):
@@ -827,20 +848,28 @@ class SerializerFSFile(SerializerObj):
 
     @classmethod
     def deserialize(cls, value):
-        oid = loads(value)['id']
-        return FSFile.query().get(oid)
+        return super(SerializerFSFile, cls).deserialize(FSFile, value)
 
 
 class SerializerObjs(SerializerObj):
     @classmethod
     def serialize(cls, value):
-        return dumps({'obj_type': str(cls), 'ids': [obj.id for obj in value]})
+        try:
+            ids = [obj.id for obj in value]
+            return dumps({'type': 'objs', 'obj_type': str(cls), 'val': ids})
+        except AttributeError:
+            return dumps({'type': 'u', 'val': value})
 
     @classmethod
     def deserialize(cls, obj, value):
-        ids = loads(value)['ids']
-        objs = obj.get_all_by_ids(*ids)
-        return objs
+        serial = loads(value)
+        if serial['type'] == 'objs':
+            return obj.get_all_by_ids(*serial['val'])
+        elif serial['type'] == 'u':
+            return serial['val']
+        else:
+            log.error(u'Invalid serialization for objs: {0!r}'.format(serial))
+            return None
 
 
 class Participant(Base, Creatable, DBQueryable):
@@ -2265,6 +2294,11 @@ class Cruise(Obj):
         return super(Cruise, self)._get_cache(attr)
 
     @classmethod
+    def filter_geo(cls, fn, cruises):
+        """Filter a list of cruises using the spatial filter function."""
+        return filter(lambda x: x.track and fn(asShape(x.track)), cruises)
+
+    @classmethod
     def query_by_expocode(cls, expocode):
         return cls.query().filter(Cruise.expocode == expocode)
 
@@ -2485,9 +2519,13 @@ def _deleted_note(mapper, connection, target):
 @event.listens_for(Obj, 'after_insert')
 @event.listens_for(Obj, 'after_update')
 def _saved_obj(mapper, connection, target):
+    if isinstance(target, Obj):
+        return
     triggers.saved_obj(target)
 
 
 @event.listens_for(Obj, 'after_delete')
 def _deleted_obj(mapper, connection, target):
+    if isinstance(target, Obj):
+        return
     triggers.deleted_obj(target)

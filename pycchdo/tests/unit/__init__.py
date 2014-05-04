@@ -7,7 +7,6 @@ from nose.tools import nottest
 import transaction
 
 from pyramid import testing
-from pyramid.httpexceptions import HTTPBadRequest
 
 import shapely.geometry.linestring
 import shapely.geometry.polygon
@@ -28,10 +27,12 @@ from pycchdo.models.serial import (
     ParameterInformation,
     ArgoFile,
     FSFile,
-    Serializer, SerializerFSFile, SerializerDateTime
+    Serializer, SerializerFSFile, SerializerDateTime, SerializerTrack,
     )
 
-from . import *
+from pycchdo.tests import (
+    log, PersonBaseTest, MockFile, MockFieldStorage, engine_loglevel, DEBUG
+    )
 
 
 class TestModelChange(PersonBaseTest):
@@ -306,25 +307,42 @@ class TestModelAttr(PersonBaseTest):
         self.assertEquals(obj.get('a'), None)
         self.assertEquals(obj.get('a', 'b'), 'b')
 
-    # TODO
-    @nottest
     def test_set_multi_type(self):
-        """_Attrs may have multiple types."""
-        key = self._testMethodName
-        Obj.allow_attr(key, [DateTime, Unicode])
-        Obj.register_serializer_pair(key, SerializerDateTime)
+        """Attributes may have multiple types.
 
-        ooo = Obj.create(self.testPerson).obj
+        For example, it is possible to store either unicode or a date time for a
+        cruise's date_start
 
-        aaa = ooo.set(self.testPerson, key, 'testunicode')
+        """
+        ccc = Cruise.create(self.testPerson).obj
+
+        aaa = ccc.set(self.testPerson, 'date_start', 'testunicode')
         self.assertEqual(aaa.value, 'testunicode')
 
         testdate = datetime.utcnow()
-        bbb = ooo.set(self.testPerson, key, testdate)
+        bbb = ccc.set(self.testPerson, 'date_start', testdate)
         self.assertEqual(bbb.value, testdate)
 
+        ddd = ccc.set(self.testPerson, 'collections', 'coll1,coll2')
+        self.assertEqual(ddd.value, 'coll1,coll2')
+
+        col0 = Collection.create(self.testPerson).obj
+        col1 = Collection.create(self.testPerson).obj
+
+        colls = [col1, col0]
+        eee = ccc.set(self.testPerson, 'collections', colls)
+        self.assertEqual(eee.value, colls)
+
+        fff = ccc.set(self.testPerson, 'ship', 'testship')
+        self.assertEqual(fff.value, 'testship')
+
+        ship0 = Ship.create(self.testPerson).obj
+        ggg = ccc.set(self.testPerson, 'ship', ship0)
+        self.assertEqual(ggg.value, ship0)
+
+
     # TODO test that attrs with multiple types such as date_start can be queried
-    # correctly.
+    # correctly. Is that even a good feature to have?
 
     def test_set_scalar(self):
         """Setting a scalar value for _Attr should create a new _Attr.
@@ -481,26 +499,29 @@ class TestModelAttr(PersonBaseTest):
 
         aaa = obj.set(self.testPerson, key, mockfs)
 
-    # FIXME
-    @nottest
     def test_track_suggesting(self):
-        """Setting an _Attr to a track saves the value in track.
+        """Setting an attr to a track saves the value in track.
 
         Tracks may be specified either as a list of tuples, geojson.LineString,
         or shapely.geometry.linestring.LineString.
 
         """
-        obj = Obj.create(self.testPerson).obj
-        key = self._testMethodName
-        obj.allow_attr(key, LineString, 'Test Track')
+        ccc = Cruise.create(self.testPerson).obj
 
-        aaa = obj.set(self.testPerson, key, [[32, -117], [33, 118]])
-        aaa = obj.set(
-            self.testPerson, key,
+        result = {'coordinates': [[32, -117], [33, 118]], 'type': 'LineString'}
+
+        aaa = ccc.set(self.testPerson, 'track', [(32, -117), (33, 118)])
+        self.assertEqual(result, aaa.value)
+        aaa = ccc.set(
+            self.testPerson, 'track',
             shapely.geometry.linestring.LineString([[32, -117], [33, 118]]))
-        aaa = obj.set(
-            self.testPerson, key,
+        self.assertEqual(result, aaa.value)
+        aaa = ccc.set(
+            self.testPerson, 'track',
             geojson.LineString([[32, -117], [33, 118]]))
+        self.assertEqual(result, aaa.value)
+
+        self.assertTrue(isinstance(ccc.track, geojson.geometry.LineString))
 
 
 class TestModelObj(PersonBaseTest):
@@ -884,23 +905,22 @@ class TestModelCruise(PersonBaseTest):
         ppp.set(self.testPerson, 'country', country)
         self.assertEqual(country.people, [ppp])
 
-    @nottest
     def test_track(self):
         """Getting a Cruise's track either gives None or a
-        shapely.geometry.linestring.LineString.
+        geojson.geometry.LineString.
         
         """
-        coords = [(0.0, 0.0), (1.0, 1.0)]
+        coords = [[0.0, 0.0], [1.0, 1.0]]
         c = Cruise.create(self.testPerson).obj
         t = c.track
         self.assertTrue(t is None)
         c.set(self.testPerson, 'track', coords)
         t = c.track
         self.assertTrue(t is not None)
-        self.assertTrue(type(t) is shapely.geometry.linestring.LineString)
-        self.assertEquals(coords, list(t.coords))
+        self.assertTrue(isinstance(t, geojson.geometry.LineString))
+        self.assertEquals(coords, t['coordinates'])
 
-    @nottest
+    # TODO decide on this interface vs querying against database.
     def test_filter_geo(self):
         """Filter a list of Cruises by a geo function."""
         c0 = Cruise.create(self.testPerson).obj
@@ -1099,7 +1119,6 @@ class TestParticipant(PersonBaseTest):
         #self.assertEquals(
         #    count_pre + 1,
         #    DBSession.query(models._AttrValueParticipants).count())
-
 
 
 class TestModelCruiseAssociate(PersonBaseTest):
@@ -1329,104 +1348,3 @@ class TestModelArgoFile(PersonBaseTest):
         argo.link(ccc, 'bottle_exchange')
         argo_str = argo.value.open_file().read()
         self.assertEqual(argo_str, data)
-
-
-class TestHelper(PersonBaseTest):
-    def test_helper_data_file_link(self):
-        """Given an Change with a file, provide a link to a file next to its
-        description.
-
-        """
-        from pycchdo.helpers import data_file_link
-        request = testing.DummyRequest()
-
-        self.config.add_route('datacart_add', 'test')
-
-        key = 'data_suggestion'
-        Person.allow_attr(key, File)
-
-        ccc = Cruise.create(self.testPerson).obj
-
-        file = MockFieldStorage(
-            MockFile('', 'testfile.txt'), contentType='text/plain')
-        data = ccc.set(self.testPerson, key, file)
-        DBSession.flush()
-
-        answer_parts = [
-            'class="bottle exchange"',
-            '<abbr title="ASCII .csv bottle data with station information">',
-            '<a href="/data/b/{id}">Bottle</a>'.format(id=data.id),
-        ]
-        answer = unicode(data_file_link(request, 'bottle_exchange', data))
-        for part in answer_parts:
-            self.assertIn(part, answer)
-
-        answer_parts = [
-            'class="ctd zip exchange"',
-            '<abbr title="ZIP archive of ASCII .csv CTD data with station information">',
-            '<a href="/data/b/{id}">CTD</a>'.format(id=data.id),
-        ]
-        answer = unicode(data_file_link(request, 'ctd_zip_exchange', data))
-        for part in answer_parts:
-            self.assertIn(part, answer)
-
-
-class TestView(PersonBaseTest):
-    def test__collapse_dict(self):
-        """Collapse a dictionary tree based on a given value being invalid."""
-        from pycchdo.views import collapse_dict
-        d = {}
-        self.assertEquals(collapse_dict(d, 1), 1)
-        d = {'a': 1, 'b': None}
-        self.assertEquals(collapse_dict(d), {'a': 1})
-        d = {'a': 1, 'b': None, 'c': {'d': None, 'e': 2}}
-        self.assertEquals(collapse_dict(d), {'a': 1, 'c': {'e': 2}})
-        d = {'a': 1, 'b': 1, 'c': {'d': 1, 'e': 1}}
-        self.assertEquals(collapse_dict(d, 1), 1)
-
-    def test_cruise_show(self):
-        # XXX HACK because route_url doesn't work without route config
-        self.config.add_route('cruise_new', 'test')
-        self.config.add_route('cruise_show', 'test')
-        from pycchdo.views.cruise import cruise_show
-        request = testing.DummyRequest()
-        with self.assertRaises(HTTPBadRequest):
-            cruise_show(request)
-
-        ccc = Cruise.create(self.testPerson).obj
-
-        request.matchdict['cruise_id'] = ccc.uid
-        request.user = None
-
-        result = cruise_show(request)
-
-    def test_cruise_show_suggest_file(self):
-        # XXX HACK because route_url doesn't work without route config
-        self.config.add_route('cruise_new', 'test')
-        self.config.add_route('cruise_show', 'test')
-
-        from pycchdo.views.cruise import cruise_show
-        from pyramid.renderers import render_to_response
-
-        ccc = Cruise.create(self.testPerson).obj
-
-        mock_file = MockFieldStorage(
-            MockFile('', 'mockfile.txt'), contentType='text/plain')
-
-        request = testing.DummyRequest()
-        request.matchdict['cruise_id'] = ccc.uid
-        request.user = self.testPerson
-        request.method = 'POST'
-        request.params['_method'] = 'PUT'
-        request.params['action'] = 'suggest_file'
-        request.params['type'] = 'invalid_type'
-        request.params['file'] = mock_file
-
-        request.session = MockSession()
-
-        dictionary = cruise_show(request)
-
-        #response = render_to_response(
-        #    'templates/cruise/show.jinja2', cruise_show(request),
-        #    request=request)
-        # TODO test response for recognizing bad type

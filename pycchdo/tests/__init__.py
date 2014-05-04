@@ -28,7 +28,7 @@ from pycchdo.log import ColoredLogger, ColoredFormatter
 __all__ = [
     'log', 'BaseTest', 'PersonBaseTest', 'MockFile', 'MockFieldStorage',
     'MockSession', 'engine_loglevel', 'DEBUG', 'CRITICAL', 'setUpModule',
-    'tearDownModule',
+    'tearDownModule', 'fsstore',
     ]
 
 
@@ -79,12 +79,12 @@ class BaseTest(TestCase):
     def setUp(self):
         push_store_context(fsstore)
         self.config = testing.setUp()
+        transaction.begin()
         transaction.get().doom()
 
     def tearDown(self):
         del self.config
-        DBSession.flush()
-        DBSession.rollback()
+        transaction.abort()
         testing.tearDown()
         pop_store_context()
 

@@ -7,7 +7,7 @@ from pyramid.paster import (
     setup_logging,
     )
 
-from pycchdo.models import DBSession
+from pycchdo.models.serial import DBSession
 from pycchdo.models.search import SearchIndex
 
 

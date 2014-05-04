@@ -96,6 +96,12 @@ class MixinCreation(object):
         return cls.ts_c
 
 
+def query_in_order_ids(query, field, ids):
+    """Append to a query to filter by ids in order."""
+    order = case([(field == value, literal(index)) for index, value in enumerate(ids)])
+    return query.filter(field.in_(ids)).order_by(order)
+
+
 class DBQueryable(object):
     """Mixin to obtain query on this class for global database session."""
     @classmethod
@@ -104,6 +110,25 @@ class DBQueryable(object):
         if args:
             return DBSession.query(*args)
         return DBSession.query(cls)
+
+    @classmethod
+    def get_all_by_ids(cls, *ids):
+        """Return the instances in the order of the ids."""
+        # Fast track empty lists, avoid SQL generation error
+        ids = filter(None, ids)
+        if not ids:
+            return []
+        return query_in_order_ids(cls.query(), cls.id, ids).all()
+
+    @classmethod
+    def get_id(cls, id):
+        log.warn(u'get_id is deprecated')
+        return cls.get_all_by_ids(id)
+
+    @classmethod
+    def by_ids(cls, ids):
+        log.warn(u'by_ids is deprecated')
+        return cls.get_all_by_ids(*ids)
 
 
 class Note(Base, DBQueryable, MixinCreation):
@@ -327,7 +352,7 @@ class Change(Base, MixinCreation, DBQueryable):
 
         """
         self.p_j = person
-        self.ts_j = func.now()
+        self.ts_j = timestamp_now()
         self.accepted = True
 
         if replacement is not None:
@@ -338,7 +363,7 @@ class Change(Base, MixinCreation, DBQueryable):
 
         if self.is_obj:
             self.obj.accepted = True
-            self.obj.ts_j = func.now()
+            self.obj.ts_j = timestamp_now()
         else:
             try:
                 self.obj._set_cache(self.attr, value)
@@ -350,30 +375,15 @@ class Change(Base, MixinCreation, DBQueryable):
 
     def acknowledge(self, person):
         self.p_ack = person
-        self.ts_ack = func.now()
+        self.ts_ack = timestamp_now()
 
     def reject(self, person):
         self.p_j = person
-        self.ts_j = func.now()
+        self.ts_j = timestamp_now()
         self.accepted = False
 
         if self.is_obj:
             self.obj.accepted = False
-
-    @classmethod
-    def get_all_by_ids(cls, *ids):
-        """Return the instances in the order of the ids."""
-        return query_in_order_ids(DBSession.query(cls), cls.id, ids).all()
-
-    @classmethod
-    def get_id(cls, id):
-        log.warn(u'get_id is deprecated')
-        return cls.get_all_by_ids(id)
-
-    @classmethod
-    def by_ids(cls, ids):
-        log.warn(u'by_ids is deprecated')
-        return cls.get_all_by_ids(*ids)
 
     @classmethod
     def only_if_accepted_is(cls, accepted=True):
@@ -470,7 +480,11 @@ class AllowableSerialMgr(AllowableMgr):
 
     def serialize(self, attr, value):
         """Serialize the value from a python object to a string."""
-        attrdef = self._allowed_attrs_dict()[attr]
+        try:
+            attrdef = self._allowed_attrs_dict()[attr]
+        except KeyError:
+            raise ValueError(
+                u'{0} cannot be stored as {1}'.format(value, attr))
         try:
             return attrdef['serializer'](value)
         except KeyError:
@@ -606,17 +620,28 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         changes = self.changes_query(state, replaced).all()
         return self.changes_filter_data(changes)
 
+    @property
+    def attr_keys(self):
+        return [ccc.attr for ccc in self.changes()]
+
+    def _filter_changes_attr(self, query, attr):
+        return query.filter(Change.attr == attr).order_by(Change.ts_j.desc())
+
     def get_attr(self, attr):
         """Return the most recent accepted Change for key.
 
-        Raises: KeyError if none
+        Raises: KeyError if no changes.
 
         """
-        change = self.changes_query('accepted').filter(Change.attr == attr).\
-            order_by(Change.ts_j).first()
+        change = self._filter_changes_attr(
+            self.changes_query('accepted'), attr).first()
         if change is None:
             raise KeyError(attr)
         return change
+
+    def get_attr_change(self, attr):
+        """Return the last Change for this Obj's attr."""
+        return self._filter_changes_attr(self._changes, attr).first()
 
     def get_attr_or(self, attr, default=None):
         """Return the most recent accepted Change for key or default."""
@@ -645,10 +670,6 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         change.accept(person)
         return change
 
-    def get_attr_change(self, attr):
-        """Return the last Change for this Obj's attr."""
-        return self._changes.filter(Change.attr == attr).first()
-
     def _set_cache(self, attr, value):
         """Set the attribute value to cache."""
         try:
@@ -676,7 +697,10 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
 
         """
         if force_original or force_change:
-            change = self.get_attr_change(attr)
+            try:
+                change = self.get_attr(attr)
+            except KeyError:
+                return default
             if not change:
                 return default
             if force_original:
@@ -688,7 +712,11 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
             return value
         return self.get(attr, default, force_original, force_change=True)
 
-    def delete(self):
+    def delete(self, person, attr):
+        """Set this attr to none."""
+        return self.sugg(person, attr, None)
+
+    def remove(self):
         """Delete this Obj from the database and remove its Changes."""
         # This option purges the Changes as well.
         # Is this desirable because there would no longer be a log of that obj's
@@ -732,9 +760,9 @@ Obj.allow_attr('import_id', String, 'Import ID')
 class ExtrasJSONEncoder(JSONEncoder):
    def default(self, obj):
        if isinstance(obj, Decimal):
-           return str(obj)
+           return float(obj)
        # Let the base class default method raise the TypeError
-       return json.JSONEncoder.default(self, obj)
+       return JSONEncoder.default(self, obj)
 
 
 class Serializer(object):
@@ -775,12 +803,6 @@ class SerializerTrack(Serializer):
         return geojson.loads(value)
 
 
-def query_in_order_ids(query, field, ids):
-    """Append to a query to filter by ids in order."""
-    order = case([(field == value, literal(index)) for index, value in enumerate(ids)])
-    return query.filter(field.in_(ids)).order_by(order)
-
-
 class SerializerObj(Serializer):
     @classmethod
     def serialize(cls, value):
@@ -799,16 +821,14 @@ class SerializerObj(Serializer):
 class SerializerFSFile(SerializerObj):
     @classmethod
     def serialize(cls, value):
-        return dumps({'obj_type': str(cls), 'id': value.id})
+        if not isinstance(value, FSFile):
+            value = FSFile.from_fieldstorage(value)
+        return super(SerializerFSFile, cls).serialize(value)
 
     @classmethod
-    def Deserializer(cls, obj):
-        return lambda value: cls.deserialize(obj, value)
-
-    @classmethod
-    def deserialize(cls, obj, value):
+    def deserialize(cls, value):
         oid = loads(value)['id']
-        return obj.query().get(oid)
+        return FSFile.query().get(oid)
 
 
 class SerializerObjs(SerializerObj):
@@ -819,14 +839,11 @@ class SerializerObjs(SerializerObj):
     @classmethod
     def deserialize(cls, obj, value):
         ids = loads(value)['ids']
-        # Fast track empty lists, avoid SQL generation error
-        if not ids:
-            return []
-        objs = query_in_order_ids(DBSession.query(obj), obj.id, ids).all()
+        objs = obj.get_all_by_ids(*ids)
         return objs
 
 
-class Participant(Base, Creatable):
+class Participant(Base, Creatable, DBQueryable):
     """A participant of a Cruise. 
 
     A participant consists of role, person, and optionally institution.
@@ -881,7 +898,7 @@ class Participants(InstrumentedList):
         """Store Participants in order."""
         if args:
             part = args[0]
-            if type(part) is Participants:
+            if type(part) == Participants:
                 data = part
             else:
                 data = args
@@ -913,6 +930,7 @@ class FSFile(Base, DBQueryable, AdaptedFile):
     """A file record that points to the filesystem file.
 
     # FIXME
+    This is no longer true. FSFile is linked to a change.
     FSFile is stored as an Obj because it is difficult to find a Change based on
     FSFile import id if the only link is via a string id.
     Actually... I don't understand. If attr_by_import_id is only used for import
@@ -947,7 +965,7 @@ class FSFile(Base, DBQueryable, AdaptedFile):
         self.file = fobj
         self.store = store
         self.name = unicode(filename)
-# TODO calculate md5 for etagging?
+        # TODO calculate md5 for etagging?
 
     @staticmethod
     def from_fieldstorage(fst):
@@ -1024,7 +1042,7 @@ class Country(Obj):
                 person.set_accept('country', self.id, signer)
 
         for mergee in mergees:
-            mergee.delete()
+            mergee.remove()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Country."""
@@ -1080,7 +1098,7 @@ class Institution(Obj):
             attr.obj_id = self.id
 
         for mergee in mergees:
-            mergee.delete()
+            mergee.remove()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Institution."""
@@ -1134,7 +1152,7 @@ class Ship(Obj):
             attr.obj_id = self.id
 
         for mergee in mergees:
-            mergee.delete()
+            mergee.remove()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Ship."""
@@ -1328,7 +1346,7 @@ class Person(Obj):
             attr.obj_id = self.id
 
         for mergee in mergees:
-            mergee.delete()
+            mergee.remove()
 
         self._recache()
 
@@ -1534,7 +1552,7 @@ class Collection(MultiName, Obj):
             cruise.set(signer, 'collections', colls)
 
         for mergee in mergees:
-            mergee.delete()
+            mergee.remove()
 
     def to_nice_dict(self):
         """Returns a dict representation of the Collection."""
@@ -1631,8 +1649,13 @@ class Parameter(Obj):
 
     name = Column(Unicode)
 
-    _aliases = relationship('_ParameterAlias', uselist=True)
+    _aliases = relationship('_ParameterAlias', lazy='joined', uselist=True)
     aliases = association_proxy('_aliases', 'alias')
+
+    full_name = Column(Unicode)
+    name_netcdf = Column(Unicode)
+
+    description = Column(Unicode)
 
     _bounds = Column(Unicode)
 
@@ -1651,6 +1674,8 @@ class Parameter(Obj):
 
     @property
     def bounds(self):
+        if self._bounds is None:
+            return []
         bounds = loads(self._bounds)
 
         # If all bounds are None, there are no bounds
@@ -1700,7 +1725,7 @@ class _ParameterGroupOrder(Base):
     id = Column(Integer, primary_key=True)
     pg_id = Column(Unicode, ForeignKey('parameter_groups.name'))
     parameter_id = Column(Integer, ForeignKey('parameters.id'))
-    parameter = relationship(Parameter, backref='parameter_groups')
+    parameter = relationship(Parameter, lazy='joined', backref='parameter_groups')
 
     def __init__(self, parameter):
         self.parameter = parameter
@@ -1720,7 +1745,7 @@ class ParameterGroup(Obj):
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
 
     name = Column(Unicode, unique=True)
-    _order = relationship(_ParameterGroupOrder, uselist=True)
+    _order = relationship(_ParameterGroupOrder, uselist=True, lazy="joined")
     order = association_proxy('_order', 'parameter')
 
     __mapper_args__ = {
@@ -1863,6 +1888,11 @@ class ArgoFile(Obj, FileHolder):
     text_identifier = Column(Unicode)
     description = Column(Unicode)
     display = Column(Boolean)
+
+    file_id = Column(Integer, ForeignKey('fsfiles.id'))
+    file = relationship(
+        'FSFile', foreign_keys=[file_id], single_parent=True,
+        cascade='all, delete-orphan')
 
     link_cruise_id = Column(Integer, ForeignKey('cruises.id'))
     link_cruise = relationship(
@@ -2235,8 +2265,16 @@ class Cruise(Obj):
         return super(Cruise, self)._get_cache(attr)
 
     @classmethod
+    def query_by_expocode(cls, expocode):
+        return cls.query().filter(Cruise.expocode == expocode)
+
+    @classmethod
     def get_by_expocode(cls, expocode):
-        return cls.query().filter(Cruise.expocode == expocode).first()
+        return cls.query_by_expocode(expocode).first()
+
+    @classmethod
+    def get_all_by_expocode(cls, expocode):
+        return cls.query_by_expocode(expocode).all()
 
     @classmethod
     def updated(cls, limit):
@@ -2389,7 +2427,7 @@ __cruise_allow_attrs = [
 to_register = []
 for key, name in DataFileTypes.human_names.items():
     to_register.append((
-        key, SerializerObj.serialize, SerializerObj.Deserializer(FSFile)))
+        key, SerializerFSFile))
     status_key = '{0}_status'.format(key)
     to_register.append((status_key, Serializer))
 
@@ -2426,11 +2464,11 @@ Cruise.register_serializer_pair(
 Cruise.register_serializer_pair(
     'parameter_informations', SerializerObjs.serialize, SerializerObjs.Deserializer(ParameterInformation))
 Cruise.register_serializer_pair(
-    'data_suggestion', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
+    'data_suggestion', SerializerFSFile)
 Cruise.register_serializer_pair(
     'data_dir', Serializer)
 Cruise.register_serializer_pair(
-    'archive', SerializerObj.serialize, SerializerObj.Deserializer(FSFile))
+    'archive', SerializerFSFile)
 
 
 @event.listens_for(Note, 'after_insert')

@@ -21,7 +21,7 @@ from whoosh.qparser import (
 from whoosh.qparser.dateparse import DateParserPlugin
 
 from pycchdo.models import triggers
-from pycchdo.log import ColoredLogger, ERROR, DEBUG
+from pycchdo.log import ColoredLogger, ERROR, INFO, DEBUG
 from pycchdo.models.serial import (
     DBSession,
     Cruise, Person, Ship, Country, Institution, Collection, Note,
@@ -29,7 +29,7 @@ from pycchdo.models.serial import (
 
 
 log = ColoredLogger(__name__)
-log.setLevel(DEBUG)
+log.setLevel(INFO)
 
 
 _name_model = {
@@ -249,15 +249,24 @@ class SearchIndex(object):
 
         try:
             yield ixw
+        except Exception, err:
+            raise
         finally:
             if not writer:
                 if buffered:
+                    ixw.commit()
                     ixw.close()
                 else:
                     # TODO TEST make sure the note is committed afterward.
                     ixw.commit()
                 ix.close()
 
+    @contextmanager
+    def searcher(self, index_name, index=None):
+        if index is None:
+            index = self.open_or_create_index(index_name)
+        with index.searcher() as searcher:
+            yield searcher
 
     def save_obj(self, obj, writer=None):
         try:
@@ -343,7 +352,7 @@ class SearchIndex(object):
                 doc['data_type'] = unicode(note.data_type)
             if note.subject:
                 doc['subject'] = unicode(note.subject)
-            doc['mtime'] = note.creation_timestamp
+            doc['mtime'] = note.ts_c
             doc['id'] = _model_id_to_index_id(note.id)
             ixw.update_document(**doc)
 
@@ -364,6 +373,81 @@ class SearchIndex(object):
                 return
             ixw.delete_by_term('id', _model_id_to_index_id(note.id))
 
+    def _clean_index(self, ixw, model, indexed_ids, to_index):
+        ixs = ixw.searcher()
+
+        try:
+            # Walk each index
+            for fields in ixs.all_stored_fields():
+                indexed_id = fields['id']
+                indexed_ids.add(indexed_id)
+
+                log.debug('Check %s existance' % indexed_id)
+
+                # for missing docs
+                obj = model.query().get(indexed_id)
+                if not obj:
+                    log.debug('Remove missing id %s' % indexed_id)
+                    ixw.delete_by_term('id', indexed_id)
+                # and modified docs
+                else:
+                    log.debug('Check %s mtime' % indexed_id)
+                    try:
+                        indexed_time = fields['mtime']
+                        try:
+                            mtime = obj.mtime
+                        except AttributeError:
+                            # Notes don't have an mtime
+                            pass
+                        if not mtime:
+                            mtime = obj.ctime
+                        if mtime > indexed_time:
+                            log.debug('%s has been modified' % indexed_id)
+                            to_index.add(indexed_id)
+                    except (KeyError, TypeError):
+                        to_index.add(indexed_id)
+        except Exception, err:
+            log.error(repr(err))
+        finally:
+            ixs.close()
+
+    def _rebuild_index(self, name, clear=False):
+        with self.writer(name, clear=clear, buffered=True) as ixw:
+            if ixw is None:
+                log.warn(u'Unable to index {0!r}'.format(name))
+                return
+            model = _name_model[name]
+
+            indexed_ids = set()
+            to_index = set()
+
+            if not clear:
+                log.info(u'Cleaning index and collecting indexed docs for '
+                         '{0}'.format(name))
+                self._clean_index(ixw, model, indexed_ids, to_index)
+                log.info('cleaned')
+                ixw.commit()
+
+            log.debug(repr(indexed_ids))
+            log.debug(repr(to_index))
+
+            objs = DBSession.query(model).all()
+            #log.debug(repr(objs))
+
+            log.info('Indexing new and modified docs for %s' % name)
+            l = float(len(objs))
+            for i, obj in enumerate(objs):
+                # Index modified and new docs
+                oid = unicode(obj.id)
+                if oid in to_index or oid not in indexed_ids:
+                    log.debug('Indexing {0} {1}'.format(name, obj.id))
+                    if model is Note:
+                        self.save_note(obj, ixw)
+                    else:
+                        self.save_obj(obj, ixw)
+                if i % 50 == 0:
+                    log.info('%d/%d = %3.4f' % (i, l, i / l))
+            ixw.commit()
 
     def rebuild_index(self, clear=False):
         """Indexes all Objs and Notes.
@@ -382,79 +466,21 @@ class SearchIndex(object):
             schemas.remove('note')
             schemas.append('note')
         for name in schemas:
-            log.info('Indexing %s' % name)
-            with self.writer(name, clear=clear, buffered=True) as ixw:
-                if ixw is None:
-                    log.warn(u'Unable to index {0!r}'.format(name))
-                    continue
-                model = _name_model[name]
-
-                indexed_ids = set()
-                to_index = set()
-
-                if not clear:
-                    log.info((u'Cleaning index and collecting indexed docs '
-                              'for {}').format(name))
-                    ixs = ixw.searcher()
-
-                    try:
-                        # Walk each index
-                        for fields in ixs.all_stored_fields():
-                            indexed_id = fields['id']
-                            indexed_ids.add(indexed_id)
-
-                            log.debug('Check %s existance' % indexed_id)
-
-                            # for missing docs
-                            obj = DBSession.query(model).get(indexed_id)
-                            if not obj:
-                                log.debug('Remove missing id %s' % indexed_id)
-                                ixw.delete_by_term('id', indexed_id)
-                            # and modified docs
-                            else:
-                                log.debug('Check %s mtime' % indexed_id)
-                                try:
-                                    indexed_time = fields['mtime']
-                                    try:
-                                        mtime = obj.mtime
-                                    except AttributeError:
-                                        # Notes don't have an mtime
-                                        pass
-                                    if not mtime:
-                                        mtime = obj.ctime
-                                    if mtime > indexed_time:
-                                        log.debug(
-                                            '%s has been modified' % indexed_id)
-                                        to_index.add(indexed_id)
-                                except (KeyError, TypeError):
-                                    to_index.add(indexed_id)
-                    finally:
-                        ixs.close()
-                    ixw.commit()
-
-                log.debug(repr(indexed_ids))
-                log.debug(repr(to_index))
-
-                objs = DBSession.query(model).all()
-
-                #log.debug(repr(objs))
-
-                log.info('Indexing new and modified docs for %s' % name)
-                l = float(len(objs))
-                for i, obj in enumerate(objs):
-                    # Index modified and new docs
-                    oid = unicode(obj.id)
-                    if oid in to_index or oid not in indexed_ids:
-                        log.debug('Indexing %s' % obj.id)
-                        if model is Note:
-                            self.save_note(obj, ixw)
-                        else:
-                            self.save_obj(obj, ixw)
-                    if i % 50 == 0:
-                        log.info('%d/%d = %3.4f' % (i, l, i / l))
-
-                ixw.commit()
+            self._rebuild_index(name, clear)
         log.info('Finished indexing')
+
+
+    def _model_query_string_to_query(self, model_name, dateless_query):
+        """Parse the query string in the context of the given model. 
+        Also get the objects that we will need to search the model index.
+
+        """
+        model_parser = _parsers.get(model_name)
+        qstring = dateless_query
+        try:
+            return model_parser.parse(qstring)
+        except Exception, err:
+            log.error('Query parse failed for {0!r}: {1}'.format(qstring, err))
 
     def search(self, query_string, search_notes=False, **kwargs):
         """Performs search based on a query string.
@@ -497,25 +523,17 @@ class SearchIndex(object):
             elif dtype in ['date_end', 'to']:
                 date_match_items['dend'] = _str_to_date(val)
 
+        log.debug('New query: {0!r}'.format(query_string))
         # Search each model.
         for model_name, model_schema in _schemas.items():
             # Skip Notes if they were not requested.
             if model_name is 'note' and not search_notes:
                 continue
 
-            # Parse the query string in the context of the given model, and get
-            # the objects that we will need to search the model index.
-            model_parser = _parsers.get(model_name)
-            qstring = dateless_query
-            try:
-                query = model_parser.parse(qstring)
-            except Exception, e:
-                log.error(
-                    'Query parse failed for {0!r}: {1}'.format(qstring, e))
-            log.info(u'Query: {0}\t{1!r}'.format(model_name, query))
-            index = self.open_or_create_index(model_name)
+            query = self._model_query_string_to_query(model_name, dateless_query)
+            log.debug(u'Query: {0}\t{1!r}'.format(model_name, query))
 
-            with index.searcher() as searcher:
+            with self.searcher(model_name) as searcher:
                 try:
                     # Search the index.
                     try:
@@ -524,20 +542,21 @@ class SearchIndex(object):
                         kwargs['limit'] = None
                     raw = searcher.search(query, **kwargs)
 
+                    log.debug('{0} results'.format(len(raw)))
+
                     # Obtain the identifier function for the model. The
                     # identifier function takes object IDs and maps them to
                     # their objects.
                     model = _name_model[model_name]
-                    if model_name == 'note':
-                        model = Note
 
                     # Extract the result objects from the raw search results.
                     field_numbers = range(raw.estimated_length())
                     idwrappers = map(raw.fields, field_numbers)
                     idparams = [wrapper['id'] for wrapper in idwrappers]
-                    objects = model.by_ids(idparams).all()
 
-                    if model_name is 'cruise' or model_name is 'note':
+                    objects = model.get_all_by_ids(*idparams)
+
+                    if model_name == 'cruise' or model_name == 'note':
                         # Cruises and Notes are quite simple. They are not
                         # supposed to have cruises associated with them, so we
                         # just put them directly into the results.
@@ -549,13 +568,11 @@ class SearchIndex(object):
                         container = SearchResult()
                         for obj in objects:
                             container[obj] = _filter_cruises_for_date_match(
-                                obj.cruises(), date_match_items)
+                                obj.cruises, date_match_items)
                         results[model_name] = container
 
-                except NotImplementedError:
-                    pass
-                except AttributeError:
-                    pass
+                except NotImplementedError, err:
+                    log.warn(repr(err))
                 except Exception:
                     log.error(
                         'Search failed for {0!r}: {1}'.format(

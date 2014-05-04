@@ -18,6 +18,7 @@ from traceback import format_exc
 
 from sqlalchemy.sql.expression import select, alias
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import lazyload
 
 from paramiko import SSHException
 
@@ -63,7 +64,7 @@ remote_host = 'ghdc.ucsd.edu'
 
 
 def get_by_import_id(cls, import_id):
-    return cls.query().filter(cls.import_id == import_id).first()
+    return cls.query().filter(cls.import_id == import_id).options(lazyload('*')).first()
 
 
 def _log_progress(i, total):
@@ -549,7 +550,7 @@ def _import_inst(updater, name):
     if not name:
         return None
     name = _ustr2uni(name)
-    inst = Institution.query().filter(Institution.name == name).first()
+    inst = Institution.query().filter(Institution.name == name).options(lazyload('cruises')).first()
     if inst:
         log.info(u"Updating Institution {0!r}".format(name))
     else:
@@ -608,7 +609,7 @@ def _import_contacts(session):
 
 
 def _import_ship(updater, ship_name):
-    ship = Ship.query().filter(Ship.name == ship_name).first()
+    ship = Ship.query().filter(Ship.name == ship_name).options(lazyload('cruises')).first()
     if ship:
         log.info('Updating Ship %s' % ship_name)
     else:
@@ -672,7 +673,7 @@ def _import_country(updater, country_name):
     if country_name in known_country_names.keys():
         country_name = known_country_names[country_name]
     country = Country.query().filter(
-        Country.name == country_name).first()
+        Country.name == country_name).options(lazyload('cruises')).first()
     if country:
         log.info('Updating Country %s' % country_name)
     else:
@@ -859,7 +860,7 @@ def _import_track_lines(session):
                 u'Unable to convert trackline {0} to linestring'.format(tl.id))
             continue
 
-        cruise = Cruise.query().filter(Cruise.expocode == tl.ExpoCode).first()
+        cruise = Cruise.query_by_expocode(tl.ExpoCode).options(lazyload('*')).first()
         if not cruise:
             log.info("Creating Cruise {0} for track line {1}".format(
                 tl.ExpoCode, tl.id))
@@ -998,7 +999,7 @@ def _import_collections(session):
     log.info("Importing Collections")
     collections = session.query(legacy.Collection).all()
     updater = _get_updater()
-    new_collections = Collection.query().all()
+    new_collections = Collection.query().options(lazyload('cruises')).all()
 
     imported_id_colls = {}
     for coll in new_collections:
@@ -1229,7 +1230,7 @@ def _import_events(session):
             log.info("Updating Event {0}".format(event_id))
             continue
 
-        cruises = Cruise.query().filter(Cruise.expocode == event.ExpoCode).all()
+        cruises = Cruise.query_by_expocode(event.ExpoCode).options(lazyload('*')).all()
         # No cruises to add the events to? Don't do the work.
         if not cruises:
             log.error(u"Event {0}'s cruise {1!r} does not exist".format(
@@ -1351,7 +1352,7 @@ def _import_spatial_groups(session):
             log.info("Skipping non Cruise for spatial_groups")
             continue
 
-        cruise = Cruise.query().filter(Cruise.expocode == sg.expocode).first()
+        cruise = Cruise.query_by_expocode(sg.expocode).options(lazyload('*')).first()
         if not cruise:
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', sg.expocode)
@@ -1372,7 +1373,7 @@ def _import_internal(session):
             log.warn("Skipping internal {0}, no expocode".format(i.id))
             continue
 
-        cruises = Cruise.query().filter(Cruise.expocode == i.expocode).all()
+        cruises = Cruise.query_by_expocode(i.expocode).options(lazyload('*')).all()
         if cruises:
             log.info("Updating Cruise %s for internal" % i.expocode)
             cruise = cruises[0]
@@ -1400,7 +1401,7 @@ def _import_unused_tracks(session):
             log.info(
                 u"Skipping unused track {0!r}, no expocode.".format(t.id))
             continue
-        cruise = Cruise.query().filter(Cruise.expocode == t.expocode).first()
+        cruise = Cruise.query_by_expocode(t.expocode).options(lazyload('*')).first()
         if cruise:
             log.info("Updating Cruise %s for unused track" % t.expocode)
         else:
@@ -1446,8 +1447,11 @@ def _import_parameter_descriptions(session):
             if parameter.units:
                 updater.attr(
                     p, 'units', _import_unit(updater, parameter.units))
-            updater.attr(
-                p, 'bounds', (parameter.bound_lower, parameter.bound_upper))
+            if (    parameter.bound_lower is not None and
+                    parameter.bound_upper is not None):
+                updater.attr(
+                    p, 'bounds',
+                    (parameter.bound_lower, parameter.bound_upper))
             aliases = [a.name for a in parameter.aliases]
             updater.attr(p, 'aliases', aliases)
     except OperationalError, e:
@@ -1517,7 +1521,7 @@ def _import_parameters(session):
         parameters[param] = parameter
 
     for p in session.query(legacy.CruiseParameterInfo).all():
-        cruise = Cruise.query().filter(Cruise.expocode == p.ExpoCode).first()
+        cruise = Cruise.query_by_expocode(p.ExpoCode).options(lazyload('*')).first()
         if cruise:
             log.info("Found Cruise %s for CPI" % p.ExpoCode)
         else:
@@ -1790,7 +1794,7 @@ def _import_queue_files(session, downloader):
 
     queue_files = session.query(legacy.QueueFile).all()
     for qfile in queue_files:
-        cruises = Cruise.query().filter(Cruise.expocode == qfile.expocode).all()
+        cruises = Cruise.query_by_expocode(qfile.expocode).options(lazyload('*')).all()
         if cruises:
             cruise = cruises[0]
         else:
@@ -2060,7 +2064,7 @@ def _import_documents_unaccounted(
 
 
 def _import_documents_for_cruise(downloader, docs, expocode):
-    cruises = Cruise.query().filter(Cruise.expocode == expocode).all()
+    cruises = Cruise.query_by_expocode(expocode).options(lazyload('*')).all()
     updater = _get_updater()
     if docs:
         log.info("Importing documents for %s" % expocode)
@@ -2193,7 +2197,7 @@ def _import_documents_for_cruise(downloader, docs, expocode):
                 date_creation = date_creations[0]
                 updater.note(
                     attr, ','.join(date_creations), 'dates_updated',
-                    creation_timestamp=date_creations[-1])
+                    ctime=date_creations[-1])
             else:
                 attr.ts_c = date_creation
         if date_accepted:
@@ -2349,7 +2353,7 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
                     u'Unable to get ExpoCode for linked ArgoFile {0}.'.format(file.id))
 
         if expocode:
-            cruise = Cruise.query().filter(Cruise.expocode == expocode).first()
+            cruise = Cruise.query_by_expocode(expocode).options(lazyload('*')).first()
             if cruise:
                 file_type = libcchdo.fns.guess_file_type(symlink_target)
                 if file_type:

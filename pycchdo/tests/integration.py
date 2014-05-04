@@ -3,7 +3,7 @@ from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
 
 from . import *
-from pycchdo.models import DBSession, Cruise, Person
+from pycchdo.models.serial import DBSession, Cruise, Person, FSFile
 
 
 class ViewIntegrationTests(BaseTest):
@@ -40,19 +40,17 @@ class ViewIntegrationTests(BaseTest):
         """
         from pycchdo.views.toplevel import data
         request = testing.DummyRequest()
+        request.fsstore = fsstore
 
         person = request.user = Person(identifier=u'person')
         DBSession.add(person)
         DBSession.flush()
 
-        cruise = Cruise(person)
-        DBSession.add(cruise)
-        DBSession.flush()
-
-        data_attr = cruise.set_accept(
-            u'bottle_exchange',
-            MockFieldStorage(MockFile('botex', 'bot_hy1.csv'), 'text/csv'),
-            person)
+        cruise = Cruise.create(person).obj
+        data_attr = cruise.set(
+            person, u'bottle_exchange',
+            FSFile.from_fieldstorage(
+                MockFieldStorage(MockFile('botex', 'bot_hy1.csv'), 'text/csv')))
         data_attr.permissions = {}
         DBSession.flush()
 
@@ -103,7 +101,7 @@ class ViewIntegrationTests(BaseTest):
             pass
 
         del data_attr.permissions 
-        del data_attr.judgment_stamp
+        del data_attr.ts_j
         # data is not judged, user -> ok
         try:
             data(request)

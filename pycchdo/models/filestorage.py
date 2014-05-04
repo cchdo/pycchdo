@@ -1,5 +1,6 @@
 import os.path
 from tempfile import mkdtemp, SpooledTemporaryFile
+from shutil import copyfileobj
 
 from django.conf import settings as django_settings
 from django.utils.functional import empty
@@ -23,7 +24,7 @@ class CachingFile(File):
             cache.name = self.file.name
         except AttributeError:
             pass
-        copy_chunked(self.file, cache)
+        copyfileobj(self.file, cache)
         self.file = cache
 
     @property
@@ -49,32 +50,7 @@ def seek_size(file):
             u'Unable to determine file size {0!r}: {1!r}'.format(file, e))
 
 
-def copy_chunked(infile, outfile, chunk=2**9):
-    """Copies the file-like in to out in chunks."""
-    try:
-        cipos = infile.tell()
-    except Exception:
-        cipos = None
-    try:
-        copos = outfile.tell()
-    except Exception:
-        copos = None
-    log.debug('copying {0} -> {1}'.format(infile, outfile))
-    i = 0
-    data = infile.read(chunk)
-    while data:
-        outfile.write(data)
-        data = infile.read(chunk)
-        i += 1
-        if i % 1000 == 0:
-            log.debug('{0} chunks'.format(i))
-    log.debug('copied {0} chunks'.format(i))
-    if cipos is not None:
-        infile.seek(cipos)
-    outfile.flush()
-    if copos is not None:
-        outfile.seek(copos)
-    log.debug('copy complete {0} -> {1}'.format(infile, outfile))
+copy_chunked = copyfileobj
 
 
 class DirFileSystemStorage(FileSystemStorage):

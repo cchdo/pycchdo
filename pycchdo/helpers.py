@@ -23,7 +23,7 @@ from pycchdo.log import ColoredLogger, INFO, DEBUG
 from pycchdo.models.serial import (
     Note, FSFile
     )
-from pycchdo.models.file_types import data_file_descriptions
+from pycchdo.models.file_types import DataFileTypes
 from pycchdo.models.serial import (
     Person, Country, Cruise, Collection, Ship, Institution,
     )
@@ -943,15 +943,15 @@ def collect_data_files(cruise_obj):
 
     data_files = OrderedDict()
     data_files['exchange'] = {
-        'ctdzip_exchange': mapped.get('ctdzip_exchange'),
+        'ctd_zip_exchange': mapped.get('ctd_zip_exchange'),
         'bottle_exchange': mapped.get('bottle_exchange'),
         'large_volume_samples_exchange': mapped.get(
             'large_volume_samples_exchange'),
         'trace_metals_exchange': mapped.get('trace_metals_exchange'),
     }
     data_files['netcdf'] = {
-        'ctdzip_netcdf': mapped.get('ctdzip_netcdf'),
-        'bottlezip_netcdf': mapped.get('bottlezip_netcdf'),
+        'ctd_zip_netcdf': mapped.get('ctd_zip_netcdf'),
+        'bottle_zip_netcdf': mapped.get('bottle_zip_netcdf'),
     }
     data_files['doc'] = {
         'doc_txt': mapped.get('doc_txt'),
@@ -959,7 +959,7 @@ def collect_data_files(cruise_obj):
     }
     data_files['woce'] = {
         'bottle_woce': mapped.get('bottle_woce'),
-        'ctdzip_woce': mapped.get('ctdzip_woce'),
+        'ctd_zip_woce': mapped.get('ctd_zip_woce'),
         'sum_woce': mapped.get('sum_woce'),
         'large_volume_samples_woce': mapped.get('large_volume_samples_woce'),
     }
@@ -1159,7 +1159,7 @@ def data_file_link(request, type, data, leader=None):
     if leader:
         data_type = ' '.join([leader, data_type])
 
-    description = data_file_descriptions.get(type, '')
+    description = DataFileTypes.descriptions.get(type, '')
 
     preliminary = False
     if data.obj:

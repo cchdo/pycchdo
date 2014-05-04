@@ -12,9 +12,8 @@ from pyramid.paster import get_appsettings
 from sqlalchemy import engine_from_config
 from sqlalchemy.orm import lazyload
 
-from pycchdo import models
 from pycchdo.models.serial import (
-    Change,
+    Change, Note,
     DBSession, reset_database, reset_fs, 
     log as model_log,
     )
@@ -99,7 +98,7 @@ class Updater:
     def create_accept(self, klass):
         return klass.create(self.importer).obj
 
-    def note(self, obj, note, data_type=None, creation_timestamp=None):
+    def note(self, obj, note, data_type=None, ctime=None):
         if not note:
             return
         matched_note = False
@@ -108,10 +107,10 @@ class Updater:
                 matched_note = True
                 break
         if not matched_note:
-            note = models.Note(
+            note = Note(
                 self.importer, _ustr2uni(note), data_type=data_type)
-            if creation_timestamp:
-                note.creation_timestamp = creation_timestamp
+            if ctime:
+                note.ts_c = ctime
             obj.notes.append(note)
 
     def attr(self, obj, key, value, accept=True, note=None,
@@ -145,7 +144,7 @@ class Updater:
                 attr = obj.sugg(self.importer, key, value)
         if attr:
             if creation_time is not None:
-                attr.creation_timestamp = creation_time
+                attr.ts_c = creation_time
             if note is not None:
                 self.note(attr, note, note_data_type)
         return attr
@@ -173,6 +172,9 @@ argparser.add_argument(
     '-T', '--tabula-rasa', action='store_true', default=False,
     help='Whether to reset the pycchdo database before rebuilding. Useful for '
          'full rebuilds.')
+argparser.add_argument(
+    '--clear-index', action='store_true', default=False,
+    help='Whether to clear the index.')
 argparser.add_argument(
     '--clear-filesystem', action='store_true', default=False,
     help='Whether to reset the pycchdo file system before rebuilding. Useful '
@@ -301,7 +303,7 @@ def do_import():
     if not args.skip_search_index:
         log.info("indexing...")
         SearchIndex(args.db_search_index_path).rebuild_index(
-            clear=args.tabula_rasa)
+            clear=args.tabula_rasa or args.clear_index)
 
     log.info("finished import.")
     return 0

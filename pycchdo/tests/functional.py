@@ -1,9 +1,10 @@
 from pyramid import testing
+from pyramid.httpexceptions import HTTPSeeOther
 
 from jinja2 import Template as Jinja2Template
 
 from . import *
-import pycchdo
+from pycchdo.models.serial import DBSession, Cruise
 
 
 # TODO Planning on figuring out how to render the jinja2 templates and search
@@ -22,16 +23,17 @@ class TestView(PersonBaseTest):
 
     def test_cruise_show(self):
         from pycchdo.views.cruise import cruise_show
-        from pycchdo.models import DBSession, Cruise
-
         expocode = '33RR20090320'
 
-        ccc = Cruise(self.testPerson)
-        DBSession.add(ccc)
-        DBSession.flush()
-        ccc.set_accept('expocode', expocode, self.testPerson)
+        ccc = Cruise.create(self.testPerson).obj
+        ccc.set(self.testPerson, 'expocode', expocode)
 
         self.config.add_route('submit_menu', '/submit.html')
         self.config.add_route('cruise_new', '/cruises/{cruise_id}/new')
+        self.config.add_route('cruise_show', '/cruise/{cruise_id}')
         self.request.matchdict['cruise_id'] = str(ccc.id)
-        result = cruise_show(self.request)
+        with self.assertRaises(HTTPSeeOther):
+            cruise_show(self.request)
+
+        self.request.matchdict['cruise_id'] = expocode
+        cruise_show(self.request)

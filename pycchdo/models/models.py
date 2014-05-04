@@ -37,11 +37,7 @@ from sqlalchemy.ext.declarative import (
 
 from zope.sqlalchemy import ZopeTransactionExtension
 
-from geoalchemy import (
-    GeometryColumn, LineString, GeometryDDL, 
-    )
-from geoalchemy.postgis import PGComparator
-
+from geoalchemy2.types import Geometry 
 from shapely import wkb, wkt
 from shapely.geometry import shape as sg_shape, linestring as sg_LineString
 
@@ -740,8 +736,8 @@ event.listen(_AttrValueDatetime.value, 'set', _AttrValueDatetime._coerce)
 
 
 class _AttrValueLineString(_AttrValue):
-    value_ = GeometryColumn(
-        'v_ls', LineString(2, spatial_index=False), comparator=PGComparator)
+    value_ = Column(
+        'v_ls', Geometry('LINESTRING', dimension=2, spatial_index=False))
 
     @property
     def value(self):
@@ -791,9 +787,6 @@ class _AttrValueLineString(_AttrValue):
 
 
 event.listen(_AttrValueLineString.value_, 'set', _AttrValueLineString._coerce)
-
-
-GeometryDDL(_AttrValueLineString.__table__)
 
 
 class _AttrValueFile(_AttrValue):
@@ -1091,7 +1084,7 @@ class _AttrValueElemDecimal(_AttrValueElem):
             raise TypeError('{0!r} is not coerceable to float'.format(value))
 
 
-event.listen(_AttrValueElemText.value, 'set', _AttrValueElemText._coerce)
+event.listen(_AttrValueElemDecimal.value, 'set', _AttrValueElemDecimal._coerce)
 
 
 class ParameterInformation(_AttrValueElem):

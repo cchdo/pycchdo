@@ -21,7 +21,7 @@ def people_index(request):
 
 def people_index_json(request):
     people = Person.query().order_by(Person.name_last).all()
-    people = [p.to_nice_dict() for p in people]
+    people = [p.to_dict() for p in people]
     return people
 
 
@@ -143,9 +143,9 @@ def person_merge(request):
     if not person.name_last:
         person.name_last = mergee.name_last
     if not person.institution and mergee.institution:
-        person.set_accept('institution', mergee.institution.id, request.user)
+        person.set(request.user, 'institution', mergee.institution.id)
     if not person.country and mergee.country:
-        person.set_accept('country', mergee.country.id, request.user)
+        person.set(request.user, 'country', mergee.country.id)
     if not person.email:
         person.email = mergee.email
     if not person.permissions:

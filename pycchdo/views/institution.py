@@ -19,7 +19,7 @@ def institutions_index(request):
 def institutions_index_json(request):
     institutions = Institution.query().all()
     institutions = sorted(institutions, key=lambda x: x.name)
-    institutions = [i.to_nice_dict() for i in institutions]
+    institutions = [i.to_dict() for i in institutions]
     return institutions
 
 
@@ -57,7 +57,7 @@ def institution_edit(request):
     name = request.params.get('name', '')
 
     if institution.name != name:
-        institution.set_accept('name', name, request.user)
+        institution.set(request.user, 'name', name)
 
     return _redirect_response(request, institution.id)
 

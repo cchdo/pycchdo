@@ -20,7 +20,7 @@ def collections_index(request):
 def collections_index_json(request):
     collections = Collection.query().all()
     collections = sorted(collections, key=lambda c: c.name)
-    collections = [c.to_nice_dict() for c in collections]
+    collections = [c.to_dict() for c in collections]
     return collections
 
 
@@ -48,7 +48,7 @@ def collection_archive(request):
     collection = _get_collection(request)
     if not collection:
         raise HTTPNotFound()
-    return staff.archive(request, collection.cruises())
+    return staff.archive(request, collection.cruises)
 
 
 def collection_edit(request):
@@ -56,7 +56,7 @@ def collection_edit(request):
     if not collection:
         raise HTTPNotFound()
 
-    cruises = collection.cruises(accepted_only=False)
+    cruises = collection.cruises
     response = {'collection': collection, 'cruises': cruises}
 
     try:
@@ -68,7 +68,7 @@ def collection_edit(request):
         return response
 
     if collection.get('names') != names:
-        collection.set_accept('names', names, request.user)
+        collection.set(request.user, 'names', names)
 
     try:
         type = text_to_obj(request.params.get('type', ''), Unicode)
@@ -77,7 +77,7 @@ def collection_edit(request):
         return response
 
     if collection.type != type:
-        collection.set_accept('type', type, request.user)
+        collection.set(request.user, 'type', type)
 
     try:
         basins = text_to_obj(request.params.get('basins', ''), TextList)
@@ -88,7 +88,7 @@ def collection_edit(request):
         return response
 
     if collection.get('basins') != basins:
-        collection.set_accept('basins', basins, request.user)
+        collection.set(request.user, 'basins', basins)
 
     coll_id = collection.id
     transaction.commit()

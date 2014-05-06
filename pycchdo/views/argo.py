@@ -6,7 +6,7 @@ from . import *
 from pycchdo.helpers import has_argo, has_staff
 from pycchdo.util import timestamp_now
 from pycchdo.models.serial import (
-    DBSession, ArgoFile, RequestFor, FSFile,
+    DBSession, ArgoFile, Change, RequestFor, FSFile,
     )
 from pycchdo.views.session import signin_required, require_signin
 
@@ -51,8 +51,8 @@ def index(request):
     if method == 'POST':
         return _create(request)
     elif method == 'GET':
-        argo_files = ArgoFile.query().\
-            order_by(ArgoFile.creation_timestamp.asc())
+        argo_files = ArgoFile.query().join(ArgoFile._changes).\
+            order_by(Change.ts_c.asc())
         if not has_staff(request):
             argo_files = argo_files.filter(ArgoFile.display)
         argo_files = argo_files.all()

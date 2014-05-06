@@ -81,7 +81,7 @@
 
     <h2>Unacknowledged changes</h2>
     <ul>
-    {% for change in obj.unacknowledged_tracked.all() %}
+    {% for change in obj.changes('unacknowledged') %}
     <li>
       <code>
         {{ change }}

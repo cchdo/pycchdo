@@ -20,7 +20,7 @@
   {%- call h.boxed(box_title) %}
     {%- if cruise_id %}
       <div class="editor">
-        {{ whh.tags.form('/objs/new', 'PUT',
+        {{ whh.tags.form('/cruises/new.html', 'PUT',
           hidden_fields={'_obj_type': 'Cruise', 'attr_expocode': cruise_id}) }}
           <p>Would you like to suggest that <span class="cruise_id">{{ cruise_id }}</span> be added?</p>
           <p>You will be directed to the new cruise's page where you can make additional edits.</p>
@@ -31,7 +31,7 @@
 
     <p>{{ whh.tags.link_to('View all contributions', request.route_path('contributions')) }}</p>
 
-    {{- whh.tags.form('/objs/new', 'PUT', hidden_fields={'_obj_type': 'Cruise'}, multipart=True) }}
+    {{- whh.tags.form('/cruises/new.html', 'PUT', hidden_fields={'_obj_type': 'Cruise'}, multipart=True) }}
       <div class="container">
         <div class="editor">
           <table>

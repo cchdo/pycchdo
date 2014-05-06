@@ -25,7 +25,7 @@
   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
     <td class="change" colspan="2">
       {%- if file.pending_stamp %}
-        <span class="pending" title="{{ h.pdatetime(file.pending_timestamp) }}">(Under review)</span>
+        <span class="pending" title="{{ h.pdatetime(file.ts_ack) }}">(Under review)</span>
       {%- endif %}
     </td>
     <td colspan="2">
@@ -105,8 +105,8 @@
                 {{ file.value.name }}
               {%- endif %}
             </td>
-            <td class="file_date">{{ h.pdate(file.creation_timestamp) }}</td>
-            <td class="suggested_by">{{ h.link_person(file.creation_person) }}</td>
+            <td class="file_date">{{ h.pdate(file.ts_c) }}</td>
+            <td class="suggested_by">{{ h.link_person(file.p_c) }}</td>
           </tr>
           {%- if not file.is_judged() %}
             {{ file_review_status(loop, hl, file) }}
@@ -302,7 +302,7 @@
                   <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
                     <td>{{ attr.attr }}</td>
                     <td>{{ h.link_person(attr.creation_person) }}</td>
-                    <td class="date">{{ h.pdatetime(attr.creation_timestamp) }}</td>
+                    <td class="date">{{ h.pdatetime(attr.ts_c) }}</td>
                   </tr>
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
                     <td class="change">
@@ -312,7 +312,7 @@
                         <span class="value">{{ attr.value }}</span>
                       {%- endif %}
                       {%- if attr.pending_stamp %}
-                        <span class="pending" title="{{ h.pdatetime(attr.pending_timestamp) }}">(Under review)</span>
+                        <span class="pending" title="{{ h.pdatetime(attr.ts_ack) }}">(Under review)</span>
                       {%- endif %}
                     </td>
                     <td colspan="2">
@@ -422,17 +422,17 @@
           <th>Suggested</th>
           <th>Actions</th>
         </tr>
-        {%- for attr in cruise.unacknowledged_tracked.all()[::-1] %}
+        {%- for attr in cruise.changes('unacknowledged')[::-1] %}
           <tr>
-            <th>{{ attr.key }}</th>
+            <th>{{ attr.attr }}</th>
             {%- if attr.deleted %}
               <td>delete</td>
             {%- else %}
-              <td>{{ attr.value }}</td>
+              <td>{{ h.attr_value(attr) }}</td>
             {%- endif %}
             <td>
-              <p>{{ attr.creation_timestamp }}</p>
-              <p>{{ attr.creation_person }}</p>
+              <p>{{ h.pdate(attr.ts_c) }}</p>
+              <p>{{ h.link_person(attr.p_c) }}</p>
             </td>
             <td>
               {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
@@ -454,21 +454,21 @@
           <th>Pending</th>
           <th>Actions</th>
         </tr>
-        {%- for attr in cruise.pending_tracked.all()[::-1] %}
+        {%- for attr in cruise.changes('pending')[::-1] %}
           <tr>
-            <th>{{ attr.key }}</th>
+            <th>{{ attr.attr }}</th>
             {%- if attr.deleted %}
               <td>delete</td>
             {%- else %}
               <td>{{ h.attr_value(attr) }}</td>
             {%- endif %}
             <td>
-              <p>{{ h.pdate(attr.creation_timestamp) }}</p>
-              <p>{{ h.link_person(attr.creation_person) }}</p>
+              <p>{{ h.pdate(attr.ts_c) }}</p>
+              <p>{{ h.link_person(attr.p_c) }}</p>
             </td>
             <td>
-              <p>{{ h.pdate(attr.pending_timestamp) }}</p>
-              <p>{{ h.link_person(attr.pending_person) }}</p>
+              <p>{{ h.pdate(attr.ts_ack) }}</p>
+              <p>{{ h.link_person(attr.p_ack) }}</p>
             </td>
             <td>
               {{ whh.tags.form('/obj/%s/a/%s' % (cruise.id, attr.id), 'PUT') }}
@@ -489,22 +489,22 @@
           <th>Suggested</th>
           <th>Accepted</th>
         </tr>
-        {%- for attr in cruise.accepted_tracked.all()[::-1] %}
+        {%- for attr in cruise.changes('accepted')[::-1] %}
           <tr class="{{loop.cycle('even', 'odd')}}">
             <th><a href="/obj/{{ attr.obj.id }}/a/{{ attr.id }}">{{ attr.id }}</a></th>
-            <th>{{ attr.key }}</th>
+            <th>{{ attr.attr }}</th>
             {%- if attr.deleted %}
               <td>Deleted</td>
             {%- else %}
               <td>{{ h.attr_value(attr) }}</td>
             {%- endif %}
             <td>
-              <p>{{ h.pdate(attr.creation_timestamp) }}</p>
-              <p>{{ h.link_person(attr.creation_person) }}</p>
+              <p>{{ h.pdate(attr.ts_c) }}</p>
+              <p>{{ h.link_person(attr.p_c) }}</p>
             </td>
             <td>
-              <p>{{ h.pdate(attr.judgment_timestamp) }}</p>
-              <p>{{ h.link_person(attr.judgment_person) }}</p>
+              <p>{{ h.pdate(attr.ts_j) }}</p>
+              <p>{{ h.link_person(attr.p_j) }}</p>
             </td>
           </tr>
         {%- endfor %}

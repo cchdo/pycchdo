@@ -14,7 +14,7 @@ from webhelpers.text import plural
 
 from pycchdo.views import *
 from pycchdo.models.datacart import Datacart
-from pycchdo.models.serial import Change, Cruise
+from pycchdo.models.serial import store_context, Change, Cruise
 
 
 ZIP_FILE_LIMIT = 20
@@ -60,7 +60,7 @@ def add(request):
         request.session.flash('Error adding file to data cart.', 'error')
         raise HTTPNotFound()
 
-    request.datacart.add(dattr.id)
+    request.datacart.add(id)
 
     if request.is_xhr:
         return _json_response({'cart_count': len(request.datacart)})
@@ -81,7 +81,7 @@ def remove(request):
         request.session.flash('Error removing file from data cart.', 'error')
         raise HTTPNotFound()
 
-    request.datacart.remove(dattr.id)
+    request.datacart.remove(id)
 
     if request.is_xhr:
         return _json_response({'cart_count': len(request.datacart)})
@@ -278,15 +278,15 @@ def download(request):
     start = archive * ZIP_FILE_LIMIT
     to_dl = list(request.datacart)[start:start + ZIP_FILE_LIMIT]
 
-    attrs = Change.by_ids(to_dl)
+    attrs = Change.get_all_by_ids(*to_dl)
     with SpooledTemporaryFile(max_size=2**10) as tfile:
-        with ZipFile(tfile, 'w', ZIP_DEFLATED) as zfile:
-           for attr in attrs:
-               dfile = attr.value
-               zfile.writestr(dfile.name, dfile.read())
+        with    ZipFile(tfile, 'w', ZIP_DEFLATED) as zfile, \
+                store_context(request.fsstore):
+            for attr in attrs:
+                dfile = attr.value
+                zfile.writestr(dfile.name, dfile.open_file().read())
 
         fname = TEMPNAME.format(datetime.now().strftime('%FT%T'))
-
         tfile.seek(0)
         return Response(
             body=tfile.read(), content_type='application/zip', 

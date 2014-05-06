@@ -237,13 +237,21 @@ def pager_for(page, format=PAGER_FORMAT):
 
 
 def email_link(email, microformat_type=None, microformat_classes=[],
-               content=None):
-    """ Gives back a mailto link that is slightly obfuscated. """
+               content=None, extra=None):
+    """Gives back a mailto link that is slightly obfuscated."""
     obfuscator = '@spam.net'
     parts = email.split('@')
     type = ''
     if microformat_type:
         type = H.span(microformat_type, class_='type hidden')
+
+    if extra:
+        extra = '+' + extra
+    else:
+        extra = ''
+
+    email = ''.join([parts[0], extra, '@', parts[1]])
+
     if not content:
         content = ''.join(
             [type, parts[0], H.span(obfuscator, class_='copythis'),
@@ -420,10 +428,11 @@ def cruise_summary(cruise):
     sentence = '%s is planned ' % link_cruise(cruise)
     if cruise.ship:
         sentence += "on the %s " % link_ship(cruise.ship)
-    if cruise.ports:
-        sentence += "from %s " % cruise.ports[0]
-        if len(cruise.ports) > 1:
-            sentence += "to %s " % cruise.ports[1]
+    ports = cruise.get('ports')
+    if ports:
+        sentence += "from %s " % ports[0]
+        if len(ports) > 1:
+            sentence += "to %s " % ports[1]
     sentence += cruise_date_summary(cruise)
     sentences.append(sentence.rstrip())
 

@@ -1,4 +1,5 @@
 import json as JSON
+from json import JSONEncoder
 from decimal import Decimal
 from datetime import datetime, date
 
@@ -9,7 +10,7 @@ from pycchdo.models.serial import (
     )
 
 
-class CustomJSONEncoder(JSON.JSONEncoder):
+class CustomJSONEncoder(JSONEncoder):
     """Used by custom pyramid renderer.
 
     This is where you define how to convert objects to JSON representations.
@@ -21,46 +22,17 @@ class CustomJSONEncoder(JSON.JSONEncoder):
         elif isinstance(obj, date):
             return str(obj)
         elif isinstance(obj, Decimal):
-            return str(obj)
-        elif isinstance(obj, Participants):
-            return self.default(list(obj))
-        elif isinstance(obj, Participant):
-            return JSON.dumps({
-                'person': obj.person_id,
-                'institution': obj.institution_id,
-                'role': obj.role})
-        elif isinstance(obj, Parameter):
-            parameter = obj
-            response = {'parameter': {
-                'name': parameter.get('name', ''),
-                'aliases': filter(None,
-                    [parameter.get('name_netcdf'),
-                     parameter.get('full_name')] + parameter.aliases),
-                'format': parameter.get('format', ''),
-                'bounds': map(unicode, parameter.bounds),
-                },
-                'description': parameter.get('description', None),
-            }
-            units = parameter.units
-            if units:
-                response['parameter']['units'] = {
-                    'unit': {
-                        'def': units.get('name'),
-                        'aliases': [
-                            {'name': {'singular': units.get('mnemonic')}}
-                        ]
-                    }
-                }
-            return response
-        elif isinstance(obj, list):
-            return JSON.dumps([self.default(x) for x in obj])
+            return float(obj)
+        elif (  isinstance(obj, Participants) or
+                isinstance(obj, Participant) or
+                isinstance(obj, Parameter)):
+            return obj.to_dict()
         elif isinstance(obj, str) or isinstance(obj, unicode):
             return obj
-        elif isinstance(obj, _AssociationList):
-            return ''
-            # TODO stale proxy?
-            #return JSON.dumps([self.default(x) for x in obj])
-        return JSON.JSONEncoder.default(self, obj)
+        elif (  isinstance(obj, _AssociationList) or
+                isinstance(obj, list)):
+            return [self.default(x) for x in obj]
+        return JSONEncoder.default(self, obj)
 
 
 def json(info):

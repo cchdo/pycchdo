@@ -8,7 +8,6 @@ Fully re-indexing is also supported via rebuild_index.
 import os
 from datetime import datetime
 from contextlib import contextmanager
-from datetime import datetime
 from re import compile as re_compile
 from traceback import format_exc
 
@@ -29,7 +28,7 @@ from pycchdo.models.serial import (
 
 
 log = ColoredLogger(__name__)
-log.setLevel(INFO)
+log.setLevel(DEBUG)
 
 
 _name_model = {
@@ -149,9 +148,15 @@ class SearchResult(dict):
         return False
 
 
-def _str_to_date(text):
+def _str_to_date(text, end=False):
     """Convert a string or unicode to a date."""
-    return datetime.strptime(text, '%Y-%m-%d')
+    try:
+        return datetime.strptime(text, '%Y-%m-%d')
+    except ValueError:
+        if end:
+            return _str_to_date('{0}-12-31'.format(text))
+        else:
+            return _str_to_date('{0}-01-01'.format(text))
 
 
 def _datematch_cruise(cruise, date_match_items):
@@ -431,8 +436,7 @@ class SearchIndex(object):
             log.debug(repr(indexed_ids))
             log.debug(repr(to_index))
 
-            objs = DBSession.query(model).all()
-            #log.debug(repr(objs))
+            objs = model.query().all()
 
             log.info('Indexing new and modified docs for %s' % name)
             l = float(len(objs))
@@ -447,7 +451,6 @@ class SearchIndex(object):
                         self.save_obj(obj, ixw)
                 if i % 50 == 0:
                     log.info('%d/%d = %3.4f' % (i, l, i / l))
-            ixw.commit()
 
     def rebuild_index(self, clear=False):
         """Indexes all Objs and Notes.
@@ -470,17 +473,20 @@ class SearchIndex(object):
         log.info('Finished indexing')
 
 
-    def _model_query_string_to_query(self, model_name, dateless_query):
+    def _model_query_string_to_query(self, model_name, qstring):
         """Parse the query string in the context of the given model. 
         Also get the objects that we will need to search the model index.
 
         """
         model_parser = _parsers.get(model_name)
-        qstring = dateless_query
         try:
-            return model_parser.parse(qstring)
+            query = model_parser.parse(qstring)
+            log.debug(u'Query: {0}\t{1!r}'.format(model_name, query))
         except Exception, err:
-            log.error('Query parse failed for {0!r}: {1}'.format(qstring, err))
+            log.error('Query parse failed for {0} {1!r}: {2}'.format(
+                model_name, qstring, err))
+            query = None
+        return query
 
     def search(self, query_string, search_notes=False, **kwargs):
         """Performs search based on a query string.
@@ -509,20 +515,6 @@ class SearchIndex(object):
         """
         results = SearchResult()
 
-        # Pre-strip date range keywords, they should only be in effect for
-        # cruise queries. The filtering will have to be done manually.
-        r_date = re_compile('((?:date_start|from|date_end|to):[^\s]*)')
-        date_match = r_date.findall(query_string)
-        dateless_query = query_string[:]
-        date_match_items = {}
-        for match in date_match:
-            dateless_query = dateless_query.replace(match, '')
-            dtype, val = match.split(':')
-            if dtype in ['date_start', 'from']:
-                date_match_items['dstart'] = _str_to_date(val)
-            elif dtype in ['date_end', 'to']:
-                date_match_items['dend'] = _str_to_date(val)
-
         log.debug('New query: {0!r}'.format(query_string))
         # Search each model.
         for model_name, model_schema in _schemas.items():
@@ -530,8 +522,9 @@ class SearchIndex(object):
             if model_name is 'note' and not search_notes:
                 continue
 
-            query = self._model_query_string_to_query(model_name, dateless_query)
-            log.debug(u'Query: {0}\t{1!r}'.format(model_name, query))
+            query = self._model_query_string_to_query(model_name, query_string)
+            if not query:
+                continue
 
             with self.searcher(model_name) as searcher:
                 try:
@@ -560,15 +553,19 @@ class SearchIndex(object):
                         # Cruises and Notes are quite simple. They are not
                         # supposed to have cruises associated with them, so we
                         # just put them directly into the results.
-                        results[model_name] = _filter_cruises_for_date_match(
-                            objects, date_match_items)
+                        results[model_name] = objects
+# TODO
+                        #results[model_name] = _filter_cruises_for_date_match(
+                        #    objects, date_match_items)
                     else:
                         # Everything else can have associated cruises. We will
                         # map each Obj to its associated cruises in the results
                         container = SearchResult()
                         for obj in objects:
-                            container[obj] = _filter_cruises_for_date_match(
-                                obj.cruises, date_match_items)
+# TODO
+                            container[obj] = obj.cruises
+                            #container[obj] = _filter_cruises_for_date_match(
+                            #    obj.cruises, date_match_items)
                         results[model_name] = container
 
                 except NotImplementedError, err:
@@ -628,5 +625,5 @@ def compile_into_cruises(results):
         elif key in ('person', 'ship', 'country', 'institution',
                      'collection', ):
             for obj in objs:
-                cruises.extend(obj.cruises())
+                cruises.extend(obj.cruises)
     return cruises

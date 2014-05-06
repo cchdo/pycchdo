@@ -10,8 +10,7 @@ class Datacart(OrderedSet):
 
     """
     def files(self):
-        print repr(list(self))
-        return Change.get_all_by_ids(list(self))
+        return Change.get_all_by_ids(*list(self))
 
     @classmethod
     def is_file_type_allowed(cls, ftype):

@@ -76,6 +76,7 @@ class BaseTest(TestCase):
         transaction.get().doom()
 
     def tearDown(self):
+        DBSession.flush()
         del self.config
         transaction.abort()
         testing.tearDown()

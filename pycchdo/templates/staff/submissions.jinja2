@@ -142,7 +142,7 @@
               <tr>
                 <td colspan="2">
                   <input type="submit" name="action" value="Accept">
-                  {%- if not submission.is_acknowledged() %}
+                  {%- if not submission.change.is_acknowledged() %}
                     <input type="submit" name="action" value="Acknowledge">
                   {%- endif %}
                   <input type="submit" name="action" value="Reject">

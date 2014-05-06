@@ -21,7 +21,7 @@ def countries_index(request):
 def countries_index_json(request):
     countries = Country.query().all()
     countries = sorted(countries, key=lambda x: x.name)
-    countries = [c.to_nice_dict() for c in countries]
+    countries = [c.to_dict() for c in countries]
     return countries
 
 
@@ -55,7 +55,7 @@ def country_archive(request):
     country = _get_country(request)
     if not country:
         raise HTTPNotFound()
-    return staff.archive(request, country.cruises())
+    return staff.archive(request, country.cruises)
 
 
 def country_edit(request):

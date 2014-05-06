@@ -29,8 +29,7 @@ def objs(request):
     return {'objs': objs}
 
 
-@staff_signin_required
-def obj_new(request):
+def _obj_new(request):
     if http_method(request) != 'PUT':
         raise HTTPBadRequest()
 
@@ -47,9 +46,7 @@ def obj_new(request):
             notes.append(v)
 
     try:
-        obj = model.__dict__[obj_type](request.user)
-        DBSession.add(obj)
-        DBSession.flush()
+        obj = model.__dict__[obj_type].propose(request.user).obj
     except KeyError:
         raise ValueError('No such obj type (%s) allowed' % obj_type)
     if attributes:
@@ -65,28 +62,34 @@ def obj_new(request):
             except TypeError:
                 pass
             if k == 'track' and isinstance(obj, Cruise):
-                obj.set_accept(k, str_to_track(v), request.user)
+                obj.set(request.user, k, str_to_track(v))
             else:
                 if k in ['expocode', 'map_thumb', ]:
                     # Don't try to set it if map_thumb is not a file.
                     if k == u'map_thumb' and type(v) == unicode:
                         continue
-                    obj.set_accept(k, v, request.user)
+                    obj.set(request.user, k, v)
                 else:
-                    obj.set(k, v, request.user)
+                    obj.set(request.user, k, v)
 
     for note in notes:
         if note:
-            obj.notes.append(Note(request.user, note))
+            obj._notes.append(Note(request.user, note))
 
     DBSession.flush()
     obj_id = obj.id
     transaction.commit()
 
     if isinstance(obj, Cruise):
+        log.info(u'redirecting to {0}'.format(obj_id))
         raise HTTPSeeOther(
             location=request.route_path('cruise_show', cruise_id=obj_id))
     return {'obj': obj}
+
+
+@staff_signin_required
+def obj_new(request):
+    return _obj_new(request)
 
 
 @staff_signin_required
@@ -100,7 +103,7 @@ def obj_show(request):
     method = http_method(request)
     if method == 'DELETE':
         if obj:
-            DBSession.delete(obj)
+            obj.remove()
             obj = None
             request.session.flash('Removed Obj %s' % obj_id, 'action_taken')
             raise HTTPSeeOther(location='/objs')
@@ -137,7 +140,7 @@ def obj_show(request):
     return {
         'id': obj_id,
         'obj': obj,
-        'asdict': obj.to_nice_dict(),
+        'asdict': obj.to_dict(),
         'link': link,
     }
 
@@ -189,9 +192,12 @@ def obj_attrs(request):
             # file upload should send the FieldStorage unchanged
             # notes should not change anything either
             pass
-        obj.set(key, value, request.user, note)
+        change = obj.set(request.user, key, value)
     elif method == 'DELETE':
-        obj.delete(key, request.user, note)
+        change = obj.delete(request.user, key)
+
+    if change:
+        change._notes.append(note)
     return {'obj': obj, 'type': __builtins__['type']}
 
 

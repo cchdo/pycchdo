@@ -18,7 +18,7 @@ def ships_index(request):
 def ships_index_json(request):
     ships = Ship.query().all()
     ships = sorted(ships, key=lambda s: s.name)
-    return [s.to_nice_dict() for s in ships]
+    return [s.to_dict() for s in ships]
 
 
 def _get_ship(request):
@@ -43,7 +43,7 @@ def ship_archive(request):
     ship = _get_ship(request)
     if not ship:
         raise HTTPNotFound()
-    return staff.archive(request, ship.cruises())
+    return staff.archive(request, ship.cruises)
 
 
 def ship_edit(request):
@@ -54,7 +54,7 @@ def ship_edit(request):
     name = request.params.get('name', '')
 
     if ship.name != name:
-        ship.set_accept('name', name, request.user)
+        ship.set(request.user, 'name', name)
 
     return _redirect_response(request, ship.id)
 

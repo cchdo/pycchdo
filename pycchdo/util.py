@@ -16,7 +16,7 @@ from sqlalchemy.engine import reflection
 from sqlalchemy.schema import (
     MetaData,
     Table,
-    DropTable,
+    DropTable, DropSchema,
     ForeignKeyConstraint,
     DropConstraint,
     )
@@ -293,5 +293,7 @@ def drop_everything(engine):
 
     for table in tbs:
         conn.execute(DropTable(table))
+
+    DropSchema(metadata.schema)
 
     trans.commit()

@@ -8,8 +8,9 @@ import transaction
 
 from pyramid import testing
 
-import shapely.geometry.linestring
+from shapely.geometry.linestring import LineString as sLineString
 import shapely.geometry.polygon
+from shapely.geometry import asShape
 
 import geojson
 
@@ -27,7 +28,6 @@ from pycchdo.models.serial import (
     ParameterInformation,
     ArgoFile,
     FSFile,
-    Serializer, SerializerFSFile, SerializerDateTime, SerializerTrack,
     )
 
 from pycchdo.tests import (
@@ -145,6 +145,19 @@ class TestModelChange(PersonBaseTest):
         # TODO improve notes interface
         self.assertEqual(obj.notes, [note])
 
+    def test_add_notes(self):
+        """A Change can have notes added about it.
+
+        Use case: a Cruise gets email or someone would like to make an arbitrary
+        note about an Institution but aren't sure of its validity.
+
+        """
+        obj = Obj.propose(self.testPerson).obj
+        note = Note(self.testPerson, 'test note')
+        attr = obj.set(self.testPerson, 'import_id', 'asdf')
+        attr._notes.append(note)
+        self.assertEqual(attr.notes, [note])
+
     def test_new_note(self):
         """Newly created objects have correct values for notes."""
         change1 = Obj.create(self.testPerson)
@@ -212,12 +225,11 @@ class TestModelParameterInformation(PersonBaseTest):
 
 
 class TestModelAttr(PersonBaseTest):
-    def test_set_returns_attr(self):
-        """Setting a value on an Obj returns an _Attr."""
+    def test_set_returns_change(self):
+        """Setting a value on an Obj returns a Change."""
         obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, String, 'test')
-
         self.assertTrue(type(obj.set(self.testPerson, key, 'v')) == Change)
 
     def test_new(self):
@@ -236,7 +248,6 @@ class TestModelAttr(PersonBaseTest):
         with self.assertRaises(ValueError):
             ooo.set(self.testPerson, key, 'b')
         Obj.allow_attr(key, String, 'test')
-        Obj.register_serializer_pair(key, Serializer)
         ooo.set(self.testPerson, key, 'b')
 
     def test_allow_attrs_polymorph(self):
@@ -280,7 +291,6 @@ class TestModelAttr(PersonBaseTest):
         key = self._testMethodName
         obj = Obj.create(self.testPerson).obj
         obj.allow_attr(key, String, 'test')
-        obj.register_serializer_pair(key, Serializer)
 
         aaa = obj.sugg(self.testPerson, key, '0')
         bbb = obj.sugg(self.testPerson, key, '1')
@@ -317,13 +327,16 @@ class TestModelAttr(PersonBaseTest):
         ccc = Cruise.create(self.testPerson).obj
 
         aaa = ccc.set(self.testPerson, 'date_start', 'testunicode')
+        DBSession.flush()
         self.assertEqual(aaa.value, 'testunicode')
 
         testdate = datetime.utcnow()
         bbb = ccc.set(self.testPerson, 'date_start', testdate)
+        DBSession.flush()
         self.assertEqual(bbb.value, testdate)
 
         ddd = ccc.set(self.testPerson, 'collections', 'coll1,coll2')
+        DBSession.flush()
         self.assertEqual(ddd.value, 'coll1,coll2')
 
         col0 = Collection.create(self.testPerson).obj
@@ -331,13 +344,16 @@ class TestModelAttr(PersonBaseTest):
 
         colls = [col1, col0]
         eee = ccc.set(self.testPerson, 'collections', colls)
+        DBSession.flush()
         self.assertEqual(eee.value, colls)
 
         fff = ccc.set(self.testPerson, 'ship', 'testship')
+        DBSession.flush()
         self.assertEqual(fff.value, 'testship')
 
         ship0 = Ship.create(self.testPerson).obj
         ggg = ccc.set(self.testPerson, 'ship', ship0)
+        DBSession.flush()
         self.assertEqual(ggg.value, ship0)
 
 
@@ -356,9 +372,7 @@ class TestModelAttr(PersonBaseTest):
         key = self._testMethodName
         key0 = self._testMethodName + '0'
         obj.allow_attr(key, String)
-        obj.allow_attr(key0, ID)
-        obj.register_serializer_pair(key, Serializer)
-        obj.register_serializer_pair(key0, Serializer)
+        obj.allow_attr(key0, (ID, 'Obj'))
 
         value = '0'
         aaa = obj.sugg(self.testPerson, key, value)
@@ -391,9 +405,7 @@ class TestModelAttr(PersonBaseTest):
         key0 = self._testMethodName + '0'
         key1 = self._testMethodName + '1'
         obj.allow_attr(key0, TextList, 'test')
-        obj.allow_attr(key1, IDList, 'testid')
-        obj.register_serializer_pair(key0, Serializer)
-        obj.register_serializer_pair(key1, Serializer)
+        obj.allow_attr(key1, (IDList, 'Obj'), 'testid')
 
         aaa = obj.set(self.testPerson, key0, [])
         aaa.accept(self.testPerson)
@@ -427,10 +439,8 @@ class TestModelAttr(PersonBaseTest):
         """Changing the value for an _Attr causes persistence delete."""
         key0 = self._testMethodName + '0'
         key1 = self._testMethodName + '1'
-        Person.allow_attr(key0, ID)
-        Person.register_serializer_pair(key0, Serializer)
-        Person.allow_attr(key1, IDList)
-        Person.register_serializer_pair(key1, Serializer)
+        Person.allow_attr(key0, (ID, 'Obj'))
+        Person.allow_attr(key1, (IDList, 'Obj'))
         p = Person.create().obj
         p.set_id_names(identifier=key0)
 
@@ -449,7 +459,6 @@ class TestModelAttr(PersonBaseTest):
         obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, Integer, 'test')
-        obj.register_serializer_pair(key, Serializer)
 
         a = obj.set(self.testPerson, key, 1)
         self.assertEqual(1, a.value)
@@ -460,7 +469,6 @@ class TestModelAttr(PersonBaseTest):
         """Creating an _Attr with a file stores the file in an object store."""
         key = self._testMethodName
         Obj.allow_attr(key, File)
-        Obj.register_serializer_pair(key, SerializerFSFile)
         data = 'this is a mult-line test file\nwith \xe6\xb0\xb4'
         mockfs = MockFieldStorage(
             MockFile(data, 'testfile.txt'), contentType='text/plain')
@@ -491,7 +499,6 @@ class TestModelAttr(PersonBaseTest):
         obj = Obj.create(self.testPerson).obj
         key = self._testMethodName
         obj.allow_attr(key, File, 'testfile')
-        obj.register_serializer_pair(key, SerializerFSFile)
 
         mockfs = MockFieldStorage(MockFile(
             'this is a mult-line test file\nwith \xe6\xb0\xb4',
@@ -508,20 +515,18 @@ class TestModelAttr(PersonBaseTest):
         """
         ccc = Cruise.create(self.testPerson).obj
 
-        result = {'coordinates': [[32, -117], [33, 118]], 'type': 'LineString'}
+        coords = [[-117, 32], [118, 33]]
+        result = asShape(
+            {'coordinates': coords, 'type': 'LineString'})
 
-        aaa = ccc.set(self.testPerson, 'track', [(32, -117), (33, 118)])
-        self.assertEqual(result, aaa.value)
-        aaa = ccc.set(
-            self.testPerson, 'track',
-            shapely.geometry.linestring.LineString([[32, -117], [33, 118]]))
-        self.assertEqual(result, aaa.value)
-        aaa = ccc.set(
-            self.testPerson, 'track',
-            geojson.LineString([[32, -117], [33, 118]]))
-        self.assertEqual(result, aaa.value)
+        aaa = ccc.set(self.testPerson, 'track', [(-117, 32), (118, 33)])
+        self.assertEqual(list(result.coords), list(aaa.value.coords))
+        aaa = ccc.set(self.testPerson, 'track', sLineString(coords))
+        self.assertEqual(list(result.coords), list(aaa.value.coords))
+        aaa = ccc.set(self.testPerson, 'track', geojson.LineString(coords))
+        self.assertEqual(list(result.coords), list(aaa.value.coords))
 
-        self.assertTrue(isinstance(ccc.track, geojson.geometry.LineString))
+        self.assertTrue(isinstance(ccc.track, sLineString))
 
 
 class TestModelObj(PersonBaseTest):
@@ -552,9 +557,7 @@ class TestModelObj(PersonBaseTest):
         ans = None
         num = 4
         Obj.allow_attr('a', Integer, 'testa')
-        Obj.register_serializer_pair('a', Serializer)
         Obj.allow_attr('b', Integer, 'testb')
-        Obj.register_serializer_pair('b', Serializer)
         for i in range(0, num + 1):
             obj = Obj.create(self.testPerson).obj
             obj.set(self.testPerson, 'a', i)
@@ -582,9 +585,7 @@ class TestModelObj(PersonBaseTest):
         key = self._testMethodName
         key0 = key + '0'
         Obj.allow_attr(key, TextList)
-        Obj.register_serializer_pair(key, Serializer)
-        Obj.allow_attr(key0, IDList)
-        Obj.register_serializer_pair(key0, Serializer)
+        Obj.allow_attr(key0, (IDList, 'Obj'))
 
         obj = Obj.create(self.testPerson).obj
         obj.set(self.testPerson, key, ['aaa', 'bbb'])
@@ -707,7 +708,9 @@ class TestModelObj(PersonBaseTest):
 class TestModelPerson(PersonBaseTest):
     def test_new(self):
         """New people can be given attributes."""
-        p = Person(name="Ryan Tester", email="test@test.com")
+        p = Person.create().obj
+        p.set_id_names(name="Ryan Tester")
+        p.email = "test@test.com"
 
     def test_is_own_creator(self):
         """A Person is their own creator."""
@@ -724,13 +727,14 @@ class TestModelPerson(PersonBaseTest):
         """
         # Missing name and identifier
         with self.assertRaises(ValueError):
-            ppp = Person()
+            ppp = Person.create().obj
             ppp.set_id_names()
 
     def test_new_with_id(self):
         """A Person with an ID can supply their own information."""
-        p = Person(
-            identifier='testid', name="Ryan Tester", email="test@test.com")
+        p = Person.create().obj
+        p.set_id_names(identifier='testid', name="Ryan Tester")
+        p.email = "test@test.com"
         self.assertTrue(p.is_verified())
         self.assertEquals(p.name, 'Ryan Tester')
         self.assertEquals(p.email, 'test@test.com')
@@ -746,7 +750,9 @@ class TestModelPerson(PersonBaseTest):
         """If they are associated with an ID provider then they are verified.
 
         """
-        p = Person(name="Ryan Tester", email="test@test.com")
+        p = Person.create().obj
+        p.set_id_names(name="Ryan Tester")
+        p.email = "test@test.com"
         self.assertFalse(p.is_verified())
         p.identifier = 'testid'
         self.assertTrue(p.is_verified())
@@ -910,15 +916,15 @@ class TestModelCruise(PersonBaseTest):
         geojson.geometry.LineString.
         
         """
-        coords = [[0.0, 0.0], [1.0, 1.0]]
+        coords = [(0.0, 0.0), (1.0, 1.0)]
         c = Cruise.create(self.testPerson).obj
         t = c.track
         self.assertTrue(t is None)
         c.set(self.testPerson, 'track', coords)
         t = c.track
         self.assertTrue(t is not None)
-        self.assertTrue(isinstance(t, geojson.geometry.LineString))
-        self.assertEquals(coords, t['coordinates'])
+        self.assertTrue(isinstance(t, shapely.geometry.linestring.LineString))
+        self.assertEquals(coords, list(t.coords))
 
     # TODO decide on this interface vs querying against database.
     def test_filter_geo(self):

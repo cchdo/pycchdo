@@ -88,7 +88,7 @@ def ids(request):
     1. Shapes
         Params:
             - shapes - areas of interest
-            - min_time, max_time - the time range allowable.
+            - time_min, time_max - the time range allowable.
     2. IDs
         Params:
             - ids - the IDs that need to be returned with their track mapping.

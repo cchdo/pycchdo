@@ -19,6 +19,8 @@ import geojson
 
 from sqlalchemy import engine_from_config
 
+from sqlalchemy_imageattach.context import push_store_context
+
 from pycchdo import helpers
 from pycchdo.routes import configure_routes
 from pycchdo.models.serial import DBSession, Person

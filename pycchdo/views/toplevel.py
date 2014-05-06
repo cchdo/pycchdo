@@ -91,7 +91,7 @@ def home(request):
 def project_carina(request):
     collection = Collection.query().filter(Collection._names.any('CARINA')).first()
     if collection:
-        cruises = collection.cruises()
+        cruises = collection.cruises
         cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
     else:
         cruises = []
@@ -140,7 +140,7 @@ def parameter_show(request):
         parameter = Parameter.query().get(parameter_id)
     except Exception, e:
         transaction.begin()
-        parameter = Parameter.get_one_by_attrs({'name': parameter_id})
+        parameter = Parameter.query().filter(Parameter.name == parameter_id).first()
     if not parameter:
         raise HTTPNotFound()
     return parameter

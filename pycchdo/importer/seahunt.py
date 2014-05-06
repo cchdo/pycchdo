@@ -17,8 +17,7 @@ from pycchdo.importer import *
 from pycchdo.importer.cchdo import *
 import pycchdo.models as models
 from pycchdo.models.serial import (
-    store_context, DBSession,
-    FSFile,
+    store_context, 
     Cruise, Person, Obj, Institution, Country, Ship, Collection, 
     Participant, Participants, 
     )
@@ -298,7 +297,7 @@ def _ensure_cruise(cruise, updater):
         log.info('Updating Seahunt Cruise %s: %s' % (import_id, ccc.id))
     else:
         log.info('Creating Seahunt Cruise %s' % import_id)
-        ccc = Cruise.create(updater.importer).obj
+        ccc = Cruise.propose(updater.importer).obj
     ccc.import_id = import_id
     return ccc
 
@@ -306,7 +305,7 @@ def _ensure_cruise(cruise, updater):
 def _import_cruise(updater, cruise, downloader):
     c = _ensure_cruise(cruise, updater)
     cc = c.change
-    cc.acknowledge(DBSession, updater.importer)
+    cc.acknowledge(updater.importer)
     cc.ts_c = cruise.created_at
     cc.ts_ack = cruise.updated_at
 
@@ -408,7 +407,7 @@ def _ensure_inst(updater, inst_id):
 def _import_inst(inst, updater):
     institution = _ensure_inst(updater, inst.id)
     delta = institution.change
-    delta.acknowledge(DBSession, updater.importer)
+    delta.acknowledge(updater.importer)
     delta.ts_c = inst.created_at
     delta.ts_ack = inst.updated_at
 
@@ -480,7 +479,6 @@ def _import_contact(contact, updater):
     if contact.institution:
         inst = _import_inst(contact.institution, updater)
         updater.attr(p, 'institution', inst)
-    DBSession.flush()
 
     if contact.title:
         updater.attr(p, 'title', contact.title)
@@ -545,8 +543,9 @@ def _import_program(program, updater):
         col.import_id = import_id
 
     updater.attr(col, 'names', filter(None, [program.name, program.notes]))
-    attr = updater.attr(col, 'date_start', program.dates, accept=False)
-    attr.accept(updater.importer, program.realdate_start)
+    if program.dates:
+        attr = updater.attr(col, 'date_start', program.dates, accept=False)
+        attr.accept(updater.importer, program.realdate_start)
     updater.attr(col, 'date_end', program.realdate_end)
     updater.attr(col, 'url', program.url)
 
@@ -586,7 +585,6 @@ def _import_resource(resource, updater, downloader):
             if downloaded:
                 file.file = downloaded
                 with su():
-                    file = FSFile.from_fieldstorage(file)
                     if resource.type == 'FileResource':
                         a = updater.attr(cruise, 'data_suggestion', file)
                     elif resource.type == 'ThumbMapResource':
@@ -609,9 +607,9 @@ def _import_suggestion_contact(name, email, updater):
     person = Person.query().filter(
         Person.import_id == import_id).first()
     if not person:
-        person = Person(name=name, email=email)
-        DBSession.add(person)
-        DBSession.flush()
+        person = Person.create().obj
+        person.set_id_names(name=name)
+        person.email = email
         person.import_id = import_id
     return person
 
@@ -670,7 +668,7 @@ def clear():
 
     plog = ProgressLog(objs)
     for obj in objs:
-        DBSession.remove(obj)
+        obj.remove()
         plog.log()
 
     max_id = Obj.query().order(Obj.ts_c.desc()).first().id

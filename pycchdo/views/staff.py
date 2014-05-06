@@ -135,8 +135,8 @@ def submissions(request):
         else:
             squery = list_queries['Not queued not Argo']()
         
-    submissions = squery.\
-        order_by(Submission.creation_timestamp.desc()).\
+    submissions = squery.join(Submission._changes).\
+        order_by(Change.ts_c.desc()).\
         all()
 
     submissions = paged(request, submissions)
@@ -214,7 +214,7 @@ def moderation(request):
     pending = Change.pending_data()
     attr_sub = {}
     for attr in pending:
-        key = (attr.creation_stamp.timestamp, attr.obj)
+        key = (attr.ts_c, attr.obj)
         try:
             dtc_to_q[key].append(attr)
         except KeyError:

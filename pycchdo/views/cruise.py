@@ -31,6 +31,7 @@ import pycchdo.helpers as h
 from . import *
 from pycchdo.views.session import require_signin
 from pycchdo.views.common import get_cruise
+from pycchdo.views.obj import _obj_new
 from pycchdo.views import log, staff
 
 
@@ -68,13 +69,13 @@ def _cruises(request, subtypes=None, defer_load=False):
     seahunt = request.params.get('seahunt_only', False)
     allow_seahunt = request.params.get('allow_seahunt', False)
     if seahunt:
-        query = Cruise.only_if_accepted_is(False)
+        query = Cruise.query().filter(Cruise.accepted == False).filter(Cruise.ts_j == None)
     elif allow_seahunt:
         query = Cruise.query()
     else:
-        query = Cruise.only_if_accepted_is(True)
+        query = Cruise.query().filter(Cruise.accepted == True)
 
-    cruises = preload_cached_avs(Cruise, query, subtypes=subtypes).all()
+    cruises = query.all()
     cruises = sorted(cruises, key=lambda c: c.uid)
     if not defer_load:
         h.reduce_specificity(request, *cruises)
@@ -109,7 +110,7 @@ def cruises_index_json(request):
     elif request.params.get('contribution_kmzs'):
         return _contribution_kmzs(request)
 
-    cruises = [c.to_nice_dict() for c in _cruises(request)]
+    cruises = [c.to_dict() for c in _cruises(request)]
     return cruises
 
 
@@ -161,9 +162,12 @@ def _suggest_file(request, cruise_obj):
             request.session.flash(
                 'You did not select a file. Please try again.', 'help')
             return
-        cruise_obj.set(type, file, request.user, note)
+        change = cruise_obj.set(request.user, type, file)
     elif add_file_action == 'Delete file':
-        cruise_obj.delete(type, request.user, note)
+        change = cruise_obj.delete(request.user, type)
+
+    if note is not None:
+        change._notes.append(note)
 
 
 def _edit_attr(request, cruise_obj):
@@ -223,12 +227,16 @@ def _edit_attr(request, cruise_obj):
                 u'Bad value for attribute {0}'.format(key), 'help')
             return
 
-        cruise_obj.set(key, value, request.user, note)
+        change = cruise_obj.set(request.user, key, value)
+        if note:
+            change._notes.append(note)
         request.session.flash(
             u'Suggested that {0} should become {1}'.format(key, value),
             'action_taken')
     elif edit_action == 'Delete':
-        cruise_obj.delete(key, request.user, note)
+        change = cruise_obj.delete(request.user, key)
+        if note:
+            change._notes.append(note)
         request.session.flash(
             u'Suggested that {0} be deleted'.format(key), 'action_taken')
     elif edit_action == 'Mark reviewed':
@@ -241,7 +249,7 @@ def _edit_attr(request, cruise_obj):
         status = cruise_obj.get(key)
         try:
             status.remove(u'preliminary')
-            cruise_obj.set_accept(key, status, request.user)
+            cruise_obj.set(request.user, key, status)
             request.session.flash(
                 'Marked {0} for {1} as reviewed'.format(
                     key.replace('_status', ''), cruise_obj.uid),
@@ -271,14 +279,18 @@ def _edit_attr(request, cruise_obj):
         if participants is None:
             return
 
-        cruise_obj.set(
-            'participants', Participants(participants), request.user, note)
+        change = cruise_obj.set(request.user,
+            'participants', Participants(participants))
+        if change:
+            change._notes.append(note)
         request.session.flash(
             u'Suggested updated participants for this cruise',
             'action_taken')
     elif edit_action == 'Delete all participants':
         if key == 'participants':
-            cruise_obj.delete('participants', request.user, note)
+            change = cruise_obj.delete(request.user, 'participants')
+            if change:
+                change._notes.append(note)
             request.session.flash(
                 u'Suggested that participants be cleared', 'action_taken')
         else:
@@ -367,7 +379,7 @@ def _add_note_to_attr(request):
             'The attribute you tried to add a note to could not be found.', 'help')
         return
 
-    attr_obj.notes.append(Note(request.user, note, discussion=not public))
+    attr_obj._notes.append(Note(request.user, note, discussion=not public))
 
 
 def _add_note_to_file(request):
@@ -393,7 +405,7 @@ def _add_note_to_file(request):
             'The file you tried to add a note to could not be found.', 'help')
         return
 
-    file_obj.notes.append(Note(request.user, note, discussion=not public))
+    file_obj._notes.append(Note(request.user, note, discussion=not public))
 
 
 def _add_note(request, cruise_obj):
@@ -414,7 +426,7 @@ def _add_note(request, cruise_obj):
     except KeyError:
         public = False
 
-    cruise_obj.notes.append(
+    cruise_obj._notes.append(
         Note(request.user, note, action, data_type, summary, not public))
 
 
@@ -505,8 +517,7 @@ def cruise_show_json(request):
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
-
-    return cruise_obj.to_nice_dict()
+    return cruise_obj.to_dict()
 
 
 def cruise_new(request):
@@ -514,6 +525,12 @@ def cruise_new(request):
         request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')
         request.referrer = request.url
         return require_signin(request)
+
+    if http_method(request) == 'PUT':
+        obj = _obj_new(request)
+        return {'cruise_id': obj['obj']}
+
+    log.warn('new!')
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:
@@ -641,10 +658,10 @@ def kml(request):
                   style='border: 1px solid black; border-left: 0; '
                         'border-right: 0;')),
         H.p('$[description]', style="max-width: 25em;"),
-        str_if_exists(cruise.link, H.p(h.whh.tags.link_to('$[website]'))),
+        str_if_exists(cruise.get('link'), H.p(h.whh.tags.link_to('$[website]'))),
 
         H.table(
-            str_if_exists(cruise.ports,
+            str_if_exists(cruise.get('ports'),
                           H.tr(H.td('Ports'), H.td('$[ports]'))),
             str_if_exists(cruise.date_start or cruise.date_end,
                           H.tr(H.td('Dates'), H.td('$[dates]'))),
@@ -680,9 +697,10 @@ def kml(request):
             cruise_edata.append(data)
 
     append_data_if_exists('image', image_url)
-    append_data_if_exists('website', cruise.link)
-    if cruise.ports:
-        append_data_if_exists('ports', h.ports_to_nice(cruise.ports, cruise))
+    append_data_if_exists('website', cruise.get('link'))
+    ports = cruise.get('ports')
+    if ports:
+        append_data_if_exists('ports', h.ports_to_nice(ports, cruise))
     append_data_if_exists('dates', '/'.join(h.cruise_dates(cruise)[:2]))
     append_data_if_exists('country', h.link_country(cruise.country))
     append_data_if_exists('ship', h.link_ship(cruise.ship))

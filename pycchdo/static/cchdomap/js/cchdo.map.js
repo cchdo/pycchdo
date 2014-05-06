@@ -102,8 +102,8 @@ CCHDO.MAP = {
     var loc = window.location;
     return [loc.protocol, '//', loc.host].join('');
   })(),
-  MIN_TIME: 1967,
-  MAX_TIME: new Date().getFullYear(),
+  TIME_MIN: 1967,
+  TIME_MAX: new Date().getFullYear(),
   APPNAME: '/search/map',
   // TODO This is a guess at the number of KMLs before the API url overflows
   MAPS_KML_LIMIT: 15,
@@ -1141,8 +1141,8 @@ Model.prototype.query = function (layer, query, callback, tracks_callback,
     queryData = {shapes: [serializeShape(shape)].join('|')};
   }
 
-  queryData.min_time = query.min_time || CM.MIN_TIME;
-  queryData.max_time = query.max_time || CM.MAX_TIME;
+  queryData.time_min = query.time_min || CM.TIME_MIN;
+  queryData.time_max = query.time_max || CM.TIME_MAX;
 
   $.ajax({
     url: CM.APPNAME + '/ids',
@@ -1185,24 +1185,24 @@ function TimeSlider(timerange) {
 
   $(this.slide).slider({
     range: true,
-    min: CM.MIN_TIME,
-    max: CM.MAX_TIME,
-    values: [CM.MIN_TIME, CM.MAX_TIME],
+    min: CM.TIME_MIN,
+    max: CM.TIME_MAX,
+    values: [CM.TIME_MIN, CM.TIME_MAX],
     slide: function (event, ui) { setTimeDisplay(ui.values); }
   });
 
   setTimeDisplay(this.getTimeRange());
 
   function checkTimeInputs() {
-    var max_time = parseInt(max.val(), 10);
-    var min_time = parseInt(min.val(), 10);
-    if (max_time < min_time) {
-      min.val(max_time);
-      max.val(min_time);
+    var time_max = parseInt(max.val(), 10);
+    var time_min = parseInt(min.val(), 10);
+    if (time_max < time_min) {
+      min.val(time_max);
+      max.val(time_min);
       CM.tip(CM.TIPS['timeswap']);
     }
-    if (min_time < CM.MIN_TIME) { min.val(CM.MIN_TIME); }
-    if (max_time > CM.MAX_TIME) { max.val(CM.MAX_TIME); }
+    if (time_min < CM.TIME_MIN) { min.val(CM.TIME_MIN); }
+    if (time_max > CM.TIME_MAX) { max.val(CM.TIME_MAX); }
     $(self.slide).slider('values', 0, min.val());
     $(self.slide).slider('values', 1, max.val());
   }
@@ -2032,8 +2032,8 @@ QueryLayer.prototype.setQuery = function (query) {
   if (!this._query) {
     this._query = {
       query: query,
-      min_time: CM.MIN_TIME,
-      max_time: CM.MAX_TIME
+      time_min: CM.TIME_MIN,
+      time_max: CM.TIME_MAX
     };
   } else {
     this._query.query = query;
@@ -2182,8 +2182,8 @@ function RegionLayer(shape, color) {
   QueryLayer.call(this);
   this._shape = shape;
   this._query = {
-    query: this._shape, min_time: CCHDO.MAP.MIN_TIME,
-    max_time: CCHDO.MAP.MAX_TIME};
+    query: this._shape, time_min: CCHDO.MAP.TIME_MIN,
+    time_max: CCHDO.MAP.TIME_MAX};
 
   addColorBox(this, color);
 }
@@ -2204,14 +2204,14 @@ RegionLayer.prototype.edit = function () {
   //  stations shown / cruise
   //</p>
 
-  var timeslider = new TimeSlider([self._query.min_time, self._query.max_time]);
+  var timeslider = new TimeSlider([self._query.time_min, self._query.time_max]);
 
   function updateTimeRange() {
     var timerange = timeslider.getTimeRange();
-    var changed = self._query.min_time != timerange[0] ||
-                  self._query.max_time != timerange[1];
-    self._query.min_time = timerange[0];
-    self._query.max_time = timerange[1];
+    var changed = self._query.time_min != timerange[0] ||
+                  self._query.time_max != timerange[1];
+    self._query.time_min = timerange[0];
+    self._query.time_max = timerange[1];
     if (changed) {
       self.query();
     }

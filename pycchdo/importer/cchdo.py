@@ -18,7 +18,7 @@ from traceback import format_exc
 
 from sqlalchemy.sql.expression import select, alias
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import lazyload
+from sqlalchemy.orm import lazyload, joinedload
 
 from paramiko import SSHException
 
@@ -63,8 +63,8 @@ __all__ = ['import_Collection', 'import_person']
 remote_host = 'ghdc.ucsd.edu'
 
 
-def get_by_import_id(cls, import_id):
-    return cls.query().filter(cls.import_id == import_id).options(lazyload('*')).first()
+def get_by_import_id(cls, import_id, *options):
+    return cls.query().filter(cls.import_id == import_id).options(lazyload('*'), *options).first()
 
 
 def _log_progress(i, total):
@@ -1056,7 +1056,7 @@ def _import_collections_cruises(session):
     plog = ProgressLog(items)
     for cid, collids in items:
         plog.log()
-        cruise = get_by_import_id(Cruise, str(cid))
+        cruise = get_by_import_id(Cruise, str(cid), joinedload('collections'))
         if not cruise:
             log.error('Could not find imported cruise {0}'.format(cid))
             continue
@@ -1068,7 +1068,7 @@ def _import_collections_cruises(session):
         if not colls_to_add:
             continue
 
-        log.info('Adding Collections {0} to Cruise {1} collections'.format(
+        log.info('Adding Collections {0} to {1}'.format(
             colls_to_add, cruise))
         updater.attr(cruise, 'collections', cruise_colls + colls_to_add)
 
@@ -1678,7 +1678,7 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
 
         with downloader.dl(file_path) as file:
             if not file:
-                submission.delete()
+                submission.remove()
                 log.warn(
                     u'unable to get file for Submission %s', import_id)
                 return

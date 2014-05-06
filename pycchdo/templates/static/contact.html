@@ -25,7 +25,7 @@
         <table>
           <tr class="tel"><th><span class="type hidden">pref</span>Telephone</th><td class="value">{{tel('858-822-1770')}}</td></tr>
           <tr class="tel"><th><span class="type">Fax</span></th><td class="value">858-534-7383</td></tr>
-          <tr><th>Email</th><td>{{ h.email_link('cchdo@ucsd.edu') }} <p>(This email address will reach all senior CCHDO staff)</p></td></tr>
+          <tr><th>Email</th><td>{{ h.email_link('cchdo@ucsd.edu', extra='www') }} <p>(This email address will reach all senior CCHDO staff)</p></td></tr>
         </table>
       </div>
     </div>
@@ -119,12 +119,6 @@
         <h3 class="role">Systems and Database</h3>
         <p class="fn n"><span class="given-name">Matt</span> <span class="family-name">Shen</span></p>
         {{ h.email_link('myshen@ucsd.edu', 'work') }}
-      </div>
-
-      <div id="jfields" class="vcard">
-        <h3 class="role">Consultant</h3>
-        <p class="fn n"><span class="given-name">Justin</span> <span class="additional-name">C.</span> <span class="family-name">Fields</span></p>
-        {{ h.email_link('jfields@ucsd.edu', 'work') }}
       </div>
     </div>
   {%- endcall %}

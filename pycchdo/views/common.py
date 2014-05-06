@@ -22,7 +22,7 @@ def get_cruise(cruise_id, load_attrs=True):
     if not cruise_obj:
         # If not, try based on aliases.
         cruise_obj = Cruise.query().filter(
-            Cruise.aliases.any(cruise_id)).first()
+            Cruise.aliases.contains(cruise_id)).first()
     if not cruise_obj:
         raise ValueError('Not found')
     return cruise_obj

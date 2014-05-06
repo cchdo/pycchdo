@@ -34,7 +34,7 @@
             {%- endif %}
           </td>
           {%- if h.has_mod(request) %}
-            <td class="time">{{ af.creation_timestamp.strftime('%F %H:%M %Z') }}</td>
+            <td class="time">{{ af.change.ts_c.strftime('%F %H:%M %Z') }}</td>
             <td>{{ display }}</td>
           {%- endif %}
         </tr>
@@ -43,7 +43,7 @@
             <pre>{{ af.description }}</pre>
           </td>
           {%- if h.has_mod(request) %}
-            <td>{{ af.creation_person.name }}</td>
+            <td>{{ af.change.p_c.name }}</td>
             <td>
               <p><a href="/argo/{{ af.id }}">Edit</a></p>
               <p><a href="/argo/{{ af.id }}?_method=DELETE">Delete</a></p>

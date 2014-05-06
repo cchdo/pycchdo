@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import sys
 import os
 import os.path
@@ -12,7 +10,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    event,
+    event, distinct,
     Table, Column, ForeignKey, 
     Integer, Unicode, String, Boolean, DateTime,
     )
@@ -35,9 +33,11 @@ from zope.sqlalchemy import ZopeTransactionExtension
 
 import geojson
 
-from shapely.geometry import asShape
+from shapely.geometry import asShape, shape, mapping
+from shapely.wkt import loads as wktloads, dumps as wktdumps
 
 from geoalchemy2.types import Geography 
+from geoalchemy2.shape import to_shape, from_shape
 
 from sqlalchemy_imageattach.context import current_store, store_context
 
@@ -89,6 +89,26 @@ def _repr_state(obj):
     if obj.ts_j:
         return 'reject'
     return 'pendin'
+
+
+class OnceAtEnd(object):
+    ran = False
+    at_end = []
+
+    @classmethod
+    def register(cls, func):
+        cls.at_end.append(func)
+
+    @classmethod
+    def run(cls):
+        if cls.ran:
+            return
+        cls.ran = True
+        for func in cls.at_end:
+            func()
+
+
+once_at_end = OnceAtEnd()
 
 
 class MixinCreation(object):
@@ -447,6 +467,119 @@ class RequestFor(Base):
             pass
 
 
+class ExtrasJSONEncoder(JSONEncoder):
+   def default(self, obj):
+       if isinstance(obj, Decimal):
+           return float(obj)
+       # Let the base class default method raise the TypeError
+       return JSONEncoder.default(self, obj)
+
+
+class Serializer(object):
+    @classmethod
+    def serialize(cls, value):
+        return dumps(value, cls=ExtrasJSONEncoder)
+
+    @classmethod
+    def deserialize(cls, value):
+        return loads(value)
+
+
+class SerializerDateTime(Serializer):
+    # FIXME +%z preserve the timezone, if any. Is this necessary?
+    format_string = '%Y-%m-%dT%H:%M:%S.%f'
+    @classmethod
+    def serialize(cls, value):
+        try:
+            value = {'type': 'dt', 'val': value.strftime(cls.format_string)}
+        except AttributeError:
+            value = {'type': 'u', 'val': value}
+        return super(SerializerDateTime, cls).serialize(value)
+
+    @classmethod
+    def deserialize(cls, value):
+        serial = loads(value)
+        if serial['type'] == 'dt':
+            try:
+                return datetime.strptime(serial['val'], cls.format_string)
+            except ValueError:
+                return None
+        elif serial['type'] == 'u':
+            return serial['val']
+        else:
+            log.error(u'Invalid serialization for datetime: {0!r}'.format(serial))
+            return None
+
+
+class SerializerTrack(Serializer):
+    @classmethod
+    def serialize(cls, value):
+        if isinstance(value, list):
+            value = geojson.LineString(value)
+        return wktdumps(asShape(value))
+
+    @classmethod
+    def deserialize(cls, value):
+        return wktloads(value)
+
+
+class SerializerObj(Serializer):
+    @classmethod
+    def serialize(cls, value):
+        try:
+            return dumps({'type': 'obj', 'obj_type': cls.__name__, 'val': value.id})
+        except AttributeError:
+            return dumps({'type': 'u', 'val': value})
+
+    @classmethod
+    def Deserializer(cls, obj):
+        return lambda value: cls.deserialize(obj, value)
+
+    @classmethod
+    def deserialize(cls, obj, value):
+        serial = loads(value)
+        if serial['type'] == 'obj':
+            return obj.query().get(serial['val'])
+        elif serial['type'] == 'u':
+            return serial['val']
+        else:
+            log.error(u'Invalid serialization for obj: {0!r}'.format(serial))
+            return None
+
+
+class SerializerFSFile(SerializerObj):
+    @classmethod
+    def serialize(cls, value):
+        if not isinstance(value, FSFile):
+            value = FSFile.from_fieldstorage(value)
+        return super(SerializerFSFile, cls).serialize(value)
+
+    @classmethod
+    def deserialize(cls, value):
+        return super(SerializerFSFile, cls).deserialize(FSFile, value)
+
+
+class SerializerObjs(SerializerObj):
+    @classmethod
+    def serialize(cls, value):
+        try:
+            ids = [obj.id for obj in value]
+            return dumps({'type': 'objs', 'obj_type': cls.__name__, 'val': ids})
+        except AttributeError:
+            return dumps({'type': 'u', 'val': value})
+
+    @classmethod
+    def deserialize(cls, obj, value):
+        serial = loads(value)
+        if serial['type'] == 'objs':
+            return obj.get_all_by_ids(*serial['val'])
+        elif serial['type'] == 'u':
+            return serial['val']
+        else:
+            log.error(u'Invalid serialization for objs: {0!r}'.format(serial))
+            return None
+
+
 class AllowableSerialMgr(AllowableMgr):
     """Manages which attributes are tracked as well as serialization."""
 
@@ -455,7 +588,39 @@ class AllowableSerialMgr(AllowableMgr):
         
     @classmethod
     def allow_attr(cls, key, attr_type, name=None, batch=False):
+        obj_type = None
+        if type(attr_type) == list:
+            main_type = attr_type[0]
+            # Rewrite so Allowable Mgr knows how to deal
+            if type(main_type) == tuple:
+                obj_type = main_type[1]
+                main_type = attr_type[0] = main_type[0]
+        else:
+            main_type = attr_type
+            if type(main_type) == tuple:
+                obj_type = main_type[1]
+                main_type = attr_type = main_type[0]
+
         super(AllowableSerialMgr, cls).allow_attr(key, attr_type, name, batch)
+
+        if main_type == ID:
+            obj = globals()[obj_type]
+            cls.register_serializer_pair(
+                key, SerializerObj.serialize, SerializerObj.Deserializer(obj))
+        elif main_type == IDList:
+            obj = globals()[obj_type]
+            cls.register_serializer_pair(
+                key, SerializerObjs.serialize, SerializerObjs.Deserializer(obj))
+        elif main_type == TextList:
+            cls.register_serializer_pair(key, Serializer)
+        elif main_type == DateTime:
+            cls.register_serializer_pair(key, SerializerDateTime)
+        elif main_type == File:
+            cls.register_serializer_pair(key, SerializerFSFile)
+        elif main_type == LineString:
+            cls.register_serializer_pair(key, SerializerTrack)
+        else:
+            cls.register_serializer_pair(key, Serializer)
 
     @classmethod
     def register_serializer_pair(cls, attr, serializer, deserializer=None):
@@ -474,8 +639,8 @@ class AllowableSerialMgr(AllowableMgr):
         except KeyError:
             attrdef['serializer'] = serializer
         try:
-            deserializer = attrdef[attr]
-            log.warn(u'Deserializer for {0}.{1} already registered: {2}'.format(
+            deserializer = attrdef['deserializer']
+            log.warn(u'Deserializer for {0}.{1} already registered: {2!r}'.format(
                 cls, attr, deserializer))
         except KeyError:
             attrdef['deserializer'] = deserializer
@@ -673,7 +838,21 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         return change
 
     def _set_cache(self, attr, value):
-        """Set the attribute value to cache."""
+        """Set the attribute value to cache.
+
+        In the case that multiple types are acceptable, we will have to check
+        that the type is ok before storing, otherwise there will be a
+        persistence error. If the type is not persistable in the cache, the
+        cache should be set to None so that get() will attempt to load from
+        Changes.
+
+        """
+        # Multiple acceptable types always end in Unicode. That is the
+        # cache unpersistable type.
+        if isinstance(self.attr_type(attr), list):
+            if isinstance(value, basestring):
+                setattr(self, attr, None)
+                return
         try:
             setattr(self, attr, value)
         except AttributeError:
@@ -682,7 +861,12 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
             pass
 
     def _get_cache(self, attr):
-        """Attempt to get the attribute value from cache."""
+        """Attempt to get the attribute value from cache.
+
+        Return None if there is an error and get() will attempt to load from
+        Changes.
+
+        """
         try:
             return getattr(self, attr)
         except AttributeError:
@@ -752,124 +936,23 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     def notes_discussion(self):
         return self.change.notes_discussion
 
+    def to_dict(self):
+        """Return a dict representation of the Obj.
+
+        This is used to present JSON.
+
+        """
+        return {
+            'id': self.id,
+            'obj_type': self.__class__.__name__,
+        }
+
     def __repr__(self):
         return u'{cls}()'.format(cls=type(self))
 
 
-Obj.allow_attr('import_id', String, 'Import ID')
-
-
-class ExtrasJSONEncoder(JSONEncoder):
-   def default(self, obj):
-       if isinstance(obj, Decimal):
-           return float(obj)
-       # Let the base class default method raise the TypeError
-       return JSONEncoder.default(self, obj)
-
-
-class Serializer(object):
-    @classmethod
-    def serialize(cls, value):
-        return dumps(value, cls=ExtrasJSONEncoder)
-
-    @classmethod
-    def deserialize(cls, value):
-        return loads(value)
-
-
-class SerializerDateTime(Serializer):
-    # FIXME +%z preserve the timezone, if any. Is this necessary?
-    format_string = '%Y-%m-%dT%H:%M:%S.%f'
-    @classmethod
-    def serialize(cls, value):
-        try:
-            value = {'type': 'dt', 'val': value.strftime(cls.format_string)}
-        except AttributeError:
-            value = {'type': 'u', 'val': value}
-        return super(SerializerDateTime, cls).serialize(value)
-
-    @classmethod
-    def deserialize(cls, value):
-        serial = loads(value)
-        if serial['type'] == 'dt':
-            try:
-                return datetime.strptime(serial['val'], cls.format_string)
-            except ValueError:
-                return None
-        elif serial['type'] == 'u':
-            return serial['val']
-        else:
-            log.error(u'Invalid serialization for datetime: {0!r}'.format(serial))
-            return None
-
-
-class SerializerTrack(Serializer):
-    @classmethod
-    def serialize(cls, value):
-        if isinstance(value, list):
-            value = geojson.LineString(value)
-        return geojson.dumps(value)
-
-    @classmethod
-    def deserialize(cls, value):
-        return geojson.loads(value)
-
-
-class SerializerObj(Serializer):
-    @classmethod
-    def serialize(cls, value):
-        try:
-            return dumps({'type': 'obj', 'obj_type': str(cls), 'val': value.id})
-        except AttributeError:
-            return dumps({'type': 'u', 'val': value})
-
-    @classmethod
-    def Deserializer(cls, obj):
-        return lambda value: cls.deserialize(obj, value)
-
-    @classmethod
-    def deserialize(cls, obj, value):
-        serial = loads(value)
-        if serial['type'] == 'obj':
-            return obj.query().get(serial['val'])
-        elif serial['type'] == 'u':
-            return serial['val']
-        else:
-            log.error(u'Invalid serialization for obj: {0!r}'.format(serial))
-            return None
-
-
-class SerializerFSFile(SerializerObj):
-    @classmethod
-    def serialize(cls, value):
-        if not isinstance(value, FSFile):
-            value = FSFile.from_fieldstorage(value)
-        return super(SerializerFSFile, cls).serialize(value)
-
-    @classmethod
-    def deserialize(cls, value):
-        return super(SerializerFSFile, cls).deserialize(FSFile, value)
-
-
-class SerializerObjs(SerializerObj):
-    @classmethod
-    def serialize(cls, value):
-        try:
-            ids = [obj.id for obj in value]
-            return dumps({'type': 'objs', 'obj_type': str(cls), 'val': ids})
-        except AttributeError:
-            return dumps({'type': 'u', 'val': value})
-
-    @classmethod
-    def deserialize(cls, obj, value):
-        serial = loads(value)
-        if serial['type'] == 'objs':
-            return obj.get_all_by_ids(*serial['val'])
-        elif serial['type'] == 'u':
-            return serial['val']
-        else:
-            log.error(u'Invalid serialization for objs: {0!r}'.format(serial))
-            return None
+once_at_end.register(lambda:
+    Obj.allow_attr('import_id', String, 'Import ID'))
 
 
 class Participant(Base, Creatable, DBQueryable):
@@ -896,6 +979,12 @@ class Participant(Base, Creatable, DBQueryable):
         self.role = role
         self.person = person
         self.institution = institution
+
+    def to_dict(self):
+        return {
+            'person': self.person_id,
+            'institution': self.institution_id,
+            'role': self.role}
     
     def __eq__(self, other):
         if (    hash(self) == hash(other) and
@@ -947,6 +1036,9 @@ class Participants(InstrumentedList):
         else:
             participants = self[role]
         return [(p.person, p.role) for p in participants]
+
+    def to_dict(self):
+        return [ppp.to_dict() for ppp in self]
 
     def __str__(self):
         return unicode(self)
@@ -1068,18 +1160,18 @@ class Country(Obj):
         people = self.people
         for person in people:
             if person.country != self.id:
-                person.set_accept('country', self.id, signer)
+                person.set(signer, 'country', self.id)
 
         for mergee in mergees:
             mergee.remove()
 
-    def to_nice_dict(self):
+    def to_dict(self):
         """Returns a dict representation of the Country."""
-        rep = super(Country, self).to_nice_dict()
+        rep = super(Country, self).to_dict()
         rep.update({
             'name': self.name,
-            'iso_3166-1_alpha-2': self.iso_code(),
-            'iso_3166-1_alpha-3': self.iso_code(3),
+            'alpha2': self.iso_code(),
+            'alpha3': self.iso_code(3),
         })
         return rep
 
@@ -1129,14 +1221,14 @@ class Institution(Obj):
         for mergee in mergees:
             mergee.remove()
 
-    def to_nice_dict(self):
+    def to_dict(self):
         """Returns a dict representation of the Institution."""
-        rep = super(Institution, self).to_nice_dict()
+        rep = super(Institution, self).to_dict()
         d = {
             'name': self.name,
         }
         if self.country:
-            d['country'] = self.country.to_nice_dict()
+            d['country'] = self.country.to_dict()
         rep.update(d)
         return rep
 
@@ -1144,16 +1236,15 @@ class Institution(Obj):
         return u'Institution({0!r})'.format(self.name)
 
 
+once_at_end.register(lambda:
 Institution.allow_attrs([
     ('name', Unicode),
     ('phone', Unicode),
     ('address', Unicode),
     ('url', Unicode, 'Link'),
     
-    ('country', ID),
-    ])
-Institution.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
+    ('country', (ID, 'Country')),
+    ]))
 
 
 class Ship(Obj):
@@ -1183,9 +1274,9 @@ class Ship(Obj):
         for mergee in mergees:
             mergee.remove()
 
-    def to_nice_dict(self):
+    def to_dict(self):
         """Returns a dict representation of the Ship."""
-        rep = super(Ship, self).to_nice_dict()
+        rep = super(Ship, self).to_dict()
         rep.update({
             'name': self.name,
             'nodc_platform_code': self.nodc_platform_code,
@@ -1200,15 +1291,14 @@ class Ship(Obj):
         return unicode(self)
 
 
+once_at_end.register(lambda: 
 Ship.allow_attrs([
     ('name', Unicode),
     ('nodc_platform_code', String, 'NODC Platform Code'),
     ('url', Unicode, 'Link'),
     
-    ('country', ID),
-    ])
-Ship.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
+    ('country', (ID, 'Country')),
+    ]))
 
 
 class _PersonPermission(Base):
@@ -1407,11 +1497,11 @@ class Person(Obj):
         change.accept(sponsor)
         return change
 
-    def to_nice_dict(self):
+    def to_dict(self):
         """Returns a dict representation of the Person.
 
         """
-        rep = super(Person, self).to_nice_dict()
+        rep = super(Person, self).to_dict()
         rep.update({
             'identifier': self.get('identifier', None),
             'name': self.name,
@@ -1428,6 +1518,7 @@ class Person(Obj):
             _repr_state(self), self.name)
 
 
+once_at_end.register(lambda:
 Person.allow_attrs([
     ('title', Unicode),
     ('job_title', Unicode),
@@ -1435,19 +1526,15 @@ Person.allow_attrs([
     ('fax', Unicode),
     ('address', Unicode),
     
-    ('institution', ID),
-    ('country', ID),
+    ('institution', (ID, 'Institution')),
+    ('country', (ID, 'Country')),
     
-    ('programs', IDList),
+    ('programs', (IDList, 'Collection')),
 
     # Legacy password parts
     ('password_hash', String),
     ('password_salt', String),
-    ])
-Person.register_serializer_pair(
-    'institution', SerializerObj.serialize, SerializerObj.Deserializer(Institution))
-Person.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
+    ]))
 
 
 class MultiName(object):
@@ -1583,9 +1670,9 @@ class Collection(MultiName, Obj):
         for mergee in mergees:
             mergee.remove()
 
-    def to_nice_dict(self):
+    def to_dict(self):
         """Returns a dict representation of the Collection."""
-        rep = super(Collection, self).to_nice_dict()
+        rep = super(Collection, self).to_dict()
         rep.update({
             'names': self.names,
             'type': self.type,
@@ -1598,6 +1685,7 @@ class Collection(MultiName, Obj):
             _repr_state(self), self.names, self.type, self.basins)
 
 
+once_at_end.register(lambda:
 Collection.allow_attrs([
     ('type', Unicode),
     ('basins', TextList),
@@ -1607,13 +1695,9 @@ Collection.allow_attrs([
 
     ('url', Unicode), 
 
-    ('institution', ID), 
-    ('country', ID), 
-    ])
-Collection.register_serializer_pair(
-    'names', Serializer)
-Collection.register_serializer_pair(
-    'basins', Serializer)
+    ('institution', (ID, 'Institution')), 
+    ('country', (ID, 'Country')), 
+    ]))
 
 
 class Unit(Obj):
@@ -1636,11 +1720,22 @@ class Unit(Obj):
         'polymorphic_identity': 'unit',
     }
 
+    def to_dict(self):
+        return {
+            'unit': {
+                'def': self.get('name'),
+                'aliases': [
+                    {'name': {'singular': self.get('mnemonic')}}
+                ]
+            }
+        }
 
+
+once_at_end.register(lambda:
 Unit.allow_attrs([
     ('name', Unicode),
     ('mnemonic', Unicode),
-    ])
+    ]))
 
 
 class _ParameterAlias(Base):
@@ -1721,6 +1816,22 @@ class Parameter(Obj):
         # TODO
         return 0
 
+    def to_dict(self):
+        response = {'parameter': {
+            'name': self.get('name', ''),
+            'aliases': filter(None,
+                [self.get('name_netcdf'),
+                 self.get('full_name')] + self.aliases),
+            'format': self.get('format', ''),
+            'bounds': self.bounds,
+            },
+            'description': self.get('description', None),
+        }
+        units = self.units
+        if units:
+            response['parameter']['units'] = units.to_dict()
+        return response
+
     def __unicode__(self):
         return u'Parameter({0})'.format(self.name)
 
@@ -1728,6 +1839,7 @@ class Parameter(Obj):
         return unicode(self)
 
 
+once_at_end.register(lambda:
 Parameter.allow_attrs([
     ('name', Unicode, 'WOCE mnemonic'),
     ('aliases', TextList),
@@ -1736,17 +1848,9 @@ Parameter.allow_attrs([
     ('description', Unicode),
     ('format', Unicode, 'C format string'),
     ('bounds', DecimalList),
-    ('units', ID),
+    ('units', (ID, 'Unit')),
     ('in_groups_but_did_not_exist', Boolean), 
-    ])
-Parameter.register_serializer_pair(
-    'aliases', Serializer)
-Parameter.register_serializer_pair(
-    'bounds', Serializer)
-Parameter.register_serializer_pair(
-    'units', SerializerObj.serialize, SerializerObj.Deserializer(Unit))
-Parameter.register_serializer_pair(
-    'in_groups_but_did_not_exist', Serializer)
+    ]))
 
 
 class _ParameterGroupOrder(Base):
@@ -1787,12 +1891,11 @@ class ParameterGroup(Obj):
     def __repr__(self):
         return unicode(self)
 
+once_at_end.register(lambda:
 ParameterGroup.allow_attrs([
     ('name', Unicode),
-    ('order', IDList),
-    ])
-ParameterGroup.register_serializer_pair(
-    'order', SerializerObjs.serialize, SerializerObjs.Deserializer(Parameter))
+    ('order', (IDList, 'Parameter')),
+    ]))
 
 
 class ParameterInformation(Base, DBQueryable):
@@ -2190,10 +2293,10 @@ class Cruise(Obj):
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
     expocode = Column(String)
 
-    _aliases = relationship('_CruiseAlias', lazy='joined', uselist=True)
+    _aliases = relationship(_CruiseAlias, lazy='joined', uselist=True)
     aliases = association_proxy('_aliases', 'alias')
 
-    _statuses = relationship('_CruiseStatus', lazy='joined', uselist=True)
+    _statuses = relationship(_CruiseStatus, lazy='joined', uselist=True)
     statuses = association_proxy('_statuses', 'status')
 
     files = relationship(_CruiseFile,
@@ -2215,7 +2318,7 @@ class Cruise(Obj):
     institutions = relationship(
         'Institution', secondary=cruise_institutions, lazy='joined', backref='cruises')
 
-    track = Column(Geography(geometry_type='LINESTRING', srid=4326, dimension=2))
+    _track = Column(Geography(geometry_type='LINESTRING', srid=4326, dimension=2))
 
     participants = relationship(
         Participant, uselist=True, collection_class=Participants,
@@ -2257,6 +2360,16 @@ class Cruise(Obj):
             return self.participants.with_role('Chief Scientist')
         except KeyError:
             return []
+
+    @property
+    def track(self):
+        if self._track is not None:
+            return to_shape(self._track)
+        return None
+
+    @track.setter
+    def track(self, value):
+        self._track = from_shape(value)
 
     @property
     def file_attrs(self):
@@ -2341,16 +2454,16 @@ class Cruise(Obj):
         return updated
 
     @classmethod
+    def filter_pending_date_start(cls, query):
+        return query.\
+            filter(Cruise.ts_j == None).\
+            filter(Cruise.accepted == False).\
+            filter(Cruise.date_start != None).order_by(Cruise.date_start)
+
+    @classmethod
     def pending_with_date_starts(cls, offset=None, limit=None):
         """Gives a list of all pending cruises that have start dates"""
-        pending = Cruise.query().\
-            filter(Cruise.accepted==False).\
-            filter(Cruise.id.in_(
-                Change.query(Change.obj_id).\
-                    filter(Change.attr == 'date_start').\
-                    filter(Change.accepted)
-                )
-            )
+        pending = cls.filter_pending_date_start(Cruise.query())
         if offset:
             pending = pending.offset(offset)
         if limit:
@@ -2377,15 +2490,12 @@ class Cruise(Obj):
             i += limit
         return upcoming[:limit]
 
-
     @classmethod
     def pending_years(cls):
         """Gives a list of integer years that have pending cruises."""
-        pending_with_date_starts = Cruise.pending_with_date_starts().all()
-        years = set()
-        for cruise in pending_with_date_starts:
-            years.add(cruise.date_start.year)
-        return list(years)
+        years = cls.filter_pending_date_start(
+            DBSession.query(distinct(Cruise.date_start))).all()
+        return [y[0].year for y in years]
 
     @classmethod
     def cruises_in_selection(
@@ -2397,19 +2507,16 @@ class Cruise(Obj):
 
         """
         polygon = list(selection.exterior.coords)
-        query = _Attr.query().filter(_Attr.key == 'track').\
-            join(_AttrValueLineString).\
-            filter(_AttrValueLineString.value_.intersects(str(selection))).\
+        query = Cruise.query().\
+            filter(Cruise._track.intersects(str(selection))).\
             limit(roi_result_limit)
-        attrs = query.all()
+        cruises = query.all()
 
         limited = False
-        if len(attrs) == roi_result_limit:
+        if len(cruises) == roi_result_limit:
             limited = query.count() > roi_result_limit
 
-        objs = set(attr.obj for attr in attrs)
-        cruises = [obj for obj in objs if isinstance(obj, Cruise)]
-
+        log.info(time_range)
         def date_filter(cruise):
             def d2y(d):
                 try:
@@ -2423,86 +2530,72 @@ class Cruise(Obj):
                    d2y(cruise.date_end) <= time_range[1]
         return (filter(date_filter, cruises), limited)
 
+    def to_dict(self):
+        """Returns a dict representation of the Cruise."""
+        rep = super(Cruise, self).to_dict()
+        d = {
+            'expocode': self.expocode,
+            'accepted': self.accepted,
+            'link': self.get('link', None),
+            'frequency': self.get('frequency', None),
+            'date_start': self.date_start,
+            'date_end': self.date_end,
+            'aliases': list(self.aliases),
+            'ports': self.get('ports', []),
+            'collections': [c.to_dict() for c in self.collections],
+            'institutions': [i.to_dict() for i in self.institutions],
+            'participants': self.get('participants', []),
+        }
+        if self.ship:
+            d['ship'] = self.ship.to_dict()
+        if self.country:
+            d['country'] = self.country.to_dict()
+        rep.update(d)
+        return rep
+
     def __repr__(self):
         return u'Cruise({0}, {1})'.format(
             _repr_state(self), self.expocode)
 
-# TODO move this into the class definition so it only gets called once even if
-# the module is reimported
-__cruise_allow_attrs = [
-    ('expocode', Unicode, 'ExpoCode'),
-    ('link', Unicode, 'Expedition Link'),
-    ('frequency', Unicode),
+def __allow_attr_cruise():
+    cruise_allow_attrs = [
+        ('expocode', Unicode, 'ExpoCode'),
+        ('link', Unicode, 'Expedition Link'),
+        ('frequency', Unicode),
 
-    ('date_start', [DateTime, Unicode], 'Start Date'),
-    ('date_end', [DateTime, Unicode], 'End Date'),
+        ('date_start', [DateTime, Unicode], 'Start Date'),
+        ('date_end', [DateTime, Unicode], 'End Date'),
 
-    ('statuses', TextList, 'Cruise statuses'),
-    ('aliases', TextList),
-    ('ports', TextList),
+        ('statuses', TextList, 'Cruise statuses'),
+        ('aliases', TextList),
+        ('ports', TextList),
 
-    ('ship', [ID, Unicode]),
-    ('country', [ID, Unicode]),
+        ('ship', [(ID, 'Ship'), Unicode]),
+        ('country', [(ID, 'Country'), Unicode]),
 
-    ('collections', [IDList, Unicode]),
-    ('institutions', [IDList, Unicode]),
+        ('collections', [(IDList, 'Collection'), Unicode]),
+        ('institutions', [(IDList, 'Institution'), Unicode]),
 
-    ('track', LineString),
+        ('track', LineString),
 
-    ('participants', [ParticipantsType, TextList]),
+        ('participants', [(IDList, 'Participant'), TextList]),
 
-    ('parameter_informations', ParameterInformations), 
+        ('parameter_informations', (IDList, 'ParameterInformation')), 
 
-    ('data_suggestion', File, 'Data suggestion'),
+        ('data_suggestion', File, 'Data suggestion'),
 
-    ('data_dir', Unicode, 'Import data directory'),
-    ('archive', File, 'Import archive'),
-    ]
-to_register = []
-for key, name in DataFileTypes.human_names.items():
-    to_register.append((
-        key, SerializerFSFile))
-    status_key = '{0}_status'.format(key)
-    to_register.append((status_key, Serializer))
+        ('data_dir', Unicode, 'Import data directory'),
+        ('archive', File, 'Import archive'),
+        ]
+    for key, name in DataFileTypes.human_names.items():
+        status_key = '{0}_status'.format(key)
+        cruise_allow_attrs.extend([
+            (key, File, name),
+            (status_key, TextList),
+            ])
 
-    __cruise_allow_attrs.extend([
-        (key, File, name),
-        (status_key, TextList),
-        ])
-
-Cruise.allow_attrs(__cruise_allow_attrs)
-for item in to_register:
-    Cruise.register_serializer_pair(*item)
-Cruise.register_serializer_pair(
-    'date_start', SerializerDateTime)
-Cruise.register_serializer_pair(
-    'date_end', SerializerDateTime)
-Cruise.register_serializer_pair(
-    'statuses', Serializer)
-Cruise.register_serializer_pair(
-    'aliases', Serializer)
-Cruise.register_serializer_pair(
-    'ports', Serializer)
-Cruise.register_serializer_pair(
-    'ship', SerializerObj.serialize, SerializerObj.Deserializer(Ship))
-Cruise.register_serializer_pair(
-    'country', SerializerObj.serialize, SerializerObj.Deserializer(Country))
-Cruise.register_serializer_pair(
-    'collections', SerializerObjs.serialize, SerializerObjs.Deserializer(Collection))
-Cruise.register_serializer_pair(
-    'institutions', SerializerObjs.serialize, SerializerObjs.Deserializer(Institution))
-Cruise.register_serializer_pair(
-    'track', SerializerTrack)
-Cruise.register_serializer_pair(
-    'participants', SerializerObjs.serialize, SerializerObjs.Deserializer(Participant))
-Cruise.register_serializer_pair(
-    'parameter_informations', SerializerObjs.serialize, SerializerObjs.Deserializer(ParameterInformation))
-Cruise.register_serializer_pair(
-    'data_suggestion', SerializerFSFile)
-Cruise.register_serializer_pair(
-    'data_dir', Serializer)
-Cruise.register_serializer_pair(
-    'archive', SerializerFSFile)
+    Cruise.allow_attrs(cruise_allow_attrs)
+once_at_end.register(__allow_attr_cruise)
 
 
 @event.listens_for(Note, 'after_insert')
@@ -2529,3 +2622,6 @@ def _deleted_obj(mapper, connection, target):
     if isinstance(target, Obj):
         return
     triggers.deleted_obj(target)
+
+
+once_at_end.run()

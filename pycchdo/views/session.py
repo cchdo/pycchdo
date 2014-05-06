@@ -47,10 +47,9 @@ def _profile_to_person(profile):
 
     person = Person.query().filter(Person.identifier == identifier).first()
     if not person:
-        person = Person(
-            identifier=identifier, name=name['formatted'], email=email)
-        DBSession.add(person)
-        DBSession.flush()
+        person = Person.create().obj
+        person.set_id_names(identifier=identifier, name=name['formatted'])
+        person.email = email
         pid = person.id
         transaction.commit()
         person = Person.query().get(pid)
@@ -136,9 +135,9 @@ def session_new(request):
             raise HTTPSeeOther(location=_redirect_uri(request))
         if not direct_email:
             raise HTTPSeeOther(location=_redirect_uri(request))
-        person = Person(name=direct_name, email=direct_email)
-        DBSession.add(person)
-        DBSession.flush()
+        person = Person.create().obj
+        person.set_id_names(name=direct_name)
+        person.email = direct_email
         pid = person.id
         transaction.commit()
         person = Person.query().get(pid)

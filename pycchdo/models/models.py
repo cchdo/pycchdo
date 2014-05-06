@@ -3702,6 +3702,22 @@ class Parameter(Obj):
         # TODO
         return 0
 
+    def to_dict(self):
+        response = {'parameter': {
+            'name': parameter.get('name', ''),
+            'aliases': filter(None,
+                [parameter.get('name_netcdf'),
+                 parameter.get('full_name')] + parameter.aliases),
+            'format': parameter.get('format', ''),
+            'bounds': map(unicode, parameter.bounds),
+            },
+            'description': parameter.get('description', None),
+        }
+        units = parameter.units
+        if units:
+            response['parameter']['units'] = units.to_dict()
+        return response
+
 Parameter.allow_attrs([
     ('name', Unicode, 'WOCE mnemonic'),
     ('aliases', TextList),
@@ -3731,6 +3747,15 @@ class Unit(Obj):
         'polymorphic_identity': 'unit',
     }
 
+    def to_dict(self):
+        return {
+            'unit': {
+                'def': units.get('name'),
+                'aliases': [
+                    {'name': {'singular': units.get('mnemonic')}}
+                ]
+            }
+        }
 
 Unit.allow_attrs([
     ('name', Unicode),

@@ -22,12 +22,14 @@ from sqlalchemy.sql.expression import case, literal
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, scoped_session, sessionmaker, backref
+from sqlalchemy.orm import (
+    relationship, scoped_session, sessionmaker, backref,
+    )
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
     collection, InstrumentedList, attribute_mapped_collection,
     )
-from sqlalchemy.schema import CreateSchema
+from sqlalchemy.schema import CreateSchema, Index
 
 from zope.sqlalchemy import ZopeTransactionExtension
 
@@ -290,6 +292,10 @@ class Change(Base, MixinCreation, DBQueryable):
 
     requests = relationship(
         'RequestFor', backref='change', cascade='all, delete-orphan')
+
+    __table_args__ = (
+        Index('idx_changes_accepted_attr', 'accepted', 'attr'),
+        )
 
     def __init__(self, obj, person, attr, value):
         self.obj = obj
@@ -2430,17 +2436,18 @@ class Cruise(Obj):
         file_types.remove('map_thumb')
         file_types.remove('map_full')
 
+        baseq = Change.query().\
+            filter(Change.accepted==True).\
+            filter(Change.attr.in_(file_types)).\
+            order_by(Change.ts_j.desc())
+
         skip = 0
         step = limit * 4
         updated = []
         cruise_ids = set()
 
         while len(updated) < limit:
-            attrs = Change.query().\
-                filter(Change.accepted==True).\
-                filter(Change.attr.in_(file_types)).\
-                order_by(Change.ts_j.desc()).\
-                offset(skip).limit(step).all()
+            attrs = baseq.offset(skip).limit(step).all()
             if not attrs:
                 break
             for attr in attrs:
@@ -2461,13 +2468,9 @@ class Cruise(Obj):
             filter(Cruise.date_start != None).order_by(Cruise.date_start)
 
     @classmethod
-    def pending_with_date_starts(cls, offset=None, limit=None):
+    def pending_with_date_starts(cls):
         """Gives a list of all pending cruises that have start dates"""
         pending = cls.filter_pending_date_start(Cruise.query())
-        if offset:
-            pending = pending.offset(offset)
-        if limit:
-            pending = pending.limit(limit)
         return pending
 
     @classmethod
@@ -2480,13 +2483,9 @@ class Cruise(Obj):
         upcoming = []
 
         while len(upcoming) < limit and i <= hardlimit:
-            upcoming = query.limit(i).all()
-            try:
-                upcoming = sorted(upcoming, key=lambda c: c.date_start)
-            except TypeError:
-                upcoming = []
-            upcoming = filter(
-                lambda x: x.date_start and now <= x.date_start, upcoming)
+            upcoming = query.\
+                filter(Cruise.date_start >= func.now()).\
+                order_by(Cruise.date_start).limit(i).all()
             i += limit
         return upcoming[:limit]
 

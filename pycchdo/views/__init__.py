@@ -176,7 +176,11 @@ def file_response(request, file, disposition='inline'):
     resp.cache_control.max_age = 60 * 60 * 24 * 30
 
     with store_context(request.fsstore):
-        resp.app_iter = file.open_file()
+        try:
+            resp.app_iter = file.open_file()
+        except IOError:
+            log.error(u'Missing file: {0!r}'.format(file))
+            return HTTPNotFound()
         try:
             resp.content_length = file.length
         except AttributeError:

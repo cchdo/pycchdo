@@ -20,6 +20,7 @@ _requires_db_fs = [
     'psycopg2',
     'SQLAlchemy',
     'Geoalchemy2',
+    'sqlalchemy_imageattach',
     'transaction',
     'pyramid_tm',
     'zope.sqlalchemy',

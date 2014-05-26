@@ -1,0 +1,4 @@
+--index-url https://pypi.python.org/simple/
+
+https://bitbucket.org/ghdc/libcchdo/get/master.tar.bz2#egg=libcchdo
+-e .

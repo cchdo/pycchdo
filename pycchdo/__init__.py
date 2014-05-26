@@ -114,7 +114,7 @@ def create_config(settings):
     session_factory = UnencryptedCookieSessionFactoryConfig(
         settings['key_session_factory'])
 
-    settings['db.search_index'] = SearchIndex(settings['db_search_index_path'])
+    settings['db.search_index'] = SearchIndex(settings['search_index_path'])
 
     return Configurator(
         settings=settings,
@@ -131,7 +131,7 @@ def main(global_config, **settings):
     engine = engine_from_config(settings, 'sqlalchemy.')
     DBSession.configure(bind=engine)
     fsstore = FSStore(
-        path=settings['fs_root'],
+        path=settings['file_system_path'],
         base_url='/',
     )
 

@@ -17,11 +17,8 @@ pyramid.includes =
 
 mail.sendmail_app = /usr/sbin/sendmail
 
-# Search index
-db_search_index_path = /Users/myshen/var/cache/%(app)s_search_index_dev
-
-# filesystem root
-fs_root = /Users/myshen/var/%(app)s_fs_dev
+search_index_path = /srv/www/wsgi_apps/venvs/pycchdo/pycchdo_si
+file_system_path = /srv/www/wsgi_apps/venvs/pycchdo/pycchdo_fs
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = synmantics+test@gmail.com

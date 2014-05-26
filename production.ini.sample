@@ -16,11 +16,8 @@ pyramid.includes =
 
 mail.sendmail_app = /usr/sbin/sendmail
 
-# Search index
-db_search_index_path = /Users/myshen/var/%(app)s_search_index
-
-# filesystem root
-fs_root = /Users/myshen/var/%(app)s_fs
+search_index_path = /Users/myshen/var/cache/%(app)s_search_index_prod
+file_system_path = /Users/myshen/var/%(app)s_fs_prod
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = cchdo@ucsd.edu

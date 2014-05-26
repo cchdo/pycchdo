@@ -275,7 +275,7 @@ def do_import():
 
     DBSession.configure(bind=engine)
     fsstore = FSStore(
-        path=args.settings['fs_root'],
+        path=args.settings['file_system_root'],
         base_url='/',
     )
 

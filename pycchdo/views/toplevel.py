@@ -209,8 +209,7 @@ def catchall_static(request):
         return render_to_response(relpath, {}, request)
     except TemplateNotFound, err:
         log.error(u'template not found: {0}\n{1!r}\n{1}'.format(relpath, err))
-        raise
-        #raise HTTPNotFound()
+        raise HTTPNotFound()
     except (ValueError, TypeError), e:
         log.error(u'Failed rendering catchall static: {0!r}'.format(e))
         raise HTTPNotFound()

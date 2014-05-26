@@ -54,10 +54,6 @@ extras_require = {
 }
 
 
-dependency_links = [
-    'https://bitbucket.org/ghdc/libcchdo/get/master.tar.bz2#egg=libcchdo',
-]
-
 setup(
     name='pycchdo',
     version='0.8',
@@ -78,7 +74,6 @@ setup(
     zip_safe=False,
     test_suite='pycchdo.tests',
     install_requires=requires,
-    dependency_links=dependency_links,
     extras_require=extras_require,
     entry_points = {
         'paste.app_factory': [

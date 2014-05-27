@@ -16,7 +16,6 @@ parts
 dist
 .installed.cfg
 .mr.developer.cfg
-*.tmp*
 import_assets
 *.ini
 .webassets-cache

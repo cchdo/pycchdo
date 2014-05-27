@@ -118,7 +118,7 @@ def _create_parsers(schemas):
         fields = list(set(schema.names()) - set(('id', 'mtime', )))
         if len(fields) > 1:
             parser = MultifieldParser(fields, schema=schema, group=AndGroup)
-        elif len(fields) is 1:
+        elif len(fields) == 1:
             parser = QueryParser(fields[0], schema=schema, group=AndGroup)
         else:
             continue
@@ -472,6 +472,21 @@ class SearchIndex(object):
             self._rebuild_index(name, clear)
         log.info('Finished indexing')
 
+    def _filter_seahunt_for_cruise_parser(self, query):
+        """Remove seahunt term from cruise query.
+
+        Don't know why this didn't used to be a problem but now queryparser
+        inserts seahunt:True to all Cruise queries which causes all seahunt
+        to be returned.
+
+        """
+        for iii, subq in enumerate(query.subqueries):
+            try:
+                if subq.fieldname == 'seahunt':
+                    del query.subqueries[iii]
+                    break
+            except AttributeError:
+                pass
 
     def _model_query_string_to_query(self, model_name, qstring):
         """Parse the query string in the context of the given model. 
@@ -481,6 +496,8 @@ class SearchIndex(object):
         model_parser = _parsers.get(model_name)
         try:
             query = model_parser.parse(qstring)
+            if model_name == 'cruise':
+                self._filter_seahunt_for_cruise_parser(query)
             log.debug(u'Query: {0}\t{1!r}'.format(model_name, query))
         except Exception, err:
             log.error('Query parse failed for {0} {1!r}: {2}'.format(

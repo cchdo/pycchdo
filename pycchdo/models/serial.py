@@ -18,7 +18,7 @@ from sqlalchemy.exc import DataError
 from sqlalchemy.sql import (
     func, and_, not_, or_,
     )
-from sqlalchemy.sql.expression import case, literal
+from sqlalchemy.sql.expression import case, literal, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -27,7 +27,7 @@ from sqlalchemy.orm import (
     )
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
-    collection, InstrumentedList, attribute_mapped_collection,
+    collection, InstrumentedSet, attribute_mapped_collection,
     )
 from sqlalchemy.schema import CreateSchema, Index
 
@@ -44,6 +44,7 @@ from geoalchemy2.shape import to_shape, from_shape
 from sqlalchemy_imageattach.context import current_store, store_context
 
 from libcchdo.recipes.orderedset import OrderedSet
+from libcchdo.fns import uniquify
 
 from pycchdo.models import triggers
 from pycchdo.models.attrmgr import AllowableMgr
@@ -87,10 +88,15 @@ def reset_fs(fsstore):
 
 def _repr_state(obj):
     if obj.accepted:
-        return 'accept'
+        return 'acc'
     if obj.ts_j:
-        return 'reject'
-    return 'pendin'
+        return 'rej'
+    try:
+        if obj.change.ts_ack:
+            return 'ack'
+    except Exception:
+        pass
+    return 'sug'
 
 
 class OnceAtEnd(object):
@@ -203,10 +209,10 @@ class Note(Base, DBQueryable, MixinCreation):
         return unicode(self)
 
     def __unicode__(self):
-        return u'Note({0}, {1})'.format(self.id, self.subject)
+        return u'Note({0}, {1!r})'.format(self.id, self.subject)
 
     def __repr__(self):
-        return u'Note({0}, {1}, {2})'.format(self.id, self.subject, self.discussion)
+        return u'Note({0}, {1!r}, {2})'.format(self.id, self.subject, self.discussion)
 
 
 class ChangePermission(Base):
@@ -228,6 +234,45 @@ class ChangePermission(Base):
     def __init__(self, perm_type, permission):
         self.perm_type = perm_type
         self.permission = permission
+
+
+def filter_query_change(query, state=None, replaced=False):
+    """Modify a query for Changes.
+
+    state - enum: unjudged, unacknowledged, pending, accepted
+    replaced - if True, requires that the Changes have an accepted value
+
+    """
+    query = query.filter(and_(Change.attr != None, Change.value != None))
+
+    if state == 'unjudged':
+        query = query.filter(and_(Change.ts_j == None, Change.p_j == None))
+    elif state == 'unacknowledged':
+        query = query.filter(and_(
+            Change.ts_ack == None, Change.p_ack == None, 
+            Change.ts_j == None, Change.p_j == None))
+    elif state == 'pending':
+        query = query.filter(and_(
+            Change.ts_ack != None, Change.p_ack != None,
+            Change.ts_j == None, Change.p_j == None))
+    elif state == 'accepted':
+        query = query.filter(and_(
+            Change.ts_j != None, Change.p_j != None, Change.accepted))
+
+    if replaced:
+        query = query.filter(Change._value_accepted != None)
+
+    return query
+
+
+def filter_changes_data(changes, data=True):
+    """Filter Changes to those pertaining to attributes that store Files.
+
+    """
+    func = lambda change: change.obj.attr_type(change.attr) == File
+    if not data:
+        func = lambda change: change.obj.attr_type(change.attr) != File
+    return filter(func, changes)
 
 
 class Change(Base, MixinCreation, DBQueryable):
@@ -300,7 +345,7 @@ class Change(Base, MixinCreation, DBQueryable):
     def __init__(self, obj, person, attr, value):
         self.obj = obj
         self.attr = attr
-        log.debug('creating change {0}.{1}={2!r}'.format(obj, attr, value))
+        log.debug(u'creating {0}.{1}={2!r}'.format(obj, attr, value))
         if attr is not None or value is not None:
             self.value = value
 
@@ -325,7 +370,7 @@ class Change(Base, MixinCreation, DBQueryable):
 
         If the accepted_value has been set, will return the deserialized
         instance of the accepted_value, otherwise will return the original
-        suggested value deseriailized.
+        suggested value deserialized.
 
         """
         return self.obj.deserialize(self.attr, self._get_value())
@@ -347,12 +392,24 @@ class Change(Base, MixinCreation, DBQueryable):
         """Deserialize the accepted value from the database."""
         return self.obj.deserialize(self.attr, self._value_accepted)
 
-    @value.setter
+    @value_accepted.setter
     def value_accepted(self, val):
         """Serialize the value so it can be stored in the database.
 
         """
         self._value_accepted = self.obj.serialize(self.attr, val)
+
+    def _set_value(self, val):
+        """Set the value and recache.
+
+        Useful for internally modifying a change and propagating its effects.
+
+        """
+        if self._value_accepted is None:
+            self.value = val
+        else:
+            self.value_accepted = val
+        self.set_cache()
 
     @hybrid_property
     def is_obj(self):
@@ -371,6 +428,16 @@ class Change(Base, MixinCreation, DBQueryable):
     def is_rejected(self):
         return self.is_judged() and not self.accepted
 
+    def set_cache(self):
+        """Set the value cache for the Obj."""
+        try:
+            self.obj._set_cache(self.attr, self.value)
+        except (DataError, TypeError):
+            # If the value does not store well in the Obj cache, we'll have to
+            # leave it in string form. Communicate to the Obj that the cache is
+            # not valid.
+            delattr(self.obj, self.attr)
+
     def accept(self, person, replacement=None):
         """Accept a Change.
 
@@ -385,21 +452,14 @@ class Change(Base, MixinCreation, DBQueryable):
 
         if replacement is not None:
             self.value_accepted = replacement
-        value = self.value
 
-        log.debug(u'accepting {0!r}:{1!r}'.format(self, value))
+        log.debug(u'accepting {0!r}:{1!r}'.format(self, self.value))
 
         if self.is_obj:
             self.obj.accepted = True
             self.obj.ts_j = timestamp_now()
         else:
-            try:
-                self.obj._set_cache(self.attr, value)
-            except (DataError, TypeError):
-                # If the value does not store well in the Obj cache, we'll have
-                # to leave it in string form. Communicate to the Obj that the
-                # cache is not valid.
-                delattr(self.obj, self.attr)
+            self.set_cache()
 
     def acknowledge(self, person):
         self.p_ack = person
@@ -416,7 +476,7 @@ class Change(Base, MixinCreation, DBQueryable):
     @classmethod
     def only_if_accepted_is(cls, accepted=True):
         """Return a query for this class only when accepted or not."""
-        return DBSession.query(cls).filter(cls.accepted == accepted)
+        return cls.query().filter(cls.accepted == accepted)
 
     @property
     def notes(self):
@@ -430,8 +490,19 @@ class Change(Base, MixinCreation, DBQueryable):
     def notes_discussion(self):
         return self._notes.filter(Note.discussion).all()
 
+    @classmethod
+    def filtered(cls, state=None, replaced=False):
+        return filter_query_change(cls.query(), state, replaced).all()
+
+    @classmethod
+    def filtered_data(cls, state=None, replaced=False):
+        return filter_changes_data(cls.filtered(state, replaced))
+
+    def __str__(self):
+        return unicode(self)
+
     def __unicode__(self):
-        return u'{0}, {1}, {2}'.format(
+        return u'{1}.{2}(0)={3!r}'.format(
             _repr_state(self), self.obj, self.attr, self.value)
 
     def __repr__(self):
@@ -756,42 +827,16 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     def changes_query(self, state=None, replaced=False):
         """Return a query for the Obj's attribute Changes.
 
-        state - enum: unjudged, unacknowleged, pending, accepted
-        replaced - if True, requires that the Changes have an accepted value
-
         """
-        query = self._changes.filter(and_(
-            Change.attr != None, Change.value != None))
+        return filter_query_change(self._changes, state, replaced)
 
-        if state == 'unjudged':
-            query = query.filter(and_(Change.ts_j == None, Change.p_j == None))
-        elif state == 'unacknowledged':
-            query = query.filter(and_(Change.ts_ack == None, Change.p_ack == None))
-        elif state == 'pending':
-            query = query.filter(and_(Change.ts_ack != None, Change.p_ack != None))
-        elif state == 'accepted':
-            query = query.filter(Change.accepted)
-
-        if replaced:
-            query = query.filter(Change._value_accepted != None)
-
-        return query
-
-    def changes(self, state=None, replaced=False):
+    def changes(self, state=None, replaced=False, data=None):
         """Return the Obj's Changes excluding the one that created it."""
-        return self.changes_query(state, replaced).all()
-
-    def changes_filter_data(self, changes):
-        """Filter Changes to those pertaining to attributes that store Files.
-
-        """
-        return filter(
-            lambda change: change.obj.attr_type(change.attr) == File, changes)
-
-    def changes_data(self, state=None, replaced=False):
-        """Return changes for the Obj that store files."""
         changes = self.changes_query(state, replaced).all()
-        return self.changes_filter_data(changes)
+        if data is None:
+            return changes
+        else:
+            return filter_changes_data(changes, data)
 
     @property
     def attr_keys(self):
@@ -964,6 +1009,9 @@ once_at_end.register(lambda:
 class Participant(Base, Creatable, DBQueryable):
     """A participant of a Cruise. 
 
+    Participants are creatable for ease of adding. Otherwise, they would have to
+    be manually persisted.
+
     A participant consists of role, person, and optionally institution.
 
     """
@@ -992,21 +1040,27 @@ class Participant(Base, Creatable, DBQueryable):
             'institution': self.institution_id,
             'role': self.role}
     
+    def equal_role_person(self, other):
+        return self.role == other.role and self.person == other.person
+    
     def __eq__(self, other):
-        if (    hash(self) == hash(other) and
-                self.institution == other.institution):
-            return True
+        if self.equal_role_person(other):
+            if self.institution:
+                return self.institution == other.institution
+            else:
+                return bool(other.institution)
         return False
 
     def __hash__(self):
-        return hash(u'{0}_{1}_{2}'.format(self.id, self.role, self.person))
+        return hash(u'{0}_{1}_{2}'.format(
+            self.role, self.person_id, self.institution_id))
 
     def __repr__(self):
         return u'Participant({0}, {1}, {2})'.format(
             self.role, self.person, self.institution)
         
 
-class Participants(InstrumentedList):
+class Participants(InstrumentedSet):
     """The participants of a Cruise.
 
     This object acts like a dictionary keyed upon "roles".
@@ -1014,8 +1068,13 @@ class Participants(InstrumentedList):
     All mutators will suggest a new value for 'participants' and return the
     suggestion.
 
-    This collection will also provide Person-Institution paris when queried with
-    a role.
+    This collection will also provide Person-Institution pairs when queried
+    using with_role(role)
+
+    Caution: it is possible to assign an invalid set when multiple role-person
+    pairs have different institutions. The resulting set will have two
+    role-persons with different institutions. This is not a problem for storage
+    but is strange to interpret.
     
     """
     def __init__(self, *args, **kwargs):
@@ -1029,6 +1088,22 @@ class Participants(InstrumentedList):
         else:
             data = []
         super(Participants, self).__init__(data)
+
+    def add(self, value):
+        """Override instrumented add to consider institution.
+
+        If a participant has (role, person) already in the set but the set
+        is missing an institution, update the one in the set instead of adding
+        the new participant.
+
+        """
+        if value.institution:
+            for part in self:
+                if part.equal_role_person(value) and not part.institution:
+                    part.institution = value.institution
+                    return
+
+        super(Participants, self).add(value)
 
     def with_role(self, role):
         """Return Participants for role."""
@@ -1155,18 +1230,11 @@ class Country(Obj):
             return two
         return self.name
 
-    # TODO make merge work
     def merge(self, signer, *mergees):
-        mergee_ids = [m.id for m in mergees]
-
-        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
-        for attr in attrs:
-            attr.obj_id = self.id
-
-        people = self.people
-        for person in people:
-            if person.country != self.id:
-                person.set(signer, 'country', self.id)
+        changes = Change.query().filter(Change.attr == 'country').all()
+        for change in changes:
+            if change.value in mergees:
+                change._set_value(self)
 
         for mergee in mergees:
             mergee.remove()
@@ -1206,23 +1274,37 @@ class Institution(Obj):
         'polymorphic_identity': 'institution',
     }
 
-# TODO make merge work
     def merge(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
 
         participants = Participant.query().\
             filter(Participant.institution_id.in_(mergee_ids)).all()
         for p in participants:
-            p.institution_id = self.id
+            p.institution = self
 
         pis = ParameterInformation.query().\
             filter(ParameterInformation.inst_id.in_(mergee_ids)).all()
         for pi in pis:
-            pi.inst_id = self.id
+            pi.inst = self
 
-        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
-        for attr in attrs:
-            attr.obj_id = self.id
+        changes = Change.query().filter(Change.attr == 'institutions').all()
+        for change in changes:
+            insts = change.value
+            new_insts = []
+            replaced = False
+            for inst in insts:
+                if inst not in mergees:
+                    new_insts.append(inst)
+                else:
+                    if not replaced:
+                        new_insts.append(self)
+                        replaced = True
+            change._set_value(new_insts)
+
+        changes = Change.query().filter(Change.attr == 'institution').all()
+        for change in changes:
+            if change.value in mergees:
+                change._set_value(self)
 
         for mergee in mergees:
             mergee.remove()
@@ -1269,13 +1351,11 @@ class Ship(Obj):
         'polymorphic_identity': 'ship',
     }
 
-# TODO make merge work
     def merge(self, signer, *mergees):
-        mergee_ids = [m.id for m in mergees]
-
-        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
-        for attr in attrs:
-            attr.obj_id = self.id
+        changes = Change.query().filter(Change.attr == 'ship').all()
+        for change in changes:
+            if change.value in mergees:
+                change._set_value(self)
 
         for mergee in mergees:
             mergee.remove()
@@ -1392,88 +1472,55 @@ class Person(Obj):
             return False
         return False
 
-    # TODO make merge work
     def merge(self, signer, *mergees):
         mergee_ids = [m.id for m in mergees]
-        cs = Change.query().\
-            filter(Change.creation_person_id.in_(mergee_ids)).all()
+        cs = Change.query().filter(Change.p_id_c.in_(mergee_ids)).all()
         for c in cs:
-            c.creation_person_id = self.id
-        cs = Change.query().\
-            filter(Change.pending_person_id.in_(mergee_ids)).all()
+            c.p_c = self
+        cs = Change.query().filter(Change.p_id_ack.in_(mergee_ids)).all()
         for c in cs:
-            c.pending_person_id = self.id
-        cs = Change.query().\
-            filter(Change.judgment_person_id.in_(mergee_ids)).all()
+            c.p_ack = self
+        cs = Change.query().filter(Change.p_id_j.in_(mergee_ids)).all()
         for c in cs:
-            c.judgment_person_id = self.id
+            c.p_j = self
+        changes = Change.query().filter(Change.obj_id.in_(mergee_ids)).all()
+        for change in changes:
+            change.obj = self
 
-        participant_lists = set()
-        participants = Participant.query().\
-            filter(Participant.person_id.in_(mergee_ids)).all()
-        for p in participants:
-            p.person_id = self.id
-            participant_lists.add(p.attrvalue)
-
-        for av in participant_lists:
-            # Make a copy. Doing in-place operations on a collection makes for
-            # funny business
-            l = list(av.values)
-            original = None
-            i = 0
-            while i < len(l) - 1:
-                p = l[i]
-                # designate the first participant with matching person as
-                # original. This loop will continue until the end because it is
-                # possible a single person to have multiple roles.
-                if not original and p.person_id == self.id:
-                    original = p
-                else:
-                    i += 1
-                    continue
-
-                # start from the end and remove participants that match the
-                # person and role while filling in the institution if unknown
-                j = len(l) - 1
-                while j > i:
-                    q = l[j]
-                    if q.person_id != p.person_id or q.role != p.role:
-                        j -= 1
-                        continue
-                    l.pop(j)
-                    if not original.institution_id:
-                        original.institution_id = q.institution_id
-                    j -= 1
-
-                # all the participants that matched the original are now
-                # removed. clear things up to prepare for the next match
-                original = None
-                i += 1
-            av.values = Participants(l)
-
-        notes = Note.query().\
-            filter(Note.creation_person_id.in_(mergee_ids)).all()
+        notes = Note.query().filter(Note.p_id_c.in_(mergee_ids)).all()
         for note in notes:
-            note.creation_person_id = self.id
+            note.p_c = self
 
         pis = ParameterInformation.query().\
             filter(ParameterInformation.pi_id.in_(mergee_ids)).all()
         for pi in pis:
-            pi.pi_id = self.id
+            pi.pi = self
 
-        pps = _PersonPermissions.query().\
-            filter(_PersonPermissions.person_id.in_(mergee_ids)).all()
-        for pp in pps:
-            pp.person_id = self.id
+        perms = OrderedSet(self.permissions)
+        for mergee in mergees:
+            perms |= OrderedSet(mergee.permissions)
+        self.permissions = list(perms)
 
-        attrs = _Attr.query().filter(_Attr.obj_id.in_(mergee_ids)).all()
-        for attr in attrs:
-            attr.obj_id = self.id
+        participants = Participant.query().\
+            filter(Participant.person_id.in_(mergee_ids)).all()
+        cruises = []
+        for p in participants:
+            pps = list(p.cruise.participants)
+            try:
+                idx = pps.index(Participant(p.role, self))
+                pp = pps[idx]
+                if pp.institution and p.institution:
+                    log.warn(u'Cannot merge role-persons with different '
+                             'institution {0} {1}'.format(
+                        pp.institution, p.institution))
+                else:
+                    if p.institution:
+                        pp.institution = p.institution
+            except ValueError:
+                p.person = self
 
         for mergee in mergees:
             mergee.remove()
-
-        self._recache()
 
     @classmethod
     def propose(cls, sponsor=None):
@@ -1671,7 +1718,8 @@ class Collection(MultiName, Obj):
         for cruise in cruises:
             colls = OrderedSet(cruise.collections)
             colls = colls - OrderedSet(mergees)
-            cruise.set(signer, 'collections', colls)
+            change = cruise.get_attr('collections')
+            change._set_value(colls)
 
         for mergee in mergees:
             mergee.remove()
@@ -1933,12 +1981,12 @@ class ParameterInformation(Base, DBQueryable):
     ts = Column(DateTime)
 
     def __init__(self, parameter, status, pi, inst, ts):
-        self.parameter_id = parameter.id
+        self.parameter = parameter
         self.status = status
         if pi:
-            self.pi_id = pi.id
+            self.pi = pi
         if inst:
-            self.inst_id = inst.id
+            self.inst = inst
         self.ts = ts
     
     def is_empty(self):
@@ -2168,7 +2216,7 @@ class Submission(Obj, FileHolder):
 
         """
         self.attached = attr
-        self.accept(signer)
+        self.change.accept(signer)
 
     @classmethod
     def unacknowledged(cls):
@@ -2392,6 +2440,9 @@ class Cruise(Obj):
             except KeyError:
                 self.files[attr] = _CruiseFile(attr, value)
             return
+        if attr == 'participants':
+            self.participants = set(value)
+            return
         if attr.endswith('_status'):
             try:
                 self.files[attr].statuses = value
@@ -2437,7 +2488,7 @@ class Cruise(Obj):
         file_types.remove('map_full')
 
         baseq = Change.query().\
-            filter(Change.accepted==True).\
+            filter(Change.accepted == True).\
             filter(Change.attr.in_(file_types)).\
             order_by(Change.ts_j.desc())
 

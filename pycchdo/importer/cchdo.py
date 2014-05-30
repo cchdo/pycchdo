@@ -945,7 +945,7 @@ def _collections_merge(signer):
         if len(same) < 2:
             continue
         log.info(u'Merging {} with {}'.format(same[0], same[1:]))
-        same[0].merge_(signer, *same[1:])
+        same[0].merge(signer, *same[1:])
 
     # Pass 2: same name and similar types
     log.info('Collection merge pass 2: same name, similar type')
@@ -1184,7 +1184,7 @@ def _import_contacts_cruises(session):
                 participants)
 
             if not matching_participants:
-                new_participants.append(
+                new_participants.add(
                     Participant.create(role, person, inst))
                 continue
 
@@ -1207,7 +1207,7 @@ def _import_contacts_cruises(session):
                 log.info(u'All participants for {0} and {1} already have '
                          'institution. Adding new Participant.'.format(
                     role, person))
-                new_participants.append(
+                new_participants.add(
                     Participant.create(role, person, inst))
 
         cruise.set(updater.importer,
@@ -1669,7 +1669,7 @@ def _import_submission(session, downloader, updater, imported_submissions, dsug,
                     action = ','.join(filter(None, removed.split(',')))
             submission.action = _ustr2uni(action)
         if notes:
-            submission.notes.append(
+            submission.change._notes.append(
                 Note(submitter, _ustr2uni(notes)))
 
         if file_path in _KNOWN_MISSING_SUBMISSIONS:
@@ -1769,8 +1769,9 @@ def _import_submissions(session, downloader):
     # assimilated.
     cruise = get_by_import_id(Cruise, 'submissions_assimilated')
     if not cruise:
-        cruise = Cruise.create(updater.importer).obj
+        cruise = Cruise.propose(updater.importer).obj
         cruise.import_id = 'submissions_assimilated'
+        cruise.set(updater.importer, 'expocode', 'Assimilated')
         fs_assimilated = FieldStorage()
         fs_assimilated.filename = 'assimilated'
         fs_assimilated.file = SpooledTemporaryFile(max_size=1)
@@ -1778,6 +1779,8 @@ def _import_submissions(session, downloader):
             dsug = cruise.set(updater.importer, 'data_suggestion',
                 FSFile.from_fieldstorage(fs_assimilated))
         del fs_assimilated.file
+        dsug._notes.append(Note(updater.importer,
+            u'Fake file for assimilated submissions'))
     else:
         dsug = cruise.get_attr_change('data_suggestion')
 
@@ -1823,8 +1826,7 @@ def _import_queue_files(session, downloader):
 
             with downloader.dl(unprocessed_input) as file:
                 if file is None:
-                    log.warn(
-                        "Missing queue file %s" % unprocessed_input)
+                    log.warn("Missing queue file %s" % unprocessed_input)
                     log.info("Skipping queue record import")
                     continue
                 else:
@@ -1839,7 +1841,7 @@ def _import_queue_files(session, downloader):
                 # data_suggestion.
                 with su(su_lock=downloader.su_lock):
                     actual_file = FSFile.from_fieldstorage(actual_file)
-                    queue_file = cruise.set(updater.importer,
+                    queue_file = cruise.sugg(updater.importer,
                         'data_suggestion', actual_file)
                 # Set the import id on the FSFile
                 queue_file.value.import_id = import_id
@@ -1885,11 +1887,11 @@ def _import_queue_files(session, downloader):
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            queue_file.notes.append(
+            queue_file.change._notes.append(
                 Note(submitter, _ustr2uni(qfile.notes)))
 
         if qfile.action:
-            queue_file.notes.append(
+            queue_file.change._notes.append(
                 Note(submitter, _ustr2uni(qfile.action),
                      data_type='action', discussion=True))
 
@@ -1900,12 +1902,12 @@ def _import_queue_files(session, downloader):
             if qfile.documentation:
                 if not re_docs.match(parameters):
                     parameters = u','.join([parameters, 'Documentation'])
-            queue_file.notes.append(
+            queue_file.change._notes.append(
                 Note(updater.importer, parameters, data_type='Parameters',
                      discussion=True))
 
         if qfile.merge_notes:
-            queue_file.notes.append(
+            queue_file.change._notes.append(
                 Note(updater.importer, _ustr2uni(qfile.merge_notes),
                      discussion=True))
 

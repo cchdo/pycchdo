@@ -2,8 +2,8 @@
   {%- for note in notes %}
     <tr class="note{% if note.discussion %} discussion{% endif %}">
       <td class="body">{{ note.body }}</td>
-      <td class="person">{{ h.link_person(note.creation_person) }}</td>
-      <td class="date">{{ h.pdatetime(note.creation_timestamp) }}</td>
+      <td class="person">{{ h.link_person(note.p_c) }}</td>
+      <td class="date">{{ h.pdatetime(note.ts_c) }}</td>
     </tr>
   {%- endfor %}
 {%- endmacro %}

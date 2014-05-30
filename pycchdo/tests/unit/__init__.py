@@ -185,6 +185,45 @@ class TestModelChange(PersonBaseTest):
         self.assertEqual(obj.notes_public, [note0])
         self.assertEqual(obj.notes_discussion, [note1])
 
+    def test_filtered(self):
+        """Changes can be retrieved and filtered by state.
+
+        The known states are: unjudged, unacknowledged, pending, accepted
+
+        """
+        ooo = Obj.create(self.testPerson).obj
+        aaa = ooo.sugg(self.testPerson, 'import_id', '000')
+        self.assertEquals(ooo.changes('unjudged'), [aaa])
+        self.assertEquals(ooo.changes('unacknowledged'), [aaa])
+        self.assertEquals(ooo.changes('pending'), [])
+        self.assertEquals(ooo.changes('accepted'), [])
+        aaa.acknowledge(self.testPerson)
+        self.assertEquals(ooo.changes('unjudged'), [aaa])
+        self.assertEquals(ooo.changes('unacknowledged'), [])
+        self.assertEquals(ooo.changes('pending'), [aaa])
+        self.assertEquals(ooo.changes('accepted'), [])
+        aaa.accept(self.testPerson)
+        self.assertEquals(ooo.changes('unjudged'), [])
+        self.assertEquals(ooo.changes('unacknowledged'), [])
+        self.assertEquals(ooo.changes('pending'), [])
+        self.assertEquals(ooo.changes('accepted'), [aaa])
+
+    def test_filtered_data(self):
+        """Changes can be retrieved and filtered by state as well as whether
+        they store a file.
+
+        """
+        ooo = Cruise.create(self.testPerson).obj
+        fst = FieldStorage()
+        fst.filename = 'test_hy1.csv'
+        contents = 'contents'
+        fst.file = StringIO(contents)
+        aaa = ooo.sugg(self.testPerson, 'bottle_exchange', fst)
+        bbb = ooo.sugg(self.testPerson, 'expocode', 'expo')
+        self.assertEquals(ooo.changes('unjudged'), [aaa, bbb])
+        self.assertEquals(ooo.changes('unjudged', data=False), [bbb])
+        self.assertEquals(ooo.changes('unjudged', data=True), [aaa])
+
 
 class TestModelAttrValue(PersonBaseTest):
     def test_attrvalue(self):
@@ -956,7 +995,7 @@ class TestModelCruise(PersonBaseTest):
         """
         c = Cruise.create(self.testPerson).obj
 
-        self.assertEquals(c.changes_data(), [])
+        self.assertEquals(c.changes(data=True), [])
 
         f0 = MockFieldStorage(
             MockFile('mock_btlex', 'f0_hy1.csv'), contentType='text/csv')
@@ -969,9 +1008,9 @@ class TestModelCruise(PersonBaseTest):
             MockFile('mock_ctdex', 'f2_ct1.csv'), contentType='text/csv')
         a1 = c.sugg(self.testPerson, 'ctd_exchange', f2)
 
-        self.assertEquals(c.changes_data('pending'), [])
-        self.assertEquals(c.changes_data('accepted'), [a0])
-        self.assertEquals(c.changes_data('accepted', replaced=True), [a0])
+        self.assertEquals(c.changes('pending', data=True), [])
+        self.assertEquals(c.changes('accepted', data=True), [a0])
+        self.assertEquals(c.changes('accepted', replaced=True, data=True), [a0])
 
     def test_pending_data(self):
         """Retrieve a list of files that make up the data suggestion history for
@@ -981,15 +1020,15 @@ class TestModelCruise(PersonBaseTest):
         """
         c = Cruise.create(self.testPerson).obj
 
-        self.assertEquals(c.changes_data(), [])
+        self.assertEquals(c.changes(data=True), [])
 
         f0 = MockFieldStorage(
             MockFile('mock_botex', 'f0_hy1.csv'), contentType='text/csv')
         a0 = c.sugg(self.testPerson, 'bottle_exchange', f0)
         a0.acknowledge(self.testPerson)
 
-        self.assertEquals(c.changes_data('pending'), [a0])
-        self.assertEquals(c.changes_data('accepted'), [])
+        self.assertEquals(c.changes('pending', data=True), [a0])
+        self.assertEquals(c.changes('accepted', data=True), [])
 
     def test_files(self):
         """cruise.files should be a dict mapping data_file_human_names to the
@@ -1042,9 +1081,24 @@ class TestParticipant(PersonBaseTest):
 
         participants = Participants(part0, part1)
         part = cruise.sugg(self.testPerson, 'participants', participants)
-        self.assertEqual([], cruise.participants)
+        self.assertEqual(0, len(cruise.participants))
         part.accept(self.testPerson)
         self.assertEqual(participants, cruise.participants)
+
+    def test_set_properties(self):
+        """Participants should act like a set based on role and person.
+
+        """
+        pps = Participants()
+
+        ii0 = Institution.create(self.testPerson).obj
+        ii1 = Institution.create(self.testPerson).obj
+
+        pps.add(Participant.create('role0', self.testPerson))
+        pps.add(Participant.create('role0', self.testPerson, ii0))
+        pps.add(Participant.create('role0', self.testPerson, ii1))
+
+        self.assertEqual(len(pps), 2)
 
     # TODO figure out how best to do this interface
     @nottest
@@ -1054,14 +1108,14 @@ class TestParticipant(PersonBaseTest):
 
         c.participants.extend_(
             c, self.testPerson,
-            Participant('Chief Scientist', self.testPerson)
+            Participant.create('Chief Scientist', self.testPerson)
             ).accept(self.testPerson)
 
         self.assertEquals(
             [self.testPerson], [pi.person for pi in c.chief_scientists])
 
         c.participants.extend_(c, self.testPerson,
-            Participant('Co-Chief Scientist', self.testPerson)
+            Participant.create('Co-Chief Scientist', self.testPerson)
             ).accept(self.testPerson)
         self.assertEquals(
             [(self.testPerson, 'Chief Scientist'),
@@ -1072,7 +1126,7 @@ class TestParticipant(PersonBaseTest):
         """Remove participants from a cruise."""
         c = Cruise.create(self.testPerson).obj
 
-        ppp = Participant('Chief Scientist', self.testPerson)
+        ppp = Participant.create('Chief Scientist', self.testPerson)
 
         c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
         self.assertEquals(
@@ -1086,13 +1140,13 @@ class TestParticipant(PersonBaseTest):
         """Replace participants for a cruise."""
         c = Cruise.create(self.testPerson).obj
 
-        ppp = Participant('Chief Scientist', self.testPerson)
+        ppp = Participant.create('Chief Scientist', self.testPerson)
 
         c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
         self.assertEquals(
             [self.testPerson], [pi.person for pi in c.chief_scientists])
 
-        qqq = Participant('Co-Chief Scientist', self.testPerson)
+        qqq = Participant.create('Co-Chief Scientist', self.testPerson)
 
         c.participants.replace_(c, self.testPerson, qqq).accept(self.testPerson)
         self.assertEquals(
@@ -1105,13 +1159,13 @@ class TestParticipant(PersonBaseTest):
 
         count_pre = DBSession.query(models._AttrValueParticipants).count()
 
-        ppp = Participant('Chief Scientist', self.testPerson)
+        ppp = Participant.create('Chief Scientist', self.testPerson)
 
         a = c.participants.extend_(c, self.testPerson, ppp)
         a.accept(self.testPerson)
         DBSession.flush()
 
-        qqq = Participant('Co-Chief Scientist', self.testPerson)
+        qqq = Participant.create('Co-Chief Scientist', self.testPerson)
 
         aaa = c.get_attr('participants')
         aaa._set(Participants([ppp, qqq]))
@@ -1354,3 +1408,194 @@ class TestModelArgoFile(PersonBaseTest):
         argo.link(ccc, 'bottle_exchange')
         argo_str = argo.value.open_file().read()
         self.assertEqual(argo_str, data)
+
+
+class TestMerge(PersonBaseTest):
+    def test_merge_country(self):
+        co0 = Country.create(self.testPerson).obj
+        co0.name = 'co0'
+        co1 = Country.create(self.testPerson).obj
+        co1.name = 'co1'
+
+        cr0 = Cruise.create(self.testPerson).obj
+        cr0.set(self.testPerson, 'country', co0)
+        cr1 = Cruise.create(self.testPerson).obj
+        cr1.set(self.testPerson, 'country', co1)
+
+        sh0 = Ship.create(self.testPerson).obj
+        sh0.set(self.testPerson, 'country', co1)
+
+        inst0 = Institution.create(self.testPerson).obj
+        inst0.set(self.testPerson, 'country', co1)
+
+        self.assertEqual(Country.query().count(), 2)
+        self.assertEqual(cr1.country, co1)
+        self.assertEqual(sh0.country, co1)
+        self.assertEqual(inst0.country, co1)
+
+        co0.merge(self.testPerson, co1)
+
+        self.assertEqual(cr0.country, co0)
+        self.assertEqual(cr1.country, co0)
+        self.assertEqual(sh0.country, co0)
+        self.assertEqual(inst0.country, co0)
+        self.assertEqual(Country.query().count(), 1)
+
+    def test_merge_institution(self):
+        in0 = Institution.create(self.testPerson).obj
+        in0.name = 'in0'
+        in1 = Institution.create(self.testPerson).obj
+        in1.name = 'in1'
+
+        cr0 = Cruise.create(self.testPerson).obj
+        cr0.set(self.testPerson, 'institutions', [in0])
+        cr1 = Cruise.create(self.testPerson).obj
+        cr1.set(self.testPerson, 'institutions', [in1])
+
+        part0 = Participant.create('chief_scientist', self.testPerson, in0)
+        part1 = Participant.create('chief_scientist', self.testPerson, in1)
+
+        pi0 = ParameterInformation(None, None, None, in0, None)
+        pi1 = ParameterInformation(None, None, None, in1, None)
+
+        DBSession.add(pi0)
+        DBSession.add(pi1)
+
+        self.assertEqual(cr0.institutions, [in0])
+        self.assertEqual(cr1.institutions, [in1])
+
+        self.assertEqual(part0.institution, in0)
+        self.assertEqual(part1.institution, in1)
+
+        self.assertEqual(pi0.inst, in0)
+        self.assertEqual(pi1.inst, in1)
+
+        in0.merge(self.testPerson, in1)
+
+        self.assertEqual(cr0.institutions, [in0])
+        self.assertEqual(cr1.institutions, [in0])
+
+        self.assertEqual(part0.institution, in0)
+        self.assertEqual(part1.institution, in0)
+
+        self.assertEqual(pi0.inst, in0)
+        self.assertEqual(pi1.inst, in0)
+
+    def test_merge_ship(self):
+        ss0 = Ship.create(self.testPerson).obj
+        ss1 = Ship.create(self.testPerson).obj
+
+        cr0 = Cruise.create(self.testPerson).obj
+        cr0.set(self.testPerson, 'ship', ss0)
+        cr1 = Cruise.create(self.testPerson).obj
+        cr1.set(self.testPerson, 'ship', ss1)
+
+        self.assertEqual(Ship.query().count(), 2)
+        self.assertEqual(cr1.ship, ss1)
+
+        ss0.merge(self.testPerson, ss1)
+
+        self.assertEqual(cr0.ship, ss0)
+        self.assertEqual(cr1.ship, ss0)
+        self.assertEqual(Ship.query().count(), 1)
+
+    def test_merge_person(self):
+        pp0 = Person.create().obj
+        pp0.name = u'pp0'
+        pp1 = Person.create().obj
+        pp1.name = u'pp1'
+
+        oo0 = Obj.propose(pp1).obj
+        oo1 = Obj.propose(pp1).obj
+        oo1.change.acknowledge(pp1)
+        oo2 = Obj.create(pp1).obj
+
+        note = Note(pp1, u'note')
+        oo0.change._notes.append(note)
+
+        pi0 = ParameterInformation(None, None, pp0, None, None)
+        pi1 = ParameterInformation(None, None, pp1, None, None)
+
+        DBSession.add(pi0)
+        DBSession.add(pi1)
+
+        pp1.permissions = ['staff']
+
+        inst0 = Institution.create(self.testPerson).obj
+
+        cc0 = Cruise.create(self.testPerson).obj
+        part0 = Participant.create('role', pp1)
+        part1 = Participant.create('role', pp1, inst0)
+        cc0.participants.add(part0)
+        cc0.participants.add(part1)
+
+        self.assertEqual(oo0.change.p_c, pp1)
+        self.assertEqual(oo1.change.p_ack, pp1)
+        self.assertEqual(oo2.change.p_j, pp1)
+
+        self.assertEqual(note.p_c, pp1)
+
+        self.assertEqual(pi0.pi, pp0)
+        self.assertEqual(pi1.pi, pp1)
+
+        self.assertEqual(pp0.permissions, [])
+
+        self.assertEqual(part0.person, pp1)
+
+        pp0.merge(self.testPerson, pp1)
+
+        self.assertEqual(oo0.change.p_c, pp0)
+        self.assertEqual(oo1.change.p_ack, pp0)
+        self.assertEqual(oo2.change.p_j, pp0)
+
+        self.assertEqual(note.p_c, pp0)
+
+        self.assertEqual(pi0.pi, pp0)
+        self.assertEqual(pi1.pi, pp0)
+
+        self.assertEqual(pp0.permissions, ['staff'])
+
+        self.assertEqual(part0.person, pp0)
+        self.assertEqual(part0.institution, inst0)
+
+    def test_merge_change(self):
+        """IDs stored in Change values should be updated during a merge.
+
+        The merged objects will be deleted so any ids stored in a Change will
+        become orphaned. These ids should be updated to point to the merged
+        object.
+
+        """
+        col0 = Collection.create(self.testPerson).obj
+        col0.set(self.testPerson, 'names', ['col0'])
+        col1 = Collection.create(self.testPerson).obj
+        col1.set(self.testPerson, 'names', ['col1'])
+
+        cr0 = Cruise.create(self.testPerson).obj
+        cr0.set(self.testPerson, 'collections', [col0, col1])
+
+        self.assertEqual(cr0.collections, [col0, col1])
+
+        col0.merge(self.testPerson, col1)
+
+        self.assertEqual(cr0.collections, [col0])
+
+        changes = cr0.changes_query().filter(Change.attr == 'collections').all()
+        # Make sure the changes were updated rather than a new change created. 
+        self.assertEqual(len(changes), 1)
+
+        co0 = Country.create(self.testPerson).obj
+        co1 = Country.create(self.testPerson).obj
+
+        sh0 = Ship.create(self.testPerson).obj
+        sh0.set(self.testPerson, 'country', co1)
+        sh0.set(self.testPerson, 'country', co0)
+        sh0.set(self.testPerson, 'country', co1)
+
+        changes = sh0.changes_query().filter(Change.attr == 'country').all()
+        self.assertEqual(len(changes), 3)
+
+        co0.merge(self.testPerson, co1)
+
+        changes = sh0.changes_query().filter(Change.attr == 'country').all()
+        self.assertEqual(len(changes), 3)

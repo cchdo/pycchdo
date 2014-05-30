@@ -858,7 +858,8 @@ def link_pdf_preview(link):
 
 def link_submission(sub):
     """Return a link to a specific submission."""
-    return tags.link_to(sub.id, '/staff/submissions.html?ltype=id&query=' + sub.id)
+    return tags.link_to(
+        sub.id, '/staff/submissions.html?ltype=id&query={0}'.format(sub.id))
 
 
 def link_q(request, attached):

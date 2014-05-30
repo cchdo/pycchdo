@@ -10,12 +10,20 @@ except ImportError:
     from StringIO import StringIO
 from collections import OrderedDict
 
+from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
+
 from pyramid.httpexceptions import HTTPUnauthorized
+
+import transaction
 
 from pycchdo.helpers import (
     link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_q
     )
-from pycchdo.models.serial import Submission, OldSubmission, Change
+from pycchdo.models.serial import (
+    DBSession, Submission, OldSubmission, Change, filter_changes_data,
+    filter_query_change,
+    )
 
 from pycchdo.views import *
 from pycchdo.views.common import get_cruise
@@ -48,7 +56,7 @@ def _submission_short_text(submission):
 def _moderate_submission(request):
     try:
         submission_id = request.params['submission_id']
-        submission = Submission.get_id(submission_id)
+        submission = Submission.query().get(submission_id)
     except KeyError:
         request.session.flash(
             'A submission must be specified', 'help')
@@ -65,23 +73,31 @@ def _moderate_submission(request):
             'Please specify an action to take on the submission', 'help')
         return
 
-    allowed_actions = ['Accept', 'Acknowledge', 'Reject', ]
+    allowed_actions = ['Accept', 'Acknowledge', 'release', 'Reject', ]
     if action not in allowed_actions:
         request.session.flash(
             'The action must be one of %s' % ', '.join(allowed_actions), 'help')
         return
 
     if action == 'Acknowledge':
-        submission.acknowledge(request.user)
+        submission.change.acknowledge(request.user)
         request.session.flash(
-            'Acknowleged {0}'.format(_submission_short_text(submission)),
+            'Claimed {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
 
-    if action == 'Reject':
-        submission.reject(request.user)
+    if action == 'release':
+        submission.change.ts_ack = None
+        submission.change.p_ack = None
         request.session.flash(
-            'Rejected {0}'.format(_submission_short_text(submission)),
+            'Released {0}'.format(_submission_short_text(submission)),
+            'action_taken')
+        return
+
+    if action == 'discard':
+        submission.change.reject(request.user)
+        request.session.flash(
+            'Discarded {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
 
@@ -95,25 +111,24 @@ def _moderate_submission(request):
             'Could not find a cruise using %s' % cruise_id, 'help')
         return
 
-    attr = cruise.set(data_type, submission.file, request.user)
-    attr.accept(request.user)
+    attr = cruise.sugg(request.user, data_type, submission.file)
     submission.attach(attr, request.user)
 
     request.session.flash(
-        'Attached {0} as Q {1}'.format(
-            _submission_short_text(submission), 
+        'Attached {0} as Q {1}'.format(_submission_short_text(submission), 
             link_q(request, attr)), 'action_taken')
 
 
 list_queries = OrderedDict([
-    ['Not queued not Argo', lambda: Submission.query().filter(
+    ['Not queued not Argo', lambda x: Submission.query().filter(
             Submission.attached == None, Submission.type != 'argo')],
-    ['Not queued all', lambda: Submission.query().filter(Submission.attached == None)],
-    ['Argo', lambda: Submission.query().filter(Submission.type == 'argo')],
-    ['Queued', lambda: Submission.query().filter(Submission.attached != None)],
-    ['All', lambda: Submission.query()],
-    ['Old Submissions', lambda: OldSubmission.query()],
-    ['unassigned', lambda: Submission.query()],
+    ['Not queued all', lambda x: Submission.query().filter(Submission.attached == None)],
+    ['Argo', lambda x: Submission.query().filter(Submission.type == 'argo')],
+    ['Queued', lambda x: Submission.query().filter(Submission.attached != None)],
+    ['All', lambda x: Submission.query()],
+    ['Old Submissions', lambda x: OldSubmission.query()],
+    ['unassigned', lambda x: Submission.query().filter(Submission.attached == None)],
+    ['id', lambda request: Submission.query().filter(Submission.id == request.params['query'])],
 ])
 
 
@@ -125,25 +140,26 @@ def submissions(request):
             return require_signin(request)
         _moderate_submission(request)
 
-    ltype = request.params.get('ltype', 'Not Queued not argo')
-
-    try:
-        squery = list_queries[ltype]()
-    except KeyError:
-        if ltype == 'id':
-            squery = Submission.query().filter(Submission.id == request.params['query'])
-        else:
-            squery = list_queries['Not queued not Argo']()
-        
-    submissions = squery.join(Submission._changes).\
-        order_by(Change.ts_c.desc()).\
-        all()
-
+    query = request.params.get('query', '')
+    ltype = request.params.get('ltype', 'Not queued not Argo')
+    squery = list_queries[ltype](request)
+    squery = squery.join(Submission._changes)
+    if query and ltype != 'id':
+        likestr = '%{0}%'.format(query)
+        squery = squery.filter(
+            or_(
+                Submission.expocode.like(likestr),
+                Submission.ship_name.like(likestr),
+                Submission.line.like(likestr),
+# TODO allow filtering on submitter name
+                ))
+    submissions = squery.order_by(Change.ts_c.desc()).all()
     submissions = paged(request, submissions)
 
     return {
         'ltype': ltype,
         'lqueries': list_queries,
+        'query': query,
         'submissions': submissions,
         'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,
         }
@@ -151,7 +167,7 @@ def submissions(request):
 
 def _moderate_attribute(request):
     try:
-        attr = Change.get_id(request.params['attr'])
+        attr = Change.query().get(request.params['attr'])
     except KeyError:
         request.response_status = '400 No attribute to modify'
         return
@@ -183,35 +199,39 @@ def _moderate_attribute(request):
 
 @staff_signin_required
 def moderation(request):
+    """List of Changes to be reviewed.
+
+    """
     method = http_method(request)
     if method == 'PUT':
         if not request.user:
             return require_signin(request)
         _moderate_attribute(request)
 
-    #pending = Change.pending()
+    pending = filter_query_change(Change.query(), 'unjudged').\
+        options(joinedload('submission')).all()
 
-    #files_by_parameters = {}
-    #for attr in pending:
-    #    for note in attr.notes:
-    #        if note.data_type == 'Parameters':
-    #            try:
-    #                l = files_by_parameters[note.body]
-    #            except KeyError:
-    #                l = files_by_parameters[note.body] = {}
-    #            try:
-    #                m = l[attr.obj]
-    #            except KeyError:
-    #                m = l[attr.obj] = set()
-    #            m.add(attr)
+    files_by_parameters = {}
+    for attr in pending:
+        for note in attr.notes:
+            if note.data_type == 'Parameters':
+                try:
+                    l = files_by_parameters[note.body]
+                except KeyError:
+                    l = files_by_parameters[note.body] = {}
+                try:
+                    m = l[attr.obj]
+                except KeyError:
+                    m = l[attr.obj] = set()
+                m.add(attr)
 
-    #parameters = paged(request, sorted(files_by_parameters.keys()))
+    parameters = paged(request, sorted(files_by_parameters.keys()))
 
     parameters = []
     files_by_parameters = []
 
     dtc_to_q = {}
-    pending = Change.pending_data()
+    pending = filter_changes_data(pending)
     attr_sub = {}
     for attr in pending:
         key = (attr.ts_c, attr.obj)

@@ -212,7 +212,7 @@ argparser.set_defaults(
 
 def _read_config(args):
     args.settings = get_appsettings(args.paste_config + '#pycchdo')
-    args.db_search_index_path = args.settings['db_search_index_path']
+    args.search_index_path = args.settings['search_index_path']
 
 
 def do_import():
@@ -257,7 +257,7 @@ def do_import():
     except KeyError:
         log.error(
             'importer requires an .ini file with sqlalchemy.url and '
-            'db_search_index_path defined for {}'.format(args.app_entry))
+            'search_index_path defined for {}'.format(args.app_entry))
         argparser.exit(1)
 
     log.info(u'importing with options\n{0}'.format(pformat(vars(args))))
@@ -275,7 +275,7 @@ def do_import():
 
     DBSession.configure(bind=engine)
     fsstore = FSStore(
-        path=args.settings['file_system_root'],
+        path=args.settings['file_system_path'],
         base_url='/',
     )
 
@@ -302,7 +302,7 @@ def do_import():
 
     if not args.skip_search_index:
         log.info("indexing...")
-        SearchIndex(args.db_search_index_path).rebuild_index(
+        SearchIndex(args.search_index_path).rebuild_index(
             clear=args.tabula_rasa or args.clear_index)
 
     log.info("finished import.")

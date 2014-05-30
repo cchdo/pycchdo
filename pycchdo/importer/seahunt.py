@@ -340,7 +340,7 @@ def _import_cruise(updater, cruise, downloader):
     if cruise.contacts:
         participants = Participants()
         for contact in cruise.contacts:
-            participants.append(Participant(
+            participants.add(Participant.create(
                 'contact', _import_contact(contact, updater)))
         if participants != c.participants:
             c.set(updater.importer, 'participants', participants)

@@ -165,7 +165,7 @@
             {{ cruise_attr('Country', h.link_country(cruise.country)) }}
           {%- endif %}
           {{- cruise_attr('Chief Scientists', h.link_person_institutions(cruise.chief_scientists)) }}
-          {{- cruise_attr('Cruise Dates', cruise_dict['cruise_dates']) }}
+          {{- cruise_attr('Cruise Dates', h.cruise_dates(cruise)[2]) }}
           {{- cruise_attr('Frequency', cruise.get('frequency', '')) }}
           {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
           {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
@@ -309,9 +309,9 @@
                       {%- if attr.deleted %}
                         delete <span class="key">{{ attr.attr }}</span>
                       {%- else %}
-                        <span class="value">{{ attr.value }}</span>
+                        <span class="value">{{ attr._value }}</span>
                       {%- endif %}
-                      {%- if attr.pending_stamp %}
+                      {%- if attr.is_acknowledged() %}
                         <span class="pending" title="{{ h.pdatetime(attr.ts_ack) }}">(Under review)</span>
                       {%- endif %}
                     </td>
@@ -417,6 +417,7 @@
         <h3>Unacknowleged</h3>
         <table>
         <tr>
+          <th>id</th>
           <th>Key</th>
           <th>Value</th>
           <th>Suggested</th>
@@ -424,6 +425,7 @@
         </tr>
         {%- for attr in cruise.changes('unacknowledged')[::-1] %}
           <tr>
+            <th><a href="/obj/{{ attr.obj.id }}/a/{{ attr.id }}">{{ attr.id }}</a></th>
             <th>{{ attr.attr }}</th>
             {%- if attr.deleted %}
               <td>delete</td>
@@ -448,6 +450,7 @@
         <h3>Pending</h3>
         <table>
         <tr>
+          <th>id</th>
           <th>Key</th>
           <th>Value</th>
           <th>Suggested</th>
@@ -456,6 +459,7 @@
         </tr>
         {%- for attr in cruise.changes('pending')[::-1] %}
           <tr>
+            <th><a href="/obj/{{ attr.obj.id }}/a/{{ attr.id }}">{{ attr.id }}</a></th>
             <th>{{ attr.attr }}</th>
             {%- if attr.deleted %}
               <td>delete</td>

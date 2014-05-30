@@ -349,7 +349,7 @@ def _rpi_to_participants(rpis):
             institution = _rpi_obj_get_from_id_str(Institution, institution)
             if institution is None:
                 failed = True
-        participants.append(Participant(role, person, institution))
+        participants.add(Participant(role, person, institution))
     if failed:
         participants = None
     return participants
@@ -448,7 +448,6 @@ def cruise_show(request):
             location=request.route_path('cruise_show', cruise_id=uid))
 
     method = http_method(request)
-
     if method == 'PUT':
         if not request.user:
             return require_signin(request)
@@ -466,30 +465,27 @@ def cruise_show(request):
         if request.params['action'] == 'add_note_to_file':
             _add_note_to_file(request)
 
-    cruise = {}
     history = []
     if cruise_obj:
-        cruise['date_start'], cruise['date_end'], cruise['cruise_dates'] = \
-            h.cruise_dates(cruise_obj)
-        cruise['link'] = cruise_obj.get('link')
-
         if request.user:
             history = cruise_obj.notes
         else:
             history = cruise_obj.notes_public
 
-        unjudged = cruise_obj.changes_data('unjudged')
-        suggested_attrs = []
-        for attr in unjudged:
-            if attr.key in Cruise.allowed_attrs_list:
-                suggested_attrs.append(attr)
-
-        # Only show unacknowledged suggestions to mods
+        # Only show non-acknowledged suggestions to mods
         if h.has_mod(request):
-            as_received = cruise_obj.changes_data('unjudged')
+            sugg_state = 'unjudged'
         else:
-            as_received = cruise_obj.changes_data('pending')
-        merged = cruise_obj.changes_data('accepted')
+            sugg_state = 'pending'
+
+        # Only non-data suggestions
+        unjudged = cruise_obj.changes(sugg_state, data=False)
+        suggested_attrs = [
+            change for change in unjudged \
+            if change.attr in Cruise.allowed_attrs_list]
+
+        as_received = cruise_obj.changes(sugg_state, data=True)
+        merged = cruise_obj.changes('accepted', data=True)
         updates = {
             'attrs': suggested_attrs,
             'as_received': as_received,
@@ -498,7 +494,6 @@ def cruise_show(request):
 
     return {
         'cruise': cruise_obj,
-        'cruise_dict': cruise,
         'data_files': h.collect_data_files(cruise_obj),
         'history': history,
         'updates': collapse_dict(updates, []) or {},

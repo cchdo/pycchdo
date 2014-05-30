@@ -22,19 +22,19 @@
                 {{ h.link_file_holder(file) }}
               </td>
               <td class="contact">
-                {{ h.link_person(file.creation_stamp.person) }}
+                {{ h.link_person(file.p_c) }}
               </td>
               <td class="id">
-                {{ whh.tags.link_to(file.id, request.route_path('staff_moderation', _query={})) }}
+                {{ whh.tags.link_to(file.id, request.route_path('staff_moderation', _anchor='queue_{0}'.format(file.id))) }}
               </td>
               <td class="parameters">
-                {{submission}}
+                {{ submission.type }}
               </td>
             </tr>
             <tr class="file mb-link{{loop.index0}} body">
               <td class="notes" colspan="4">
                 {%- if submission %}
-                  submission.parameters
+                  <div class="parameters">{{ submission.parameters }}</div>
                 {%- endif %}
                 <ol>
                 {%- for note in file.notes %}
@@ -47,30 +47,6 @@
         </table>
       {%- endfor %}
       {{ h.pager_for(dtc) }}
-      {#
-      <table>
-      {% for p in pending %}
-        <tr>
-          <td>{{ h.link_cruise(p.obj) }}</td>
-          <td><a href="/obj/{{p.obj.id}}/a/{{p.id}}">{{p}}</a></td>
-          <td>
-            <h3>Discussion</h3>
-          </td>
-          <td>
-            {{ whh.tags.form('', "PUT") }}
-              <input type="hidden" name="attr" value="{{p.id}}">
-              {% if not p.is_acknowledged() -%}
-                <input type="submit" name="action" value="Acknowledge">
-              {%- endif %}
-              <input type="submit" name="action" value="Accept">
-              <input type="submit" name="action" value="Reject">
-            {{ whh.tags.end_form() }}
-          </td>
-        </tr>
-      {% endfor %}
-      </table>
-      {{ h.pager_for(pending) }}
-      #}
     </div>
   {%- endcall %}
 {%- endblock %}

@@ -1,5 +1,5 @@
 {% extends "/staff.jinja2" %}
-{% from "/_notes.jinja2" import show_notes, note_editor with context %}
+{% from "/_notes.jinja2" import show_notes, show_notes_with_editor with context %}
 {%- macro row_if_exists(t, x) %}
   {%- if x %}
     <tr><th>{{ t }}</th><td>{{ x }}</td></tr>
@@ -17,12 +17,11 @@
         {%- for label in lqueries.keys() %}
           {{ whh.tags.radio('ltype', label, checked=(label == ltype), label=label) }}
         {%- endfor %}
+        <div class="filter">
+          <input id="query" name="query" type="text" value="{{query}}">
+          <input name="commit" type="submit" value="Filter">
+        </div>
       </form>
-      {# TODO filter
-      <div class="filter">
-        <input id="query" name="query" type="text" value=""> <input name="commit" type="submit" value="Filter">
-      </div>
-      #}
       {# TODO sort
       <div class="sort">
           <h1>Sort by:</h1>
@@ -54,12 +53,10 @@
         <li>Then enter the cruise ID or expocode and data type and <span class="action">Accept</span></li>
       </ol>
       <p>
-        If the submission is junk, <span class="action">Reject</span> it.
+        If the submission is junk, <span class="action">Discard</span> it.
       </p>
       <p>
-        If you're actively working on figuring a submission out, claim it by
-        clicking <span class="action">Acknowledge</span>. You can add notes to
-        the submission for your and others' reference.
+        You can add notes to the submission for your and others' reference.
       </p>
     </div>
 
@@ -109,20 +106,19 @@
           </td>
           <td class="person">
             <div class="upper">
-              {{ h.link_person(submission.creation_person) }}
+              {{ h.link_person(submission.change.p_c) }}
             </div>
             <div class="lower date_submitted">
-              {{ h.pdate(submission.creation_timestamp) }}
+              {{ h.pdate(submission.change.ts_c) }}
             </div>
           </td>
           <td class="type">{{ submission.type }}</td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
           <td class="id">
-            <table class="info">
-              {{ row_if_exists('Acknowledged by', h.link_person(submission.pending_person)) }}
-              {{ row_if_exists('Acknowledged on', h.pdate(submission.pending_timestamp)) }}
-            </table>
+            {% if submission.change and submission.change.is_acknowledged() %}
+              In work {{ h.link_person(submission.change.p_ack) }} ({{ h.pdate(submission.change.ts_ack) }})
+            {% endif %}
           </td>
           <td colspan="3">
           {%- if not attached %}
@@ -141,11 +137,13 @@
               </tr>
               <tr>
                 <td colspan="2">
-                  <input type="submit" name="action" value="Accept">
+                  <button type="submit" name="action" value="Accept">Attach</button>
                   {%- if not submission.change.is_acknowledged() %}
-                    <input type="submit" name="action" value="Acknowledge">
+                    <button type="submit" name="action" value="Acknowledge">In work</button>
+                  {%- else %}
+                    <button type="submit" name="action" value="release">Release</button>
                   {%- endif %}
-                  <input type="submit" name="action" value="Reject">
+                  <button type="submit" name="action" value="Reject">Discard</button>
                 </td>
               </tr>
             </table>
@@ -155,12 +153,7 @@
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
           <td colspan="7">
-            {{ whh.tags.form('', 'POST', hidden_fields={'obj_id': submission.id}) }}
-            <table class="notes">
-              {{ show_notes(submission.notes) }}
-              {{ note_editor(loop.index0, 'file') }}
-            </table>
-            {{ whh.tags.end_form() }}
+            {{ show_notes_with_editor(request, loop.index0, submission, 'submission') }}
           </td>
         </tr>
       {%- endfor %}

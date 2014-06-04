@@ -9,36 +9,47 @@
     <div class="queue pending autopagerize_page_element">
       {%- for key in dtc %}
         {% set (dtime, cruise) = key %}
-        {% set files = dtc_to_q[key] %}
+        {% set changes = dtc_to_q[key] %}
         <h3 class="qcruise">
           <span class="date_received">{{dtime.strftime('%F')}}</span>
           {{h.link_cruise(cruise)}}
         </h3>
         <table class="files has-meta-bodies">
-          {%- for file in files %}
-            {% set submission = attr_sub[file.id] %}
-            <tr id="queue_{{file.id}}" class="file mb-link{{loop.index0}} meta">
+          {%- for change in changes %}
+            {% set submission = change.submission %}
+            <tr id="queue_{{change.id}}" class="file mb-link{{loop.index0}} meta">
               <td class="link">
-                {{ h.link_file_holder(file) }}
+                {{ h.link_file_holder(change) }}
               </td>
               <td class="contact">
-                {{ h.link_person(file.p_c) }}
+                {{ h.link_person(change.p_c) }}
               </td>
               <td class="id">
-                {{ whh.tags.link_to(file.id, request.route_path('staff_moderation', _anchor='queue_{0}'.format(file.id))) }}
+                {%- if submission %}
+                  {{ h.link_submission(submission) }} &rarr;
+                {%- endif %}
+                {{ whh.tags.link_to(change.id, request.route_path('cruise_show', cruise_id=cruise.uid, _anchor='as_received_{0}'.format(change.id))) }}
               </td>
               <td class="parameters">
-                {{ submission.type }}
+                {%- if submission %}
+                  {{ submission.type }}
+                  <div class="parameters">
+                    {%- for note in change.notes %}
+                      {%- if note.data_type == 'Parameters' %}
+                        {{ note.body }}
+                      {%- endif %}
+                    {%- endfor %}
+                  </div>
+                {%- endif %}
               </td>
             </tr>
             <tr class="file mb-link{{loop.index0}} body">
               <td class="notes" colspan="4">
-                {%- if submission %}
-                  <div class="parameters">{{ submission.parameters }}</div>
-                {%- endif %}
                 <ol>
-                {%- for note in file.notes %}
-                  <li>{{ note.data_type }}: {{ note.body }}</li>
+                {%- for note in change.notes %}
+                  {%- if note.data_type != 'Parameters' %}
+                    <li>{{ note.body }}</li>
+                  {%- endif %}
                 {%- endfor %}
                 </ol>
               </td>

@@ -18,7 +18,6 @@ tr.header {
   width: 20%;
 }
 .notes { 
-  width: 40%;
 }
 
 .pending h2 {
@@ -87,10 +86,10 @@ tr.header {
 }
 .queue .files .link {
   background-color: #eeeeee;
-  width: 15em;
+  width: 30em;
 }
 .queue .files .contact {
-  width: 10em;
+  width: 13em;
 }
 .queue .files .date_received {
   width: 6em;
@@ -99,7 +98,8 @@ tr.header {
   width: 9em;
 }
 .queue .files .id {
-  width: 3em;
+  width: 8em;
+  white-space: nowrap;
 }
 .queue .files .parameters.ctd {
   background-color: #AAFFAA;

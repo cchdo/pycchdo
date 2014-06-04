@@ -108,6 +108,16 @@ class TestModelChange(PersonBaseTest):
         obj.remove()
         self.assertTrue(change not in Change.query().all())
 
+    def test_delete_with_notes(self):
+        """Test delete Obj removes the associated Change as well."""
+        obj = Obj.propose(self.testPerson).obj
+        change = obj.change
+        note = Note(self.testPerson, 'test note')
+        change._notes.append(note)
+        obj.remove()
+        self.assertTrue(change not in Change.query().all())
+        self.assertTrue(note not in Note.query().all())
+
     def test_caching(self):
         """Cached attr values are saved on the Obj."""
         suggcr = Cruise.propose(self.testPerson)

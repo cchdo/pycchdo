@@ -56,8 +56,8 @@ from pycchdo.models.file_types import (
     )
 from pycchdo.util import drop_everything, is_valid_ip, timestamp_now
 from pycchdo.models import log
-#from pycchdo.log import DEBUG
-#log.setLevel(DEBUG)
+from pycchdo.log import INFO
+log.setLevel(INFO)
 
 Base = declarative_base()
 Meta = Base.metadata
@@ -191,7 +191,8 @@ class Note(Base, DBQueryable, MixinCreation):
 
     change_id = Column(Integer, ForeignKey('changes.id'))
     change = relationship('Change',
-        backref=backref('_notes', uselist=True, lazy='dynamic'))
+        backref=backref('_notes', uselist=True, lazy='dynamic',
+                        cascade='all, delete-orphan'))
 
     import_id = Column(String)
 
@@ -204,6 +205,16 @@ class Note(Base, DBQueryable, MixinCreation):
         self.data_type = data_type
         self.subject = subject
         self.discussion = discussion
+
+    def __eq__(self, other):
+        return (
+            self.p_c == other.p_c and 
+            self.ts_c == other.ts_c and 
+            self.body == other.body and 
+            self.action == other.action and 
+            self.data_type == other.data_type and 
+            self.subject == other.subject and 
+            self.discussion == other.discussion)
 
     def __str__(self):
         return unicode(self)
@@ -381,6 +392,8 @@ class Change(Base, MixinCreation, DBQueryable):
 
         """
         self._value = self.obj.serialize(self.attr, val)
+        if isinstance(val, FieldStorage) or isinstance(val, FSFile):
+            self.value.change = self
 
     @property
     def value_original(self):
@@ -517,6 +530,7 @@ class RequestFor(Base):
     id = Column(Integer, primary_key=True)
 
     change_id = Column(ForeignKey('changes.id'))
+    # relationship is declared in Change
 
     dt = Column(DateTime)
     ua = Column(String)
@@ -542,6 +556,12 @@ class RequestFor(Base):
                 raise ValueError()
         except (AttributeError, ValueError):
             pass
+
+    def __eq__(self, other):
+        return (self.dt.replace(tzinfo=None) == other.dt.replace(tzinfo=None) and
+                self.ip == other.ip and
+                self.ua == other.ua and
+                self.request == other.request)
 
 
 class ExtrasJSONEncoder(JSONEncoder):
@@ -956,8 +976,8 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     def remove(self):
         """Delete this Obj from the database and remove its Changes."""
         # This option purges the Changes as well.
-        # Is this desirable because there would no longer be a log of that obj's
-        # creation?
+        # TODO Is this desirable because there would no longer be a log of that
+        # obj's creation?
         DBSession.delete(self)
 
     @classmethod
@@ -1147,7 +1167,7 @@ class FSFile(Base, DBQueryable, AdaptedFile):
 
     change_id = Column(ForeignKey('changes.id'))
     change = relationship(Change,
-        backref=backref('file', single_parent=True,
+        backref=backref('file', single_parent=True, uselist=False,
                         cascade='all, delete-orphan'))
 
     # Stores information used by pycchdo.importer.cchdo to correlate ArgoFiles
@@ -2085,7 +2105,6 @@ class ArgoFile(Obj, FileHolder):
         'Cruise', primaryjoin='ArgoFile.link_cruise_id == Cruise.id')
     link_attr_key = Column(Unicode)
 
-    request_for_id = Column(Integer, ForeignKey('requests_for.id'))
     requests_for = relationship(
         'RequestFor', secondary=argo_file_requests_for, single_parent=True,
         uselist=True, cascade='all, delete-orphan')
@@ -2168,9 +2187,9 @@ class Submission(Obj, FileHolder):
     type -- the type of submission {public, non-public, argo}
     cruise_date -- the date of the cruise being submitted
     file -- the file that is being suggested
-    attached -- an _Attr id.
+    attached -- a Change
         When this is set, the submission has been looked at by a human and
-        the corresponding _Attr represents verified information representing
+        the corresponding Change represents verified information representing
         this submission.
 
         SPECIAL CASE: This is set to a special attribute of a fake cruise during
@@ -2196,11 +2215,6 @@ class Submission(Obj, FileHolder):
     file = relationship(
         'FSFile', foreign_keys=[file_id], single_parent=True,
         cascade='all, delete-orphan')
-
-    request_for_id = Column(Integer, ForeignKey('requests_for.id'))
-    request_for = relationship(
-        'RequestFor', uselist=False, single_parent=True,
-        cascade='all, delete, delete-orphan')
 
     __mapper_args__ = {
         'polymorphic_identity': 'submission',

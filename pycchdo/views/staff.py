@@ -210,45 +210,21 @@ def moderation(request):
 
     pending = filter_query_change(Change.query(), 'unjudged').\
         options(joinedload('submission')).all()
-
-    files_by_parameters = {}
-    for attr in pending:
-        for note in attr.notes:
-            if note.data_type == 'Parameters':
-                try:
-                    l = files_by_parameters[note.body]
-                except KeyError:
-                    l = files_by_parameters[note.body] = {}
-                try:
-                    m = l[attr.obj]
-                except KeyError:
-                    m = l[attr.obj] = set()
-                m.add(attr)
-
-    parameters = paged(request, sorted(files_by_parameters.keys()))
-
-    parameters = []
-    files_by_parameters = []
+    pending = filter_changes_data(pending)
 
     dtc_to_q = {}
-    pending = filter_changes_data(pending)
-    attr_sub = {}
-    for attr in pending:
-        key = (attr.ts_c, attr.obj)
+    for change in pending:
+        key = (change.ts_c, change.obj)
         try:
-            dtc_to_q[key].append(attr)
+            dtc_to_q[key].append(change)
         except KeyError:
-            dtc_to_q[key] = [attr]
-        attr_sub[attr.id] = attr.submission
+            dtc_to_q[key] = [change]
 
     dtc = paged(request, sorted(dtc_to_q.keys(), reverse=True))
 
     return {
-        'parameters': parameters,
-        'files_by_parameters': files_by_parameters,
         'dtc': dtc,
         'dtc_to_q': dtc_to_q,
-        'attr_sub': attr_sub,
     }
 
 

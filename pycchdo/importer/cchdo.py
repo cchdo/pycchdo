@@ -1164,12 +1164,13 @@ def _import_contacts_cruises(session):
     for cruiseid, contacts in cruise_contacts.items():
         cruise = get_by_import_id(Cruise, cruiseid)
         if not cruise:
-            log.error("Could not import ContactsCruise pair because cruise "
-                        '%s was not imported.' % cruise_id)
+            log.error(
+                'Could not import ContactsCruise pair because cruise '
+                '{0} was not imported.'.format(cruiseid))
             continue
 
-        participants = cruise.participants
-        new_participants = []
+        participants = set(cruise.participants)
+        new_participants = set()
 
         for role, contactid, inst in contacts:
             person = get_by_import_id(Person, contactid)
@@ -1211,7 +1212,7 @@ def _import_contacts_cruises(session):
                     Participant.create(role, person, inst))
 
         cruise.set(updater.importer,
-            'participants', participants + new_participants)
+            'participants', participants | new_participants)
 
 
 def _import_events(session):
@@ -1612,150 +1613,151 @@ _KNOWN_MISSING_SUBMISSIONS = [
     ]
 
 
-def _import_submission(session, downloader, updater, imported_submissions, dsug,
-                       sub):
+def _import_submission(session, downloader, updater, dsug, sub):
     import_id = str(sub.id)
-    if import_id in imported_submissions:
-        log.info("Updating Submission %s" % import_id)
-        return
-    else:
+    submission = Submission.query().filter(
+        Submission.import_id == import_id).first()
+    if not submission:
         log.info("Creating Submission %s" % import_id)
         submission = Submission.create(updater.importer).obj
         submission.import_id = import_id
+    else:
+        log.info("Updating Submission %s" % import_id)
 
-        submission.ts_c = _date_to_datetime(sub.submission_date)
+    change = submission.change
+    
+    # Information about submitter
+    name = sub.name
+    inst = sub.institute
+    email = sub.email
+    country = sub.country
 
-        # Information about submitter
-        name = sub.name
-        inst = sub.institute
-        email = sub.email
-        country = sub.country
+    submitter, inst = _import_person_inst(updater, name, '', inst, email)
+    change.p_c = submitter
+    change.ts_c = _date_to_datetime(sub.submission_date)
 
-        submitter, inst = _import_person_inst(updater, name, '', inst, email)
-        submission.p_c = submitter
+    if country:
+        country = _import_country(updater, country)
+        updater.attr(submitter, 'country', country)
 
-        if country:
-            country = _import_country(updater, country)
-            updater.attr(submitter, 'country', country)
+    request = BaseRequest.blank('')
+    request.date = change.ts_c
+    request.remote_addr = sub.ip
+    request.user_agent = sub.user_agent
+    req = RequestFor(request)
+    if req not in change.requests:
+        change.requests.append(req)
 
-        request = BaseRequest.blank('')
-        request.date = submission.ts_c
-        request.remote_addr = sub.ip
-        request.user_agent = sub.user_agent
+    expocode = sub.expocode
+    ship_name = sub.ship_name
+    line = sub.line
+    action = sub.action
+    argo_action = False
+    notes = sub.notes
+    file_path = sub.file
 
-        submission.request_for = RequestFor(request)
+    if expocode:
+        submission.expocode = _ustr2uni(expocode)
+    if ship_name:
+        submission.ship_name = _ustr2uni(ship_name)
+    if line:
+        submission.line = _ustr2uni(line)
+    if action:
+        # Remove Argo import string from list of actions and set the
+        # argo bit
+        if 'Argo' in action:
+            argo_action = True
+            if argo_action_str in action:
+                removed = action.replace(argo_action_str, '')
+                action = ','.join(filter(None, removed.split(',')))
+        submission.action = _ustr2uni(action)
+    if notes:
+        note = Note(submitter, _ustr2uni(notes))
+        if note not in change._notes:
+            change._notes.append(note)
 
-        expocode = sub.expocode
-        ship_name = sub.ship_name
-        line = sub.line
-        action = sub.action
-        argo_action = False
-        notes = sub.notes
-        file_path = sub.file
+    try:
+        submission.cruise_date = _date_to_datetime(sub.cruise_date)
+    except TypeError:
+        log.warn(u'Unable to convert submission {0} date {1!r}'.format(
+            sub.id, sub.cruise_date))
 
-        if expocode:
-            submission.expocode = _ustr2uni(expocode)
-        if ship_name:
-            submission.ship_name = _ustr2uni(ship_name)
-        if line:
-            submission.line = _ustr2uni(line)
-        if action:
-            # Remove Argo import string from list of actions and set the
-            # argo bit
-            if 'Argo' in action:
-                argo_action = True
-                if argo_action_str in action:
-                    removed = action.replace(argo_action_str, '')
-                    action = ','.join(filter(None, removed.split(',')))
-            submission.action = _ustr2uni(action)
-        if notes:
-            submission.change._notes.append(
-                Note(submitter, _ustr2uni(notes)))
+    if file_path in _KNOWN_MISSING_SUBMISSIONS:
+        log.info(u'Skipped known missing submission: %s', file_path)
+        return
 
-        if file_path in _KNOWN_MISSING_SUBMISSIONS:
-            log.info(u'Skipped known missing submission: %s', file_path)
+    with downloader.dl(file_path) as file:
+        if not file:
+            submission.remove()
+            log.error(u'unable to get file for Submission %s', import_id)
             return
 
-        with downloader.dl(file_path) as file:
-            if not file:
-                submission.remove()
-                log.warn(
-                    u'unable to get file for Submission %s', import_id)
-                return
+        fname = os.path.basename(file_path)
+        fs = FieldStorage()
+        fs.filename = fname
+        fs.file = file
 
-            file_name = os.path.basename(file_path)
-            fs = FieldStorage()
-            fs.filename = file_name
-            fs.file = file
+        # unzip multiple_files*.zips that are actually just one file
+        if fname.startswith('multiple_files') and fname.endswith('.zip'):
+            # ZipFile.open will clobber the file object so make a copy
+            with closing(StringIO()) as temp:
+                copy_chunked(file, temp)
+                with zipfile.ZipFile(temp) as zf:
+                    infos = zf.infolist()
+                    if len(infos) == 1:
+                        tempzipf = NamedTemporaryFile()
+                        zippedf = zf.open(infos[0])
+                        copy_chunked(zippedf, tempzipf)
+                        fs.filename = infos[0].filename
+                        fs.file = tempzipf
+                        fs.type = guess_mime_type(fs.filename)
+                        with su(su_lock=downloader.su_lock):
+                            submission.file = FSFile.from_fieldstorage(fs)
+                        tempzipf.close()
+                    elif len(infos) == 0:
+                        log.error(u'Empty submission.')
+                    else:
+                        # multiple file submission. just leave it as is
+                        # for now...
+                        # TODO split it out into multiple submissions?
+                        fs.type = guess_mime_type(fs.filename)
+                        with su(su_lock=downloader.su_lock):
+                            submission.file = FSFile.from_fieldstorage(fs)
+        else:
+            fs.type = guess_mime_type(fs.filename)
+            with su(su_lock=downloader.su_lock):
+                submission.file = FSFile.from_fieldstorage(fs)
 
-            # unzip multiple_files*.zips that are actually just one file
-            if (    file_name.startswith('multiple_files') and
-                    file_name.endswith('.zip')):
-                # ZipFile.open will clobber the file object so make a copy
-                with closing(StringIO()) as temp:
-                    copy_chunked(file, temp)
-                    with zipfile.ZipFile(temp) as zf:
-                        infos = zf.infolist()
-                        if len(infos) == 1:
-                            tempzipf = NamedTemporaryFile()
-                            zippedf = zf.open(infos[0])
-                            copy_chunked(zippedf, tempzipf)
-                            fs.filename = infos[0].filename
-                            fs.file = tempzipf
-                            fs.type = guess_mime_type(fs.filename)
-                            with su(su_lock=downloader.su_lock):
-                                submission.file = FSFile.from_fieldstorage(fs)
-                            tempzipf.close()
-                        elif len(infos) == 0:
-                            log.error(u'Empty submission.')
-                        else:
-                            # multiple file submission. just leave it as is
-                            # for now...
-                            # TODO split it out into multiple submissions?
-                            fs.type = guess_mime_type(fs.filename)
-                            with su(su_lock=downloader.su_lock):
-                                submission.file = FSFile.from_fieldstorage(fs)
-                            
-            else:
-                fs.type = guess_mime_type(fs.filename)
-                with su(su_lock=downloader.su_lock):
-                    submission.file = FSFile.from_fieldstorage(fs)
+    DBSession.flush()
 
-        submission.type = submission_public_to_type(
-            sub.public, argo_action)
+    submission.type = submission_public_to_type(sub.public, argo_action)
 
-        # "assimilated" is used to color code the submission table according
-        # to whether submission has been put in the queue.
-        # This means, ideally, every assimilated submission has a queue file
-        # entry. Find the imported queue file and attach that one.
-        assimilated = bool(sub.assimilated)
-        if assimilated:
-            if sub.queue_file:
-                import_id = str(sub.queue_file.id)
-                queue_file = FSFile.attr_by_import_id(import_id)
-            else:
-                queue_file = None
+    # "assimilated" is used to color code the submission table according
+    # to whether submission has been put in the queue.
+    # This means, ideally, every assimilated submission has a queue file
+    # entry. Find the imported queue file and attach that one.
+    assimilated = bool(sub.assimilated)
+    if assimilated:
+        if sub.queue_file:
+            q_import_id = str(sub.queue_file.id)
+            queue_file = FSFile.attr_by_import_id(q_import_id)
             if not queue_file:
-                log.warn(u'Unable to find queue file {0} for assimilated '
-                    'suggestion {1}'.format(import_id, sub.id))
-                queue_file = dsug
-            log.debug(repr(queue_file))
-            submission.attached = queue_file
-
-        try:
-            submission.cruise_date = _date_to_datetime(sub.cruise_date)
-        except TypeError:
-            log.warn(u'Unable to convert submission {0} date {1!r}'.format(
-                sub.id, sub.cruise_date))
+                log.error(u'Unable to find queue file {0} for assimilated '
+                          'suggestion {1}'.format(q_import_id, sub.id))
+        else:
+            queue_file = None
+        if not queue_file:
+#            queue_file = submission_fake_queue_file(
+#                updater, assimilated_cruise)
+            queue_file = dsug
+        log.info(repr(queue_file))
+        submission.attached = queue_file
 
 
 def _import_submissions(session, downloader):
     log.info("Importing Submissions")
 
     updater = _get_updater()
-
-    submissions = Submission.query().all()
-    imported_submissions = set([s.import_id for s in submissions])
 
     # Assimilated cruise
     # For assimilated submissions that are assimilated and have a queue file,
@@ -1767,26 +1769,29 @@ def _import_submissions(session, downloader):
     # We need to create a cruise that does not appear for "assimilated"
     # submissions to be attached to it. This allows them to be marked
     # assimilated.
-    cruise = get_by_import_id(Cruise, 'submissions_assimilated')
+    cruise = get_by_import_id(Cruise, u'submissions_assimilated')
     if not cruise:
         cruise = Cruise.propose(updater.importer).obj
         cruise.import_id = 'submissions_assimilated'
         cruise.set(updater.importer, 'expocode', 'Assimilated')
-        fs_assimilated = FieldStorage()
-        fs_assimilated.filename = 'assimilated'
-        fs_assimilated.file = SpooledTemporaryFile(max_size=1)
-        with su(su_lock=downloader.su_lock):
-            dsug = cruise.set(updater.importer, 'data_suggestion',
-                FSFile.from_fieldstorage(fs_assimilated))
-        del fs_assimilated.file
-        dsug._notes.append(Note(updater.importer,
-            u'Fake file for assimilated submissions'))
-    else:
-        dsug = cruise.get_attr_change('data_suggestion')
+    dsug = cruise.get_attr_change('importer_id')
+    if not dsug:
+        dsug = submission_fake_queue_file(updater, cruise)
 
     for sub in session.query(legacy.Submission).all():
         _import_submission(
-            session, downloader, updater, imported_submissions, dsug, sub)
+            session, downloader, updater, dsug, sub)
+
+
+def submission_fake_queue_file(updater, cruise):
+    """Create a fake queue file entry for cruise.
+
+    This is used for assimilated submissions that are not matched to a queue
+    file.
+
+    """
+    return cruise.sugg(updater.importer, 'import_id',
+                       'assimilated submission with no queue file')
 
 
 def _import_queue_files(session, downloader):
@@ -1797,10 +1802,9 @@ def _import_queue_files(session, downloader):
 
     queue_files = session.query(legacy.QueueFile).all()
     for qfile in queue_files:
-        cruises = Cruise.query_by_expocode(qfile.expocode).options(lazyload('*')).all()
-        if cruises:
-            cruise = cruises[0]
-        else:
+        cruise = Cruise.query_by_expocode(
+            qfile.expocode).options(lazyload('*')).first()
+        if not cruise:
             log.warn(
                 u"Missing cruise for queue file %s. Skip" % qfile.expocode)
             continue
@@ -1813,21 +1817,20 @@ def _import_queue_files(session, downloader):
                 updater, contact_name, '', '', '')
 
         import_id = str(qfile.id)
+        log.info("Importing Queue File {0}".format(import_id))
         unprocessed_input = qfile.unprocessed_input.strip()
-        queue_file = FSFile.attr_by_import_id(import_id)
-
         if qfile.date_received:
             date_received = _date_to_datetime(qfile.date_received)
         else:
             date_received = None
 
-        if not queue_file or not queue_file.attr_value.value:
+        queue_file = FSFile.attr_by_import_id(import_id)
+        if not queue_file or not queue_file.value:
             log.info('Creating Queue File %s' % import_id)
 
             with downloader.dl(unprocessed_input) as file:
                 if file is None:
-                    log.warn("Missing queue file %s" % unprocessed_input)
-                    log.info("Skipping queue record import")
+                    log.warn("Missing queue file %s. Skip." % unprocessed_input)
                     continue
                 else:
                     actual_file = FieldStorage()
@@ -1840,11 +1843,13 @@ def _import_queue_files(session, downloader):
                 # correctly 100% with the given information so attach it as a
                 # data_suggestion.
                 with su(su_lock=downloader.su_lock):
-                    actual_file = FSFile.from_fieldstorage(actual_file)
                     queue_file = cruise.sugg(updater.importer,
                         'data_suggestion', actual_file)
                 # Set the import id on the FSFile
+                log.warn(repr(queue_file.id))
+                log.warn(queue_file.value.id)
                 queue_file.value.import_id = import_id
+                log.warn(repr(queue_file.value.import_id))
 
             queue_file.p_c = submitter
             if not date_received:
@@ -1887,11 +1892,11 @@ def _import_queue_files(session, downloader):
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            queue_file.change._notes.append(
+            queue_file._notes.append(
                 Note(submitter, _ustr2uni(qfile.notes)))
 
         if qfile.action:
-            queue_file.change._notes.append(
+            queue_file._notes.append(
                 Note(submitter, _ustr2uni(qfile.action),
                      data_type='action', discussion=True))
 
@@ -1902,12 +1907,12 @@ def _import_queue_files(session, downloader):
             if qfile.documentation:
                 if not re_docs.match(parameters):
                     parameters = u','.join([parameters, 'Documentation'])
-            queue_file.change._notes.append(
+            queue_file._notes.append(
                 Note(updater.importer, parameters, data_type='Parameters',
                      discussion=True))
 
         if qfile.merge_notes:
-            queue_file.change._notes.append(
+            queue_file._notes.append(
                 Note(updater.importer, _ustr2uni(qfile.merge_notes),
                      discussion=True))
 
@@ -2054,9 +2059,8 @@ def _import_documents_unaccounted(
             fs_archive.type = 'application/x-tar'
 
             with su(su_lock=downloader.su_lock):
-                fsf = FSFile.from_fieldstorage(fs_archive)
-                archive_attr = updater.attr(cruise, 'archive', fsf)
-                fsf.import_id = archive_import_id
+                archive_attr = updater.attr(cruise, 'archive', fs_archive)
+                archive_attr.value.import_id = archive_import_id
                 archive_attr.permissions_read = ['staff', ]
             unaccounted_archive.close()
     finally:
@@ -2181,10 +2185,9 @@ def _import_documents_for_cruise(downloader, docs, expocode):
 
             field.file = file
             with su(su_lock=downloader.su_lock):
-                fsf = FSFile.from_fieldstorage(field)
-                fsf.import_path = doc.FileName
-                fsf.import_id = doc_import_id
-                attr = updater.attr(cruise, data_type, fsf)
+                attr = updater.attr(cruise, data_type, field)
+                attr.value.import_path = doc.FileName
+                attr.value.import_id = doc_import_id
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
@@ -2375,7 +2378,7 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
                     fsfile = FSFile.query().filter(
                         FSFile.import_path == symlink_target).first()
                     if fsfile:
-                        attr = fsfile.attr_value.attr
+                        attr = fsfile.change.attr
                         if attr:
                             argo_file.link(cruise, attr.key)
                             return

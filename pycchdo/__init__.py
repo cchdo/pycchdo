@@ -134,6 +134,7 @@ def main(global_config, **settings):
         path=settings['file_system_path'],
         base_url='/',
     )
+    push_store_context(fsstore)
 
     config = create_config(settings)
     _configure(config)

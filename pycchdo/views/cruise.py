@@ -30,7 +30,6 @@ import pycchdo.helpers as h
 
 from . import *
 from pycchdo.views.session import require_signin
-from pycchdo.views.common import get_cruise
 from pycchdo.views.obj import _obj_new
 from pycchdo.views import log, staff
 
@@ -94,14 +93,14 @@ def cruises_index_json(request):
     elif request.params.get('id'):
         id = request.params.get('id')
         try:
-            cruise = get_cruise(id)
+            cruise = Cruise.get_by_id(id)
         except ValueError:
             raise HTTPBadRequest()
         return _cruise_to_json(cruise)
     elif request.params.get('ids'):
         ids = [x.strip() for x in request.params.get('ids').split(',')]
         try:
-            cruises = [get_cruise(cruise_id) for cruise_id in ids]
+            cruises = [Cruise.get_by_id(cruise_id) for cruise_id in ids]
         except ValueError:
             raise HTTPBadRequest()
         return [_cruise_to_json(cruise) for cruise in cruises]
@@ -436,7 +435,7 @@ def cruise_show(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = get_cruise(cruise_id)
+        cruise_obj = Cruise.get_by_id(cruise_id)
     except ValueError, err:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -508,7 +507,7 @@ def cruise_show_json(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = get_cruise(cruise_id)
+        cruise_obj = Cruise.get_by_id(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -539,7 +538,7 @@ def map_full(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = get_cruise(cruise_id, load_attrs=False)
+        cruise_obj = Cruise.get_by_id(cruise_id, load_attrs=False)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -556,7 +555,7 @@ def map_thumb(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = get_cruise(cruise_id, load_attrs=False)
+        cruise_obj = Cruise.get_by_id(cruise_id, load_attrs=False)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -598,7 +597,7 @@ def kml(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise = get_cruise(cruise_id)
+        cruise = Cruise.get_by_id(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))

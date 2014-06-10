@@ -146,5 +146,9 @@ class FSStore(FileSystemStore):
         id_segment_a = str(object_id % 1000)
         id_segment_b = str(object_id // 1000)
         suffix = guess_extension(mimetype)
+        # apparently the guess for text/plain changes
+        # This is a known issue python-Bugs-1043134
+        if mimetype == 'text/plain':
+            suffix = '.txt'
         filename = '.'.join(filter(None, [str(object_id), suffix]))
         return id_segment_a, id_segment_b, filename

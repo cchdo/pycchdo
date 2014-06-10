@@ -17,8 +17,8 @@ pyramid.includes =
 
 mail.sendmail_app = /usr/sbin/sendmail
 
-search_index_path = /srv/www/wsgi_apps/venvs/pycchdo/pycchdo_si
-file_system_path = /srv/www/wsgi_apps/venvs/pycchdo/pycchdo_fs
+search_index_path = /Users/myshen/var/pycchdo/si
+file_system_path = /Users/myshen/var/pycchdo/fs
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = synmantics+test@gmail.com
@@ -28,7 +28,7 @@ submission_confirmation_recipient = synmantics+test@gmail.com
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:55432/dev_pycchdo
+sqlalchemy.url = postgresql://pycchdo:pycchd0%40315@sui.ucsd.edu:55432/dev_pycchdo
 # echo may also take on value string debug
 # sqlalchemy.echo = True
 sqlalchemy.pool_timeout = 10

@@ -247,7 +247,7 @@ class ChangePermission(Base):
         self.permission = permission
 
 
-def filter_query_change(query, state=None, replaced=False):
+def filter_query_change(query, state=None, replaced=False, query_modifier=None):
     """Modify a query for Changes.
 
     state - enum: unjudged, unacknowledged, pending, accepted
@@ -273,6 +273,8 @@ def filter_query_change(query, state=None, replaced=False):
     if replaced:
         query = query.filter(Change._value_accepted != None)
 
+    if query_modifier:
+        query = query_modifier(query)
     return query
 
 
@@ -504,12 +506,15 @@ class Change(Base, MixinCreation, DBQueryable):
         return self._notes.filter(Note.discussion).all()
 
     @classmethod
-    def filtered(cls, state=None, replaced=False):
-        return filter_query_change(cls.query(), state, replaced).all()
+    def filtered(cls, state=None, replaced=False, query_modifier=None):
+        query = filter_query_change(
+            cls.query(), state, replaced, query_modifier)
+        return query.all()
 
     @classmethod
-    def filtered_data(cls, state=None, replaced=False):
-        return filter_changes_data(cls.filtered(state, replaced))
+    def filtered_data(cls, state=None, replaced=False, query_modifier=None):
+        return filter_changes_data(
+            cls.filtered(state, replaced, query_modifier))
 
     def __str__(self):
         return unicode(self)
@@ -844,11 +849,12 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         return self._changes.filter(Change.attr.is_(None)).filter(
             Change._value.is_(None)).first()
 
-    def changes_query(self, state=None, replaced=False):
+    def changes_query(self, state=None, replaced=False, query_modifier=None):
         """Return a query for the Obj's attribute Changes.
 
         """
-        return filter_query_change(self._changes, state, replaced)
+        return filter_query_change(
+            self._changes, state, replaced, query_modifier)
 
     def changes(self, state=None, replaced=False, data=None):
         """Return the Obj's Changes excluding the one that created it."""
@@ -2239,6 +2245,41 @@ class Submission(Obj, FileHolder):
         return []
 
 
+uow_suggestions = Table('uow_suggestions', Base.metadata,
+    Column('uow_id', Integer, ForeignKey('uows.id')),
+    Column('change_id', Integer, ForeignKey('changes.id')),
+)
+
+
+uow_results = Table('uow_results', Base.metadata,
+    Column('uow_id', Integer, ForeignKey('uows.id')),
+    Column('change_id', Integer, ForeignKey('changes.id')),
+)
+
+
+class UOW(Base, DBQueryable):
+    """A Unit of Work.
+
+    Represents an update to a cruise's dataset through
+    1. suggested changes - these are submitted data
+    2. other data, supporting the result changes - processing documents
+    3. result changes - final updated dataset
+
+    A UOW is linked to a note on the cruise's history.
+
+    """
+    __tablename__ = 'uows'
+    id = Column(Integer, primary_key=True)
+    suggestions = relationship(
+        'Change', secondary=uow_suggestions, backref=backref('uow'),
+        lazy='joined')
+    results = relationship('Change', secondary=uow_results, lazy='joined')
+    support_id = Column(ForeignKey('fsfiles.id'))
+    support = relationship(FSFile, lazy='joined')
+    note_id = Column(ForeignKey('notes.id'))
+    note = relationship('Note', backref=backref('uow'), lazy='joined')
+
+
 cruise_collections = Table('cruise_collections', Base.metadata,
     Column('cruise_id', Integer, ForeignKey('cruises.id')),
     Column('collection_id', Integer, ForeignKey('collections.id')),
@@ -2493,6 +2534,30 @@ class Cruise(Obj):
     @classmethod
     def get_all_by_expocode(cls, expocode):
         return cls.query_by_expocode(expocode).all()
+
+    @classmethod
+    def get_by_id(cls, cruise_id):
+        """Retrieve a cruise given an id. The id may be a number or uid."""
+        cruise_obj = None
+        if not cruise_id:
+            return None
+
+        try:
+            cid = int(cruise_id)
+            cruise_obj = Cruise.query().get(cid)
+        except ValueError:
+            pass
+
+        # If the id does not refer to a Cruise, try searching based on ExpoCode
+        if not cruise_obj:
+            cruise_obj = Cruise.get_by_expocode(cruise_id)
+        if not cruise_obj:
+            # If not, try based on aliases.
+            cruise_obj = Cruise.query().filter(
+                Cruise.aliases.contains(cruise_id)).first()
+        if not cruise_obj:
+            raise ValueError('Not found')
+        return cruise_obj
 
     @classmethod
     def updated(cls, limit):

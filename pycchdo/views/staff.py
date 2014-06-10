@@ -21,12 +21,10 @@ from pycchdo.helpers import (
     link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_q
     )
 from pycchdo.models.serial import (
-    DBSession, Submission, OldSubmission, Change, filter_changes_data,
-    filter_query_change,
+    DBSession, Submission, OldSubmission, Change, Cruise
     )
 
 from pycchdo.views import *
-from pycchdo.views.common import get_cruise
 from pycchdo.views.session import signin_required, require_signin
 
 
@@ -105,7 +103,7 @@ def _moderate_submission(request):
     data_type = request.params['data_type']
 
     try:
-        cruise = get_cruise(cruise_id)
+        cruise = Cruise.get_by_id(cruise_id)
     except ValueError:
         request.session.flash(
             'Could not find a cruise using %s' % cruise_id, 'help')
@@ -208,9 +206,8 @@ def moderation(request):
             return require_signin(request)
         _moderate_attribute(request)
 
-    pending = filter_query_change(Change.query(), 'unjudged').\
-        options(joinedload('submission')).all()
-    pending = filter_changes_data(pending)
+    pending = Change.filtered_data('unjudged',
+        query_modifier=lambda q: q.options(joinedload('submission')))
 
     dtc_to_q = {}
     for change in pending:

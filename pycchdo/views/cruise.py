@@ -538,7 +538,7 @@ def map_full(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = Cruise.get_by_id(cruise_id, load_attrs=False)
+        cruise_obj = Cruise.get_by_id(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
@@ -555,7 +555,7 @@ def map_thumb(request):
     except KeyError:
         raise HTTPBadRequest()
     try:
-        cruise_obj = Cruise.get_by_id(cruise_id, load_attrs=False)
+        cruise_obj = Cruise.get_by_id(cruise_id)
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))

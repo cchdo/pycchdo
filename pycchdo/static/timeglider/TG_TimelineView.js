@@ -717,7 +717,7 @@ tg.TG_TimelinePlayer = function (widget, mediator) {
 			    		debug.log(ev.click_callback + " method cannot be found", e);
 			    	}
 			
-		  // no custom callback ÑÊjust regular old modal
+		  // no custom callback just regular old modal
 			} else {
 			
 				var follow = true;

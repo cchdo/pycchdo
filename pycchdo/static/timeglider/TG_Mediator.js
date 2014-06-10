@@ -10,9 +10,9 @@
 
 /*******************************
 	TIMELINE MEDIATOR
-	¥ handles timeline behavior, 
-	¥ reflects state back to view
-	¥ owns the timeline and event data models
+	* handles timeline behavior, 
+	* reflects state back to view
+	* owns the timeline and event data models
 
 ********************************/
 (function(tg){

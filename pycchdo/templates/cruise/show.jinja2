@@ -24,7 +24,7 @@
 {%- macro file_review_status(loop, hl, file) %}
   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">
     <td class="change" colspan="2">
-      {%- if file.pending_stamp %}
+      {%- if file.ts_ack %}
         <span class="pending" title="{{ h.pdatetime(file.ts_ack) }}">(Under review)</span>
       {%- endif %}
     </td>
@@ -49,7 +49,7 @@
                                      id="%d_accept_key" % loop.index0) }}
                 {%- endif %}
                 <input type="submit" name="action" value="Accept">
-                {%- if not file.pending_stamp %}
+                {%- if not file.ts_ack %}
                   <input type="submit" name="action" value="Acknowledge">
                 {%- endif %}
                 <input type="submit" name="action" value="Reject">
@@ -86,7 +86,7 @@
               {%- if h.has_edit(request) %}
                 {{ whh.tags.link_to(file.attr, request.current_route_path(_anchor=frag)) }}
               {%- else %}
-                {{ file.key }}
+                {{ file.attr }}
               {%- endif %}
               {%- if h.has_edit(request) and file.submission %}
                 ({{ whh.tags.link_to('Submission', request.route_path(
@@ -149,7 +149,7 @@
     {%- endcall %}
   {%- endif %}
   <div id="upper">
-    <div id="info"{%- if updates %} class="updates-available"{%- endif %}>
+    <div id="info" class="updates-available">
       {%- call h.boxed('Information', id='metadata', class='upper', box_content_class='scrollable-y') %}
         <div class="subsection general-information">
           {%- if 'map' in data_files %}
@@ -285,8 +285,7 @@
         </div>
       {%- endcall %}
     </div>
-    {%- if updates %}
-      {%- call h.boxed('Files As Received', id="updates", class='upper upper-right', box_content_class='scrollable-y') %}
+      {%- call h.boxed('Data As Received', id="updates", class='upper upper-right', box_content_class='scrollable-y') %}
         {%- if updates['attrs'] %}
           <div class="subsection">
             <h2>Attributes</h2>
@@ -328,7 +327,7 @@
                             <tr>
                               <td>
                                 <input type="submit" name="action" value="Accept">
-                                {%- if not attr.pending_stamp %}
+                                {%- if not attr.ts_ack %}
                                   <input type="submit" name="action" value="Acknowledge">
                                 {%- endif %}
                                 <input type="submit" name="action" value="Reject">
@@ -359,7 +358,6 @@
           {{ file_subsection('Merged', 'merged') }}
         {%- endif %}
       {%- endcall %}
-    {%- endif %}
   </div>
   {%- if cruise.track %}
     {%- call h.boxed('Plot', id='plot') %}

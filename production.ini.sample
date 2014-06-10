@@ -16,8 +16,8 @@ pyramid.includes =
 
 mail.sendmail_app = /usr/sbin/sendmail
 
-search_index_path = /Users/myshen/var/cache/%(app)s_search_index_prod
-file_system_path = /Users/myshen/var/%(app)s_fs_prod
+search_index_path = /srv/www/wsgi_apps/venvs/%(app)s/%(app)s_si
+file_system_path = /srv/www/wsgi_apps/venvs/%(app)s/%(app)s_fs
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = cchdo@ucsd.edu
@@ -27,12 +27,12 @@ submission_confirmation_recipient = cchdo@ucsd.edu
 key_auth_policy = seekrit
 key_session_factory = itsaseekreet
 
-sqlalchemy.url = postgresql://pycchdo:pycchd0@315@h2o.ucsd.edu:5432/prod_pycchdo
+sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:55432/prod_pycchdo
 
 webassets.base_dir = %(here)s/%(app)s/static
-# Do not set base_url to /static or it will mask real static files
-webassets.base_url = /static/media
-webassets.cache = False
+webassets.base_url = /static
+webassets.cache = True
+webassets.debug = False
 
 [filter:weberror]
 use = egg:WebError#error_catcher

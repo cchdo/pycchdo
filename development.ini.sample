@@ -34,9 +34,9 @@ sqlalchemy.url = postgresql://pycchdo:pycchd0%40315@sui.ucsd.edu:55432/dev_pycch
 sqlalchemy.pool_timeout = 10
 
 webassets.base_dir = %(here)s/%(app)s/static
-# Do not set base_url to /static or it will mask real static files
-webassets.base_url = /static/media
-webassets.debug = True
+webassets.base_url = /static
+webassets.cache = True
+webassets.debug = False
 
 [pipeline:main]
 pipeline =
@@ -50,9 +50,7 @@ port = 65432
 
 [pshell]
 p = pycchdo
-m = pycchdo.models.models
 M = pycchdo.models.serial
-s = pycchdo.models.models.DBSession
 S = pycchdo.models.serial.DBSession
 v = pycchdo.views
 t = transaction

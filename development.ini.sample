@@ -21,7 +21,7 @@ search_index_path = /Users/myshen/var/pycchdo/si
 file_system_path = /Users/myshen/var/pycchdo/fs
 
 # submission confirmation recipient (leave blank for default)
-submission_confirmation_recipient = synmantics+test@gmail.com
+submission_confirmation_recipient = myshen+test@ucsd.edu
 
 # Security keys
 # TODO change the secrets
@@ -50,16 +50,15 @@ port = 65432
 
 [pshell]
 p = pycchdo
-M = pycchdo.models.serial
-S = pycchdo.models.serial.DBSession
+m = pycchdo.models.serial
+s = pycchdo.models.serial.DBSession
 v = pycchdo.views
 t = transaction
 
 # Begin logging configuration
 
 [loggers]
-keys = root, pycchdo, pycchdo_models, sqlalchemy
-#keys = root, pycchdo, pycchdo_models
+keys = root, pycchdo, sqlalchemy
 
 [handlers]
 keys = null, console
@@ -68,18 +67,13 @@ keys = null, console
 keys = generic
 
 [logger_root]
-level = DEBUG
+level = NOTSET
 handlers = null
 
 [logger_pycchdo]
-level = DEBUG
+level = NOTSET
 handlers = console
 qualname = pycchdo
-
-[logger_pycchdo_models]
-level = DEBUG
-handlers = console
-qualname = pycchdo.models.models
 
 [logger_sqlalchemy]
 level = WARN
@@ -102,6 +96,6 @@ level = NOTSET
 formatter = generic
 
 [formatter_generic]
-format = [1;37m%(asctime)s [1;33m%(levelname)-5s [1;37m[%(name)s|%(threadName)s] [0m%(message)s
+class = pycchdo.log.ColoredFormatter
 
 # End logging configuration

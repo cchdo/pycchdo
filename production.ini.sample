@@ -13,11 +13,12 @@ pyramid.includes =
     pyramid_mailer
     pyramid_tm
     pyramid_webassets
+    pyramid_exclog
 
 mail.sendmail_app = /usr/sbin/sendmail
 
-search_index_path = /srv/www/wsgi_apps/venvs/%(app)s/%(app)s_si
-file_system_path = /srv/www/wsgi_apps/venvs/%(app)s/%(app)s_fs
+search_index_path = %(here)s/_si
+file_system_path = %(here)s/_fs
 
 # submission confirmation recipient (leave blank for default)
 submission_confirmation_recipient = cchdo@ucsd.edu
@@ -34,29 +35,16 @@ webassets.base_url = /static
 webassets.cache = True
 webassets.debug = False
 
-[filter:weberror]
-use = egg:WebError#error_catcher
-debug = false
-;error_log = 
-;show_exceptions_in_wsgi_errors = true
-;smtp_server = localhost
-;error_email = janitor@example.com
-;smtp_username = janitor
-;smtp_password = "janitor's password"
-;from_address = paste@localhost
-;error_subject_prefix = "Pyramid Error"
-;smtp_use_tls =
-;error_message =
+exclog.extra_info = True
 
 [pipeline:main]
 pipeline =
-    weberror
     pycchdo
 
 [server:main]
 use = egg:waitress#main
 host = 0.0.0.0
-port = 6543
+port = 65432
 
 [pshell]
 p = pycchdo
@@ -68,21 +56,21 @@ t = transaction
 # Begin logging configuration
 
 [loggers]
-keys = root, pycchdo, sqlalchemy
+keys = root, pycchdo, sqlalchemy, exc_logger
 
 [handlers]
-keys = console
+keys = console, file, exc_handler
 
 [formatters]
-keys = generic
+keys = generic, color, exc_formatter
 
 [logger_root]
 level = WARN
-handlers = console
+handlers = file
 
 [logger_pycchdo]
-level = WARN
-handlers =
+level = INFO
+handlers = 
 qualname = pycchdo
 
 [logger_sqlalchemy]
@@ -90,8 +78,13 @@ level = WARN
 # "level = INFO" logs SQL queries
 # "level = DEBUG" logs SQL queries and results
 # "level = WARN" logs neither (recommended)
-handlers = console
+handlers = file
 qualname = sqlalchemy.engine
+
+[logger_exc_logger]
+level = ERROR
+handlers = exc_handler
+qualname = exc_logger
 
 [handler_console]
 class = StreamHandler
@@ -99,7 +92,25 @@ args = (sys.stderr,)
 level = NOTSET
 formatter = generic
 
+[handler_file]
+class = FileHandler
+args = ('%(here)s/log.pycchdo.txt','a')
+level = NOTSET
+formatter = color
+
+[handler_exc_handler]
+class = FileHandler
+args = ('%(here)s/log.exceptions.txt',)
+level = ERROR
+formatter = exc_formatter
+
 [formatter_generic]
 format = %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s
+
+[formatter_color]
+class = pycchdo.log.ColoredFormatter
+
+[formatter_exc_formatter]
+format = %(asctime)s %(message)s
 
 # End logging configuration

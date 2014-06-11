@@ -13,6 +13,7 @@ _requires_framework = [
     'pyramid_jinja2',
     'pyramid_mailer',
     'pyramid_webassets',
+    'pyramid_exclog',
 ]
 if version_info[:3] < (2,5,0):
     _requires_framework.append('pysqlite')

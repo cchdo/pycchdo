@@ -3,7 +3,7 @@ http://stackoverflow.com/questions/384076
 
 """
 from logging import (
-    Logger, Formatter, StreamHandler,
+    getLogger, Formatter, StreamHandler,
     DEBUG, INFO, WARN, ERROR, CRITICAL,
     )
 
@@ -20,20 +20,17 @@ BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
 # These are the sequences need to get colored ouput
 RESET_SEQ = "\033[0m"
-COLOR_SEQ = "\033[1;%dm"
+COLOR_SEQ = "\033[1;{0}m"
 BOLD_SEQ = "\033[1m"
 
 FORMAT = (
-    u"%(asctime)s %(name)-15s "
-    # XXX
-    "$BOLD%(filename)s$RESET:%(lineno)d\t%(threadName)s "
-    #"$BOLD%(filename)s$RESET:%(lineno)d\t"
+    u"%(asctime)s $BOLD%(name)-15s$RESET:%(lineno)d %(threadName)s\t"
     "%(levelname)s$RESET "
     "%(message)s"
     )
 
 
-def formatter_message(message, use_color = True):
+def formatter_message(message, use_color=True):
     if use_color:
         message = message.replace("$RESET", RESET_SEQ).replace(
             "$BOLD", BOLD_SEQ)
@@ -42,22 +39,21 @@ def formatter_message(message, use_color = True):
     return message
 
 
-COLORS = {
-    'WARNING': YELLOW,
-    'INFO': GREEN,
-    'DEBUG': BLUE,
-    'CRITICAL': MAGENTA,
-    'ERROR': RED
-}
-
-
 class ColoredFormatter(Formatter):
     COLOR_FORMAT = formatter_message(FORMAT, True)
 
-    def __init__(self, msg=None, use_color=True):
-        if msg is None:
-            msg = self.COLOR_FORMAT
-        Formatter.__init__(self, msg)
+    COLORS = {
+        'WARNING': YELLOW,
+        'INFO': GREEN,
+        'DEBUG': BLUE,
+        'CRITICAL': MAGENTA,
+        'ERROR': RED
+    }
+
+    def __init__(self, fmt=None, date_fmt=None, use_color=True):
+        if fmt is None:
+            fmt = self.COLOR_FORMAT
+        super(ColoredFormatter, self).__init__(fmt)
         self.use_color = use_color
 
     def _short_level(self, level):
@@ -66,27 +62,26 @@ class ColoredFormatter(Formatter):
     def format(self, record):
         """Modify the record."""
         levelname = record.levelname
-        if self.use_color and levelname in COLORS:
-            levelname_with_color = COLOR_SEQ % (30 + COLORS[levelname]) + \
-                self._short_level(levelname) + RESET_SEQ
+        if self.use_color and levelname in self.COLORS:
+            levelname_with_color = u'{0}{1}{2}'.format(
+                COLOR_SEQ.format(30 + self.COLORS[levelname]),
+                self._short_level(levelname), RESET_SEQ)
             record.levelname = levelname_with_color
         else:
-            record.levelname = _short_level(levelname)
-        return Formatter.format(self, record)
+            record.levelname = self._short_level(levelname)
+        return super(ColoredFormatter, self).format(record)
 
     def formatTime(self, record, datefmt=None):
         return super(ColoredFormatter, self).formatTime(record, datefmt)[11:]
 
 
-# Custom logger class with multiple destinations
-class ColoredLogger(Logger):
-    def __init__(self, name):
-        Logger.__init__(self, name, DEBUG)                
+color_formatter = ColoredFormatter()
+color_console = StreamHandler()
+color_console.setFormatter(color_formatter)
 
-        color_formatter = ColoredFormatter()
 
-        console = StreamHandler()
-        console.setFormatter(color_formatter)
-
-        self.addHandler(console)
-        return
+def ColoredLogger(name):
+    """Add the color console handler to every logger acquired in pycchdo."""
+    logger = getLogger(name)
+    logger.addHandler(color_console)
+    return logger

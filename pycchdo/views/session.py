@@ -9,10 +9,10 @@ from pyramid.security import remember, forget
 from pyramid.httpexceptions import HTTPSeeOther, HTTPInternalServerError
 
 from pycchdo.models.serial import DBSession, Person
-from pycchdo.log import ColoredLogger
+from pycchdo.log import getLogger
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 
 
 _janrain_api_key = 'f7b289d355eadb8126008f619702389daf108ae5'

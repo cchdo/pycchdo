@@ -18,10 +18,10 @@ from pycchdo import models, helpers as h
 from pycchdo.models import search
 from pycchdo.models.serial import Cruise, Change
 from pycchdo.views import file_response
-from pycchdo.log import ColoredLogger, DEBUG
+from pycchdo.log import getLogger, DEBUG
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 log.setLevel(DEBUG)
 
 

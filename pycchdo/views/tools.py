@@ -33,10 +33,10 @@ from pycchdo.models.file_types import data_file_descriptions
 from pycchdo.views import file_response
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.util import StringIO
-from pycchdo.log import ColoredLogger, DEBUG, INFO
+from pycchdo.log import getLogger, DEBUG, INFO
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 log.setLevel(DEBUG)
 
 

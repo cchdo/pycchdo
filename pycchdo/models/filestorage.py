@@ -13,7 +13,10 @@ from sqlalchemy_imageattach.entity import Image
 from sqlalchemy_imageattach.context import current_store
 from sqlalchemy_imageattach.stores.fs import FileSystemStore, guess_extension
 
-from pycchdo.models import log
+from pycchdo.log import getLogger
+
+
+log = getLogger(__name__)
 
 
 class CachingFile(File):

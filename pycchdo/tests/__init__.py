@@ -22,10 +22,10 @@ from pycchdo.models.serial import (
     DBSession, reset_fs, Person, 
     )
 from pycchdo.models.filestorage import FSStore
-from pycchdo.log import ColoredLogger, ColoredFormatter
+from pycchdo.log import getLogger, color_console
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 
 
 db_echo = False
@@ -45,7 +45,7 @@ def setUpModule():
         DBSession.configure(bind=engine)
 
         if db_echo:
-            logger = _add_logger('sqlalchemy.engine')
+            logger = _add_handler('sqlalchemy.engine')
             engine_loglevel(DEBUG)
 
 
@@ -54,12 +54,9 @@ def engine_loglevel(level):
         logger.setLevel(level)
 
 
-def _add_logger(logger_name):
+def _add_handler(logger_name):
     logger = getLogger(logger_name)
-    color_formatter = ColoredFormatter()
-    console = StreamHandler(stderr)
-    console.setFormatter(color_formatter)
-    logger.addHandler(console)
+    logger.addHandler(color_console)
     return logger
 
 

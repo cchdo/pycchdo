@@ -10,10 +10,10 @@ from sqlalchemy import distinct
 from pycchdo.helpers import cruises_sort_by_date_start
 from pycchdo.views.toplevel import catchall_static
 from pycchdo.models.serial import Collection
-from pycchdo.log import ColoredLogger
+from pycchdo.log import getLogger
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 
 
 static_basins = ['atlantic', 'pacific', ]

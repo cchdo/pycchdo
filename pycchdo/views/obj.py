@@ -5,7 +5,6 @@ from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPSeeOther, \
                                    HTTPUnauthorized
 
 from . import *
-from pycchdo.log import ColoredLogger
 from pycchdo.models import serial as model
 from pycchdo.models.serial import DBSession, Change, Note, Cruise, Obj
 from pycchdo.models.file_types import data_file_descriptions

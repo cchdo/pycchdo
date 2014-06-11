@@ -123,6 +123,15 @@ def create_config(settings):
         authorization_policy=authorization_policy,
         session_factory=session_factory,
     )
+
+
+def reenable_logs():
+    """Renable logs that were disabled by paste fileConfig."""
+    from logging import getLogger
+    rloggers = getLogger().manager.loggerDict
+    for logkey in rloggers.keys():
+        if logkey.startswith('pycchdo.'):
+            rloggers[logkey].disabled = 0
     
 
 def main(global_config, **settings):
@@ -135,6 +144,8 @@ def main(global_config, **settings):
         base_url='/',
     )
     push_store_context(fsstore)
+
+    reenable_logs()
 
     config = create_config(settings)
     _configure(config)

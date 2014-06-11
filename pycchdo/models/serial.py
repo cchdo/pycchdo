@@ -55,9 +55,12 @@ from pycchdo.models.file_types import (
     data_file_descriptions,
     )
 from pycchdo.util import drop_everything, is_valid_ip, timestamp_now
-from pycchdo.models import log
-from pycchdo.log import INFO
+from pycchdo.log import getLogger, INFO
+
+
+log = getLogger(__name__)
 log.setLevel(INFO)
+
 
 Base = declarative_base()
 Meta = Base.metadata

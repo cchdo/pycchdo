@@ -21,7 +21,7 @@ from pycchdo.models.search import SearchIndex
 from pycchdo.models.filestorage import copy_chunked
 from pycchdo.models.filestorage import FSStore
 from pycchdo.util import guess_mime_type
-from pycchdo.log import ColoredLogger, DEBUG, INFO, WARN, ERROR
+from pycchdo.log import getLogger, color_console, DEBUG, INFO, WARN, ERROR
 
 from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
 
@@ -32,7 +32,8 @@ __all__ = [
     'ProgressLog',]
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
+log.addHandler(color_console)
 
 
 def _is_root():

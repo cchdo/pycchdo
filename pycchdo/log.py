@@ -9,7 +9,7 @@ from logging import (
 
 
 __all__ = [
-    'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'ColoredLogger',
+    'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'getLogger',
     ]
 
 
@@ -80,8 +80,4 @@ color_console = StreamHandler()
 color_console.setFormatter(color_formatter)
 
 
-def ColoredLogger(name):
-    """Add the color console handler to every logger acquired in pycchdo."""
-    logger = getLogger(name)
-    logger.addHandler(color_console)
-    return logger
+getLogger('pycchdo').addHandler(color_console)

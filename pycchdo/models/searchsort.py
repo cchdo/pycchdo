@@ -1,7 +1,7 @@
-from pycchdo.log import ColoredLogger
+from pycchdo.log import getLogger
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 
 
 class Sorter(dict):

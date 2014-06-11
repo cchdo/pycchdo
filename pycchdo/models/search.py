@@ -20,14 +20,14 @@ from whoosh.qparser import (
 from whoosh.qparser.dateparse import DateParserPlugin
 
 from pycchdo.models import triggers
-from pycchdo.log import ColoredLogger, ERROR, INFO, DEBUG
+from pycchdo.log import getLogger, ERROR, INFO, DEBUG
 from pycchdo.models.serial import (
     DBSession,
     Cruise, Person, Ship, Country, Institution, Collection, Note,
     )
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 log.setLevel(DEBUG)
 
 

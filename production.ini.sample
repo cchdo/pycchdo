@@ -94,13 +94,13 @@ formatter = generic
 
 [handler_file]
 class = FileHandler
-args = ('%(here)s/log.pycchdo.txt','a')
+args = ('log.pycchdo.txt','a')
 level = NOTSET
 formatter = color
 
 [handler_exc_handler]
 class = FileHandler
-args = ('%(here)s/log.exceptions.txt',)
+args = ('log.exceptions.txt',)
 level = ERROR
 formatter = exc_formatter
 

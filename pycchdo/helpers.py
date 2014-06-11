@@ -19,7 +19,7 @@ from webhelpers import text as whtext
 
 from pyramid.url import route_path
 
-from pycchdo.log import ColoredLogger, INFO, DEBUG
+from pycchdo.log import getLogger, INFO, DEBUG
 from pycchdo.models.serial import (
     Note, FSFile
     )
@@ -32,7 +32,7 @@ from pycchdo.views.datacart import get_datacart, ZIP_FILE_LIMIT
 from pycchdo.models.searchsort import Sorter
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 log.setLevel(DEBUG)
 
 

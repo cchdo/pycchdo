@@ -15,10 +15,10 @@ from pycchdo.models.types import *
 from pycchdo.models.serial import store_context, Obj
 from pycchdo.models.file_types import DataFileTypes
 from pycchdo.util import guess_mime_type, collapse_dict
-from pycchdo.log import ColoredLogger, DEBUG
+from pycchdo.log import getLogger, DEBUG
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 log.setLevel(DEBUG)
 
 

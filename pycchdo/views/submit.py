@@ -8,11 +8,11 @@ from pyramid_mailer.message import Message
 from pycchdo import helpers as h
 from pycchdo.models.serial import DBSession, FSFile, Submission, Note
 from pycchdo.views.session import require_signin
-from pycchdo.log import ColoredLogger
+from pycchdo.log import getLogger
 from . import *
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 
 
 def _send_confirmation(request, d, submissions):

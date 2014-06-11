@@ -8,10 +8,10 @@ from pyramid.httpexceptions import HTTPSeeOther, HTTPBadRequest
 
 from pycchdo.models.searchsort import sort_results
 from pycchdo.views.cruise import _cruise_to_json
-from pycchdo.log import ColoredLogger, DEBUG
+from pycchdo.log import getLogger, DEBUG
 
 
-log = ColoredLogger(__name__)
+log = getLogger(__name__)
 log.setLevel(DEBUG)
 
 

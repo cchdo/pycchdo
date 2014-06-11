@@ -70,7 +70,8 @@ handlers = file
 
 [logger_pycchdo]
 level = INFO
-handlers = 
+handlers = file
+propagate = 0
 qualname = pycchdo
 
 [logger_sqlalchemy]
@@ -84,6 +85,7 @@ qualname = sqlalchemy.engine
 [logger_exc_logger]
 level = ERROR
 handlers = exc_handler
+propagate = 0
 qualname = exc_logger
 
 [handler_console]

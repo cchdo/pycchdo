@@ -11,7 +11,7 @@ except ImportError:
 from collections import OrderedDict
 
 from sqlalchemy import or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, subqueryload
 
 from pyramid.httpexceptions import HTTPUnauthorized
 
@@ -21,7 +21,7 @@ from pycchdo.helpers import (
     link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_q
     )
 from pycchdo.models.serial import (
-    DBSession, Submission, OldSubmission, Change, Cruise
+    DBSession, Submission, OldSubmission, Change, Cruise, Person
     )
 
 from pycchdo.views import *
@@ -92,7 +92,7 @@ def _moderate_submission(request):
             'action_taken')
         return
 
-    if action == 'discard':
+    if action == 'Reject':
         submission.change.reject(request.user)
         request.session.flash(
             'Discarded {0}'.format(_submission_short_text(submission)),
@@ -113,19 +113,19 @@ def _moderate_submission(request):
     submission.attach(attr, request.user)
 
     request.session.flash(
-        'Attached {0} as Q {1}'.format(_submission_short_text(submission), 
+        'Attached {0} as ASR {1}'.format(_submission_short_text(submission), 
             link_q(request, attr)), 'action_taken')
 
 
 list_queries = OrderedDict([
-    ['Not queued not Argo', lambda x: Submission.query().filter(
+    ['Not queued not Argo', lambda _: Submission.query().filter(
             Submission.attached == None, Submission.type != 'argo')],
-    ['Not queued all', lambda x: Submission.query().filter(Submission.attached == None)],
-    ['Argo', lambda x: Submission.query().filter(Submission.type == 'argo')],
-    ['Queued', lambda x: Submission.query().filter(Submission.attached != None)],
-    ['All', lambda x: Submission.query()],
-    ['Old Submissions', lambda x: OldSubmission.query()],
-    ['unassigned', lambda x: Submission.query().filter(Submission.attached == None)],
+    ['Not queued all', lambda _: Submission.query().filter(Submission.attached == None)],
+    ['Argo', lambda _: Submission.query().filter(Submission.type == 'argo')],
+    ['Queued', lambda _: Submission.query().filter(Submission.attached != None)],
+    ['All', lambda _: Submission.query()],
+    ['Old Submissions', lambda _: OldSubmission.query()],
+    ['unassigned', lambda _: Submission.query().filter(Submission.attached == None)],
     ['id', lambda request: Submission.query().filter(Submission.id == request.params['query'])],
 ])
 
@@ -141,17 +141,24 @@ def submissions(request):
     query = request.params.get('query', '')
     ltype = request.params.get('ltype', 'Not queued not Argo')
     squery = list_queries[ltype](request)
-    squery = squery.join(Submission._changes)
+    squery = squery.with_transformation(Submission.change.join)
+    squery = squery.with_transformation(Change.p_c.join)
     if query and ltype != 'id':
         likestr = '%{0}%'.format(query)
-        squery = squery.filter(
-            or_(
-                Submission.expocode.like(likestr),
-                Submission.ship_name.like(likestr),
-                Submission.line.like(likestr),
-# TODO allow filtering on submitter name
-                ))
-    submissions = squery.order_by(Change.ts_c.desc()).all()
+        or_list = [
+            Submission.expocode.ilike(likestr),
+            Submission.ship_name.ilike(likestr),
+            Submission.line.ilike(likestr),
+            Change.p_c._aliased.name.ilike(likestr),
+        ]
+        try:
+            int(query)
+            or_list.append(Submission.id == query)
+        except ValueError:
+            pass
+        squery = squery.filter(or_(*or_list))
+    squery = squery.order_by(Submission.change._aliased.ts_c.desc())
+    submissions = squery.all()
     submissions = paged(request, submissions)
 
     return {

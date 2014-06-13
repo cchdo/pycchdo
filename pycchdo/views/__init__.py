@@ -47,10 +47,10 @@ FILE_GROUPS = MultiDict([
 
 
 FILE_GROUPS_SELECT = []
+FILE_GROUPS_SELECT.append(('data_suggestion', 'Data'))
 for k, v in FILE_GROUPS.items():
     FILE_GROUPS_SELECT.append(
         ([(x, DataFileTypes.human_names[x]) for x in v], k))
-FILE_GROUPS_SELECT.append('Other')
 
 
 def http_method(request):

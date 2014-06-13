@@ -171,7 +171,7 @@ def obj_attrs(request):
     if method == 'POST':
         value = request.params.get('value', None)
         if not key and value:
-            raise HTTPBadRequest('Attr key required if setting value')
+            raise HTTPBadRequest('Attr required if setting value')
         type = request.params.get('type', None)
 
         if type == 'text':
@@ -228,14 +228,14 @@ def obj_attr(request):
 
         # Special case for accepting expocode. The cruise will not exist any
         # more under the original expocode so redirect to the new expocode.
-        if attr.key == 'expocode' and action == 'Accept':
+        if attr.attr == 'expocode' and action == 'Accept':
             redirect = HTTPSeeOther(
                 location=request.route_url('cruise_show', cruise_id=attr.value))
         else:
             redirect = HTTPSeeOther(location=request.referrer)
 
         if action == 'Accept':
-            if attr.key == 'data_suggestion':
+            if attr.attr == 'data_suggestion':
                 try:
                     accept_key = request.params['accept_key']
                 except KeyError:
@@ -249,7 +249,7 @@ def obj_attr(request):
                         'help')
                     return redirect
                 else:
-                    attr.key = accept_key
+                    attr.attr = accept_key
                     request.session.flash(
                         u'Attr key changed to {0!r}'.format(accept_key),
                         'action_taken')
@@ -259,7 +259,7 @@ def obj_attr(request):
                 try:
                     attr.accept_value(
                         text_to_obj(accept_value,
-                                    type(attr.obj).attr_type(attr.key)),
+                                    type(attr.obj).attr_type(attr.attr)),
                         request.user)
                     request.session.flash(
                         u'Attr change accepted with new value {0!r}'.format(
@@ -267,7 +267,7 @@ def obj_attr(request):
                 except ValueError, err:
                     log.error(err)
                     request.session.flash(
-                        u'{0!r} is not valid'.format(attr.key), 'help')
+                        u'{0!r} is not valid'.format(attr.attr), 'help')
                     return redirect
             else:
                 attr.accept(request.user)

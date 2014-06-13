@@ -71,13 +71,14 @@
       {%- for submission in submissions %}
         {%- set hl = loop.cycle('even', 'odd') %}
         {%- set attached = submission.attached or None %}
+        {%- set change = submission.change %}
         <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
           {%- set ident = submission.expocode or ' ' %}
           <td class="id">
             <div class="upper">
               {{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}
               {%- if attached %}
-                (Q: {{ h.link_q(request, attached) }})
+                (ASR: {{ h.link_q(request, attached) }})
               {%- endif %}
             </div>
             <div class="lower">
@@ -106,18 +107,18 @@
           </td>
           <td class="person">
             <div class="upper">
-              {{ h.link_person(submission.change.p_c) }}
+              {{ h.link_person(change.p_c) }}
             </div>
             <div class="lower date_submitted">
-              {{ h.pdate(submission.change.ts_c) }}
+              {{ h.pdate(change.ts_c) }}
             </div>
           </td>
           <td class="type">{{ submission.type }}</td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
           <td class="id">
-            {% if submission.change and submission.change.is_acknowledged() %}
-              In work {{ h.link_person(submission.change.p_ack) }} ({{ h.pdate(submission.change.ts_ack) }})
+            {% if change and change.is_acknowledged() %}
+              In work {{ h.link_person(change.p_ack) }} ({{ h.pdate(change.ts_ack) }})
             {% endif %}
           </td>
           <td colspan="3">
@@ -138,7 +139,7 @@
               <tr>
                 <td colspan="2">
                   <button type="submit" name="action" value="Accept">Attach</button>
-                  {%- if not submission.change.is_acknowledged() %}
+                  {%- if not change.is_acknowledged() %}
                     <button type="submit" name="action" value="Acknowledge">In work</button>
                   {%- else %}
                     <button type="submit" name="action" value="release">Release</button>

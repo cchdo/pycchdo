@@ -21,9 +21,9 @@ from sqlalchemy.sql import (
 from sqlalchemy.sql.expression import case, literal, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_property, Comparator
 from sqlalchemy.orm import (
-    relationship, scoped_session, sessionmaker, backref,
+    relationship, scoped_session, sessionmaker, backref, aliased,
     )
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
@@ -291,6 +291,20 @@ def filter_changes_data(changes, data=True):
     return filter(func, changes)
 
 
+class ChangePersonTransformer(Comparator):
+    """Transform a query for Change to enable queries against its Person."""
+    def __init__(self, cls):
+        self._aliased = aliased(Person, name='chgp')
+        self._aliased_change = Obj.change._aliased
+
+    @property
+    def join(self):
+        def go(q):
+            return q.join(self._aliased,
+                self._aliased.id == self._aliased_change.p_id_c)
+        return go
+
+
 class Change(Base, MixinCreation, DBQueryable):
     """A log of each change in the database.
 
@@ -323,7 +337,7 @@ class Change(Base, MixinCreation, DBQueryable):
     deleted = Column(Boolean, default=False)
 
     p_id_c = Column(Integer, ForeignKey('people.id'))
-    p_c = relationship('Person', foreign_keys=[p_id_c])
+    _p_c = relationship('Person', foreign_keys=[p_id_c])
     ts_c = Column(DateTime, default=func.now())
 
     p_id_ack = Column(Integer, ForeignKey('people.id'))
@@ -507,6 +521,21 @@ class Change(Base, MixinCreation, DBQueryable):
     @property
     def notes_discussion(self):
         return self._notes.filter(Note.discussion).all()
+
+    @hybrid_property
+    def p_c(self):
+        return self._p_c
+
+    @p_c.setter
+    def p_c(self, value):
+        self._p_c = value
+
+    @p_c.comparator
+    def p_c(cls):
+        # memoize a ChangePersonTransformer per class
+        if '_cpt' not in cls.__dict__:
+            cls._cpt = ChangePersonTransformer(cls)
+        return cls._cpt
 
     @classmethod
     def filtered(cls, state=None, replaced=False, query_modifier=None):
@@ -794,6 +823,20 @@ class Creatable(object):
         return obj
 
 
+class ObjChangeTransformer(Comparator):
+    """Transform a query for Obj to enable queries against its Change."""
+    def __init__(self, cls):
+        self._aliased = aliased(Change, name='ochg')
+
+    @property
+    def join(self):
+        def go(q):
+            return q.join(self._aliased, and_(
+                self._aliased.obj_id == Obj.id, self._aliased.attr.is_(None),
+                self._aliased._value.is_(None)))
+        return go
+
+
 class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     """
 
@@ -844,13 +887,20 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         except TypeError:
             return creation_time
 
-    @property
+    @hybrid_property
     def change(self):
         """Return the Change that created the Obj.
 
         """
         return self._changes.filter(Change.attr.is_(None)).filter(
             Change._value.is_(None)).first()
+
+    @change.comparator
+    def change(cls):
+        # memoize a ObjChangeTransformer per class
+        if '_oct' not in cls.__dict__:
+            cls._oct = ObjChangeTransformer(cls)
+        return cls._oct
 
     def changes_query(self, state=None, replaced=False, query_modifier=None):
         """Return a query for the Obj's attribute Changes.
@@ -2043,10 +2093,9 @@ class ParameterInformation(Base, DBQueryable):
 
 class FileHolder(object):
     """Mixin to map value property to the file property.
-    Also can return a list of cruises based on the submission's cruise identifier.
+    Also can return a list of cruises based on the cruise identifier.
 
     """
-
     @property
     def value(self):
         return self.file
@@ -2057,8 +2106,7 @@ class FileHolder(object):
 
     def cruises_from_identifier(self):
         try:
-            return Cruise.query().filter(
-                Cruise.expocode == self.identifier).all()
+            return Cruise.get_all_by_expocode(self.identifier)
         except AttributeError:
             return []
 
@@ -2122,6 +2170,10 @@ class ArgoFile(Obj, FileHolder):
         'polymorphic_identity': 'argo_file',
     }
 
+    @hybrid_property
+    def identifier(self):
+        return self.text_identifier
+
     @property
     def value(self):
         """Return the file that the ArgoFile refers to."""
@@ -2180,6 +2232,10 @@ class OldSubmission(Obj, FileHolder):
         'polymorphic_identity': 'old_submission',
     }
 
+    @hybrid_property
+    def identifier(self):
+        return None
+
 
 class Submission(Obj, FileHolder):
     """A Submission to the CCHDO.
@@ -2229,8 +2285,7 @@ class Submission(Obj, FileHolder):
         'polymorphic_identity': 'submission',
     }
 
-    # TODO is this used?
-    @property
+    @hybrid_property
     def identifier(self):
         return self.expocode
 

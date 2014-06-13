@@ -726,6 +726,17 @@ class TestModelObj(PersonBaseTest):
         found = Obj.get_all_by_attrs({key: 'third'})
         self.assertEquals(len(found), 1)
 
+    def test_order_by_change_attrs(self):
+        """Make Objs orderable by the corresponding Change's attributes."""
+        oo0 = Obj.create(self.testPerson).obj
+        oo1 = Obj.create(self.testPerson).obj
+        oo2 = Obj.create(self.testPerson).obj
+
+        objs = Obj.query().with_transformation(Obj.change.join).\
+            order_by(Obj.change._aliased.ts_c.desc()).all()
+        times = [obj.change.ts_c for obj in objs]
+        self.assertEqual(times, sorted(times, reverse=True))
+
     def test_polymorphic(self):
         """Queries will return Objs as the most specific subclass.
 

@@ -7,24 +7,6 @@
 {%- endblock %}
 {%- block title %}{{ query }} - Search{%- endblock %}
 
-{%- macro pluralize_category(category) %}
-  {%- if category == 'person' %}
-    People
-  {%- elif category == 'collection' %}
-    Collections
-  {%- elif category == 'country' %}
-    Countries
-  {%- elif category == 'cruise' %}
-    Cruises
-  {%- elif category == 'ship' %}
-    Ships
-  {%- elif category == 'institution' %}
-    Institutions
-  {%- else %}
-    {{ category }}
-  {%- endif %}
-{%- endmacro %}
-
 {% block content -%}
   {% call h.boxed('Search results for "%s"' % query, class='search-results') -%}
     {%- if results %}
@@ -33,16 +15,16 @@
            important. Also, cruises are the only Obj that
            can't have cruises associated with them. #}
         <h2>Cruises</h2>
-        {{- h.cruise_listing(request, results['cruise'], pre_expand=True) }}
+        {{- h.cruise_listing(request, results['cruise'], pre_expand=True, show_data=expanded) }}
       {%- endif %}
 
       {%- for category, items in results.items() %}
         {%- if category != 'cruise' and items|length > 0 %}
-          <h2>{{ pluralize_category(category) }}</h2>
+          <h2>{{ h.pluralize_category(category) }}</h2>
           {%- for result in items %}
             <h3>{{- h.link_obj_polymorph(result) }}</h3>
             {%- if items[result]|length > 0 %}
-              {{- h.cruise_listing(request, items[result], pre_expand=True) }}
+              {{- h.cruise_listing(request, items[result], pre_expand=True, show_data=expanded) }}
             {%- endif %}
           {%- endfor %}
         {%- endif %}

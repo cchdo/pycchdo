@@ -23,6 +23,7 @@ def advanced_search(request):
 def search_results(request):
     query = request.params.get('query', None)
     orderby = request.params.get('orderby', '')
+    expanded = request.params.get('expanded', '')
 
     request.session['query'] = query
     request.session['query_orderby'] = orderby
@@ -37,8 +38,9 @@ def search_results(request):
         log.error('Search failed: {0}'.format(format_exc()))
         results = {}
     return {
+        'expanded': expanded,
         'query': query,
-        'results': results
+        'results': results,
     }
 
 

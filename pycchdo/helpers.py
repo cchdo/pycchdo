@@ -605,29 +605,33 @@ def _orderby_path(request, direction, key):
         _query=dict(request.params, **{'orderby': orderby}))
 
 
-def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
+def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
+                   show_data=True):
     cruises = filter(None, cruises)
     if not cruises and not allow_empty:
         return ''
 
+    headers = [
+        H.th(
+            _sortable_link(request, 'ExpoCode', 'uid'), ' / ', 
+            _sortable_link(request, 'Cruise dates', 'date_start'),
+            class_='identifier'),
+        H.th(_sortable_link(request, 'Aliases', 'aliases'),
+            class_='aliases'),
+        H.th(
+            _sortable_link(request, 'Chief scientist(s)', 'chiscis'), ' / ',
+            _sortable_link(request, 'Ship', 'ship'), ' / ',
+            _sortable_link(request, 'Country', 'country'),
+            class_='who'),
+    ]
+    if show_data:
+        headers.append(H.th('Dataset', class_='dataset'))
+        # Extra column for the datacart cruise link
+        headers.append(H.th())
+    headers.append(H.th(class_='map'))
+
     list = [
-        H.tr(
-            H.th(
-                _sortable_link(request, 'ExpoCode', 'uid'), ' / ', 
-                _sortable_link(request, 'Cruise dates', 'date_start'),
-                class_='identifier'),
-            H.th(_sortable_link(request, 'Aliases', 'aliases'),
-                class_='aliases'),
-            H.th(
-                _sortable_link(request, 'Chief scientist(s)', 'chiscis'), ' / ',
-                _sortable_link(request, 'Ship', 'ship'), ' / ',
-                _sortable_link(request, 'Country', 'country'),
-                class_='who'),
-            H.th('Dataset', class_='dataset'),
-            # Extra column for the datacart cruise link
-            H.th(),
-            H.th(class_='map'),
-            class_='header'),
+        H.tr(*headers, class_='header'),
     ]
     for i, cruise in enumerate(cruises):
         hl = 'odd'
@@ -658,36 +662,36 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
             tags.end_form(),
             class_='links body {0}'.format(baseclass))
         data_files = collect_data_files(cruise)
-        list.append(
-            H.tr(
-                H.td(
-                    H.div(link_cruise(cruise), class_='expocode'),
-                    H.div(cruise_dates(cruise)[2], class_='cruise_dates'),
-                    cruise_page_buttons,
-                    class_='identifier'
-                ),
-                H.td(aliases, class_='aliases'),
-                H.td(
-                    H.div(link_person_institutions(cruise.chief_scientists),
-                        class_='chief_scientists'),
-                    H.div(link_ship(cruise.ship), class_='ship'),
-                    H.div(link_country(cruise.country), class_='country'),
-                    class_='who'
-                ),
-                H.td(
-                    data_files_lists(request, data_files, condensed=True,
-                                     classes=['body', baseclass]),
-                    class_='dataset'
-                ),
-                H.td(datacart_link_cruise(request, cruise)), 
-                H.td(
-                    cruise_track_image(
-                        map_path, cruise, classes=['body', baseclass]),
-                    class_='map'
-                ), 
-                class_=metaclass
+        row = [
+            H.td(
+                H.div(link_cruise(cruise), class_='expocode'),
+                H.div(cruise_dates(cruise)[2], class_='cruise_dates'),
+                cruise_page_buttons,
+                class_='identifier'
             ),
-        )
+            H.td(aliases, class_='aliases'),
+            H.td(
+                H.div(link_person_institutions(cruise.chief_scientists),
+                    class_='chief_scientists'),
+                H.div(link_ship(cruise.ship), class_='ship'),
+                H.div(link_country(cruise.country), class_='country'),
+                class_='who'
+            ),
+        ]
+        if show_data:
+            row.append(H.td(
+                data_files_lists(request, data_files, condensed=True,
+                                 classes=['body', baseclass]),
+                class_='dataset'
+            ))
+            row.append(H.td(datacart_link_cruise(request, cruise)))
+        row.append(
+            H.td(
+                cruise_track_image(
+                    map_path, cruise, classes=['body', baseclass]),
+                class_='map'
+            ))
+        list.append(H.tr(*row, class_=metaclass))
         # TODO number of stations, parameters (and count)
         #list.append(
         #    H.tr(
@@ -701,12 +705,27 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False):
     if pre_expand:
         table_class += ' pre-expand'
     table = H.table(*list, class_=table_class)
+
+    if request.params.get('expanded', False):
+        expanded_query = {'query': request.params.get('query')}
+        expanded_button_str = 'Condense'
+    else:
+        expanded_query = {'query': request.params.get('query'), 'expanded': True}
+        expanded_button_str = 'Expand'
+
     return H.div(
         H.div(
-            H.div(whtext.plural(len(cruises), 'result', 'results'),
-                class_='tool tool-count'),
+            H.div(
+                tags.form(request.current_route_path(),
+                    method='GET', class_='button-to', hidden_fields=expanded_query),
+                tags.submit('', expanded_button_str),
+                tags.end_form(),
+                whtext.plural(len(cruises), 'result', 'results'),
+                    class_='tool tool-count'
+            ),
             datacart_link_cruises(request, cruises), 
-            class_='tools'),
+            class_='tools'
+        ),
         table,
         class_='cruise-listing'
     )
@@ -1313,3 +1332,20 @@ def parameter_bounds(bounds):
     if not bounds:
         return u''
     return u', '.join([u'{0:.1f}'.format(x) for x in bounds])
+
+
+def pluralize_category(category):
+    if category == 'person':
+        return 'People'
+    elif category == 'collection':
+        return 'Collections'
+    elif category == 'country':
+        return 'Countries'
+    elif category == 'cruise':
+        return 'Cruises'
+    elif category == 'ship':
+        return 'Ships'
+    elif category == 'institution':
+        return 'Institutions'
+    else:
+        return category

@@ -895,6 +895,9 @@ table.notes {
 .search-results h3 {
   margin-top: 0.5em;
 }
+.search-results .tools .button-to {
+  display: inline;
+}
 .search-results .cruise-listing {
   margin-bottom: 1em;
 }

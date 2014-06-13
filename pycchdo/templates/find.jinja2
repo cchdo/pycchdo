@@ -41,8 +41,12 @@
   <div id="project" class="sub-section">
     <h2>Projects</h2>
     <ul>
-      {{ whh.HTML.li(whh.tags.link_to('Project Carina', request.route_path('project_carina'))) }}
+      {{ whh.HTML.li(whh.tags.link_to('GO-SHIP', request.route_path('search_results', _query={'query': 'collection:GO-SHIP'}))) }}
       {{ whh.HTML.li(whh.tags.link_to('USHYDRO', request.route_path('search_results', _query={'query': 'collection:USHYDRO'}))) }}
+      {{ whh.HTML.li(whh.tags.link_to('WOCE', request.route_path('search_results', _query={'query': 'collection:WOCE'}))) }}
+      {{ whh.HTML.li(whh.tags.link_to('DIMES', request.route_path('search_results', _query={'query': 'collection:DIMES'}))) }}
+      {{ whh.HTML.li(whh.tags.link_to('ELLETT', request.route_path('search_results', _query={'query': 'collection:ELLETT'}))) }}
+      {{ whh.HTML.li(whh.tags.link_to('Project Carina', request.route_path('project_carina'))) }}
     </ul>
   </div>
 

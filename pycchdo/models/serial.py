@@ -29,7 +29,7 @@ from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
     collection, InstrumentedSet, attribute_mapped_collection,
     )
-from sqlalchemy.schema import CreateSchema, Index
+from sqlalchemy.schema import DropSchema, CreateSchema, Index
 
 from zope.sqlalchemy import ZopeTransactionExtension
 
@@ -73,6 +73,7 @@ DBSession = scoped_session(Session)
 def reset_database(engine):
     """Clears the database and recreates schema."""
     drop_everything(engine)
+    engine.execute(DropSchema(Meta.schema, cascade=True))
     engine.execute(CreateSchema(Meta.schema))
     Meta.create_all(engine)
 

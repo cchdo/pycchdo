@@ -54,7 +54,11 @@ from pycchdo.models.serial import (
     )
 from pycchdo.models.types import DateTime
 from pycchdo.importer import * 
+from pycchdo.log import getLogger
 from pycchdo.views import text_to_obj
+
+
+log = getLogger(__name__)
 
 
 __all__ = ['import_Collection', 'import_person']
@@ -64,7 +68,12 @@ remote_host = 'ghdc.ucsd.edu'
 
 
 def get_by_import_id(cls, import_id, *options):
-    return cls.query().filter(cls.import_id == import_id).options(lazyload('*'), *options).first()
+    return cls.query().filter(
+        cls.import_id == import_id).options(lazyload('*'), *options).first()
+
+
+def _query_cruise_by_expocode(expocode):
+    return Cruise.query_by_expocode(expocode).options(lazyload('*'))
 
 
 def _log_progress(i, total):
@@ -731,6 +740,12 @@ def _import_cruise(cruise, dblock):
     if cruise.Group:
         groups = [x.strip() for x in cruise.Group.split(',')]
         for group in groups:
+            # the Line should also appear in Groups, skip it.
+            if group == cruise.Line:
+                continue
+            # the Program should also appear in Groups, skip it.
+            if group == cruise.Program:
+                continue
             with lock(dblock):
                 collections.append(import_Collection(updater, group, 'group'))
     if cruise.Program:
@@ -741,8 +756,6 @@ def _import_cruise(cruise, dblock):
 
     collections = uniquify(collections)
     updater.attr(c, 'collections', collections)
-    
-    log.debug('imported cruise %s' % cruise.id)
 
 
 class CruisesImporter(Thread):
@@ -860,7 +873,7 @@ def _import_track_lines(session):
                 u'Unable to convert trackline {0} to linestring'.format(tl.id))
             continue
 
-        cruise = Cruise.query_by_expocode(tl.ExpoCode).options(lazyload('*')).first()
+        cruise = _query_cruise_by_expocode(tl.ExpoCode).first()
         if not cruise:
             log.info("Creating Cruise {0} for track line {1}".format(
                 tl.ExpoCode, tl.id))
@@ -1063,74 +1076,15 @@ def _import_collections_cruises(session):
 
         cruise_colls = cruise.collections
         new_colls = [colls_by_ids[cid] for cid in sorted(collids)]
-        colls_to_add = list(set(new_colls) - set(cruise_colls))
+        colls = uniquify(cruise_colls + new_colls)
 
-        if not colls_to_add:
-            continue
-
-        log.info('Adding Collections {0} to {1}'.format(
-            colls_to_add, cruise))
-        updater.attr(cruise, 'collections', cruise_colls + colls_to_add)
+        log.info('Set {0} collections to {1}'.format(cruise, colls))
+        updater.attr(cruise, 'collections', colls)
 
     # Do this after all collections and changes to them have been imported
     # Otherwise there will be missing collections while importing.
     log.info('Merging same collections')
     _collections_merge(updater.importer)
-
-
-def _import_collection_basins(session):
-    """Add basin tags to collections according to how the ByOceanController
-    used to find collections. This will be used by the basin view to generate
-    the corresponding basin pages more efficiently than scanning cruises.
-
-    """
-    woce_line_basins = {}
-
-    arctic = session.query(legacy.Cruise.Line, legacy.Cruise.Group)
-    asub = arctic.with_entities(legacy.Cruise.Line).\
-        filter(legacy.Cruise.Group.like('%arctic%')).\
-        distinct().subquery()
-    arctic = arctic.join((asub, asub.c.Line == legacy.Cruise.Line)).all()
-
-    for line, groups in arctic:
-        gs = set([u'arctic'])
-        if groups:
-            if 'Atlantic' in groups:
-                gs.add(u'atlantic')
-            if 'Indian' in groups:
-                gs.add(u'indian')
-            if 'Pacific' in groups:
-                gs.add(u'pacific')
-        try:
-            woce_line_basins[line] |= gs
-        except KeyError:
-            woce_line_basins[line] = gs
-
-    southern = session.query(legacy.Cruise.Line, legacy.Cruise.Group)
-    ssub = southern.with_entities(legacy.Cruise.Line).\
-        filter(legacy.Cruise.Group.like('%southern%')).\
-        distinct().subquery()
-    southern = southern.join((ssub, ssub.c.Line == legacy.Cruise.Line)).all()
-
-    for line, groups in southern:
-        gs = set([u'southern'])
-        if groups:
-            if 'Atlantic' in groups:
-                gs.add(u'atlantic')
-            if 'Indian' in groups:
-                gs.add(u'indian')
-            if 'Pacific' in groups:
-                gs.add(u'pacific')
-        try:
-            woce_line_basins[line] |= gs
-        except KeyError:
-            woce_line_basins[line] = gs
-
-    updater = _get_updater()
-    for line, basins in woce_line_basins.items():
-        coll = import_Collection(updater, line, 'WOCE line')
-        basins = sorted(list(basins | set(coll.basins)))
-        updater.attr(coll, 'basins', basins)
 
 
 def _import_contacts_cruises(session):
@@ -1211,8 +1165,7 @@ def _import_contacts_cruises(session):
                 new_participants.add(
                     Participant.create(role, person, inst))
 
-        cruise.set(updater.importer,
-            'participants', participants | new_participants)
+        updater.attr(cruise, 'participants', participants | new_participants)
 
 
 def _import_events(session):
@@ -1231,7 +1184,7 @@ def _import_events(session):
             log.info("Updating Event {0}".format(event_id))
             continue
 
-        cruises = Cruise.query_by_expocode(event.ExpoCode).options(lazyload('*')).all()
+        cruises = _query_cruise_by_expocode(event.ExpoCode).all()
         # No cruises to add the events to? Don't do the work.
         if not cruises:
             log.error(u"Event {0}'s cruise {1!r} does not exist".format(
@@ -1329,40 +1282,40 @@ def _import_old_submissions(session, downloader):
         submission.submitter = sub.Name
 
 
+def _add_cruise_to_collection(updater, cruise, collection):
+    collections = uniquify(cruise.collections + [collection])
+    if cruise.collections != collections:
+        updater.attr(cruise, 'collections', collections)
+
+
 def _import_spatial_groups(session):
     log.info("Importing Spatial groups")
     updater = _get_updater()
+    
+    major_basins = {}
+    major_basin_names = ['atlantic', 'arctic', 'pacific', 'indian', 'southern']
+    for mbn in major_basin_names:
+        major_basins[mbn] = import_Collection(updater, mbn.capitalize(), 'basin')
+
     sgs = session.query(legacy.SpatialGroup).all()
     for sg in sgs:
-        collection = import_Collection(updater, sg.area, 'group')
-        basins = collection.basins
-        if sg.atlantic == '1':
-            basins.append('atlantic')
-        if sg.arctic == '1':
-            basins.append('arctic')
-        if sg.pacific == '1':
-            basins.append('pacific')
-        if sg.indian == '1':
-            basins.append('indian')
-        if sg.southern == '1':
-            basins.append('southern')
-        basins = uniquify(basins)
-        updater.attr(collection, 'basins', basins)
-
-        if not sg.expocode:
-            log.info("Skipping non Cruise for spatial_groups")
-            continue
-
-        cruise = Cruise.query_by_expocode(sg.expocode).options(lazyload('*')).first()
+        cruise = _query_cruise_by_expocode(sg.expocode).first()
         if not cruise:
+            log.warn(u'created {0} for spatial groups'.format(cruise))
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', sg.expocode)
 
-        log.info("Updating Cruise %s for spatial_groups" % sg.expocode)
-        collections = uniquify(cruise.collections + [collection])
-        if cruise.collections != collections:
-            updater.attr(cruise, 'collections', collections)
-
+        # Update the area collection to have basins.
+        area_collection = import_Collection(updater, sg.area, 'group')
+        basins = area_collection.basins
+        for mbn in major_basin_names:
+            if getattr(sg, mbn) == '1':
+                basins.append(mbn)
+                _add_cruise_to_collection(updater, cruise, major_basins[mbn])
+        basins = uniquify(basins)
+        updater.attr(area_collection, 'basins', basins)
+        _add_cruise_to_collection(updater, cruise, area_collection)
+    
 
 def _import_internal(session):
     """The internal table maps a cruise to a basin."""
@@ -1374,10 +1327,9 @@ def _import_internal(session):
             log.warn("Skipping internal {0}, no expocode".format(i.id))
             continue
 
-        cruises = Cruise.query_by_expocode(i.expocode).options(lazyload('*')).all()
-        if cruises:
+        cruise = _query_cruise_by_expocode(i.expocode).first()
+        if cruise:
             log.info("Updating Cruise %s for internal" % i.expocode)
-            cruise = cruises[0]
         else:
             log.info("Creating Cruise %s for internal" % i.expocode)
             cruise = updater.create_accept(Cruise)
@@ -1386,11 +1338,7 @@ def _import_internal(session):
         # TODO it may be better to map the cruise to the collection and let
         # basin attribute on collection figure out the rest.
         collection = import_Collection(updater, i.Basin, 'basin')
-        collections = cruise.get('collections', []) + [collection]
-        collections = uniquify(collections)
-        log.info(u'add collection {0} to cruise {1}'.format(
-            collection.id, i.expocode))
-        updater.attr(cruise, 'collections', collections)
+        _add_cruise_to_collection(updater, cruise, collection)
 
 
 def _import_unused_tracks(session):
@@ -1402,7 +1350,7 @@ def _import_unused_tracks(session):
             log.info(
                 u"Skipping unused track {0!r}, no expocode.".format(t.id))
             continue
-        cruise = Cruise.query_by_expocode(t.expocode).options(lazyload('*')).first()
+        cruise = _query_cruise_by_expocode(t.expocode).first()
         if cruise:
             log.info("Updating Cruise %s for unused track" % t.expocode)
         else:
@@ -1411,9 +1359,7 @@ def _import_unused_tracks(session):
             updater.attr(cruise, 'expocode', t.expocode)
 
         collection = import_Collection(updater, t.Basin, 'basin')
-        collections = cruise.get('collections', []) + [collection]
-        collections = uniquify(collections)
-        updater.attr(cruise, 'collections', collections)
+        _add_cruise_to_collection(updater, cruise, collection)
 
 
 def _import_unit(updater, unit):
@@ -1522,7 +1468,7 @@ def _import_parameters(session):
         parameters[param] = parameter
 
     for p in session.query(legacy.CruiseParameterInfo).all():
-        cruise = Cruise.query_by_expocode(p.ExpoCode).options(lazyload('*')).first()
+        cruise = _query_cruise_by_expocode(p.ExpoCode).first()
         if cruise:
             log.info("Found Cruise %s for CPI" % p.ExpoCode)
         else:
@@ -1679,8 +1625,9 @@ def _import_submission(session, downloader, updater, dsug, sub):
     try:
         submission.cruise_date = _date_to_datetime(sub.cruise_date)
     except TypeError:
-        log.warn(u'Unable to convert submission {0} date {1!r}'.format(
-            sub.id, sub.cruise_date))
+        if sub.cruise_date is not None:
+            log.warn(u'Unable to convert submission {0} date {1!r}'.format(
+                sub.id, sub.cruise_date))
 
     if file_path in _KNOWN_MISSING_SUBMISSIONS:
         log.info(u'Skipped known missing submission: %s', file_path)
@@ -1747,10 +1694,7 @@ def _import_submission(session, downloader, updater, dsug, sub):
         else:
             queue_file = None
         if not queue_file:
-#            queue_file = submission_fake_queue_file(
-#                updater, assimilated_cruise)
             queue_file = dsug
-        log.info(repr(queue_file))
         submission.attached = queue_file
 
 
@@ -1795,15 +1739,14 @@ def submission_fake_queue_file(updater, cruise):
 
 
 def _import_queue_files(session, downloader):
-    log.info("Importing queue files")
+    log.info("Importing As Received")
     updater = _get_updater()
 
     re_docs = re.compile('Cruise (report|information)', re.IGNORECASE)
 
     queue_files = session.query(legacy.QueueFile).all()
     for qfile in queue_files:
-        cruise = Cruise.query_by_expocode(
-            qfile.expocode).options(lazyload('*')).first()
+        cruise = _query_cruise_by_expocode(qfile.expocode).first()
         if not cruise:
             log.warn(
                 u"Missing cruise for queue file %s. Skip" % qfile.expocode)
@@ -1817,7 +1760,7 @@ def _import_queue_files(session, downloader):
                 updater, contact_name, '', '', '')
 
         import_id = str(qfile.id)
-        log.info("Importing Queue File {0}".format(import_id))
+        log.info("Importing ASR {0}".format(import_id))
         unprocessed_input = qfile.unprocessed_input.strip()
         if qfile.date_received:
             date_received = _date_to_datetime(qfile.date_received)
@@ -1826,7 +1769,7 @@ def _import_queue_files(session, downloader):
 
         queue_file = FSFile.attr_by_import_id(import_id)
         if not queue_file or not queue_file.value:
-            log.info('Creating Queue File %s' % import_id)
+            log.info('Creating ASR %s' % import_id)
 
             with downloader.dl(unprocessed_input) as file:
                 if file is None:
@@ -1846,17 +1789,14 @@ def _import_queue_files(session, downloader):
                     queue_file = cruise.sugg(updater.importer,
                         'data_suggestion', actual_file)
                 # Set the import id on the FSFile
-                log.warn(repr(queue_file.id))
-                log.warn(queue_file.value.id)
                 queue_file.value.import_id = import_id
-                log.warn(repr(queue_file.value.import_id))
 
             queue_file.p_c = submitter
             if not date_received:
                 date_received = downloader.mtime(unprocessed_input)
             queue_file.ts_c = date_received
         else:
-            log.info('Updating Queue File %s' % import_id)
+            log.info('Updating ASR %s' % import_id)
 
         if qfile.cchdo_contact:
             contact = import_person(updater, None, qfile.cchdo_contact)
@@ -2070,15 +2010,14 @@ def _import_documents_unaccounted(
 
 
 def _import_documents_for_cruise(downloader, docs, expocode):
-    cruises = Cruise.query_by_expocode(expocode).options(lazyload('*')).all()
+    cruise = _query_cruise_by_expocode(expocode).first()
     updater = _get_updater()
     if docs:
         log.info("Importing documents for %s" % expocode)
     else:
         log.info("No docs to import for %s" % expocode)
         return
-    if cruises:
-        cruise = cruises[0]
+    if cruise:
         log.info('associating documents to {0}'.format(cruise))
     else:
         log.error('no cruise {0} to associate documents'.format(expocode))
@@ -2292,7 +2231,6 @@ def _import_documents(session, downloader, nthreads):
                 docs = docs_by_expocode[expocode]
             except KeyError:
                 continue
-            log.info(repr(docs))
             _import_documents_for_cruise(downloader, docs, expocode)
             if i % batchsize == 0:
                 transaction.commit()
@@ -2358,7 +2296,7 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
                     u'Unable to get ExpoCode for linked ArgoFile {0}.'.format(file.id))
 
         if expocode:
-            cruise = Cruise.query_by_expocode(expocode).options(lazyload('*')).first()
+            cruise = _query_cruise_by_expocode(expocode).first()
             if cruise:
                 file_type = libcchdo.fns.guess_file_type(symlink_target)
                 if file_type:
@@ -2455,24 +2393,23 @@ def import_(import_gid, nthreads, fsstore, args):
     try:
         with db_session(legacy.session()) as session:
             if not args.files_only:
-                _import_users(session)
-                _import_contacts(session)
-                _import_collections(session)
+                #_import_users(session)
+                #_import_contacts(session)
+                #_import_collections(session)
 
-                transaction.commit()
-                transaction.begin()
+                #transaction.commit()
+                #transaction.begin()
 
-                _import_cruises(session, nthreads - 1)
+                #_import_cruises(session, nthreads - 1)
 
-                transaction.commit()
-                transaction.begin()
+                #transaction.commit()
+                #transaction.begin()
 
-                _import_track_lines(session)
-                _import_collections_cruises(session)
-                _import_collection_basins(session)
+                #_import_track_lines(session)
+                #_import_collections_cruises(session)
 
-                transaction.commit()
-                transaction.begin()
+                #transaction.commit()
+                #transaction.begin()
 
                 _import_contacts_cruises(session)
 

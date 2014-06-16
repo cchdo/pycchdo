@@ -15,12 +15,16 @@ from shapely import wkb
 
 from pycchdo.importer import *
 from pycchdo.importer.cchdo import *
+from pycchdo.log import getLogger
 import pycchdo.models as models
 from pycchdo.models.serial import (
     store_context, 
     Cruise, Person, Obj, Institution, Country, Ship, Collection, 
     Participant, Participants, 
     )
+
+
+log = getLogger(__name__)
 
 
 Base = S.ext.declarative.declarative_base()
@@ -659,8 +663,10 @@ def clear():
         filter(Person.name_last == 'importer').\
         filter(Person.name_first == 'Seahunt').first()
 
-    attrs = _Attr.get_all_by_attrs(
-        {'key': 'import_id', 'value': re.compile('seahunt.*')})
+    attrs = Change.query().\
+        filter(Change.attr == 'import_id').\
+        filter(Change._value.op('regexp')(re.compile('seahunt.*'))).\
+        all()
     objs = [x.obj for x in attrs]
 
     if person:
@@ -670,8 +676,6 @@ def clear():
     for obj in objs:
         obj.remove()
         plog.log()
-
-    max_id = Obj.query().order(Obj.ts_c.desc()).first().id
 
     log.info('Cleared Seahunt imports')
     return 

@@ -27,13 +27,12 @@ from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
 
 
 __all__ = [
-    'log', 'db_session', 'su', 'guess_mime_type', 'conn_dl', '_ustr2uni',
+    'db_session', 'su', 'guess_mime_type', 'conn_dl', '_ustr2uni',
     '_date_to_datetime', 'copy_chunked', 'Updater', 'pushd', 'lock',
     'ProgressLog',]
 
 
 log = getLogger(__name__)
-log.addHandler(color_console)
 
 
 def _is_root():
@@ -116,38 +115,28 @@ class Updater:
 
     def attr(self, obj, key, value, accept=True, note=None,
              note_data_type=None, creation_time=None, attr=None):
-        log.debug('setting {0!r}.{1!r} to {2!r}'.format(obj, key, value))
         if attr is None:
             attr = obj.changes_query().filter(Change.attr == key).\
-                order_by(Change.ts_c).first()
-            log.debug(
-                u'finding {0!r}.{1!r} ({2!r}) = {3!r}'.format(
-                    obj, key, attr, value))
-        else:
-            log.debug(
-                u'using   {0!r}.{1!r} ({2!r}) = {3!r}'.format(
-                    obj, key, attr, value))
+                order_by(Change.ts_c.desc()).first()
+
         if attr:
-            log.debug(u'modifying {0} {1} to match {2}'.format(
-                attr, attr.value, value))
-            if attr.value != value:
-                attr.value = value
-                log.debug(u'done setting')
-            log.debug(u'setting accept to {0}'.format(accept))
+            log.debug(u'modifying {0} to match {1}'.format(attr, value))
+            attr._set_value(value)
             attr.accepted = accept
             if not accept:
-                attr.judgment_person = None
-                attr.judgment_timestamp = None
+                attr.p_j = None
+                attr.ts_j = None
         else:
+            log.debug(u'setting {0} {1} to {2}'.format(obj, key, value))
             if accept:
                 attr = obj.set(self.importer, key, value)
             else:
                 attr = obj.sugg(self.importer, key, value)
-        if attr:
-            if creation_time is not None:
-                attr.ts_c = creation_time
-            if note is not None:
-                self.note(attr, note, note_data_type)
+
+        if creation_time is not None:
+            attr.ts_c = creation_time
+        if note is not None:
+            self.note(attr, note, note_data_type)
         return attr
 
 

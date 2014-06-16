@@ -34,15 +34,14 @@ def list_files(request):
 
 
 def data_df(request):
-    """ Serve legacy data files that used to be served from /data prefix
-    """
+    """Serve legacy data files that used to be served from /data prefix."""
     url = '/' + '/'.join(['data'] + list(request.matchdict['rest']))
 
-    attr = models._Attr.get_one({'import_filepath': url})
+    fsf = FSFile.query().filter(FSFile.import_filepath == url).first()
 
-    if not attr:
+    if not fsf:
         raise HTTPNotFound()
-    raise HTTPMovedPermanently(location='/data/b/%s' % attr.id)
+    raise HTTPMovedPermanently(location='/data/b/{0}'.format(fsf.id))
 
 
 def parameter_descriptions(request):

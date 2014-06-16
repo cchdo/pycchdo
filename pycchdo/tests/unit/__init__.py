@@ -291,7 +291,7 @@ class TestModelAttr(PersonBaseTest):
         self.assertTrue(isinstance(attr, Change))
 
     def test_allow_attrs(self):
-        """Only allow _Attrs to be set when the key has been allowed."""
+        """Only allow Changes to be set when the key has been allowed."""
         ooo = Obj.create(self.testPerson).obj
         key = self._testMethodName
         with self.assertRaises(ValueError):
@@ -300,7 +300,7 @@ class TestModelAttr(PersonBaseTest):
         ooo.set(self.testPerson, key, 'b')
 
     def test_allow_attrs_polymorph(self):
-        """Only allow _Attrs to be set when the key has been allowed on the
+        """Only allow Changes to be set when the key has been allowed on the
         specific class or its parents.
 
         """
@@ -328,7 +328,7 @@ class TestModelAttr(PersonBaseTest):
         self.assertEquals([aaa], o.changes('accepted'))
 
     def test_current_attr_keys(self):
-        """Current _Attr keys."""
+        """Current Change keys."""
         o = Obj.create(self.testPerson).obj
         o.allow_attr(self._testMethodName, String, 'test')
         self.assertEquals([], o.attr_keys)
@@ -336,7 +336,7 @@ class TestModelAttr(PersonBaseTest):
         self.assertEquals([self._testMethodName], o.attr_keys)
 
     def test_get_value_by_accept_order(self):
-        """Getting a value for key returns the last accepted _Attr's value."""
+        """Getting a value for key returns the last accepted Change's value."""
         key = self._testMethodName
         obj = Obj.create(self.testPerson).obj
         obj.allow_attr(key, String, 'test')
@@ -410,9 +410,9 @@ class TestModelAttr(PersonBaseTest):
     # correctly. Is that even a good feature to have?
 
     def test_set_scalar(self):
-        """Setting a scalar value for _Attr should create a new _Attr.
+        """Setting a scalar value for Change should create a new Change.
 
-        The key value pair should not appear in _Attr until accepted.
+        The key value pair should not appear in Change until accepted.
         The latest accepted key value pair should be the value.
         
         """
@@ -485,7 +485,7 @@ class TestModelAttr(PersonBaseTest):
         self.assertEquals(value, obj.get(key))
 
     def test_persistence_delete(self):
-        """Changing the value for an _Attr causes persistence delete."""
+        """Changing the value for a Change causes persistence delete."""
         key0 = self._testMethodName + '0'
         key1 = self._testMethodName + '1'
         Person.allow_attr(key0, (ID, 'Obj'))
@@ -501,7 +501,7 @@ class TestModelAttr(PersonBaseTest):
         DBSession.delete(p)
 
     def test_accepted_value(self):
-        """Accepting an _Attr with an accepted value will change the returned
+        """Accepting a Change with an accepted value will change the returned
         value of the Attribute.
 
         """
@@ -515,7 +515,7 @@ class TestModelAttr(PersonBaseTest):
         self.assertEqual(2, a.value)
 
     def test_file_creation(self):
-        """Creating an _Attr with a file stores the file in an object store."""
+        """Creating a Change with a file stores the file in an object store."""
         key = self._testMethodName
         Obj.allow_attr(key, File)
         data = 'this is a mult-line test file\nwith \xe6\xb0\xb4'
@@ -539,7 +539,7 @@ class TestModelAttr(PersonBaseTest):
             DBSession.delete(ooo)
 
     def test_file_suggesting(self):
-        """Setting an _Attr to some binary data.
+        """Setting a Change to some binary data.
 
         Such an object must be given some data. It may optionally be given a
         MIME type.
@@ -702,7 +702,6 @@ class TestModelObj(PersonBaseTest):
         ooo = Obj.create(self.testPerson).obj
         Obj.allow_attr(key, String, 'test')
 
-        # _AttrMgr need to be accepted before it can be found
         aaa = ooo.set(self.testPerson, key, 'first')
 
         ound = Obj.get_all_by_attrs({key: 'first'})
@@ -716,7 +715,7 @@ class TestModelObj(PersonBaseTest):
         found = Obj.get_all_by_attrs({key: 'first'})
         self.assertEquals(len(found), 0)
 
-        # Make sure it finds the correct _Attr for the most recent value.
+        # Make sure it finds the correct Change for the most recent value.
         bbb = ooo.set(self.testPerson, key, 'third')
         self.assertEquals(ooo.get(key), 'third')
 
@@ -1175,7 +1174,7 @@ class TestParticipant(PersonBaseTest):
 
     @nottest
     def test_replace_participants_attrvalue(self):
-        """Replace the participants directly for an _AttrValue."""
+        """Replace the participants directly."""
         c = Cruise.create(self.testPerson).obj
 
         count_pre = DBSession.query(models._AttrValueParticipants).count()

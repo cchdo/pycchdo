@@ -771,7 +771,6 @@ def link_obj_polymorph(obj):
 def link_file_holder(fh, full=False, original=False):
     """Return a link to the file that is the given file holder's value.
 
-    File holder is an _Attr.
     Args:
     original - link to the original value, not the accepted value
 
@@ -926,7 +925,7 @@ def change_pretty(change):
 
 
 def data_uri(data, original=False):
-    """ Given an _Attr with a file, provides a link to a file. """
+    """ Given a Change that holds a file, provides a link to the file. """
     if not data:
         log.error('Cannot link to nothing')
     if original:
@@ -1168,13 +1167,13 @@ def datacart_archive_id(index):
 
 
 def data_file_link(request, type, data, leader=None):
-    """Given an _Attr with a file, provides a link to a file next to its
+    """Given a Change with a file, provides a link to a file next to its
     description as a table row.
 
     Arguments:
         type - a short form of the file format e.g. ctdzip_exchange,
                bottlezip_netcdf
-        data - the _Attr with file
+        data - the Change with file
         leader - (optional) if given, leader will be prepended onto the short
         representation of the data type.
 

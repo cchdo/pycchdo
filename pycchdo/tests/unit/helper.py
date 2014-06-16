@@ -9,7 +9,7 @@ from pycchdo.models.serial import DBSession, Cruise, Person
 
 class TestHelper(PersonBaseTest):
     def test_helper_data_file_link(self):
-        """Given an Change with a file, provide a link to a file next to its
+        """Given a Change with a file, provide a link to a file next to its
         description.
 
         """

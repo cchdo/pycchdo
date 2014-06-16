@@ -2421,12 +2421,6 @@ class Cruise(Obj):
     file being suggested. In this manner, they are similar to imported legacy
     Queue files.
 
-    NOTE: A difference exists between imported legacy submissions and created
-    submissions. Imported submissions that have already been queued have their
-    _Attr attachment set to True instead of being linked to a direct suggestion.
-    This is because there is no easy inferred link from legacy submission to
-    legacy queue file.
-
     Imported legacy Queue files
     ---------------------------
     Imported Queue files are direct suggestions but are abnormal in that their
@@ -2620,7 +2614,7 @@ class Cruise(Obj):
 
     @classmethod
     def updated(cls, limit):
-        """Provide list of _Attrs that have been recently approved."""
+        """Provide list of Changes that have been recently approved."""
         file_types = data_file_descriptions.keys()
         file_types.remove('map_thumb')
         file_types.remove('map_full')

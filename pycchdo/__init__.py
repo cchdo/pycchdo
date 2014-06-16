@@ -22,6 +22,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy_imageattach.context import push_store_context
 
 from pycchdo import helpers
+from pycchdo.util import reenable_logs, patch_pyramid_exclog
 from pycchdo.routes import configure_routes
 from pycchdo.models.serial import DBSession, Person
 from pycchdo.models.search import SearchIndex
@@ -123,15 +124,6 @@ def create_config(settings):
         authorization_policy=authorization_policy,
         session_factory=session_factory,
     )
-
-
-def reenable_logs():
-    """Renable logs that were disabled by paste fileConfig."""
-    from logging import getLogger
-    rloggers = getLogger().manager.loggerDict
-    for logkey in rloggers.keys():
-        if logkey.startswith('pycchdo.'):
-            rloggers[logkey].disabled = 0
     
 
 def main(global_config, **settings):
@@ -146,6 +138,7 @@ def main(global_config, **settings):
     push_store_context(fsstore)
 
     reenable_logs()
+    patch_pyramid_exclog()
 
     config = create_config(settings)
     _configure(config)

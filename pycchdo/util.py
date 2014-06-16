@@ -1,6 +1,7 @@
 from datetime import datetime
 import socket
 import mimetypes
+from logging import getLogger
 
 from StringIO import StringIO as pyStringIO
 import transaction
@@ -213,6 +214,34 @@ def _munge_sort_order(sorted_tables):
     if i_person < i_obj:
         sorted_tables.remove(table_person)
         sorted_tables.insert(i_obj, table_person)
+
+
+def reenable_logs():
+    """Renable logs that were disabled by paste fileConfig."""
+    rloggers = getLogger().manager.loggerDict
+    for logkey in rloggers.keys():
+        if logkey.startswith('pycchdo.'):
+            rloggers[logkey].disabled = 0
+
+
+def patch_pyramid_exclog():
+    """Patch pyramid_exclog to avoid logging url log."""
+    try:
+        import pyramid_exclog
+    except ImportError:
+        return
+
+    _orig_exclog_tween_factory = pyramid_exclog.exclog_tween_factory
+    def exclog_tween_factory(handler, registry):
+        _orig_exclog_tween = _orig_exclog_tween_factory(handler, registry)
+        def exclog_tween(request, **kwargs):
+            try:
+                request.path_info
+            except UnicodeDecodeError:
+                request.path_info = ''
+            return _orig_exclog_tween(request, **kwargs)
+        return exclog_tween
+    pyramid_exclog.exclog_tween_factory = exclog_tween_factory
 
 
 def _sort_tables(tables):

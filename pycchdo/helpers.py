@@ -1216,17 +1216,21 @@ def data_file_link(request, type, data, leader=None):
     classes = [type.replace('_', ' ')]
     if preliminary:
         classes.append('preliminary')
-        if has_mod(request):
-            items.append(
-                H.td(
-                    tags.form(
-                        '', 'PUT', hidden_fields={
-                            'cruise_id': data.obj.id,
-                            'action': 'edit_attr',
-                            'key': type + '_status'}),
-                    H.input(type='submit', name='edit_action',
-                                   value='Mark reviewed'),
-                    tags.end_form()))
+
+    # add a toggle button for data preliminary status
+    if has_mod(request):
+        if preliminary:
+            action = 'Mark reviewed'
+        else:
+            action = 'Mark preliminary'
+        prelim_toggle = H.td(
+            tags.form(
+                '', 'PUT', hidden_fields={
+                    'cruise_id': data.obj.id, 'action': 'edit_attr',
+                    'key': type + '_status'}),
+            H.input(type='submit', name='edit_action', value=action),
+            tags.end_form())
+        items.append(prelim_toggle)
     classname = ' '.join(classes)
 
     return H.tr(*items, class_=classname)

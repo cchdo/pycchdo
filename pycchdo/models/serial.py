@@ -87,9 +87,6 @@ def reset_fs(fsstore):
             rmtree(os.path.join(root, d))
 
 
-# TODO Store a UOW object that links to multiple changes?
-
-
 def _repr_state(obj):
     if obj.accepted:
         return 'acc'
@@ -606,6 +603,8 @@ class ExtrasJSONEncoder(JSONEncoder):
    def default(self, obj):
        if isinstance(obj, Decimal):
            return float(obj)
+       if not isinstance(obj, list) and hasattr(obj, '__iter__'):
+           return list(obj)
        # Let the base class default method raise the TypeError
        return JSONEncoder.default(self, obj)
 
@@ -920,7 +919,11 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
 
     @property
     def attr_keys(self):
-        return [ccc.attr for ccc in self.changes()]
+        changes = self._changes.\
+            with_entities(distinct(Change.attr), Change.ts_j).\
+            order_by(Change.ts_j.desc())
+        changes = changes.all()
+        return uniquify(filter(None, [c[0] for c in changes]))
 
     def _filter_changes_attr(self, query, attr):
         return query.filter(Change.attr == attr).order_by(Change.ts_j.desc())
@@ -1006,7 +1009,7 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     def get(self, attr, default=None, force_original=False, force_change=False):
         """Get the attribute's value.
 
-        default - the default value if unable to get value (TODO)
+        default - the default value if unable to get value
         force_original - force the getter to return the original value of the
             Change. This implies force_change
         force_change - force the getter to return the last applicable Change
@@ -2491,6 +2494,8 @@ class Cruise(Obj):
         'polymorphic_identity': 'cruise',
     }
 
+    DATA_STATUS_ENDING = '_status'
+
     @property
     def uid(self):
         """A cruise's uid is the ExpoCode unless it is a seahunt cruise."""
@@ -2511,7 +2516,7 @@ class Cruise(Obj):
         """
 # TODO
         for attr in self.attrs_current.values():
-            if attr.key.endswith('_status'):
+            if attr.key.endswith(self.DATA_STATUS_ENDING):
                 if 'preliminary' in attr.value:
                     return True
         return 'preliminary' in self.get('statuses', []) 
@@ -2551,7 +2556,8 @@ class Cruise(Obj):
         if attr == 'participants':
             self.participants = set(value)
             return
-        if attr.endswith('_status'):
+        if attr.endswith(self.DATA_STATUS_ENDING):
+            attr = attr[:-len(self.DATA_STATUS_ENDING)]
             try:
                 self.files[attr].statuses = value
             except KeyError:
@@ -2564,9 +2570,9 @@ class Cruise(Obj):
         try:
             if attr in data_file_descriptions.keys():
                 return self.files[attr].file
-            ending = '_status'
-            if attr.endswith(ending):
-                return self.files[attr[:-len(ending)]].statuses
+            if attr.endswith(self.DATA_STATUS_ENDING):
+                attr = attr[:-len(self.DATA_STATUS_ENDING)]
+                return self.files[attr].statuses
         except KeyError:
             pass
         return super(Cruise, self)._get_cache(attr)
@@ -2770,7 +2776,7 @@ def __allow_attr_cruise():
         ('archive', File, 'Import archive'),
         ]
     for key, name in DataFileTypes.human_names.items():
-        status_key = '{0}_status'.format(key)
+        status_key = '{0}{1}'.format(key, Cruise.DATA_STATUS_ENDING)
         cruise_allow_attrs.extend([
             (key, File, name),
             (status_key, TextList),

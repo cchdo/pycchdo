@@ -20,6 +20,8 @@ from webhelpers import text as whtext
 from sqlalchemy.orm import noload, lazyload, joinedload
 from sqlalchemy.ext.associationproxy import _AssociationList
 
+from libcchdo.fns import uniquify
+
 from pycchdo.models.file_types import data_file_descriptions
 from pycchdo.models.serial import (
     DBSession,
@@ -239,11 +241,11 @@ def _edit_attr(request, cruise_obj):
         request.session.flash(
             u'Suggested that {0} be deleted'.format(key), 'action_taken')
     elif edit_action == 'Mark reviewed':
-        # Remove a cruise file type's preliminary status
+        # Remove a cruise data type's preliminary status
         if not h.has_mod(request):
             request.response.status = '403 Forbidden'
             request.session.flash(
-                'You must be a moderator to mark files as reviewed', 'help')
+                'You must be a moderator to mark data as reviewed', 'help')
             return
         status = cruise_obj.get(key)
         try:
@@ -251,6 +253,25 @@ def _edit_attr(request, cruise_obj):
             cruise_obj.set(request.user, key, status)
             request.session.flash(
                 'Marked {0} for {1} as reviewed'.format(
+                    key.replace('_status', ''), cruise_obj.uid),
+                'action_taken')
+        except ValueError:
+            request.session.flash(
+                '{0} for {1} is already marked reviewed'.format(
+                    key.replace('_status', ''), cruise_obj.uid),
+                'help')
+    elif edit_action == 'Mark preliminary':
+        # Add preliminary status to a cruise data type
+        if not h.has_mod(request):
+            request.response.status = '403 Forbidden'
+            request.session.flash(
+                'You must be a moderator to mark files as preliminary', 'help')
+            return
+        status = uniquify(cruise_obj.get(key) + [u'preliminary'])
+        try:
+            cruise_obj.set(request.user, key, status)
+            request.session.flash(
+                'Marked {0} for {1} as preliminary'.format(
                     key.replace('_status', ''), cruise_obj.uid),
                 'action_taken')
         except ValueError:

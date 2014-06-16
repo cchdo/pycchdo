@@ -70,7 +70,7 @@
         </tr>
       {%- for submission in submissions %}
         {%- set hl = loop.cycle('even', 'odd') %}
-        {%- set attached = submission.attached or None %}
+        {%- set attached = submission.attached or [] %}
         {%- set change = submission.change %}
         <tr class="submission mb-link{{ loop.index0 }} meta {{ hl }} {% if attached %}attached{% endif %}">
           {%- set ident = submission.expocode or ' ' %}
@@ -78,7 +78,10 @@
             <div class="upper">
               {{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}
               {%- if attached %}
-                (ASR: {{ h.link_q(request, attached) }})
+                (ASR: 
+                  {%- for att in attached %}
+                    {{ h.link_q(request, att) }}
+                  {%- endfor %})
               {%- endif %}
             </div>
             <div class="lower">
@@ -88,10 +91,13 @@
           <td class="identifier">
             <div class="upper">
             {%- if attached %}
-              {%- if ident != attached.obj.uid %}
+              {%- set idents = h.corrected_cruises_attached(request, attached) %}
+              {%- if ident not in idents %}
                 {{ whh.tags.link_to(ident, request.route_path('cruise_show', cruise_id=ident), class_='corrected') }}
               {%- endif %}
-              {{ h.link_cruise(attached.obj) }}
+              {%- for att in attached %}
+                {{ h.link_cruise(att.obj) }}
+              {%- endfor %}
             {%- else %}
               {{ whh.tags.link_to(ident, request.route_path('cruise_show', cruise_id=ident)) }}
             {%- endif %}

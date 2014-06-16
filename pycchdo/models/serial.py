@@ -2241,6 +2241,12 @@ class OldSubmission(Obj, FileHolder):
         return None
 
 
+submission_changes = Table('submission_changes', Base.metadata,
+    Column('submission_id', Integer, ForeignKey('submissions.id')),
+    Column('change_id', Integer, ForeignKey('changes.id')),
+)
+
+
 class Submission(Obj, FileHolder):
     """A Submission to the CCHDO.
 
@@ -2256,10 +2262,8 @@ class Submission(Obj, FileHolder):
     type -- the type of submission {public, non-public, argo}
     cruise_date -- the date of the cruise being submitted
     file -- the file that is being suggested
-    attached -- a Change
-        When this is set, the submission has been looked at by a human and
-        the corresponding Change represents verified information representing
-        this submission.
+    attached -- a list of Changes
+        The Changes are human verified representations of this submission.
 
         SPECIAL CASE: This is set to a special attribute of a fake cruise during
         legacy import because there is no good way to determine it without human
@@ -2276,8 +2280,7 @@ class Submission(Obj, FileHolder):
     cruise_date = Column(DateTime)
     type = Column(Unicode)
 
-    attached_id = Column(Integer, ForeignKey('changes.id'))
-    attached = relationship(Change,
+    attached = relationship(Change, secondary=submission_changes, uselist=True,
         backref=backref('submission', uselist=False), lazy='joined')
 
     file_id = Column(Integer, ForeignKey('fsfiles.id'))
@@ -2293,11 +2296,9 @@ class Submission(Obj, FileHolder):
     def identifier(self):
         return self.expocode
 
-    def attach(self, attr, signer):
-        """Attaches the submission to a new Change and accepts the submission.
-
-        """
-        self.attached = attr
+    def attach(self, signer, *attrs):
+        """Attaches the submission to Changes and accepts the submission."""
+        self.attached = list(attrs)
         self.change.accept(signer)
 
     @classmethod
@@ -2305,6 +2306,28 @@ class Submission(Obj, FileHolder):
         """Return Submissions that have not yet been reviewed."""
         # TODO
         return []
+
+    @classmethod
+    def filtered(cls, sid=None, attached=None, argo_type=None):
+        query = cls.query()
+        if sid is not None:
+            query = query.filter(Submission.id == sid)
+        if attached is not None:
+            if attached:
+                query = query.filter(Submission.attached.any())
+            else:
+                query = query.filter(~Submission.attached.any())
+        if argo_type is not None:
+            if argo_type:
+                query = query.filter(Submission.type == 'argo')
+            else:
+                query = query.filter(or_(Submission.type != 'argo',
+                                         Submission.type == None))
+        return query
+
+    def __repr__(self):
+        return u'<Submission({0}, {1}, {2!r})>'.format(
+            self.identifier, self.type, self.attached)
 
 
 uow_suggestions = Table('uow_suggestions', Base.metadata,

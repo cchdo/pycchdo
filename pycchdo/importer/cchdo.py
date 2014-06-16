@@ -1218,7 +1218,9 @@ def _import_events(session):
         for cruise in cruises:
             log.info("Creating Event {0} for cruise {1} {2}".format(
                 event_id, event.ExpoCode, cruise.id))
-            cruise.change._notes.append(note)
+            notes = cruise.change._notes
+            if note not in notes:
+                notes.append(note)
 
 
 _known_bad_old_submissions = [
@@ -1618,9 +1620,7 @@ def _import_submission(session, downloader, updater, dsug, sub):
                 action = ','.join(filter(None, removed.split(',')))
         submission.action = _ustr2uni(action)
     if notes:
-        note = Note(submitter, _ustr2uni(notes))
-        if note not in change._notes:
-            change._notes.append(note)
+        updater.note(change, notes, signer=submitter, ctime=change.ts_c)
 
     try:
         submission.cruise_date = _date_to_datetime(sub.cruise_date)
@@ -1695,7 +1695,7 @@ def _import_submission(session, downloader, updater, dsug, sub):
             queue_file = None
         if not queue_file:
             queue_file = dsug
-        submission.attached = queue_file
+        submission.attached = [queue_file]
 
 
 def _import_submissions(session, downloader):
@@ -1832,13 +1832,12 @@ def _import_queue_files(session, downloader):
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            queue_file._notes.append(
-                Note(submitter, _ustr2uni(qfile.notes)))
+            updater.note(queue_file, qfile.notes, signer=contact,
+                         ctime=queue_file.ts_c)
 
         if qfile.action:
-            queue_file._notes.append(
-                Note(submitter, _ustr2uni(qfile.action),
-                     data_type='action', discussion=True))
+            updater.note(queue_file, qfile.action, data_type='action',
+                         signer=contact, discussion=True, ctime=queue_file.ts_c)
 
         if qfile.parameters or qfile.documentation:
             parameters = qfile.parameters
@@ -1847,14 +1846,12 @@ def _import_queue_files(session, downloader):
             if qfile.documentation:
                 if not re_docs.match(parameters):
                     parameters = u','.join([parameters, 'Documentation'])
-            queue_file._notes.append(
-                Note(updater.importer, parameters, data_type='Parameters',
-                     discussion=True))
+            updater.note(queue_file, parameters, data_type='Parameters',
+                         signer=contact, discussion=True, ctime=queue_file.ts_c)
 
         if qfile.merge_notes:
-            queue_file._notes.append(
-                Note(updater.importer, _ustr2uni(qfile.merge_notes),
-                     discussion=True))
+            updater.note(queue_file, qfile.merge_notes, signer=contact,
+                         discussion=True, ctime=queue_file.ts_j)
 
 
 _DOCS_TYPE_IGNORE = [
@@ -2393,23 +2390,23 @@ def import_(import_gid, nthreads, fsstore, args):
     try:
         with db_session(legacy.session()) as session:
             if not args.files_only:
-                #_import_users(session)
-                #_import_contacts(session)
-                #_import_collections(session)
+                _import_users(session)
+                _import_contacts(session)
+                _import_collections(session)
 
-                #transaction.commit()
-                #transaction.begin()
+                transaction.commit()
+                transaction.begin()
 
-                #_import_cruises(session, nthreads - 1)
+                _import_cruises(session, nthreads - 1)
 
-                #transaction.commit()
-                #transaction.begin()
+                transaction.commit()
+                transaction.begin()
 
-                #_import_track_lines(session)
-                #_import_collections_cruises(session)
+                _import_track_lines(session)
+                _import_collections_cruises(session)
 
-                #transaction.commit()
-                #transaction.begin()
+                transaction.commit()
+                transaction.begin()
 
                 _import_contacts_cruises(session)
 

@@ -110,7 +110,7 @@ def _moderate_submission(request):
         return
 
     attr = cruise.sugg(request.user, data_type, submission.file)
-    submission.attach(attr, request.user)
+    submission.attach(request.user, attr)
 
     request.session.flash(
         'Attached {0} as ASR {1}'.format(_submission_short_text(submission), 
@@ -118,15 +118,13 @@ def _moderate_submission(request):
 
 
 list_queries = OrderedDict([
-    ['Not queued not Argo', lambda _: Submission.query().filter(
-            Submission.attached == None, Submission.type != 'argo')],
-    ['Not queued all', lambda _: Submission.query().filter(Submission.attached == None)],
-    ['Argo', lambda _: Submission.query().filter(Submission.type == 'argo')],
-    ['Queued', lambda _: Submission.query().filter(Submission.attached != None)],
+    ['Not queued not Argo', lambda _: Submission.filtered(attached=False, argo_type=False)],
+    ['Not queued all', lambda _: Submission.filtered(attached=False)],
+    ['Argo', lambda _: Submission.filtered(argo_type=True)],
+    ['Attached', lambda _: Submission.filtered(attached=True)],
     ['All', lambda _: Submission.query()],
     ['Old Submissions', lambda _: OldSubmission.query()],
-    ['unassigned', lambda _: Submission.query().filter(Submission.attached == None)],
-    ['id', lambda request: Submission.query().filter(Submission.id == request.params['query'])],
+    ['id', lambda request: Submission.filtered(sid=request.params['query'])],
 ])
 
 

@@ -26,7 +26,7 @@ from pycchdo.models.serial import (
     Country, Cruise, Person, Collection, Ship, Parameter, ParameterGroup,
     Unit,
     ParameterInformation,
-    ArgoFile,
+    ArgoFile, Submission,
     FSFile,
     )
 
@@ -240,6 +240,36 @@ class TestModelAttrValue(PersonBaseTest):
         iii = Institution.create(self.testPerson).obj
         iii.set(self.testPerson, 'name', 'hello')
         self.assertEqual('hello', iii.get('name', None))
+
+
+class TestModelSubmission(PersonBaseTest):
+    def test_new(self):
+        cc = Cruise.create(self.testPerson).obj
+        ss = Submission.create(self.testPerson).obj
+        ch0 = cc.sugg(self.testPerson, 'import_id', '1')
+        ch1 = cc.sugg(self.testPerson, 'import_id', '2')
+        ss.attach(self.testPerson, ch0, ch1)
+        self.assertEqual(ss.attached, [ch0, ch1])
+
+    def test_not_queued_not_argo(self):
+        ss0 = Submission.create(self.testPerson).obj
+        ss1 = Submission.create(self.testPerson).obj
+        ss2 = Submission.create(self.testPerson).obj
+
+        ss0.attached = []
+
+        ss1.attached = []
+        ss1.type = 'argo'
+
+        cc = Cruise.create(self.testPerson).obj
+        ch0 = cc.sugg(self.testPerson, 'import_id', '1')
+
+        ss2.attached = [ch0]
+
+        self.assertEqual(Submission.filtered(
+            attached=False, argo_type=False).all(), [ss0])
+        self.assertEqual(sorted(Submission.filtered(
+            attached=False).all()), sorted([ss0, ss1]))
 
 
 class TestModelParameter(PersonBaseTest):

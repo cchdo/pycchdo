@@ -19,6 +19,8 @@ from webhelpers import text as whtext
 
 from pyramid.url import route_path
 
+from libcchdo.fns import uniquify
+
 from pycchdo.log import getLogger, INFO, DEBUG
 from pycchdo.models.serial import (
     Note, FSFile
@@ -881,8 +883,8 @@ def link_submission(sub):
 
 
 def link_q(request, attached):
-    """Return a link to a queue file.
-    This is really a link to the cruise page with the queue file fragment.
+    """Return a link to an ASR file.
+    This is really a link to the cruise page with the ASR as a fragment.
 
     """
     ident = attached.obj.uid
@@ -890,6 +892,11 @@ def link_q(request, attached):
         request.route_path(
             'cruise_show', cruise_id=ident,
             _anchor='as_received_{0}'.format(attached.id)))
+
+
+def corrected_cruises_attached(request, attached):
+    """Return the unique cruise ids for the attached ASRs."""
+    return uniquify([att.obj.uid for att in attached])
 
 
 def change_pretty(change):

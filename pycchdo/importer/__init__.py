@@ -98,20 +98,18 @@ class Updater:
     def create_accept(self, klass):
         return klass.create(self.importer).obj
 
-    def note(self, obj, note, data_type=None, ctime=None):
+    def note(self, obj, note, data_type=None, signer=None, discussion=False, ctime=None):
         if not note:
             return
-        matched_note = False
-        for n in obj.notes:
-            if n.body == note:
-                matched_note = True
-                break
-        if not matched_note:
-            note = Note(
-                self.importer, _ustr2uni(note), data_type=data_type)
-            if ctime:
-                note.ts_c = ctime
-            obj.notes.append(note)
+        if signer is None:
+            signer = self.importer
+        new_note = Note(signer, _ustr2uni(note), data_type=data_type,
+                        discussion=discussion)
+        if ctime:
+            new_note.ts_c = ctime
+        if new_note not in obj._notes:
+            obj._notes.append(new_note)
+        return new_note
 
     def attr(self, obj, key, value, accept=True, note=None,
              note_data_type=None, creation_time=None, attr=None):

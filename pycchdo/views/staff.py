@@ -13,12 +13,12 @@ from collections import OrderedDict
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, subqueryload
 
-from pyramid.httpexceptions import HTTPUnauthorized
+from pyramid.httpexceptions import HTTPUnauthorized, HTTPBadRequest
 
 import transaction
 
 from pycchdo.helpers import (
-    link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_q
+    link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_asr
     )
 from pycchdo.models.serial import (
     DBSession, Submission, OldSubmission, Change, Cruise, Person
@@ -114,12 +114,12 @@ def _moderate_submission(request):
 
     request.session.flash(
         'Attached {0} as ASR {1}'.format(_submission_short_text(submission), 
-            link_q(request, attr)), 'action_taken')
+            link_asr(request, attr)), 'action_taken')
 
 
 list_queries = OrderedDict([
-    ['Not queued not Argo', lambda _: Submission.filtered(attached=False, argo_type=False)],
-    ['Not queued all', lambda _: Submission.filtered(attached=False)],
+    ['Not attached not Argo', lambda _: Submission.filtered(attached=False, argo_type=False)],
+    ['Not attached all', lambda _: Submission.filtered(attached=False)],
     ['Argo', lambda _: Submission.filtered(argo_type=True)],
     ['Attached', lambda _: Submission.filtered(attached=True)],
     ['All', lambda _: Submission.query()],
@@ -137,8 +137,13 @@ def submissions(request):
         _moderate_submission(request)
 
     query = request.params.get('query', '')
-    ltype = request.params.get('ltype', 'Not queued not Argo')
-    squery = list_queries[ltype](request)
+    ltype = request.params.get('ltype', list_queries.keys()[0])
+    try:
+        squery = list_queries[ltype](request)
+    except KeyError:
+        ltype = list_queries.keys()[0]
+# TODO redirect instead
+        squery = list_queries[ltype](request)
     squery = squery.with_transformation(Submission.change.join)
     squery = squery.with_transformation(Change.p_c.join)
     if query and ltype != 'id':

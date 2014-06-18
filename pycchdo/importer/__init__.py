@@ -12,6 +12,9 @@ from pyramid.paster import get_appsettings
 from sqlalchemy import engine_from_config
 from sqlalchemy.orm import lazyload
 
+from libcchdo.log import LOG as libcchdo_log
+from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
+
 from pycchdo.models.serial import (
     Change, Note,
     DBSession, reset_database, reset_fs, 
@@ -22,8 +25,6 @@ from pycchdo.models.filestorage import copy_chunked
 from pycchdo.models.filestorage import FSStore
 from pycchdo.util import guess_mime_type
 from pycchdo.log import getLogger, color_console, DEBUG, INFO, WARN, ERROR
-
-from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
 
 
 __all__ = [
@@ -214,6 +215,7 @@ def do_import():
         log.error('No such user {}'.format(username))
         argparser.exit(1)
 
+    libcchdo_log.setLevel(WARN)
     log.setLevel(ERROR)
     if args.verbose >= 0:
         log.setLevel(WARN)

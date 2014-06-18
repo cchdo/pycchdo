@@ -77,26 +77,21 @@
           <td class="id">
             <div class="upper">
               {{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}
-              {%- if attached %}
-                (ASR: 
-                  {%- for att in attached %}
-                    {{ h.link_q(request, att) }}
-                  {%- endfor %})
-              {%- endif %}
             </div>
-            <div class="lower">
-              {{ h.link_file_holder(submission) }}
+            <div class="lower asrs">
+              {{ h.correlated_submission_attached(request, submission) }}
             </div>
           </td>
           <td class="identifier">
             <div class="upper">
             {%- if attached %}
-              {%- set idents = h.corrected_cruises_attached(request, attached) %}
+              {%- set cruises = h.corrected_cruises_attached(request, attached) %}
+              {%- set idents = h.cruises_to_uids(cruises) %}
               {%- if ident not in idents %}
                 {{ whh.tags.link_to(ident, request.route_path('cruise_show', cruise_id=ident), class_='corrected') }}
               {%- endif %}
-              {%- for att in attached %}
-                {{ h.link_cruise(att.obj) }}
+              {%- for cruise in cruises %}
+                {{ h.link_cruise(cruise) }}
               {%- endfor %}
             {%- else %}
               {{ whh.tags.link_to(ident, request.route_path('cruise_show', cruise_id=ident)) }}

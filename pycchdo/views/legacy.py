@@ -1,6 +1,6 @@
 from pyramid.httpexceptions import HTTPMovedPermanently, HTTPNotFound, HTTPSeeOther
 
-import pycchdo.models as models
+from pycchdo.models.serial import FSFile
 
 
 def map_search(request):
@@ -37,7 +37,7 @@ def data_df(request):
     """Serve legacy data files that used to be served from /data prefix."""
     url = '/' + '/'.join(['data'] + list(request.matchdict['rest']))
 
-    fsf = FSFile.query().filter(FSFile.import_filepath == url).first()
+    fsf = FSFile.query().filter(FSFile.import_path == url).first()
 
     if not fsf:
         raise HTTPNotFound()

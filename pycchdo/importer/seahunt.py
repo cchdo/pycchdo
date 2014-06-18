@@ -502,7 +502,7 @@ def _import_contact(contact, updater):
         updater.attr(p, 'programs', programs)
 
     if contact.notes:
-        updater.note(p, contact.notes)
+        updater.note(p.change, contact.notes)
     return p
 
 
@@ -573,7 +573,7 @@ def _import_resource(resource, updater, downloader):
         updater.note(a, resource.description, resource.note)
         a.ts_c = resource.created_at
     elif resource.type == 'NoteResource':
-        updater.note(cruise, resource.note, resource.description)
+        updater.note(cruise.change, resource.note, resource.description)
     elif (resource.type == 'FileResource' or
           resource.type == 'ThumbMapResource' or
           resource.type == 'MapResource'):
@@ -638,9 +638,9 @@ def _import_suggestion(suggestion, updater):
     updater.attr(cruise, 'country', suggestion.country, accept=False)
     updater.attr(cruise, 'ship', suggestion.ship, accept=False)
     updater.attr(cruise, 'link', suggestion.url, accept=False)
-    updater.note(cruise, suggestion.notes)
-    updater.note(cruise, suggestion.programs, 'programs')
-    updater.note(cruise, suggestion.contacts, 'contacts')
+    updater.note(cruise.change, suggestion.notes)
+    updater.note(cruise.change, suggestion.programs, 'programs')
+    updater.note(cruise.change, suggestion.contacts, 'contacts')
 
     updater.attr(
         cruise, 'institutions', suggestion.institutions.split(','),

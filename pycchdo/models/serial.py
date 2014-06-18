@@ -14,7 +14,7 @@ from sqlalchemy import (
     Table, Column, ForeignKey, 
     Integer, Unicode, String, Boolean, DateTime,
     )
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, ProgrammingError
 from sqlalchemy.sql import (
     func, and_, not_, or_,
     )
@@ -73,7 +73,10 @@ DBSession = scoped_session(Session)
 def reset_database(engine):
     """Clears the database and recreates schema."""
     drop_everything(engine)
-    engine.execute(DropSchema(Meta.schema, cascade=True))
+    try:
+        engine.execute(DropSchema(Meta.schema, cascade=True))
+    except ProgrammingError:
+        pass
     engine.execute(CreateSchema(Meta.schema))
     Meta.create_all(engine)
 
@@ -366,6 +369,10 @@ class Change(Base, MixinCreation, DBQueryable):
     requests = relationship(
         'RequestFor', backref='change', cascade='all, delete-orphan')
 
+    # Used mainly for file import
+    file_holder_type = 'c'
+    import_id = Column(String)
+
     __table_args__ = (
         Index('idx_changes_accepted_attr', 'accepted', 'attr'),
         )
@@ -409,8 +416,6 @@ class Change(Base, MixinCreation, DBQueryable):
 
         """
         self._value = self.obj.serialize(self.attr, val)
-        if isinstance(val, FieldStorage) or isinstance(val, FSFile):
-            self.value.change = self
 
     @property
     def value_original(self):
@@ -661,7 +666,8 @@ class SerializerObj(Serializer):
     @classmethod
     def serialize(cls, value):
         try:
-            return dumps({'type': 'obj', 'obj_type': cls.__name__, 'val': value.id})
+            return dumps({'type': 'obj', 'obj_type': type(value).__name__,
+                          'val': value.id})
         except AttributeError:
             return dumps({'type': 'u', 'val': value})
 
@@ -698,7 +704,11 @@ class SerializerObjs(SerializerObj):
     def serialize(cls, value):
         try:
             ids = [obj.id for obj in value]
-            return dumps({'type': 'objs', 'obj_type': cls.__name__, 'val': ids})
+            try:
+                otype = type(value[0]).__name__
+            except (TypeError, IndexError):
+                otype = 'Obj'
+            return dumps({'type': 'objs', 'obj_type': otype, 'val': ids})
         except AttributeError:
             return dumps({'type': 'u', 'val': value})
 
@@ -1212,30 +1222,12 @@ class Participants(InstrumentedSet):
 
 
 class FSFile(Base, DBQueryable, AdaptedFile):
-    """A file record that points to the filesystem file.
-
-    # FIXME
-    This is no longer true. FSFile is linked to a change.
-    FSFile is stored as an Obj because it is difficult to find a Change based on
-    FSFile import id if the only link is via a string id.
-    Actually... I don't understand. If attr_by_import_id is only used for import
-    reimplement to not have FSfile inherit from Obj.
-
-    """
+    """A file record that points to the filesystem file."""
     __tablename__ = 'fsfiles'
 
     id = Column(Integer, primary_key=True)
-
     name = Column(Unicode)
 
-    change_id = Column(ForeignKey('changes.id'))
-    change = relationship(Change,
-        backref=backref('file', single_parent=True, uselist=False,
-                        cascade='all, delete-orphan'))
-
-    # Stores information used by pycchdo.importer.cchdo to correlate ArgoFiles
-    # with Documents and QueueFiles with QueueFiles.
-    import_id = Column(Unicode)
     import_path = Column(Unicode)
 
     __mapper_args__ = {
@@ -1261,14 +1253,6 @@ class FSFile(Base, DBQueryable, AdaptedFile):
         DBSession.add(fsf)
         DBSession.flush()
         return fsf
-
-    @classmethod
-    def attr_by_import_id(cls, import_id):
-        """Return attr Change matching FSFile import_id.
-
-        """
-        return Change.query().join(FSFile).\
-            filter(FSFile.import_id == import_id).first()
 
     def __unicode__(self):
         return u'FSFile({0}, {1!r})'.format(self.id, self.name)
@@ -2102,11 +2086,42 @@ class FileHolder(object):
     """
     @property
     def value(self):
-        return self.file
+        return self._file
 
     @value.setter
     def value(self, o):
         self.file = o
+
+    @property
+    def file(self):
+        return self._file
+
+    @file.setter
+    def file(self, o):
+        self._file = o
+
+    @property
+    def file_holder_type(self):
+        if isinstance(self, Submission):
+            return 's'
+        elif isinstance(self, OldSubmission):
+            return 'o'
+        elif isinstance(self, ArgoFile):
+            return 'a'
+        else:
+            raise ValueError(
+                u'No file holder type assigned for {0}'.format(self))
+
+    @classmethod
+    def file_holder(cls, fht):
+        if fht == 's':
+            return Submission
+        elif fht == 'o':
+            return OldSubmission
+        elif fht == 'a':
+            return ArgoFile
+        else:
+            return Change
 
     def cruises_from_identifier(self):
         try:
@@ -2157,7 +2172,7 @@ class ArgoFile(Obj, FileHolder):
     display = Column(Boolean)
 
     file_id = Column(Integer, ForeignKey('fsfiles.id'))
-    file = relationship(
+    _file = relationship(
         'FSFile', foreign_keys=[file_id], single_parent=True,
         cascade='all, delete-orphan')
 
@@ -2228,7 +2243,7 @@ class OldSubmission(Obj, FileHolder):
     folder = Column(Unicode)
 
     file_id = Column(Integer, ForeignKey('fsfiles.id'))
-    file = relationship(
+    _file = relationship(
         'FSFile', foreign_keys=[file_id], single_parent=True,
         cascade='all, delete-orphan')
 
@@ -2281,10 +2296,11 @@ class Submission(Obj, FileHolder):
     type = Column(Unicode)
 
     attached = relationship(Change, secondary=submission_changes, uselist=True,
-        backref=backref('submission', uselist=False), lazy='joined')
+        backref=backref('submission', uselist=False), lazy='joined',
+        cascade='all, delete')
 
     file_id = Column(Integer, ForeignKey('fsfiles.id'))
-    file = relationship(
+    _file = relationship(
         'FSFile', foreign_keys=[file_id], single_parent=True,
         cascade='all, delete-orphan')
 

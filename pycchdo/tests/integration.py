@@ -53,7 +53,7 @@ class ViewIntegrationTests(BaseTest):
         data_attr.permissions = {}
         DBSession.flush()
 
-        request.matchdict['data_id'] = data_attr.id
+        request.matchdict['data_id'] = 'c{0}'.format(data_attr.id)
 
         # No permissions required, no user -> ok
         request.user = None

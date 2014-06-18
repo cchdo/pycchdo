@@ -13,11 +13,13 @@ table.has-meta-bodies .header {
 table.has-meta-bodies tr,
 table.has-meta-bodies th,
 table.has-meta-bodies td {
+  vertical-align: top;
   padding: 0.3em;
 }
 
 .info th {
   text-align: right;
+  width: 6em;
 }
 .info th,
 .info td {
@@ -29,10 +31,14 @@ table.has-meta-bodies td {
 
 .identifier a.corrected { text-decoration: line-through; }
 
-.attached.even { background-color: #D9EAED; }
-.attached.odd { background-color: #C9DADD; }
-.attached.even.open { background-color: #D1E2E5; }
-.attached.odd.open { background-color: #C1D2D5; }
+.has-meta-bodies .attached.even { background-color: #D9EAED; }
+.has-meta-bodies .attached.odd { background-color: #C9DADD; }
+.has-meta-bodies .attached.even.open { background-color: #D1E2E5; }
+.has-meta-bodies .attached.odd.open { background-color: #C1D2D5; }
+
+.submission_asrs .asrs {
+  width: 5em;
+}
 
 .tools label {
   margin-right: 0.5em;

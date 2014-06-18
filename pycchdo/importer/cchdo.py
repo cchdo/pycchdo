@@ -6,8 +6,8 @@ import tempfile
 import os
 import re
 import tarfile
-import shutil
-from contextlib import closing
+from shutil import copyfileobj, rmtree
+from contextlib import closing, contextmanager
 from copy import copy
 from threading import current_thread, Thread, Lock
 import traceback
@@ -1275,7 +1275,7 @@ def _import_old_submissions(session, downloader):
                             zipi.compress_type = zipfile.ZIP_DEFLATED
                             zipf.writestr(zipi, dfile.read())
                 with su(su_lock=downloader.su_lock):
-                    submission.file = FSFile(temp, '{0}.zip'.format(folder))
+                    submission.value = FSFile(temp, '{0}.zip'.format(folder))
                     DBSession.flush()
         sub = subs[0]
         submission.ts_c = _date_to_datetime(sub.Date)
@@ -1337,8 +1337,6 @@ def _import_internal(session):
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', i.expocode)
 
-        # TODO it may be better to map the cruise to the collection and let
-        # basin attribute on collection figure out the rest.
         collection = import_Collection(updater, i.Basin, 'basin')
         _add_cruise_to_collection(updater, cruise, collection)
 
@@ -1561,6 +1559,46 @@ _KNOWN_MISSING_SUBMISSIONS = [
     ]
 
 
+def _submission_to_fieldstorage(fileobj, submission):
+    if not fileobj:
+        log.error(u'unable to get file for {0}'.format(submission))
+        raise ValueError()
+
+    fname = os.path.basename(fileobj.name)
+    fs = FieldStorage()
+    fs.filename = fname
+    fs.file = fileobj
+
+    # unzip multiple_files*.zips that are actually just one file
+    if fname.startswith('multiple_files') and fname.endswith('.zip'):
+        # ZipFile.open will clobber the file object so make a copy
+        with closing(SpooledTemporaryFile()) as temp:
+            copyfileobj(fileobj, temp)
+            fileobj.seek(0)
+            temp.seek(0)
+            with zipfile.ZipFile(temp) as zf:
+                infos = zf.infolist()
+                if len(infos) == 1:
+                    with closing(SpooledTemporaryFile()) as tempzipf:
+                        zippedf = zf.open(infos[0])
+                        copyfileobj(zippedf, tempzipf)
+                        tempzipf.seek(0)
+                        fs.filename = infos[0].filename
+                        fs.file = tempzipf
+                        fs.type = guess_mime_type(fs.filename)
+                        return FSFile.from_fieldstorage(fs)
+                elif len(infos) == 0:
+                    log.error(u'Empty submission.')
+                    raise ValueError()
+                else:
+                    # multiple file submission. just leave it as is.
+                    fs.type = guess_mime_type(fs.filename)
+                    return FSFile.from_fieldstorage(fs)
+    else:
+        fs.type = guess_mime_type(fs.filename)
+        return FSFile.from_fieldstorage(fs)
+
+
 def _import_submission(session, downloader, updater, dsug, sub):
     import_id = str(sub.id)
     submission = Submission.query().filter(
@@ -1630,52 +1668,16 @@ def _import_submission(session, downloader, updater, dsug, sub):
                 sub.id, sub.cruise_date))
 
     if file_path in _KNOWN_MISSING_SUBMISSIONS:
-        log.info(u'Skipped known missing submission: %s', file_path)
+        log.warn(u'Skipped known missing submission: %s', file_path)
+        submission.remove()
         return
 
-    with downloader.dl(file_path) as file:
-        if not file:
-            submission.remove()
-            log.error(u'unable to get file for Submission %s', import_id)
-            return
-
-        fname = os.path.basename(file_path)
-        fs = FieldStorage()
-        fs.filename = fname
-        fs.file = file
-
-        # unzip multiple_files*.zips that are actually just one file
-        if fname.startswith('multiple_files') and fname.endswith('.zip'):
-            # ZipFile.open will clobber the file object so make a copy
-            with closing(StringIO()) as temp:
-                copy_chunked(file, temp)
-                with zipfile.ZipFile(temp) as zf:
-                    infos = zf.infolist()
-                    if len(infos) == 1:
-                        tempzipf = NamedTemporaryFile()
-                        zippedf = zf.open(infos[0])
-                        copy_chunked(zippedf, tempzipf)
-                        fs.filename = infos[0].filename
-                        fs.file = tempzipf
-                        fs.type = guess_mime_type(fs.filename)
-                        with su(su_lock=downloader.su_lock):
-                            submission.file = FSFile.from_fieldstorage(fs)
-                        tempzipf.close()
-                    elif len(infos) == 0:
-                        log.error(u'Empty submission.')
-                    else:
-                        # multiple file submission. just leave it as is
-                        # for now...
-                        # TODO split it out into multiple submissions?
-                        fs.type = guess_mime_type(fs.filename)
-                        with su(su_lock=downloader.su_lock):
-                            submission.file = FSFile.from_fieldstorage(fs)
-        else:
-            fs.type = guess_mime_type(fs.filename)
-            with su(su_lock=downloader.su_lock):
-                submission.file = FSFile.from_fieldstorage(fs)
-
-    DBSession.flush()
+    try:
+        with downloader.dl(file_path) as fobj, su(su_lock=downloader.su_lock):
+            submission.value = _submission_to_fieldstorage(fobj, submission)
+    except ValueError:
+        submission.remove()
+        return
 
     submission.type = submission_public_to_type(sub.public, argo_action)
 
@@ -1684,18 +1686,21 @@ def _import_submission(session, downloader, updater, dsug, sub):
     # This means, ideally, every assimilated submission has a queue file
     # entry. Find the imported queue file and attach that one.
     assimilated = bool(sub.assimilated)
-    if assimilated:
-        if sub.queue_file:
-            q_import_id = str(sub.queue_file.id)
-            queue_file = FSFile.attr_by_import_id(q_import_id)
-            if not queue_file:
-                log.error(u'Unable to find queue file {0} for assimilated '
+    if not assimilated:
+        return
+    asrs = []
+    if sub.queue_files:
+        for asr in sub.queue_files:
+            q_import_id = 'fsf{0}'.format(asr.id)
+            asr = Change.query().filter(Change.import_id == q_import_id).first()
+            if not asr:
+                log.error(u'Unable to find ASR {0} for assimilated '
                           'suggestion {1}'.format(q_import_id, sub.id))
-        else:
-            queue_file = None
-        if not queue_file:
-            queue_file = dsug
-        submission.attached = [queue_file]
+            else:
+                asrs.append(asr)
+    else:
+        asrs = [dsug]
+    submission.attached = asrs
 
 
 def _import_submissions(session, downloader):
@@ -1713,12 +1718,14 @@ def _import_submissions(session, downloader):
     # We need to create a cruise that does not appear for "assimilated"
     # submissions to be attached to it. This allows them to be marked
     # assimilated.
-    cruise = get_by_import_id(Cruise, u'submissions_assimilated')
+    assimilated_import_id = u'submissions_assimilated'
+    cruise = get_by_import_id(Cruise, assimilated_import_id)
     if not cruise:
         cruise = Cruise.propose(updater.importer).obj
-        cruise.import_id = 'submissions_assimilated'
+        cruise.import_id = assimilated_import_id
         cruise.set(updater.importer, 'expocode', 'Assimilated')
-    dsug = cruise.get_attr_change('importer_id')
+
+    dsug = cruise.get_attr_change('data_suggestion')
     if not dsug:
         dsug = submission_fake_queue_file(updater, cruise)
 
@@ -1734,8 +1741,11 @@ def submission_fake_queue_file(updater, cruise):
     file.
 
     """
-    return cruise.sugg(updater.importer, 'import_id',
-                       'assimilated submission with no queue file')
+    fsf = FieldStorage()
+    fsf.name = 'assimilated.txt'
+    fsf.file = StringIO('assimilated submission with no queue file')
+    fsf.type = 'text/plain'
+    return cruise.sugg(updater.importer, 'data_suggestion', fsf)
 
 
 def _import_queue_files(session, downloader):
@@ -1759,7 +1769,7 @@ def _import_queue_files(session, downloader):
             submitter, inst = _import_person_inst(
                 updater, contact_name, '', '', '')
 
-        import_id = str(qfile.id)
+        import_id = 'fsf{0}'.format(qfile.id)
         log.info("Importing ASR {0}".format(import_id))
         unprocessed_input = qfile.unprocessed_input.strip()
         if qfile.date_received:
@@ -1767,19 +1777,20 @@ def _import_queue_files(session, downloader):
         else:
             date_received = None
 
-        queue_file = FSFile.attr_by_import_id(import_id)
+        queue_file = Change.query().filter(
+            Change.import_id == import_id).first()
         if not queue_file or not queue_file.value:
             log.info('Creating ASR %s' % import_id)
 
-            with downloader.dl(unprocessed_input) as file:
-                if file is None:
+            with downloader.dl(unprocessed_input) as fobj:
+                if fobj is None:
                     log.warn("Missing queue file %s. Skip." % unprocessed_input)
                     continue
                 else:
                     actual_file = FieldStorage()
                     actual_file.filename = qfile.Name
                     actual_file.type = guess_mime_type(qfile.Name)
-                    actual_file.file = file
+                    actual_file.file = fobj
 
                 # A file in the "queue" is a file that has been attached to a
                 # cruise and no more. We can't really guess the data type
@@ -1788,8 +1799,7 @@ def _import_queue_files(session, downloader):
                 with su(su_lock=downloader.su_lock):
                     queue_file = cruise.sugg(updater.importer,
                         'data_suggestion', actual_file)
-                # Set the import id on the FSFile
-                queue_file.value.import_id = import_id
+                queue_file.import_id = import_id
 
             queue_file.p_c = submitter
             if not date_received:
@@ -1832,12 +1842,12 @@ def _import_queue_files(session, downloader):
         # hidden flag is obsolete according to cberys
 
         if qfile.notes:
-            updater.note(queue_file, qfile.notes, signer=contact,
+            updater.note(queue_file, qfile.notes, signer=submitter,
                          ctime=queue_file.ts_c)
 
         if qfile.action:
             updater.note(queue_file, qfile.action, data_type='action',
-                         signer=contact, discussion=True, ctime=queue_file.ts_c)
+                         signer=submitter, discussion=True, ctime=queue_file.ts_c)
 
         if qfile.parameters or qfile.documentation:
             parameters = qfile.parameters
@@ -1997,7 +2007,7 @@ def _import_documents_unaccounted(
 
             with su(su_lock=downloader.su_lock):
                 archive_attr = updater.attr(cruise, 'archive', fs_archive)
-                archive_attr.value.import_id = archive_import_id
+                archive_attr.import_id = archive_import_id
                 archive_attr.permissions_read = ['staff', ]
             unaccounted_archive.close()
     finally:
@@ -2074,9 +2084,9 @@ def _import_documents_for_cruise(downloader, docs, expocode):
         if data_type == 'ignore':
             continue
 
-        doc_import_id = str(doc.id)
+        doc_import_id = 'fsf{0}'.format(doc.id)
         log.debug(u'checking import status of {0}'.format(doc_import_id))
-        attr = FSFile.attr_by_import_id(doc_import_id)
+        attr = Change.query().filter(Change.import_id == doc_import_id).first()
         if attr:
             log.info('%s already imported' % doc_import_id)
             continue
@@ -2123,7 +2133,7 @@ def _import_documents_for_cruise(downloader, docs, expocode):
             with su(su_lock=downloader.su_lock):
                 attr = updater.attr(cruise, data_type, field)
                 attr.value.import_path = doc.FileName
-                attr.value.import_id = doc_import_id
+                attr.import_id = doc_import_id
 
         date_creation = doc.Modified
         date_accepted = doc.LastModified
@@ -2327,7 +2337,7 @@ def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remo
         if f:
             fs_argo.file = f
             with su(su_lock=downloader.su_lock):
-                argo_file.file = FSFile.from_fieldstorage(fs_argo)
+                argo_file.value = FSFile.from_fieldstorage(fs_argo)
         else:
             log.error(
                 u'Unable to attach argo file by download: could not '
@@ -2442,6 +2452,7 @@ def import_(import_gid, nthreads, fsstore, args):
                 _import_old_submissions(session, downloader)
                 _import_documents(session, downloader, nthreads - 1)
                 _import_argo_files(session, downloader)
+                DBSession.flush()
             transaction.commit()
     except (KeyboardInterrupt, Exception):
         log.info('aborted transaction')

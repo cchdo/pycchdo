@@ -2,7 +2,8 @@ from datetime import datetime, date
 from urllib import quote
 from json import dumps
 from copy import copy
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from zipfile import ZipFile, BadZipfile
 import os.path
 import os
 import re
@@ -18,6 +19,8 @@ from webhelpers.html import tags, tools as whhtools
 from webhelpers import text as whtext
 
 from pyramid.url import route_path
+
+from sqlalchemy_imageattach.context import store_context
 
 from libcchdo.fns import uniquify
 
@@ -193,6 +196,13 @@ def title(**kwargs):
     if content:
         return content + ' | '
     return ''
+
+
+def lim_str(string, ellipsis='...', limit=40):
+    """Return an HTML snippet that limits the characters of the given string."""
+    if len(string) > limit:
+        return H.span(string[:limit - len(ellipsis)] + ellipsis, title=string)
+    return string
 
 
 def form_entered(request, key, value=None):
@@ -882,21 +892,61 @@ def link_submission(sub):
         sub.id, '/staff/submissions.html?ltype=id&query={0}'.format(sub.id))
 
 
-def link_q(request, attached):
+def link_asr(request, attached):
     """Return a link to an ASR file.
     This is really a link to the cruise page with the ASR as a fragment.
 
     """
     ident = attached.obj.uid
-    return tags.link_to(attached.id,
+    return tags.link_to('ASR {0}'.format(attached.id),
         request.route_path(
             'cruise_show', cruise_id=ident,
             _anchor='as_received_{0}'.format(attached.id)))
 
 
+def correlated_submission_attached(request, submission):
+    """Return a table of all submitted files and their ASRs."""
+    with store_context(request.fsstore):
+        rows = []
+
+        # Match the submitted files with the ASRs
+        attached = submission.attached
+        name_asrs = defaultdict(list)
+        for att in attached:
+            name_asrs[att.value.name].append(att)
+
+        file_asrs = []
+        mfile = submission.file
+        if (    mfile.mimetype == 'application/zip' and
+                mfile.name.startswith('multiple_files')):
+            # First, link the full submission data
+            rows.append(H.tr(H.td(link_file_holder(submission))))
+
+            zfobj = mfile.open_file()
+            try:
+                with ZipFile(zfobj, 'r') as zfile:
+                    for zinfo in zfile.infolist():
+                        asrs = name_asrs[zinfo.filename]
+                        file_asrs.append((lim_str(zinfo.filename), asrs))
+            except BadZipfile:
+                log.error('Bad zip submission {0} {1}'.format(
+                    submission.id, mfile))
+        else:
+            file_asrs = [(link_file_holder(submission), attached)]
+        for fname, asrs in file_asrs:
+            asr_links = [link_asr(request, asr) for asr in asrs]
+            asr_link = whh.literal(', '.join(asr_links))
+            rows.append(H.tr(H.td(fname), H.td(asr_link, class_='asrs')))
+        return H.table(*rows, class_='submission_asrs')
+
+
+def cruises_to_uids(cruises):
+    return [c.uid for c in cruises]
+
+
 def corrected_cruises_attached(request, attached):
-    """Return the unique cruise ids for the attached ASRs."""
-    return uniquify([att.obj.uid for att in attached])
+    """Return the unique cruises for the attached ASRs."""
+    return uniquify([att.obj for att in attached])
 
 
 def change_pretty(change):
@@ -931,23 +981,26 @@ def change_pretty(change):
         class_='change')
 
 
-def data_uri(data, original=False):
-    """ Given a Change that holds a file, provides a link to the file. """
-    if not data:
+def data_uri(fholder, original=False):
+    """Given a FileHolder, provides a link to the file."""
+    if not fholder:
         log.error('Cannot link to nothing')
+        return '/404.html'
     if original:
-        val = data.value_original
+        val = fholder.value_original
     else:
-        val = data.value
+        val = fholder.value
     if not val:
         log.error('Cannot link to nothing')
     if type(val) is not FSFile:
-        log.error('Cannot link to non-FSFile value %s' % data.id)
+        log.error('Cannot link to non-FSFile value %s' % fholder.id)
         return '/404.html'
+
+    fht = fholder.file_holder_type
     if original:
-        return '/data/b/{id}?orig=1'.format(id=data.id)
+        return '/data/b/{fht}{id}?orig=1'.format(fht=fht, id=fholder.id)
     else:
-        return '/data/b/{id}'.format(id=data.id)
+        return '/data/b/{fht}{id}'.format(fht=fht, id=fholder.id)
 
 
 def short_data_type(type):

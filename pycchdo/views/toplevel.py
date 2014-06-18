@@ -11,7 +11,7 @@ from jinja2.exceptions import TemplateNotFound
 
 from pycchdo.models.serial import (
     Change, Cruise, Parameter, Unit, ParameterGroup, Collection, 
-    Submission,
+    Submission, FileHolder,
     )
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views import *
@@ -155,44 +155,41 @@ def contributions(request):
 
 def data(request):
     """Returns data."""
-    id = request.matchdict['data_id']
+    data_id = str(request.matchdict['data_id'])
     original = request.params.get('orig', False)
 
+    fht = data_id[0]
+    did = data_id[1:]
+
     try:
-        data = Change.query().get(id)
-    except TypeError:
+        fholder = FileHolder.file_holder(fht).query().get(did)
+    except (ValueError, TypeError):
         raise HTTPNotFound()
-
-    if not data:
-        try:
-            data = Submission.query().get(id).value
-        except ValueError:
-            raise HTTPNotFound()
-
-    if not data:
+    if not fholder:
         raise HTTPNotFound()
 
     # Ensure the HTTP session is authorized to read the data
-    perms = None
     try:
-        perms = data.permissions_read
-    except (KeyError, AttributeError):
-        pass
-    if perms:
+        perms = fholder.permissions_read
         try:
-            if not request.user.is_authorized(perms):
+            if perms and not request.user.is_authorized(perms):
                 raise HTTPUnauthorized()
         except AttributeError:
             raise HTTPUnauthorized()
+    except (KeyError, AttributeError):
+        pass
 
-    # If data is not accepted, only show it to signed in users.
-    if not data.is_accepted() and not request.user:
-        raise HTTPUnauthorized()
+    # If fholder is not accepted, only show it to signed in users.
+    try:
+        if not fholder.is_accepted() and not request.user:
+            raise HTTPUnauthorized()
+    except AttributeError:
+        pass
 
     if original:
-        return file_response(request, data.value_original)
+        return file_response(request, fholder.value_original)
     else:
-        return file_response(request, data.value)
+        return file_response(request, fholder.value)
 
 
 def catchall_static(request):

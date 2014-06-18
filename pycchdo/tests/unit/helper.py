@@ -31,7 +31,7 @@ class TestHelper(PersonBaseTest):
         answer_parts = [
             'class="bottle exchange"',
             '<abbr title="ASCII .csv bottle data with station information">',
-            '<a href="/data/b/{id}">Bottle</a>'.format(id=data.id),
+            '<a href="/data/b/c{id}">Bottle</a>'.format(id=data.id),
         ]
         answer = unicode(data_file_link(request, 'bottle_exchange', data))
         for part in answer_parts:
@@ -40,7 +40,7 @@ class TestHelper(PersonBaseTest):
         answer_parts = [
             'class="ctd zip exchange"',
             '<abbr title="ZIP archive of ASCII .csv CTD data with station information">',
-            '<a href="/data/b/{id}">CTD</a>'.format(id=data.id),
+            '<a href="/data/b/c{id}">CTD</a>'.format(id=data.id),
         ]
         answer = unicode(data_file_link(request, 'ctd_zip_exchange', data))
         for part in answer_parts:

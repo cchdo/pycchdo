@@ -178,7 +178,7 @@ def submit(request):
                 sub.action = ', '.join(d['action_list'])
             if d['public_status']:
                 sub.type = d['public_status']
-            sub.file = FSFile.from_fieldstorage(file)
+            sub.value = FSFile.from_fieldstorage(file)
             if d['notes']:
                 sub.notes.append(Note(user, d['notes']))
             DBSession.flush()

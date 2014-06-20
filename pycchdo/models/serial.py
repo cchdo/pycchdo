@@ -444,7 +444,7 @@ class Change(Base, MixinCreation, DBQueryable):
             self.value = val
         else:
             self.value_accepted = val
-        self.set_cache()
+        self.set_cache(val)
 
     @hybrid_property
     def is_obj(self):
@@ -463,15 +463,11 @@ class Change(Base, MixinCreation, DBQueryable):
     def is_rejected(self):
         return self.is_judged() and not self.accepted
 
-    def set_cache(self):
+    def set_cache(self, val=None):
         """Set the value cache for the Obj."""
-        try:
-            self.obj._set_cache(self.attr, self.value)
-        except (DataError, TypeError):
-            # If the value does not store well in the Obj cache, we'll have to
-            # leave it in string form. Communicate to the Obj that the cache is
-            # not valid.
-            delattr(self.obj, self.attr)
+        if val is None:
+            val = self.value
+        self.obj._set_cache(self.attr, val)
 
     def accept(self, person, replacement=None):
         """Accept a Change.
@@ -981,28 +977,54 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         change.accept(person)
         return change
 
+    def _invalidate_cache(self, attr):
+        """Inform the Obj that the cache for attr is invalid.
+
+        get() will then attempt to load from Changes.
+
+        """
+        try:
+            delattr(self, attr)
+        except KeyError:
+            pass
+
     def _set_cache(self, attr, value):
         """Set the attribute value to cache.
 
         In the case that multiple types are acceptable, we will have to check
         that the type is ok before storing, otherwise there will be a
-        persistence error. If the type is not persistable in the cache, the
-        cache should be set to None so that get() will attempt to load from
-        Changes.
+        persistence error. If the type is not persistable in the cache,
+        invalidate the cache.
 
         """
         # Multiple acceptable types always end in Unicode. That is the
         # cache unpersistable type.
         if isinstance(self.attr_type(attr), list):
             if isinstance(value, basestring):
-                setattr(self, attr, None)
+                self._invalidate_cache(attr)
                 return
+
         try:
             setattr(self, attr, value)
-        except AttributeError:
+        except AttributeError as err:
             # If the Obj does not declare this attribute, it doesn't really care
             # if the value is cached.
             pass
+        except (DataError) as err:
+            # If the value does not store well in the Obj cache, we'll have to
+            # leave it in Unicode form.
+            self._invalidate_cache(attr)
+        except TypeError as err:
+            # Convert iterables to lists to avoid cached list attribute's TypeError
+            if not isinstance(value, list) and hasattr(value, '__iter__'):
+                value = list(value)
+                try:
+                    setattr(self, attr, value)
+                except (DataError, TypeError) as err:
+                    log.warn(u'Unable to set cache for {0}.{1}:{2}'.format(
+                        self, attr, err))
+            else:
+                self._invalidate_cache(attr)
 
     def _get_cache(self, attr):
         """Attempt to get the attribute value from cache.
@@ -1037,8 +1059,9 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
                 return change.value_original
             else:
                 return change.value
+
         value = self._get_cache(attr)
-        if value is not None:
+        if value:
             return value
         return self.get(attr, default, force_original, force_change=True)
 
@@ -1750,6 +1773,7 @@ class Collection(MultiName, Obj):
 
     def merge(self, signer, *mergees):
         """Merge other Collections into this one."""
+        mergee_set = OrderedSet(mergees)
         names = OrderedSet(self.names)
         types = OrderedSet(filter(None, [self.type]))
         basins = OrderedSet(self.basins)
@@ -1784,7 +1808,7 @@ class Collection(MultiName, Obj):
         # this collection instead.
         for cruise in cruises:
             colls = OrderedSet(cruise.collections)
-            colls = colls - OrderedSet(mergees)
+            colls = colls - mergee_set
             change = cruise.get_attr('collections')
             change._set_value(colls)
 
@@ -1802,8 +1826,8 @@ class Collection(MultiName, Obj):
         return rep
 
     def __repr__(self):
-        return u'Collection({0}, {1}, {2}, {3})'.format(
-            _repr_state(self), self.names, self.type, self.basins)
+        return u'Collection({0}, {1}, {2})'.format(
+            self.id, self.names, self.type)
 
 
 once_at_end.register(lambda:
@@ -2592,10 +2616,10 @@ class Cruise(Obj):
             except KeyError:
                 self.files[attr] = _CruiseFile(attr, value)
             return
-        if attr == 'participants':
+        elif attr == 'participants':
             self.participants = set(value)
             return
-        if attr.endswith(self.DATA_STATUS_ENDING):
+        elif attr.endswith(self.DATA_STATUS_ENDING):
             attr = attr[:-len(self.DATA_STATUS_ENDING)]
             try:
                 self.files[attr].statuses = value

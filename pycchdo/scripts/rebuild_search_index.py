@@ -24,4 +24,4 @@ def main():
     settings = get_appsettings(args.config_uri + '#pycchdo')
     engine = engine_from_config(settings)
     DBSession.configure(bind=engine)
-    SearchIndex(settings['db_search_index_path']).rebuild_index(clear=True)
+    SearchIndex(settings['search_index_path']).rebuild_index(clear=True)

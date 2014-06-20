@@ -190,6 +190,9 @@ argparser.add_argument(
     '-F', '--files_only', action='store_true', default=False,
     help='Only import items that have files')
 argparser.add_argument(
+    '-G', '--no-files', action='store_true', default=False,
+    help='Skip file imports')
+argparser.add_argument(
     '-u', '--username', type=str, default='_www',
     help='The webserver username for import permissions (default: _www)')
 argparser.add_argument(

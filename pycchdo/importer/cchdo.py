@@ -15,6 +15,7 @@ import time
 import zipfile
 from tempfile import NamedTemporaryFile, SpooledTemporaryFile
 from traceback import format_exc
+from collections import defaultdict
 
 from sqlalchemy.sql.expression import select, alias
 from sqlalchemy.exc import OperationalError
@@ -1033,6 +1034,8 @@ def _import_collections(session):
 
 
 def _import_collections_cruises(session):
+    # Not used because it is duplicate/out of date version of cruises.Group.
+    _import_collections(session)
     log.info("Importing CollectionsCruises")
     updater = _get_updater()
     collections_cruises = session.query(legacy.CollectionsCruise).all()
@@ -1256,16 +1259,16 @@ def _import_old_submissions(session, downloader):
                     for sub in subs:
                         path = sub.Location
                         with downloader.dl(path) as dfile:
-                            if file is None and not downloader.dryrun:
+                            if dfile is None and not downloader.dryrun:
                                 if sub.Location in _known_bad_old_submissions:
                                     log.info(
                                         u'Skipping known bad Old Submission: '
                                         '{0}'.format(path))
-                                    continue
                                 else:
-                                    raise ValueError(
+                                    log.error(
                                         u'Unable to find file for old '
                                         'submission: {0}'.format(path))
+                                continue
                             lstat = downloader.lstat(path)
                             zipi = zipfile.ZipInfo(dfile.name)
                             dtime = datetime.fromtimestamp(lstat.st_mtime)
@@ -1285,9 +1288,11 @@ def _import_old_submissions(session, downloader):
 
 
 def _add_cruise_to_collection(updater, cruise, collection):
-    collections = uniquify(cruise.collections + [collection])
-    if cruise.collections != collections:
-        updater.attr(cruise, 'collections', collections)
+    collections = cruise.collections
+    if collection in collections:
+        return
+    collections = cruise.collections + [collection]
+    updater.attr(cruise, 'collections', collections)
 
 
 def _import_spatial_groups(session):
@@ -1299,8 +1304,12 @@ def _import_spatial_groups(session):
     for mbn in major_basin_names:
         major_basins[mbn] = import_Collection(updater, mbn.capitalize(), 'basin')
 
+    coll_cache = {}
+    area_basins = defaultdict(list)
+
     sgs = session.query(legacy.SpatialGroup).all()
     for sg in sgs:
+        log.info('SG {0} {1}'.format(sg.area, sg.expocode))
         cruise = _query_cruise_by_expocode(sg.expocode).first()
         if not cruise:
             log.warn(u'created {0} for spatial groups'.format(cruise))
@@ -1308,15 +1317,23 @@ def _import_spatial_groups(session):
             updater.attr(cruise, 'expocode', sg.expocode)
 
         # Update the area collection to have basins.
-        area_collection = import_Collection(updater, sg.area, 'group')
-        basins = area_collection.basins
+        key = (sg.area, 'group')
+        try:
+            area_collection = coll_cache[key]
+        except KeyError:
+            area_collection = import_Collection(updater, *key)
+            coll_cache[key] = area_collection
+        basins = area_basins[key]
         for mbn in major_basin_names:
             if getattr(sg, mbn) == '1':
                 basins.append(mbn)
                 _add_cruise_to_collection(updater, cruise, major_basins[mbn])
-        basins = uniquify(basins)
-        updater.attr(area_collection, 'basins', basins)
-        _add_cruise_to_collection(updater, cruise, area_collection)
+        # If area is empty, then ignore the record for area purposes
+        if sg.area:
+            area_basins[key] = uniquify(basins)
+            _add_cruise_to_collection(updater, cruise, area_collection)
+    for key, basins in area_basins.items():
+        updater.attr(coll_cache[key], 'basins', basins)
     
 
 def _import_internal(session):
@@ -1337,7 +1354,7 @@ def _import_internal(session):
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', i.expocode)
 
-        collection = import_Collection(updater, i.Basin, 'basin')
+        collection = import_Collection(updater, i.Basin, 'internal_basin')
         _add_cruise_to_collection(updater, cruise, collection)
 
 
@@ -1727,7 +1744,8 @@ def _import_submissions(session, downloader):
 
     dsug = cruise.get_attr_change('data_suggestion')
     if not dsug:
-        dsug = submission_fake_queue_file(updater, cruise)
+        with su(su_lock=downloader.su_lock):
+            dsug = submission_fake_queue_file(updater, cruise)
 
     for sub in session.query(legacy.Submission).all():
         _import_submission(
@@ -2013,7 +2031,7 @@ def _import_documents_unaccounted(
     finally:
         log.debug(u'removing tempdir {0}'.format(local_dir))
         with su(su_lock=downloader.su_lock):
-            shutil.rmtree(local_dir)
+            rmtree(local_dir)
 
 
 def _import_documents_for_cruise(downloader, docs, expocode):
@@ -2090,8 +2108,6 @@ def _import_documents_for_cruise(downloader, docs, expocode):
         if attr:
             log.info('%s already imported' % doc_import_id)
             continue
-        else:
-            log.info('%s already imported' % doc_import_id)
 
         preliminary = bool(doc.Preliminary)
         if preliminary:
@@ -2402,18 +2418,11 @@ def import_(import_gid, nthreads, fsstore, args):
             if not args.files_only:
                 _import_users(session)
                 _import_contacts(session)
-                _import_collections(session)
 
                 transaction.commit()
                 transaction.begin()
 
                 _import_cruises(session, nthreads - 1)
-
-                transaction.commit()
-                transaction.begin()
-
-                _import_track_lines(session)
-                _import_collections_cruises(session)
 
                 transaction.commit()
                 transaction.begin()
@@ -2428,6 +2437,7 @@ def import_(import_gid, nthreads, fsstore, args):
                 transaction.commit()
                 transaction.begin()
 
+                _import_track_lines(session)
                 _import_spatial_groups(session)
                 _import_internal(session)
                 _import_unused_tracks(session)
@@ -2443,17 +2453,19 @@ def import_(import_gid, nthreads, fsstore, args):
                 _import_parameters(session)
 
                 transaction.commit()
+            if not args.no_files:
                 transaction.begin()
-            with conn_dl(remote_host, args.skip_downloads, import_gid,
-                         local_rewriter=rewrite_dl_path_to_local, su_lock=Lock()
-                        ) as downloader, store_context(fsstore):
-                _import_queue_files(session, downloader)
-                _import_submissions(session, downloader)
-                _import_old_submissions(session, downloader)
-                _import_documents(session, downloader, nthreads - 1)
-                _import_argo_files(session, downloader)
-                DBSession.flush()
-            transaction.commit()
+                with conn_dl(remote_host, args.skip_downloads, import_gid,
+                             local_rewriter=rewrite_dl_path_to_local,
+                             su_lock=Lock()
+                            ) as downloader, store_context(fsstore):
+                    _import_queue_files(session, downloader)
+                    _import_submissions(session, downloader)
+                    _import_old_submissions(session, downloader)
+                    _import_documents(session, downloader, nthreads - 1)
+                    _import_argo_files(session, downloader)
+                    DBSession.flush()
+                transaction.commit()
     except (KeyboardInterrupt, Exception):
         log.info('aborted transaction')
         transaction.abort()

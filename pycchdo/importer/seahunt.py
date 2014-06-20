@@ -306,6 +306,22 @@ def _ensure_cruise(cruise, updater):
     return ccc
 
 
+known_basins = {
+    'PAC': u'Pacific',
+    'IND': u'Indian',
+    'ATL': u'Atlantic',
+    'SOU': u'Southern',
+    'ARC': u'Arctic',
+}
+
+
+def _map_basin(basin):
+    try:
+        known_basins[basin]
+    except KeyError:
+        return basin
+
+
 def _import_cruise(updater, cruise, downloader):
     c = _ensure_cruise(cruise, updater)
     cc = c.change
@@ -358,7 +374,7 @@ def _import_cruise(updater, cruise, downloader):
 
     collections = []
     if cruise.basin:
-        basin = import_Collection(updater, cruise.basin, 'basin')
+        basin = import_Collection(updater, _map_basin(cruise.basin), 'basin')
         collections.append(basin)
 
     for program in cruise.programs:

@@ -258,12 +258,10 @@ class SearchIndex(object):
             raise
         finally:
             if not writer:
+                ixw.commit()
+                # TODO TEST make sure the note is committed afterward.
                 if buffered:
-                    ixw.commit()
                     ixw.close()
-                else:
-                    # TODO TEST make sure the note is committed afterward.
-                    ixw.commit()
                 ix.close()
 
     @contextmanager

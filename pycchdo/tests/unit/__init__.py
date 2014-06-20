@@ -132,6 +132,21 @@ class TestModelChange(PersonBaseTest):
         suggexp.reject(self.testPerson)
         self.assertEqual(cruise.expocode, correctexpo)
 
+    def test_set_cache(self):
+        col0 = Collection.create(self.testPerson).obj
+        col0.set(self.testPerson, 'names', ['col0'])
+        col1 = Collection.create(self.testPerson).obj
+        col1.set(self.testPerson, 'names', ['col1'])
+
+        cr0 = Cruise.create(self.testPerson).obj
+        cr0.set(self.testPerson, 'collections', [col0, col1])
+
+        self.assertEqual(cr0.collections, [col0, col1])
+
+        ch0 = cr0.get_attr('collections')
+        ch0._set_value(set([col0]))
+        self.assertEqual(cr0.collections, [col0])
+
     def test_get_attr_changes(self):
         """Objs have changes, the creation and attr changes."""
         obj = Unit.propose(self.testPerson).obj

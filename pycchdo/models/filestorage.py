@@ -1,14 +1,3 @@
-import os.path
-from tempfile import mkdtemp, SpooledTemporaryFile
-from shutil import copyfileobj
-
-from django.conf import settings as django_settings
-from django.utils.functional import empty
-from django.core.files.base import File
-from django.core.files.storage import FileSystemStorage
-from django.core.exceptions import SuspiciousOperation
-from django.utils._os import safe_join
-
 from sqlalchemy_imageattach.entity import Image
 from sqlalchemy_imageattach.context import current_store
 from sqlalchemy_imageattach.stores.fs import FileSystemStore, guess_extension
@@ -17,71 +6,6 @@ from pycchdo.log import getLogger
 
 
 log = getLogger(__name__)
-
-
-class CachingFile(File):
-    def __init__(self, *args, **kwargs):
-        super(CachingFile, self).__init__(*args, **kwargs)
-        cache = SpooledTemporaryFile(max_size=2 ** 20)
-        try:
-            cache.name = self.file.name
-        except AttributeError:
-            pass
-        copyfileobj(self.file, cache)
-        self.file = cache
-
-    @property
-    def size(self):
-        return seek_size(self.file)
-
-    def __del__(self):
-        if self.file:
-            del self.file
-
-
-def seek_size(file):
-    """Return the size of the file by seeking."""
-    try:
-        cpos = file.tell()
-        file.seek(0, 2)
-        size = file.tell()
-        if not file.isatty():
-            file.seek(cpos)
-        return size
-    except IOError, e:
-        log.error(
-            u'Unable to determine file size {0!r}: {1!r}'.format(file, e))
-
-
-copy_chunked = copyfileobj
-
-
-class DirFileSystemStorage(FileSystemStorage):
-    def __init__(self, root=None, url='', perms=0664):
-        self._config(root, url, perms)
-        super(DirFileSystemStorage, self).__init__()
-
-    def path(self, name):
-        try:
-            fragments = [name[:2], name[2:4], name[4:6]]
-        except TypeError:
-            fragments = []
-        fragments.append(name)
-        try:
-            path = safe_join(self.location, *fragments)
-        except (TypeError, ValueError):
-            raise SuspiciousOperation("Attempted access to '%s' denied." % name)
-        return os.path.normpath(path)
-
-    def _config(self, root=None, url='', perms=0664):
-        if not root:
-            root = mkdtemp()
-        django_settings._wrapped = empty
-        django_settings.configure(
-            MEDIA_ROOT=root,
-            MEDIA_URL=url,
-            FILE_UPLOAD_PERMISSIONS=perms,
-        )
 
 
 class AdaptedFile(Image):
@@ -137,6 +61,7 @@ class AdaptedFile(Image):
     @classmethod
     def from_file(cls, file, store=current_store, mimetype=None):
         return ImageSet.from_raw_file(cls, file, store, mimetype=mimetype)
+
 
 # Disable some imageattach based functionality
 Image.width = '0'

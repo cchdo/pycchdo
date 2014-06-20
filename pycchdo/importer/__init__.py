@@ -21,7 +21,6 @@ from pycchdo.models.serial import (
     log as model_log,
     )
 from pycchdo.models.search import SearchIndex
-from pycchdo.models.filestorage import copy_chunked
 from pycchdo.models.filestorage import FSStore
 from pycchdo.util import guess_mime_type
 from pycchdo.log import getLogger, color_console, DEBUG, INFO, WARN, ERROR
@@ -29,8 +28,7 @@ from pycchdo.log import getLogger, color_console, DEBUG, INFO, WARN, ERROR
 
 __all__ = [
     'db_session', 'su', 'guess_mime_type', 'conn_dl', '_ustr2uni',
-    '_date_to_datetime', 'copy_chunked', 'Updater', 'pushd', 'lock',
-    'ProgressLog',]
+    '_date_to_datetime', 'Updater', 'pushd', 'lock', 'ProgressLog',]
 
 
 log = getLogger(__name__)

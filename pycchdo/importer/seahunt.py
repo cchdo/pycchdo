@@ -316,10 +316,7 @@ known_basins = {
 
 
 def _map_basin(basin):
-    try:
-        known_basins[basin]
-    except KeyError:
-        return basin
+    return known_basins.get(basin, basin)
 
 
 def _import_cruise(updater, cruise, downloader):

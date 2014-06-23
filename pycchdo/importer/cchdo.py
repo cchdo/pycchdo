@@ -1084,11 +1084,6 @@ def _import_collections_cruises(session):
         log.info('Set {0} collections to {1}'.format(cruise, colls))
         updater.attr(cruise, 'collections', colls)
 
-    # Do this after all collections and changes to them have been imported
-    # Otherwise there will be missing collections while importing.
-    log.info('Merging same collections')
-    _collections_merge(updater.importer)
-
 
 def _import_contacts_cruises(session):
     log.info("Importing ContactsCruises")
@@ -1316,6 +1311,10 @@ def _import_spatial_groups(session):
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', sg.expocode)
 
+        # If area is empty, then ignore the record for area purposes
+        if not sg.area:
+            continue
+
         # Update the area collection to have basins.
         key = (sg.area, 'group')
         try:
@@ -1328,12 +1327,9 @@ def _import_spatial_groups(session):
             if getattr(sg, mbn) == '1':
                 basins.append(mbn)
                 _add_cruise_to_collection(updater, cruise, major_basins[mbn])
-        # If area is empty, then ignore the record for area purposes
-        if sg.area:
-            area_basins[key] = uniquify(basins)
             _add_cruise_to_collection(updater, cruise, area_collection)
     for key, basins in area_basins.items():
-        updater.attr(coll_cache[key], 'basins', basins)
+        updater.attr(coll_cache[key], 'basins', uniquify(basins))
     
 
 def _import_internal(session):
@@ -2441,6 +2437,10 @@ def import_(import_gid, nthreads, fsstore, args):
                 _import_spatial_groups(session)
                 _import_internal(session)
                 _import_unused_tracks(session)
+
+                log.info('Merging same collections')
+                updater = _get_updater()
+                _collections_merge(updater.importer)
 
                 _import_parameter_descriptions(session)
 

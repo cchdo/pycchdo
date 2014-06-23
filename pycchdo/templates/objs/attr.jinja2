@@ -10,20 +10,20 @@
 
     <h2>Created</h2>
     <p>
-      {{ attr.creationtimestamp }}
-      {{ h.link_person(attr.creation_person) }}
+      {{ attr.ts_c }}
+      {{ h.link_person(attr.p_c) }}
     </p>
 
     <h2>Pending</h2>
     <p>
-      {{ attr.pending_timestamp }}
-      {{ h.link_person(attr.pending_person) }}
+      {{ attr.ts_ack }}
+      {{ h.link_person(attr.p_ack) }}
     </p>
 
     <h2>Judged</h2>
     <p>
-      {{ attr.judgment_timestamp }}
-      {{ h.link_person(attr.judgment_person) }}
+      {{ attr.ts_j }}
+      {{ h.link_person(attr.p_j) }}
     </p>
     <a href="../a">Back to obj attrs</a>
   {%- endcall %}

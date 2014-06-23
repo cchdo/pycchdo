@@ -72,6 +72,7 @@
   vertical-align: top;
 }
 .subsection.data-files th {
+  width: 9em;
   padding-left: 1em;
 }
 .subsection.data-files tr.preliminary td,

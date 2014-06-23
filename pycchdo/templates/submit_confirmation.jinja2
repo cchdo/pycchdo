@@ -6,11 +6,11 @@
 {%- block content -%}
 {%- if submission %}
   {%- call h.boxed('Data submitted', class='submit-confirmation') %}
-    <p>Thank you for submitting data, {{ submission.creation_person.name }}.</p>
+    <p>Thank you for submitting data, {{ submission.change.p_c.name }}.</p>
     <p>
       You should receive a confirmation email shortly from
       <strong>{{ from_addr }}</strong> to 
-      <strong>{{ submission.creation_person.email }}</strong>.
+      <strong>{{ submission.change.p_c.email }}</strong>.
     </p>
 
     <dl>
@@ -43,7 +43,7 @@
           <dd>{{ submission|attr('country') }}</dd>
       {%- endif %}
       <dt>timestamp</dt>
-        <dd>{{ submission.creation_timestamp.strftime('%Y-%m-%d') }}</dd>
+        <dd>{{ submission.change.ts_c.strftime('%Y-%m-%d') }}</dd>
     </dl>
   {%- endcall %}
 {%- else %}

@@ -89,7 +89,7 @@ def home(request):
 
 
 def project_carina(request):
-    collection = Collection.query().filter(Collection._names.any('CARINA')).first()
+    collection = Collection.query().filter(Collection.names.contains('CARINA')).first()
     if collection:
         cruises = collection.cruises
         cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))

@@ -892,16 +892,19 @@ def link_submission(sub):
         sub.id, '/staff/submissions.html?ltype=id&query={0}'.format(sub.id))
 
 
+def path_asr(request, attached):
+    ident = attached.obj.uid
+    return request.route_path('cruise_show', cruise_id=ident,
+                              _anchor='as_received_{0}'.format(attached.id))
+
+
 def link_asr(request, attached):
     """Return a link to an ASR file.
     This is really a link to the cruise page with the ASR as a fragment.
 
     """
-    ident = attached.obj.uid
     return tags.link_to('ASR {0}'.format(attached.id),
-        request.route_path(
-            'cruise_show', cruise_id=ident,
-            _anchor='as_received_{0}'.format(attached.id)))
+                        path_asr(request, attached))
 
 
 def correlated_submission_attached(request, submission):

@@ -102,7 +102,11 @@
                 {%- endif %}
               {%- else %}
                 {# Unacknowledged files are not shown to the public #}
-                {{ file.value.name }}
+                {%- if h.has_edit(request) %}
+                  {{ h.link_file_holder(file) }}
+                {%- else %}
+                  {{ file.value.name }}
+                {%- endif %}
               {%- endif %}
             </td>
             <td class="file_date">{{ h.pdate(file.ts_c) }}</td>
@@ -286,6 +290,9 @@
       {%- endcall %}
     </div>
       {%- call h.boxed('Data As Received', id="updates", class='upper upper-right', box_content_class='scrollable-y') %}
+        {%- if h.has_edit(request) %}
+          {{ whh.tags.link_to('Add data As Received', request.route_path('submission_attach', _query={'cruise_id': cruise.uid})) }}
+        {%- endif %}
         {%- if updates['attrs'] %}
           <div class="subsection">
             <h2>Attributes</h2>
@@ -300,7 +307,7 @@
                   {%- set hl = loop.cycle('even', 'odd') %}
                   <tr class="mb-link{{ loop.index0 }} meta {{ hl }}">
                     <td>{{ attr.attr }}</td>
-                    <td>{{ h.link_person(attr.creation_person) }}</td>
+                    <td>{{ h.link_person(attr.p_c) }}</td>
                     <td class="date">{{ h.pdatetime(attr.ts_c) }}</td>
                   </tr>
                   <tr class="mb-link{{ loop.index0 }} body {{ hl }} suggestion">

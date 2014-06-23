@@ -1,0 +1,49 @@
+{% extends "/base.jinja2" %}
+{% block head -%}
+  {{ whh.tags.stylesheet_link('/static/css/staff/submissions.css') }}
+{%- endblock %}
+{% block title -%}Add data As Received{%- endblock %}
+{% block content -%}
+  {% call h.boxed('Add data As Received', id='submission_attach') -%} 
+    {{ whh.tags.form('', 'PUT', multipart=True, class_='form-horizontal', role='form') }}
+      <div class="form-group">
+        {{ whh.tags.title('Cruise', label_for='cruise_id', required=True) }}
+        <div class="col-sm-10">
+          {{ whh.tags.text(type='text', name='cruise_id', value=request.params.get('cruise_id', '')) }}
+        </div>
+        <div class="form-errors">{{ h.form_errors(request, 'cruise_id') }}</div>
+      </div>
+
+      <div class="form-group">
+        {%- set data_type_id = 'data_type' %}
+        {{ whh.tags.title('Data type', label_for=data_type_id) }}
+        <div class="col-sm-10">
+          {{ whh.tags.select('data_type', None, FILE_GROUPS_SELECT, id=data_type_id) }}
+        </div>
+        <div class="form-errors">{{ h.form_errors(request, 'data_type') }}</div>
+      </div>
+
+      <div class="form-group">
+        {{ whh.tags.title('Parameters', label_for='parameters') }}
+        <div class="col-sm-10">
+          {{ whh.tags.text(type='text', name='parameters') }}
+        </div>
+        <div class="form-errors">{{ h.form_errors(request, 'parameters') }}</div>
+      </div>
+
+      <div class="form-group">
+        {{ whh.tags.title('Data', label_for='data', required=True) }}
+        <div class="col-sm-10">
+          {{ whh.tags.file(name='data') }}
+        </div>
+        <div class="form-errors">{{ h.form_errors(request, 'data') }}</div>
+      </div>
+
+      <div class="form-group">
+        <div class="col-sm-offset-2 col-sm-10">
+          {{ whh.tags.submit('action', 'Attach') }}
+        </div>
+      </div>
+    {{ whh.tags.end_form() }}
+  {%- endcall %}
+{%- endblock %}

@@ -271,6 +271,8 @@ def configure_routes(config):
                'pycchdo.views.staff.index', 'staff/index.jinja2')
     route_path(config, 'staff_submissions', '/staff/submissions.html',
                'pycchdo.views.staff.submissions', 'staff/submissions.jinja2')
+    route_path(config, 'submission_attach', '/staff/submission_attach',
+               'pycchdo.views.staff.submission_attach', 'staff/submission_attach.jinja2')
     route_path(config, 'legacy_submissions', '/submissions',
                'pycchdo.views.legacy.submissions')
     route_path(config, 'legacy_submissions.html', '/submissions.html',

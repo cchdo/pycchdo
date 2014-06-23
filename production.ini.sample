@@ -21,7 +21,8 @@ search_index_path = %(here)s/_si
 file_system_path = %(here)s/_fs
 
 # submission confirmation recipient (leave blank for default)
-submission_confirmation_recipient = cchdo@ucsd.edu
+recipient_submission_confirm = cchdo@ucsd.edu
+recipient_asr_confirm = cchdo@googlegroups.com
 
 # Security keys
 # TODO change the secrets

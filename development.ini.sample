@@ -21,7 +21,8 @@ search_index_path = /Users/myshen/var/pycchdo/si
 file_system_path = /Users/myshen/var/pycchdo/fs
 
 # submission confirmation recipient (leave blank for default)
-submission_confirmation_recipient = myshen+test@ucsd.edu
+recipient_submission_confirm = myshen+submission@ucsd.edu
+recipient_asr_confirm = myshen+asr@ucsd.edu
 
 # Security keys
 # TODO change the secrets

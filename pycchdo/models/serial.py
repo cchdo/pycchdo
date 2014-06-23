@@ -521,6 +521,11 @@ class Change(Base, MixinCreation, DBQueryable):
     def notes_discussion(self):
         return self._notes.filter(Note.discussion).all()
 
+    def note_for_data_type(self, dtype):
+        """The first note for the given data type."""
+        return self._notes.filter(
+            Note.data_type == dtype).order_by(Note.ts_c).first()
+
     @hybrid_property
     def p_c(self):
         return self._p_c

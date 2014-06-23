@@ -2,10 +2,9 @@ from datetime import datetime
 
 from pyramid.renderers import render_to_response
 from pyramid.httpexceptions import HTTPBadRequest, HTTPUnauthorized
-from pyramid_mailer import get_mailer
-from pyramid_mailer.message import Message
 
 from pycchdo import helpers as h
+from pycchdo.mail import send_submission_confirmation
 from pycchdo.models.serial import DBSession, FSFile, Submission, Note
 from pycchdo.views.session import require_signin
 from pycchdo.log import getLogger
@@ -13,83 +12,6 @@ from . import *
 
 
 log = getLogger(__name__)
-
-
-def _send_confirmation(request, d, submissions):
-    from_addr = 'cchdo@ucsd.edu'
-    recipient = request.registry.settings.get(
-        'submission_confirmation_recipient', None)
-    recipients = filter(None, [request.user.email, recipient])
-
-    d['user_name'] = request.user.name
-    d['file_noun'] = h.whtext.plural(
-        len(d['file_names']), 'file', 'files', False)
-
-    if d['public_status'] == 'public':
-        d['public_description'] = 'will be public'
-    elif d['public_status'] == 'non_public':
-        d['public_description'] = 'will *not* be public'
-    elif d['public_status'] == 'non_public_argo':
-        d['public_description'] = \
-            'will be available for use exclusively by the Argo program'
-    d['file_list'] = '\n'.join(d['file_names'])
-    d['actions'] = '\n'.join(d['action_list'])
-
-    body_parts = []
-    body = """\
-Dear {user_name}:
-
-Thank you for your submission to the CCHDO.
-
-This is an automated confirmation. However, replying to the sender will reach 
-all senior CCHDO staff.
-
-Your submitted {file_noun}:
-{file_list}
-
-{public_description}.
-
-The following actions were specified:
-{actions}
-
-Additional information collected with your submission:
-""".format(**d)
-    if d['institution']:
-        body_parts.append('Institution: ' + d['institution'])
-    if d['country']:
-        body_parts.append('Country: ' + d['country'])
-    if d['identifier'] or d['woce_line']:
-        parts = []
-        if d['identifier']:
-            parts.append('ExpoCode: ' + d['identifier'])
-        if d['woce_line']:
-            parts.append('Line: ' + d['woce_line'])
-        body_parts.append(' '.join(parts))
-    if d['ship']:
-        body_parts.append('Ship: ' + d['ship'])
-    if d['cruise_dates']:
-        body_parts.append(
-            'Dates: ' + datetime.strftime(d['cruise_dates'], '%Y-%m-%d'))
-    if d['notes']:
-        body_parts.append('Notes: ' + d['notes'] + '\n')
-    body_parts.append('Thank you again for your submission.\n')
-    body_parts.append('---\n')
-    for sub in submissions:
-        body_parts.append(request.route_url('staff_submissions',
-            _query={'ltype': 'id', 'query': sub.id}) + '\n')
-
-    body += '\n'.join(body_parts)
-
-    message = Message(
-        subject="[CCHDO] Submission by {name}: {id}".format(
-            name=d['user_name'],
-            id=' '.join([d['woce_line'], d['identifier']])),
-        sender=from_addr,
-        recipients=recipients,
-        body=body,
-    )
-    mailer = get_mailer(request)
-    mailer.send_sendmail(message)
 
 
 def submit(request):
@@ -162,6 +84,8 @@ def submit(request):
 
         user = request.user
         submissions = []
+
+        # TODO create one bulk one
         # Create one submission per file with duplicated information
         for file in files:
             sub = Submission(user)
@@ -185,7 +109,7 @@ def submit(request):
             submissions.append(sub)
             # TODO record submitter useragent and ip
 
-        _send_confirmation(request, d, submissions)
+        send_submission_confirmation(request, d, submissions)
 
         sample_submission = submissions[0]
         return render_to_response(

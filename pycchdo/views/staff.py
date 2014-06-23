@@ -13,19 +13,28 @@ from collections import OrderedDict
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, subqueryload
 
-from pyramid.httpexceptions import HTTPUnauthorized, HTTPBadRequest
+from pyramid.httpexceptions import (
+    HTTPUnauthorized, HTTPBadRequest, HTTPSeeOther,
+    )
 
 import transaction
 
 from pycchdo.helpers import (
-    link_cruise, pdate, link_person, whtext, has_staff, link_submission, link_asr
+    link_cruise, pdate, link_person, whtext, has_edit, has_staff,
+    link_submission, link_asr, path_asr, 
     )
 from pycchdo.models.serial import (
-    DBSession, Submission, OldSubmission, Change, Cruise, Person
+    store_context, DBSession, Submission, OldSubmission, Change, Cruise, Person,
+    Note
     )
 
 from pycchdo.views import *
 from pycchdo.views.session import signin_required, require_signin
+from pycchdo.mail import send_asr_attach_confirmation, asr_history_body
+from pycchdo.log import getLogger
+
+
+log = getLogger(__name__)
 
 
 def _check_signin_staff(request):
@@ -83,21 +92,21 @@ def _moderate_submission(request):
             'Claimed {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
-
-    if action == 'release':
+    elif action == 'release':
         submission.change.ts_ack = None
         submission.change.p_ack = None
         request.session.flash(
             'Released {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
-
-    if action == 'Reject':
+    elif action == 'Reject':
         submission.change.reject(request.user)
         request.session.flash(
             'Discarded {0}'.format(_submission_short_text(submission)),
             'action_taken')
         return
+
+    # Attaching
 
     cruise_id = request.params['cruise_id']
     data_type = request.params['data_type']
@@ -109,12 +118,59 @@ def _moderate_submission(request):
             'Could not find a cruise using %s' % cruise_id, 'help')
         return
 
-    attr = cruise.sugg(request.user, data_type, submission.file)
-    submission.attach(request.user, attr)
+    # sometimes may want to create multiple ASRs in one go.
+    # TODO
+    parameters = None
+    asr = create_asr(request, request.user, cruise, data_type, submission.file,
+                     parameters)
+    submission.attach(request.user, asr)
 
     request.session.flash(
         'Attached {0} as ASR {1}'.format(_submission_short_text(submission), 
-            link_asr(request, attr)), 'action_taken')
+            link_asr(request, asr)), 'action_taken')
+
+
+def create_asrs_history(request, signer, cruise, asrs):
+    body = asr_history_body(request, asrs)
+    action = 'Data available'
+    summary = 'As Received'
+    cruise.change._notes.append(Note(signer, body, action, subject=summary))
+    send_asr_attach_confirmation(request, asrs)
+
+
+def create_asr(request, signer, cruise, data_type, fsfile, parameters=None,
+               batched=False):
+    """Add data as a suggestion and send As Received confirmation email."""
+    try:
+        with store_context(request.fsstore):
+            asr = cruise.sugg(signer, data_type, fsfile)
+            if parameters is not None:
+                asr._notes.append(Note(
+                    signer, parameters, data_type='parameters',
+                    discussion=True))
+            if not batched:
+                create_asrs_history(request, signer, cruise, [asr])
+            return asr
+    except ValueError, err:
+        request.response.status = 400
+        request.session.flash('help', 'error')
+        return
+
+
+def create_asrs(request, signer, cruise_type_datas):
+    all_asrs = []
+    grouped_dtype_fsf = {}
+    for cruise, data_type, fsf, parameters in cruise_type_datas:
+        grouped_dtype_fsf[cruise] = (data_type, fsf, parameters)
+    for cruise, type_datas in grouped_dtype_fsf:
+        asrs = []
+        for data_types, fsf, parameters in type_datas:
+            asrs.append(
+                create_asr(request, signer, cruise, data_type, fsf, parameters,
+                           batched=True))
+        create_asrs_history(request, signer, cruise, asrs)
+        all_asrs += asrs
+    return all_asrs
 
 
 list_queries = OrderedDict([
@@ -128,6 +184,45 @@ list_queries = OrderedDict([
 ])
 
 
+def submission_attach(request):
+    method = http_method(request)
+    if method == 'PUT':
+        if not has_edit(request):
+            raise HTTPUnauthorized()
+        cruise_id = request.params.get('cruise_id')
+        cruise = Cruise.get_by_id(cruise_id)
+        if not cruise:
+            request.response.status = 400
+            request.session.flash(
+                'Invalid cruise identifier', 'form_error_cruise_id')
+        data_type = request.params.get('data_type', 'data_suggestion')
+        parameters = request.params.get('parameters', '')
+        data = request.POST.get('data', None)
+        if data is None:
+            request.response.status = 400
+            request.session.flash('Invalid data', 'form_error_data')
+
+        if request.response.status == 400:
+            pass
+        else:
+            asr = create_asr(request, request.user, cruise, data_type, data,
+                             parameters)
+            request.session.flash(
+                'Attached data As Received {0}'.format(link_asr(request, asr)),
+                'action_taken')
+            return HTTPSeeOther(location=path_asr(request, asr))
+    else:
+        if not has_edit(request):
+            request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')
+            request.referrer = request.url
+            return require_signin(request)
+    return {'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT}
+
+
+def _get_default_list_query():
+    return list_queries.keys()[0]
+
+
 @staff_signin_required
 def submissions(request):
     method = http_method(request)
@@ -137,13 +232,13 @@ def submissions(request):
         _moderate_submission(request)
 
     query = request.params.get('query', '')
-    ltype = request.params.get('ltype', list_queries.keys()[0])
+    ltype = request.params.get('ltype', _get_default_list_query())
     try:
         squery = list_queries[ltype](request)
     except KeyError:
-        ltype = list_queries.keys()[0]
-# TODO redirect instead
-        squery = list_queries[ltype](request)
+        query = request.params
+        query['ltype'] = _get_default_list_query()
+        return HTTPSeeOther(location=request.current_route_path(_query=query))
     squery = squery.with_transformation(Submission.change.join)
     squery = squery.with_transformation(Change.p_c.join)
     if query and ltype != 'id':
@@ -174,6 +269,31 @@ def submissions(request):
 
 
 def _moderate_attribute(request):
+    """Edit a Change.
+
+    Actions:
+      * Acknowledge
+      * Accept
+      * Reject
+      * create - create an ASR given a cruise, data_type, and FieldStorage
+        params: cruise_id 
+        params: data - POSTed file
+
+    """
+    action = request.params['action']
+    if action not in ('Acknowledge', 'Accept', 'Reject', 'create'):
+        request.response_status = ('400 Bad action')
+        return
+
+    if action == 'create':
+        cruise = Cruise.get_by_id(request.params['cruise_id'])
+        data_type = request.params['data_type']
+        parameters = request.params.get('parameters', None)
+        asr = create_asr(
+            request, request.user, cruise, data_type, request.POST['data'],
+            parameters)
+        return
+
     try:
         attr = Change.query().get(request.params['attr'])
     except KeyError:
@@ -181,11 +301,6 @@ def _moderate_attribute(request):
         return
     except ValueError:
         request.response_status = '404 Attribute to modify not found'
-        return
-
-    action = request.params['action']
-    if action not in ('Acknowledge', 'Accept', 'Reject'):
-        request.response_status = ('400 Bad action')
         return
 
     if action == 'Acknowledge':

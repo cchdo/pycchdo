@@ -1,21 +1,35 @@
+from cgi import FieldStorage
+from StringIO import StringIO
+
 from pyramid import testing
 from pyramid.httpexceptions import HTTPSeeOther
 
-from jinja2 import Template as Jinja2Template
-
-from pycchdo.tests import PersonBaseTest
-from pycchdo.models.serial import DBSession, Cruise
-
-
 # TODO Planning on figuring out how to render the jinja2 templates and search
 # them for expected results.
-class TestView(PersonBaseTest):
+#from jinja2 import Template as Jinja2Template
+
+from pycchdo.tests import PersonBaseTest, fsstore
+from pycchdo.routes import configure_routes
+from pycchdo.models.serial import DBSession, Cruise, Person
+from pycchdo.log import getLogger
+
+
+log = getLogger(__name__)
+
+
+class RequestBaseTest(PersonBaseTest):
     def setUp(self):
-        super(TestView, self).setUp()
+        super(RequestBaseTest, self).setUp()
+        self.config.include('pyramid_mailer.testing')
         self.request = testing.DummyRequest()
         self.request.registry = self.config.registry
         self.request.user = self.testPerson
+        self.request.fsstore = fsstore
 
+        configure_routes(self.config)
+
+
+class TestToplevel(RequestBaseTest):
     def test_home(self):
         from pycchdo.views.toplevel import home
         result = home(self.request)
@@ -28,12 +42,31 @@ class TestView(PersonBaseTest):
         ccc = Cruise.create(self.testPerson).obj
         ccc.set(self.testPerson, 'expocode', expocode)
 
-        self.config.add_route('submit_menu', '/submit.html')
-        self.config.add_route('cruise_new', '/cruises/{cruise_id}/new')
-        self.config.add_route('cruise_show', '/cruise/{cruise_id}')
         self.request.matchdict['cruise_id'] = str(ccc.id)
         with self.assertRaises(HTTPSeeOther):
             cruise_show(self.request)
 
         self.request.matchdict['cruise_id'] = expocode
         cruise_show(self.request)
+
+
+class TestStaffModeration(RequestBaseTest):
+    def test_moderation_create_asr(self):
+        from pycchdo.views.staff import moderation
+        self.request.user = ppp = Person()
+        ppp.permissions = [u'staff']
+
+        ccc = Cruise.create(self.testPerson).obj
+
+        fst = FieldStorage()
+        fst.filename = 'asr.txt'
+        fst.type = 'text/plain'
+        fst.file = StringIO('hello')
+
+        self.request.params['_method'] = 'PUT'
+        self.request.params['action'] = 'create'
+        self.request.params['cruise_id'] = str(ccc.id)
+        self.request.params['data_type'] = 'data_suggestion'
+        self.request.POST['data'] = fst
+
+        result = moderation(self.request)

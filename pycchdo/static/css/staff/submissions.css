@@ -46,3 +46,21 @@ table.has-meta-bodies td {
 .tools input[type=radio] {
   margin-right: 0.2em;
 }
+
+#submission_attach .form-horizontal .form-group {
+  padding-top: 0.6em;
+  padding-bottom: 0.6em;
+}
+#submission_attach .form-horizontal .form-group label {
+  width: 16.66667%;
+  display: inline-block;
+  text-align: right;
+  margin-right: 0.5em;
+}
+#submission_attach .form-horizontal .form-group .col-sm-10 {
+  display: inline-block;
+}
+#submission_attach .form-horizontal .form-group .col-sm-offset-2 {
+  margin-left: 16.66667%;
+  padding-left: 0.5em;
+}

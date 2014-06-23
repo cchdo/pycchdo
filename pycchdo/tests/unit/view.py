@@ -1,8 +1,11 @@
+from cgi import FieldStorage
+from StringIO import StringIO
+
 from pyramid import testing
 from pyramid.httpexceptions import HTTPBadRequest
 
 from pycchdo.tests import (
-    PersonBaseTest, MockFieldStorage, MockFile, MockSession
+    PersonBaseTest, MockFieldStorage, MockFile, MockSession, fsstore
     )
 from pycchdo.models.serial import Cruise
 
@@ -66,3 +69,20 @@ class TestView(PersonBaseTest):
         #    'templates/cruise/show.jinja2', cruise_show(request),
         #    request=request)
         # TODO test response for recognizing bad type
+
+
+class TestStaff(PersonBaseTest):
+    def test_create_asr_bad_data_type(self):
+        from pycchdo.views.staff import create_asr
+        ccc = Cruise.create(self.testPerson).obj
+
+        fst = FieldStorage()
+        fst.filename = 'asr.txt'
+        fst.type = 'text/plain'
+        fst.file = StringIO('hello')
+
+        request = testing.DummyRequest()
+        request.fsstore = fsstore
+        create_asr(request, self.testPerson, ccc, '', fst)
+        self.assertEqual(request.response.status, '400 Bad Request')
+        

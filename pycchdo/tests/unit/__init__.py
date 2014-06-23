@@ -132,6 +132,24 @@ class TestModelChange(PersonBaseTest):
         suggexp.reject(self.testPerson)
         self.assertEqual(cruise.expocode, correctexpo)
 
+    def test_set_value(self):
+        cr0 = Cruise.create(self.testPerson).obj
+        fst0 = FieldStorage()
+        fst0.filename = 'testfile0'
+        contents0 = 'contents0'
+        fst0.file = StringIO(contents0)
+        fst1 = FieldStorage()
+        fst1.filename = 'testfile1'
+        contents1 = 'contents1'
+        fst1.file = StringIO(contents1)
+        aaa = cr0.set(self.testPerson, 'data_suggestion', fst0)
+        self.assertEqual(
+            cr0.get('data_suggestion').open_file().read(), contents0)
+        aaa = cr0.get_attr('data_suggestion')
+        aaa._set_value(fst1)
+        self.assertEqual(
+            cr0.get('data_suggestion').open_file().read(), contents1)
+
     def test_set_cache(self):
         col0 = Collection.create(self.testPerson).obj
         col0.set(self.testPerson, 'names', ['col0'])

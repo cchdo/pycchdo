@@ -444,7 +444,15 @@ class Change(Base, MixinCreation, DBQueryable):
             self.value = val
         else:
             self.value_accepted = val
-        self.set_cache(val)
+        self._set_cache(val)
+
+    def _set_cache(self, val=None):
+        """Set the value cache for the Obj."""
+        # Pass value is optimization for lists, bypass deserialization
+        # FieldStorages need to be deserialized as FSFiles.
+        if val is None or isinstance(val, FieldStorage):
+            val = self.value
+        self.obj._set_cache(self.attr, val)
 
     @hybrid_property
     def is_obj(self):
@@ -462,12 +470,6 @@ class Change(Base, MixinCreation, DBQueryable):
 
     def is_rejected(self):
         return self.is_judged() and not self.accepted
-
-    def set_cache(self, val=None):
-        """Set the value cache for the Obj."""
-        if val is None:
-            val = self.value
-        self.obj._set_cache(self.attr, val)
 
     def accept(self, person, replacement=None):
         """Accept a Change.
@@ -490,7 +492,7 @@ class Change(Base, MixinCreation, DBQueryable):
             self.obj.accepted = True
             self.obj.ts_j = timestamp_now()
         else:
-            self.set_cache()
+            self._set_cache()
 
     def acknowledge(self, person):
         self.p_ack = person
@@ -796,7 +798,7 @@ class AllowableSerialMgr(AllowableMgr):
             attrdef = self._allowed_attrs_dict()[attr]
         except KeyError:
             raise ValueError(
-                u'{0} cannot be stored as {1}'.format(value, attr))
+                u'{0} cannot be stored as {1!r}'.format(value, attr))
         try:
             return attrdef['serializer'](value)
         except KeyError:
@@ -2162,6 +2164,7 @@ class FileHolder(object):
 argo_file_requests_for = Table('argo_file_requests_for', Base.metadata,
     Column('argo_file_id', ForeignKey('argo_files.id')),
     Column('request_for_id', ForeignKey('requests_for.id')),
+    Index('idx_argo_file_requests_for', 'argo_file_id', 'request_for_id'),
     )
 
 
@@ -2288,6 +2291,7 @@ class OldSubmission(Obj, FileHolder):
 submission_changes = Table('submission_changes', Base.metadata,
     Column('submission_id', Integer, ForeignKey('submissions.id')),
     Column('change_id', Integer, ForeignKey('changes.id')),
+    Index('idx_submission_change', 'submission_id', 'change_id'),
 )
 
 
@@ -2378,12 +2382,14 @@ class Submission(Obj, FileHolder):
 uow_suggestions = Table('uow_suggestions', Base.metadata,
     Column('uow_id', Integer, ForeignKey('uows.id')),
     Column('change_id', Integer, ForeignKey('changes.id')),
+    Index('idx_uow_suggestions', 'uow_id', 'change_id'),
 )
 
 
 uow_results = Table('uow_results', Base.metadata,
     Column('uow_id', Integer, ForeignKey('uows.id')),
     Column('change_id', Integer, ForeignKey('changes.id')),
+    Index('idx_uow_results', 'uow_id', 'change_id'),
 )
 
 
@@ -2413,12 +2419,14 @@ class UOW(Base, DBQueryable):
 cruise_collections = Table('cruise_collections', Base.metadata,
     Column('cruise_id', Integer, ForeignKey('cruises.id')),
     Column('collection_id', Integer, ForeignKey('collections.id')),
+    Index('idx_cruise_collections', 'cruise_id', 'collection_id'),
 )
 
 
 cruise_institutions = Table('cruise_institutions', Base.metadata,
     Column('cruise_id', Integer, ForeignKey('cruises.id')),
     Column('institution_id', Integer, ForeignKey('institutions.id')),
+    Index('idx_cruise_institutions', 'cruise_id', 'institution_id'),
 )
 
 
@@ -2615,13 +2623,7 @@ class Cruise(Obj):
 
     def _set_cache(self, attr, value):
         """Set the attribute value to cache."""
-        if attr in data_file_descriptions.keys():
-            try:
-                self.files[attr].file = value
-            except KeyError:
-                self.files[attr] = _CruiseFile(attr, value)
-            return
-        elif attr == 'participants':
+        if attr == 'participants':
             self.participants = set(value)
             return
         elif attr.endswith(self.DATA_STATUS_ENDING):
@@ -2630,6 +2632,12 @@ class Cruise(Obj):
                 self.files[attr].statuses = value
             except KeyError:
                 self.files[attr] = _CruiseFile(attr, None, value)
+            return
+        elif self.attr_type(attr) == File:
+            try:
+                self.files[attr].file = value
+            except KeyError:
+                self.files[attr] = _CruiseFile(attr, value)
             return
         return super(Cruise, self)._set_cache(attr, value)
 

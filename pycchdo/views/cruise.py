@@ -37,7 +37,7 @@ from pycchdo.views import log, staff
 
 
 _DISALLOWED_CRUISE_ATTR_TYPES = [
-    'ParticipantsType', 'ParameterInformations',
+    'ParticipantsType', 'ParameterInformations', 'File',
 ]
 
 
@@ -174,7 +174,9 @@ def _suggest_file(request, cruise_obj):
 def _edit_attr(request, cruise_obj):
     try:
         key = request.params['key']
-        allowed_list = Cruise.allowed_attrs_list 
+        allowed_list = []
+        for attrs, category in cruise_attrs_select():
+            allowed_list.extend([attr[0] for attr in attrs])
         if key not in allowed_list:
             log.warn('Attempted to edit attribute with illegal key')
             request.response_status = '400 Bad Request'

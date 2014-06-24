@@ -2368,6 +2368,7 @@ class Submission(Obj, FileHolder):
                 yield zfile
         except BadZipfile:
             log.error('Bad zip {0} {1}'.format(self, mfile))
+            raise
 
     @classmethod
     def filtered(cls, sid=None, attached=None, argo_type=None):

@@ -9,6 +9,7 @@ import re
 from os.path import (
     sep as pthsep, join as pthjoin,
     )
+from zipfile import BadZipfile
 
 import transaction
 
@@ -987,13 +988,17 @@ def correlated_submission_attached(request, submission):
         attached_to_whole = attached[:]
         file_asrs = [(None, '[All files]', attached_to_whole)]
         with store_context(request.fsstore):
-            with submission.multiple_files() as zfile:
-                for zinfo in zfile.infolist():
-                    fname = zinfo.filename
-                    asrs = name_asrs[fname]
-                    for asr in asrs:
-                        attached_to_whole.remove(asr)
-                    file_asrs.append((fname, lim_str(fname), asrs))
+            try:
+                with submission.multiple_files() as zfile:
+                    for zinfo in zfile.infolist():
+                        fname = zinfo.filename
+                        asrs = name_asrs[fname]
+                        for asr in asrs:
+                            attached_to_whole.remove(asr)
+                        file_asrs.append((fname, lim_str(fname), asrs))
+            except BadZipfile:
+                # Bad zip file? Just don't display anything.
+                pass
     else:
         file_asrs = [(None, link_file_holder(submission), attached)]
 

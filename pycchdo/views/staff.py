@@ -9,6 +9,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 from collections import OrderedDict, defaultdict
+from zipfile import BadZipfile
 
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, subqueryload
@@ -128,28 +129,34 @@ def _moderate_submission(request):
 
     asr_specs = []
     if submission.is_multiple():
-        with    store_context(request.fsstore), \
-                submission.multiple_files() as zfile:
-            if fname is None:
-                # Attach all of the multiple files as separate ASRs to the same
-                # cruise.
-                for zinfo in zfile.infolist():
+        try:
+            with    store_context(request.fsstore), \
+                    submission.multiple_files() as zfile:
+                if fname is None:
+                    # Attach all of the multiple files as separate ASRs to the
+                    # same cruise.
+                    for zinfo in zfile.infolist():
+                        data = FieldStorage()
+                        data.filename = zinfo.filename
+                        data.file = zfile.open(zinfo)
+                        data = FSFile.from_fieldstorage(data)
+                        asr_specs.append((cruise, data_type, data, parameters))
+                else:
+                    zinfo = zfile.getinfo(fname)
+                    if not zinfo:
+                        request.session.flash(
+                            'Could not find file to attach', 'help')
+                        return
                     data = FieldStorage()
-                    data.filename = zinfo.filename
+                    data.filename = fname
                     data.file = zfile.open(zinfo)
                     data = FSFile.from_fieldstorage(data)
                     asr_specs.append((cruise, data_type, data, parameters))
-            else:
-                zinfo = zfile.getinfo(fname)
-                if not zinfo:
-                    request.session.flash(
-                        'Could not find file to attach', 'help')
-                    return
-                data = FieldStorage()
-                data.filename = fname
-                data.file = zfile.open(zinfo)
-                data = FSFile.from_fieldstorage(data)
-                asr_specs.append((cruise, data_type, data, parameters))
+        except BadZipfile:
+            log.error(u'Unable to attach due to bad zip file.')
+            request.response.status = 500
+            request.session.flash('Could not attach bad zip file', 'error')
+            return
     else:
         asr_specs.append((cruise, data_type, submission.file, parameters))
     asrs = create_asrs(request, request.user, asr_specs)

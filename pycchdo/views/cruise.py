@@ -500,14 +500,18 @@ def cruise_show(request):
         else:
             sugg_state = 'pending'
 
+        orderer = lambda change: change.order_by(Change.ts_c.desc())
         # Only non-data suggestions
-        unjudged = cruise_obj.changes(sugg_state, data=False)
+        unjudged = cruise_obj.changes(
+            sugg_state, data=False, query_modifier=orderer)
         suggested_attrs = [
             change for change in unjudged \
             if change.attr in Cruise.allowed_attrs_list]
 
-        as_received = cruise_obj.changes(sugg_state, data=True)
-        merged = cruise_obj.changes('accepted', data=True)
+        as_received = cruise_obj.changes(
+            sugg_state, data=True, query_modifier=orderer)
+        merged = cruise_obj.changes(
+            'accepted', data=True, query_modifier=orderer)
         updates = {
             'attrs': suggested_attrs,
             'as_received': as_received,

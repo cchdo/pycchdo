@@ -255,6 +255,8 @@ def obj_attr(request):
                         'action_taken')
 
             accept_value = request.params.get('accept_value', None)
+            if accept_value == '':
+                accept_value = None
             if accept_value is not None:
                 try:
                     attr.accept(request.user, 

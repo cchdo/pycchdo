@@ -269,7 +269,7 @@ def _edit_attr(request, cruise_obj):
             request.session.flash(
                 'You must be a moderator to mark files as preliminary', 'help')
             return
-        status = uniquify(cruise_obj.get(key) + [u'preliminary'])
+        status = uniquify(cruise_obj.get(key, []) + [u'preliminary'])
         try:
             cruise_obj.set(request.user, key, status)
             request.session.flash(

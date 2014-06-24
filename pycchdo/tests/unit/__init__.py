@@ -55,6 +55,14 @@ class TestModelChange(PersonBaseTest):
         self.assertTrue(change.is_judged())
         self.assertTrue(change.is_accepted())
 
+    def test_accept_replacement_value(self):
+        """Changes can be accepted with a replacement value."""
+        obj = Obj.create(self.testPerson).obj
+        aaa = obj.sugg(self.testPerson, 'import_id', 'first')
+        self.assertEqual(aaa.value, 'first')
+        aaa.accept(self.testPerson, 'second')
+        self.assertEqual(aaa.value, 'second')
+
     def test_acknowledge(self):
         """Acknowledgement of Change."""
         change = Obj.propose(self.testPerson)
@@ -784,6 +792,7 @@ class TestModelObj(PersonBaseTest):
             Collection.get_one_by_attrs(
                 {'names': ['bbb'], 'type': 'ccc'}))
 
+
     @nottest
     def test_all_get_by_attrs_accepted_value_match(self):
         """Retrieve objects whose current values for attrs matches the query.
@@ -802,7 +811,7 @@ class TestModelObj(PersonBaseTest):
         ound = Obj.get_all_by_attrs({key: 'first'})
         self.assertEquals(len(found), 1)
 
-        aaa.accept_value('second', self.testPerson)
+        aaa.accept(self.testPerson, 'second')
 
         found = Obj.get_all_by_attrs({key: 'second'})
         self.assertEquals(len(found), 1)

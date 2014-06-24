@@ -257,10 +257,9 @@ def obj_attr(request):
             accept_value = request.params.get('accept_value', None)
             if accept_value is not None:
                 try:
-                    attr.accept_value(
+                    attr.accept(request.user, 
                         text_to_obj(accept_value,
-                                    type(attr.obj).attr_type(attr.attr)),
-                        request.user)
+                                    type(attr.obj).attr_type(attr.attr)))
                     request.session.flash(
                         u'Attr change accepted with new value {0!r}'.format(
                             accept_value), 'action_taken')

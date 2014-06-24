@@ -79,7 +79,12 @@
               {{ whh.tags.link_to(submission.id, request.route_path('staff_submissions', _query={'ltype': 'id', 'query': submission.id})) }}
             </div>
             <div class="lower asrs">
-              {{ h.correlated_submission_attached(request, submission) }}
+              {%- if submission.is_multiple() %}
+                {%- set fhname = '[Multiple files]' %}
+              {%- else %}
+                {%- set fhname = None %}
+              {%- endif %}
+              {{ h.link_file_holder(submission, name=fhname) }}
             </div>
           </td>
           <td class="identifier">
@@ -116,40 +121,11 @@
           <td class="type">{{ submission.type }}</td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">
-          <td class="id">
+          <td class="id" colspan="4">
             {% if change and change.is_acknowledged() %}
               In work {{ h.link_person(change.p_ack) }} ({{ h.pdate(change.ts_ack) }})
             {% endif %}
-          </td>
-          <td colspan="3">
-          {%- if not attached %}
-            {{ whh.tags.form('', 'PUT', hidden_fields={'submission_id': submission.id}) }}
-            <table class="editor">
-              <tr>
-                <th><label for="submission{{ loop.index0 }}_cruise_id">Cruise ID/ExpoCode</label></th>
-                {%- set cruises = submission.cruises_from_identifier() %}
-                <td><input id="submission{{ loop.index0 }}_cruise_id" type="text" name="cruise_id"
-                           value="{%- if cruises %}{{ cruises[0].get('expocode') or cruises[0].id }}{%- endif %}"></td>
-              </tr>
-              {%- set data_type_id = 'submission%s_data_type' % loop.index0 %}
-              <tr>
-                <th><label for="{{ data_type_id }}">Data type</label></th>
-                <td>{{ whh.tags.select('data_type', None, FILE_GROUPS_SELECT, id=data_type_id) }}</td>
-              </tr>
-              <tr>
-                <td colspan="2">
-                  <button type="submit" name="action" value="Accept">Attach</button>
-                  {%- if not change.is_acknowledged() %}
-                    <button type="submit" name="action" value="Acknowledge">In work</button>
-                  {%- else %}
-                    <button type="submit" name="action" value="release">Release</button>
-                  {%- endif %}
-                  <button type="submit" name="action" value="Reject">Discard</button>
-                </td>
-              </tr>
-            </table>
-            {{ whh.tags.end_form() }}
-          {%- endif %}
+            {{ h.correlated_submission_attached(request, submission) }}
           </td>
         </tr>
         <tr class="submission mb-link{{ loop.index0 }} body {{ hl }} {% if attached %}attached{% endif %}">

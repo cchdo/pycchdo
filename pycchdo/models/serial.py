@@ -2,12 +2,13 @@ import sys
 import os
 import os.path
 from shutil import rmtree
-from contextlib import closing
+from contextlib import closing, contextmanager
 from cgi import FieldStorage
 from StringIO import StringIO
 from json import JSONEncoder, loads, dumps
 from datetime import datetime
 from decimal import Decimal
+from zipfile import ZipFile, BadZipfile
 
 from sqlalchemy import (
     event, distinct,
@@ -2345,16 +2346,27 @@ class Submission(Obj, FileHolder):
     def identifier(self):
         return self.expocode
 
-    def attach(self, signer, *attrs):
-        """Attaches the submission to Changes and accepts the submission."""
-        self.attached = list(attrs)
-        self.change.accept(signer)
+    def is_multiple(self):
+        """Return whether the submission file contains multiple files."""
+        mfile = self.file
+        return (mfile.mimetype == 'application/zip' and
+                mfile.name.startswith('multiple_files'))
 
     @classmethod
     def unacknowledged(cls):
         """Return Submissions that have not yet been reviewed."""
         # TODO
         return []
+
+    @contextmanager
+    def multiple_files(self):
+        mfile = self.file
+        zfobj = mfile.open_file()
+        try:
+            with ZipFile(zfobj, 'r') as zfile:
+                yield zfile
+        except BadZipfile:
+            log.error('Bad zip {0} {1}'.format(self, mfile))
 
     @classmethod
     def filtered(cls, sid=None, attached=None, argo_type=None):
@@ -2590,7 +2602,6 @@ class Cruise(Obj):
         attributes may cause it to be considered preliminary as well.
 
         """
-# TODO
         for attr in self.attrs_current.values():
             if attr.key.endswith(self.DATA_STATUS_ENDING):
                 if 'preliminary' in attr.value:

@@ -281,7 +281,7 @@ class TestModelSubmission(PersonBaseTest):
         ss = Submission.create(self.testPerson).obj
         ch0 = cc.sugg(self.testPerson, 'import_id', '1')
         ch1 = cc.sugg(self.testPerson, 'import_id', '2')
-        ss.attach(self.testPerson, ch0, ch1)
+        ss.attached.extend([ch0, ch1])
         self.assertEqual(ss.attached, [ch0, ch1])
 
     def test_not_queued_not_argo(self):
@@ -303,6 +303,38 @@ class TestModelSubmission(PersonBaseTest):
             attached=False, argo_type=False).all(), [ss0])
         self.assertEqual(sorted(Submission.filtered(
             attached=False).all()), sorted([ss0, ss1]))
+
+    def test_is_multiple(self):
+        ss0 = Submission.create(self.testPerson).obj
+
+        fst = MockFieldStorage(
+            MockFile('', 'something.txt'), contentType='text/plain')
+
+        ss0.file = FSFile.from_fieldstorage(fst)
+        self.assertFalse(ss0.is_multiple())
+
+        fst = MockFieldStorage(
+            MockFile('', 'multiple_files.12345.zip'),
+            contentType='application/zip')
+
+        ss0.file = FSFile.from_fieldstorage(fst)
+        self.assertTrue(ss0.is_multiple())
+
+    def test_is_multiple(self):
+        ss0 = Submission.create(self.testPerson).obj
+
+        fst = MockFieldStorage(
+            MockFile('', 'something.txt'), contentType='text/plain')
+
+        ss0.file = FSFile.from_fieldstorage(fst)
+        self.assertFalse(ss0.is_multiple())
+
+        fst = MockFieldStorage(
+            MockFile('', 'multiple_files.12345.zip'),
+            contentType='application/zip')
+
+        ss0.file = FSFile.from_fieldstorage(fst)
+        self.assertTrue(ss0.is_multiple())
 
 
 class TestModelParameter(PersonBaseTest):

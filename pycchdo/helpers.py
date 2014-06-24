@@ -3,7 +3,6 @@ from urllib import quote
 from json import dumps
 from copy import copy
 from collections import OrderedDict, defaultdict
-from zipfile import ZipFile, BadZipfile
 import os.path
 import os
 import re
@@ -33,6 +32,7 @@ from pycchdo.models.serial import (
     Person, Country, Cruise, Collection, Ship, Institution,
     )
 from pycchdo.util import collapse_dict
+from pycchdo.views import FILE_GROUPS_SELECT
 from pycchdo.views.datacart import get_datacart, ZIP_FILE_LIMIT
 from pycchdo.models.searchsort import Sorter
 
@@ -780,11 +780,13 @@ def link_obj_polymorph(obj):
         return obj
 
 
-def link_file_holder(fh, full=False, original=False):
+def link_file_holder(fh, full=False, original=False, name=None):
     """Return a link to the file that is the given file holder's value.
 
     Args:
     original - link to the original value, not the accepted value
+    full - whether to show the full path to the file
+    name - overriding name to show for link
 
     """
     if original:
@@ -794,13 +796,14 @@ def link_file_holder(fh, full=False, original=False):
     if not fh or not val:
         log.error(u'Unable to link a fileholder: {0!r}'.format(fh))
         return ''
-    name = val.name
-    if not full:
-        name = os.path.basename(name)
-    if not name:
+    if name is None:
         name = val.name
-    if not name:
-        name = 'unnamed_file'
+        if not full:
+            name = os.path.basename(name)
+        if not name:
+            name = val.name
+        if not name:
+            name = 'unnamed_file'
     return tags.link_to(name, data_uri(fh, original), title=name)
 
 
@@ -907,40 +910,102 @@ def link_asr(request, attached):
                         path_asr(request, attached))
 
 
-def correlated_submission_attached(request, submission):
-    """Return a table of all submitted files and their ASRs."""
-    with store_context(request.fsstore):
-        rows = []
+def editor_asr(request, submission, fname=None):
+    """Return HTML snippet for ASR editor on submissions.
 
-        # Match the submitted files with the ASRs
-        attached = submission.attached
-        name_asrs = defaultdict(list)
-        for att in attached:
-            name_asrs[att.value.name].append(att)
+    Args:
+    submission - the submission to pull the ASR data from
+    fname (optional) - if not specified or the submission is not multiple, the
+        future ASR is for the submission as a whole. Otherwise, the ASR will be
+        created for the specified file inside the multiple submission.
 
-        file_asrs = []
-        mfile = submission.file
-        if (    mfile.mimetype == 'application/zip' and
-                mfile.name.startswith('multiple_files')):
-            # First, link the full submission data
-            rows.append(H.tr(H.td(link_file_holder(submission))))
+    """
+    sub_id = submission.id
 
-            zfobj = mfile.open_file()
-            try:
-                with ZipFile(zfobj, 'r') as zfile:
-                    for zinfo in zfile.infolist():
-                        asrs = name_asrs[zinfo.filename]
-                        file_asrs.append((lim_str(zinfo.filename), asrs))
-            except BadZipfile:
-                log.error('Bad zip submission {0} {1}'.format(
-                    submission.id, mfile))
+    hidden_fields = {'submission_id': sub_id}
+    if fname is not None:
+        hidden_fields['fname'] = fname
+
+    sub_cr_id = 'submission_{0}_cruise_id'.format(sub_id)
+    sub_dt_id = 'submission_{0}_data_type'.format(sub_id)
+    sub_p_id = 'submission_{0}_parameters'.format(sub_id)
+        
+    cruises = submission.cruises_from_identifier()
+    if cruises:
+        guessed_cid = cruises[0].uid
+    else:
+        guessed_cid = ''
+
+    buttons = [H.button('Attach', type='submit', name='action', value='Accept')]
+    if fname is None and not submission.attached:
+        if not submission.change.is_acknowledged():
+            buttons.append(H.button(
+                'In work', type='submit', name='action', value='Acknowledge'))
         else:
-            file_asrs = [(link_file_holder(submission), attached)]
-        for fname, asrs in file_asrs:
-            asr_links = [link_asr(request, asr) for asr in asrs]
-            asr_link = whh.literal(', '.join(asr_links))
-            rows.append(H.tr(H.td(fname), H.td(asr_link, class_='asrs')))
-        return H.table(*rows, class_='submission_asrs')
+            buttons.append(H.button(
+                'Release', type='submit', name='action', value='release'))
+        buttons.append(
+            H.button('Discard', type='submit', name='action', value='Reject'))
+    buttons = H.span(*buttons)
+
+    return tags.form('', 'PUT', hidden_fields=hidden_fields) + \
+        H.table(
+            H.tr(
+                H.td(tags.title('Cruise', label_for=sub_cr_id)),
+                H.td(tags.text(id=sub_cr_id, name='cruise_id', value=guessed_cid)),
+            ),
+            H.tr(
+                H.td(tags.title('Data type', label_for=sub_dt_id)),
+                H.td(tags.select('data_type', None, FILE_GROUPS_SELECT, id=sub_dt_id)),
+            ),
+            H.tr(
+                H.td(tags.title('Parameters', label_for=sub_p_id)),
+                H.td(tags.text(id=sub_p_id, name='parameters')),
+            ),
+            H.tr(H.td(), H.td(buttons)),
+            class_='editor') + \
+        tags.end_form()
+
+
+def correlated_submission_attached(request, submission):
+    """Return a table of all submitted files and their ASRs.
+
+    This is used in staff/submissions so also include editing functions.
+
+    """
+    rows = []
+
+    # Match the submitted files with the ASRs
+    attached = submission.attached
+    name_asrs = defaultdict(list)
+    for att in attached:
+        name_asrs[att.value.name].append(att)
+
+    if submission.is_multiple():
+        # The whole file gets one editor as well. This one will attach all the
+        # files to the same cruise.
+        attached_to_whole = attached[:]
+        file_asrs = [(None, '[All files]', attached_to_whole)]
+        with store_context(request.fsstore):
+            with submission.multiple_files() as zfile:
+                for zinfo in zfile.infolist():
+                    fname = zinfo.filename
+                    asrs = name_asrs[fname]
+                    for asr in asrs:
+                        attached_to_whole.remove(asr)
+                    file_asrs.append((fname, lim_str(fname), asrs))
+    else:
+        file_asrs = [(None, link_file_holder(submission), attached)]
+
+    for fname, link, asrs in file_asrs:
+        asr_links = [link_asr(request, asr) for asr in asrs]
+        asr_link = whh.literal(', '.join(asr_links))
+        rows.append(H.tr(
+            H.td(link),
+            H.td(asr_link, class_='asrs'),
+            H.td(editor_asr(request, submission, fname)),
+            ))
+    return H.table(*rows, class_='submission_asrs')
 
 
 def cruises_to_uids(cruises):

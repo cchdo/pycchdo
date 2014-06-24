@@ -1,4 +1,4 @@
-import cgi
+from cgi import FieldStorage
 import tarfile
 import os
 import tempfile
@@ -8,7 +8,7 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, subqueryload
@@ -25,7 +25,7 @@ from pycchdo.helpers import (
     )
 from pycchdo.models.serial import (
     store_context, DBSession, Submission, OldSubmission, Change, Cruise, Person,
-    Note
+    Note, FSFile,
     )
 
 from pycchdo.views import *
@@ -57,7 +57,7 @@ def index(request):
 
 
 def _submission_short_text(submission):
-    return 'submission {0}'.format(link_submission(submission))
+    return 'S {0}'.format(link_submission(submission))
 
 
 def _moderate_submission(request):
@@ -107,9 +107,17 @@ def _moderate_submission(request):
         return
 
     # Attaching
-
-    cruise_id = request.params['cruise_id']
-    data_type = request.params['data_type']
+    try:
+        cruise_id = request.params['cruise_id']
+        data_type = request.params['data_type']
+        parameters = request.params['parameters']
+    except KeyError:
+        request.response.status = 400
+        request.session.flash('Invalid arguments to attach', 'help')
+        return
+    fname = request.params.get('fname', None)
+    if not parameters:
+        parameters = None
 
     try:
         cruise = Cruise.get_by_id(cruise_id)
@@ -118,16 +126,39 @@ def _moderate_submission(request):
             'Could not find a cruise using %s' % cruise_id, 'help')
         return
 
-    # sometimes may want to create multiple ASRs in one go.
-    # TODO
-    parameters = None
-    asr = create_asr(request, request.user, cruise, data_type, submission.file,
-                     parameters)
-    submission.attach(request.user, asr)
+    asr_specs = []
+    if submission.is_multiple():
+        with    store_context(request.fsstore), \
+                submission.multiple_files() as zfile:
+            if fname is None:
+                # Attach all of the multiple files as separate ASRs to the same
+                # cruise.
+                for zinfo in zfile.infolist():
+                    data = FieldStorage()
+                    data.filename = zinfo.filename
+                    data.file = zfile.open(zinfo)
+                    data = FSFile.from_fieldstorage(data)
+                    asr_specs.append((cruise, data_type, data, parameters))
+            else:
+                zinfo = zfile.getinfo(fname)
+                if not zinfo:
+                    request.session.flash(
+                        'Could not find file to attach', 'help')
+                    return
+                data = FieldStorage()
+                data.filename = fname
+                data.file = zfile.open(zinfo)
+                data = FSFile.from_fieldstorage(data)
+                asr_specs.append((cruise, data_type, data, parameters))
+    else:
+        asr_specs.append((cruise, data_type, submission.file, parameters))
+    asrs = create_asrs(request, request.user, asr_specs)
+    submission.attached.extend(asrs)
 
+    asr_text = ', '.join([link_asr(request, asr) for asr in asrs])
     request.session.flash(
-        'Attached {0} as ASR {1}'.format(_submission_short_text(submission), 
-            link_asr(request, asr)), 'action_taken')
+        'Attached {0} as {1}'.format(_submission_short_text(submission), 
+            asr_text), 'action_taken')
 
 
 def create_asrs_history(request, signer, cruise, asrs):
@@ -157,14 +188,16 @@ def create_asr(request, signer, cruise, data_type, fsfile, parameters=None,
         return
 
 
-def create_asrs(request, signer, cruise_type_datas):
+def create_asrs(request, signer, asr_specs):
     all_asrs = []
-    grouped_dtype_fsf = {}
-    for cruise, data_type, fsf, parameters in cruise_type_datas:
-        grouped_dtype_fsf[cruise] = (data_type, fsf, parameters)
-    for cruise, type_datas in grouped_dtype_fsf:
+    grouped_short_specs = defaultdict(list)
+    for asr_spec in asr_specs:
+        cruise = asr_spec[0]
+        short_spec = asr_spec[1:]
+        grouped_short_specs[cruise].append(short_spec)
+    for cruise, short_specs in grouped_short_specs.items():
         asrs = []
-        for data_types, fsf, parameters in type_datas:
+        for data_type, fsf, parameters in short_specs:
             asrs.append(
                 create_asr(request, signer, cruise, data_type, fsf, parameters,
                            batched=True))
@@ -419,7 +452,7 @@ def archive(request, cruises, filename='archive.tbz', formats=['exchange'],
     archive.close()
     shutil.rmtree(tempdir)
 
-    field = cgi.FieldStorage()
+    field = FieldStorage()
     field.name = filename
     field.file = temp
     field.content_type = 'application/x-tar-bz2'

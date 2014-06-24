@@ -1,4 +1,5 @@
 from cgi import FieldStorage
+from datetime import datetime, timedelta
 from StringIO import StringIO
 
 from pyramid import testing
@@ -49,6 +50,22 @@ class TestToplevel(RequestBaseTest):
         self.request.matchdict['cruise_id'] = expocode
         cruise_show(self.request)
 
+
+class TestCruise(RequestBaseTest):
+    def test_index_reduced_specificity(self):
+        from pycchdo.views.cruise import cruise_show
+        expocode = '33RR20090320'
+
+        future_date = datetime.now() + timedelta(seconds=1)
+
+        ccc = Cruise.create(self.testPerson).obj
+        ccc.set(self.testPerson, 'expocode', expocode)
+        ccc.set(self.testPerson, 'date_start', future_date)
+
+        self.request.matchdict['cruise_id'] = expocode
+        result = cruise_show(self.request)
+        self.assertEqual(result['cruise'].date_start.year, future_date.year)
+        
 
 class TestStaffModeration(RequestBaseTest):
     def test_moderation_create_asr(self):

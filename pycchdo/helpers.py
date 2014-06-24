@@ -38,7 +38,6 @@ from pycchdo.models.searchsort import Sorter
 
 
 log = getLogger(__name__)
-log.setLevel(DEBUG)
 
 
 GAPI_keys = {
@@ -129,6 +128,21 @@ def is_usa_ship(ship):
     return False
 
 
+def is_cruise_usa_ship(cruise):
+    """Return whether a cruise is on a USA ship based on ExpoCode or ship."""
+    return ((cruise.expocode and is_expocode_usa_ship(cruise.expocode)) or
+            (cruise.ship and is_usa_ship(cruise.ship)))
+
+
+def is_cruise_date_in_future(cruise, now):
+    return (now and (
+        (cruise.date_start and 
+         type(cruise.date_start) == datetime and
+         cruise.date_start > now) or
+        (cruise.date_end and type(cruise.date_end) == datetime and
+         cruise.date_end > now)))
+
+
 def needs_specifics_reduction(cruise, date):
     """Determine whether a cruise needs its date and port specifics reduced to
     comply with UNOLS and Navy security regulations.
@@ -136,18 +150,7 @@ def needs_specifics_reduction(cruise, date):
     """
     if not cruise:
         return False
-
-    if (    (   (cruise.expocode and is_expocode_usa_ship(cruise.expocode) or
-                (cruise.ship and is_usa_ship(cruise.ship)))
-            ) and 
-            (date and (
-                (cruise.date_start and 
-                 type(cruise.date_start) == datetime and
-                 cruise.date_start > date) or
-                (cruise.date_end and type(cruise.date_end) == datetime and
-                 cruise.date_end > date)))):
-        return True
-    return False
+    return is_cruise_usa_ship(cruise) and is_cruise_date_in_future(cruise, date)
 
 
 def reduce_specificity(request, *cruises):
@@ -162,23 +165,20 @@ def reduce_specificity(request, *cruises):
         return
 
     # Password protected does not require reduction.
-    if has_edit(request):
+    if has_mod(request):
         return
 
     now = datetime.now()
     for cruise in cruises:
         if needs_specifics_reduction(cruise, now):
-            log.info(
-                u'Reducing specifics for cruise {0}'.format(cruise))
-            attr = cruise.get_attr('date_start')
+            log.info(u'Reducing specifics for cruise {0}'.format(cruise))
+            attr = cruise.get('date_start')
             if attr:
-                av = attr.attr_value
-                av.value = datetime(av.value.year, 1, 1)
+                cruise.date_start = datetime(attr.year, 1, 1)
                 transaction.doom()
-            attr = cruise.get_attr('date_end')
+            attr = cruise.get('date_end')
             if attr:
-                av = attr.attr_value
-                av.value = datetime(av.value.year, 1, 1)
+                cruise.date_end = datetime(attr.year, 1, 1)
                 transaction.doom()
 
 

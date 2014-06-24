@@ -489,6 +489,7 @@ def cruise_show(request):
 
     history = []
     if cruise_obj:
+        h.reduce_specificity(request, cruise_obj)
         if request.user:
             history = cruise_obj.notes
         else:

@@ -629,12 +629,13 @@ class Serializer(object):
 
 
 class SerializerDateTime(Serializer):
-    # FIXME +%z preserve the timezone, if any. Is this necessary?
+    # Decided that time zone is not important.
     format_string = '%Y-%m-%dT%H:%M:%S.%f'
     @classmethod
     def serialize(cls, value):
         try:
-            value = {'type': 'dt', 'val': value.strftime(cls.format_string)}
+            val = value.strftime(cls.format_string)
+            value = {'type': 'dt', 'val': val}
         except AttributeError:
             value = {'type': 'u', 'val': value}
         return super(SerializerDateTime, cls).serialize(value)
@@ -645,7 +646,9 @@ class SerializerDateTime(Serializer):
         if serial['type'] == 'dt':
             try:
                 return datetime.strptime(serial['val'], cls.format_string)
-            except ValueError:
+            except ValueError, err:
+                log.warn(u'Invalid date serialization: {0!r} {1}'.format(
+                    serial['val'], err))
                 return None
         elif serial['type'] == 'u':
             return serial['val']

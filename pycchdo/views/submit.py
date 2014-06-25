@@ -59,16 +59,21 @@ def submit(request):
             try:
                 d['file_names'].append(f.filename)
                 f.file
-            except AttributeError:
-                # TODO handle if files don't have names...shouldn't be possible?
-                continue
+            except AttributeError, err:
+                log.error(
+                    u'Submission missing filename or file: {0!r}'.format(err))
+                request.response.status = 400
+                request.session.flash(
+                    'There was a problem with the files. Please contact '
+                    'the CCHDO for help.', 'form_error_files')
+                return {}
             files.append(f)
         h.form_entered(request, 'files', d['file_names'])
 
         if len(files) < 1:
             request.response.status = 400
             request.session.flash(
-                'You must submit at least one file', 'form_error_files')
+                'At least one file must be selected', 'form_error_files')
             return {}
 
         action_list = []

@@ -19,4 +19,7 @@ dist
 import_assets
 *.ini
 .webassets-cache
+.env
+.coverage
+
 pycchdo/static/gen/*

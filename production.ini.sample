@@ -25,9 +25,8 @@ recipient_submission_confirm = cchdo@ucsd.edu
 recipient_asr_confirm = cchdo@googlegroups.com
 
 # Security keys
-# TODO change the secrets
-key_auth_policy = seekrit
-key_session_factory = itsaseekreet
+key_auth_policy = 
+key_session_factory = 
 
 sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:55432/prod_pycchdo
 

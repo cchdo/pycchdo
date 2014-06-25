@@ -300,9 +300,6 @@
       {%- if basin == 'Arctic' or basin == 'Southern' %}
         <p>Please note, the {{ whh.tags.link_to('Project Carina collection', request.route_path('project_carina')) }} is not shown on this map.</p>
       {%- endif %}
-      {%- if basin == 'Southern' %}
-        <p><a href="/sou_map.html">WOCE Reference Map</a></p>
-      {%- endif %}
       <div id="map" class="mapimg">
         <img src="{{h.get_basin_map(basin, None)}}" usemap="{{ h.image_map_id(basin) }}">
         {{ image_map_for(basin) }}

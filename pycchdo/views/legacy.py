@@ -29,7 +29,8 @@ def data_access_show_cruise(request):
 
 
 def list_files(request):
-    # TODO
+    log.error(u'List files accessed')
+    # TODO implement a file manifest system
     raise HTTPNotFound()
 
 

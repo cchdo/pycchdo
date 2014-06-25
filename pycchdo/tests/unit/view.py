@@ -7,7 +7,20 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pycchdo.tests import (
     PersonBaseTest, MockFieldStorage, MockFile, MockSession, fsstore
     )
-from pycchdo.models.serial import Cruise
+from pycchdo.models.serial import Cruise, FSFile
+
+
+class TestGlobal(PersonBaseTest):
+    def test_file_response_content_type(self):
+        """content_type must be a string."""
+        from pycchdo.views import file_response
+        fst = MockFieldStorage(
+            MockFile('', 'mockfile.txt'), contentType='text/plain')
+        fff = FSFile.from_fieldstorage(fst)
+        request = testing.DummyRequest()
+        request.fsstore = fsstore
+        resp = file_response(request, fff)
+        self.assertTrue(isinstance(resp.content_type, basestring))
 
 
 class TestView(PersonBaseTest):

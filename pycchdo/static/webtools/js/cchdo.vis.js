@@ -121,7 +121,6 @@ CCHDO.vis.Gradient.prototype.getColorFor = function(value) {
  *    - invertY: whether to invert the Y axis. (boolean) Defaults to false.
  *    - pointColor: the color scheme for points along the Y axis. (HTML color
  *        code or CCHDO.vis.Gradient) Defaults to #05f.
- *    - TODO
  */
 CCHDO.vis.Plot = function(container) {
   this.container = container;

@@ -25,9 +25,8 @@ recipient_submission_confirm = myshen+submission@ucsd.edu
 recipient_asr_confirm = myshen+asr@ucsd.edu
 
 # Security keys
-# TODO change the secrets
-key_auth_policy = seekrit
-key_session_factory = itsaseekreet
+key_auth_policy = ONLY_FOR_DEV
+key_session_factory = ONLY_FOR_DEV
 
 sqlalchemy.url = postgresql://pycchdo:pycchd0%40315@sui.ucsd.edu:55432/dev_pycchdo
 # echo may also take on value string debug

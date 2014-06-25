@@ -186,7 +186,6 @@ def file_response(request, file, disposition='inline'):
         except AttributeError:
             pass
         try:
-            # TODO TEST that this must be string.
             if file.content_type is not None and file.content_type != 'None':
                 resp.content_type = str(file.content_type)
             else:

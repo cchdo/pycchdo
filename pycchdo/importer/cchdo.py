@@ -182,8 +182,8 @@ known_names['Unknown'] = None
 
 # Maps known acronyms to a good search phrase
 known_institutions = {
-    u'PMEL': [u'Pacific Marine Environmental Laboratory', u'PMEL',
-        u'NOAA'],
+    u'ODF': ['ODF'],
+    u'PMEL': [u'Pacific Marine Environmental Laboratory', u'PMEL', u'NOAA'],
     u'NOAA': [u'NOAA'],
     u'FIMR': [u'Finnish Institute of Marine Research'], 
     u'LODYC': [u"Laboratoire d'Océanographie Dynamique et de Climatologie",
@@ -193,6 +193,8 @@ known_institutions = {
         u'Marine Science and Technology Center', u'JAMSTEC', ],
     u'JODC': [u'Japan Oceanographic Data Center'],
     u'BAH': [u'Biologische Anstalt Helgoland'],
+    u'IO RAN': [u'Institute of Oceanology of the Russian Academy of Sciences',
+                u'IO RAN'],
     u'IfMH': [u'Institut für Meereskunde der Universität Hamburg',
               u'Institut für Meereskunde\nUniversität Hamburg',
               u'Institut fur Meereskunde\nUniversitat of Hamburg',
@@ -294,61 +296,37 @@ known_institutions[u'IfMUH'] = known_institutions[u'IfMH']
 known_institutions[u'JRD'] = known_institutions[u'JRC']
 known_institutions[u'James Rennell Centre'] = known_institutions[u'JRC']
 known_institutions[u'SOC-JRD'] = known_institutions[u'JRC']
-known_institutions[u'IORAN'] = known_institutions[u'SOI']
+known_institutions[u'IORAN'] = known_institutions[u'IO RAN']
 known_institutions[u'IOAN'] = known_institutions[u'SOI']
 known_institutions[u'Shirshov Institute of Oceanology'] = \
     known_institutions[u'SOI']
 
 
 known_first_name_for_cruise = {
-    49: 'Robert R.',
-    90: 'W. John',
-    109: 'W. Glen',
-    113: 'W. Glen',
-    126: 'Arnold L.',
-    149: 'W. John',
-    212: 'W. John',
-    213: 'Robert R.',
-    214: 'Robert R.',
-    277: 'Gregory C.',
-    278: 'Gregory C.',
-    294: 'Arnold L.',
-    324: 'Robert R.',
-    384: 'David',
-    401: 'Nicholas J. P.',
-    462: 'W. Breck',
-    523: 'Ben',
-    559: 'Ben',
-    560: 'Ben',
-    575: 'Ben',
-    579: 'Ben',
-    580: 'Ben',
-    581: 'Ben',
-    584: 'Ben',
-    595: 'Ben',
-    645: 'Cho-Teng',
-    646: 'Cho-Teng',
-    649: 'Cho-Teng',
-    650: 'Cho-Teng',
-    651: 'Cho-Teng',
-    652: 'Cho-Teng',
-    653: 'Cho-Teng',
-    658: 'Cho-Teng',
-    750: 'Robert R.',
-    764: 'David',
-    793: 'Leif',
-    870: 'Leif',
-    973: 'Kevin T. M.',
-    1063: 'Kevin T. M.',
-    1296: 'W. Glen',
-    1298: 'W. Glen',
-    1338: 'Rodney J.',
 }
 
 
 known_first_name_given_last_name_for_cruise = {
-    (461, 'Owens'): 'W. Breck',
-    (848, 'Johnson'): 'Gregory C.',
+    ('74DI207', 'Dickson'): 'Andrew G.',
+    ('318M200406', 'Dickson'): 'Andrew G.',
+    ('33RR200501', 'Dickson'): 'Andrew G.',
+    ('316N200309', 'Dickson'): 'Andrew G.',
+    ('18DD9201_1', 'Johnson'): 'Keith',
+    ('74JC002_1', 'Owens'): 'Nicholas J. P.',
+    ('06AQANTXIII_4', 'Klein'): 'Birgit',
+    ('74JC002_1', 'Miller'): 'Bill',
+}
+
+
+known_first_name_for_person_inst = {
+    ('Johnson', 'BNL', ): 'Kevin T. M.',
+    ('Johnson', 'PMEL', ): 'Gregory C.',
+    ('Gordon', 'OSU', ): 'Louis I.',
+    ('Moore', 'PMEL', ): 'Ben',
+    ('Liu', 'NTU', ): 'Cho-Teng',
+    ('Saito', 'JAMSTEC', ): 'Chizuru',
+    ('Miller', 'NOAA', ): 'Rick',
+    ('Gaillard', 'NWU'): 'Jean-François',
 }
 
 
@@ -358,12 +336,19 @@ known_duplicates = [
 
 
 known_multiple_names = {
+    'Bacon': [u'Sheldon'],
+    'Bayer': [u'Reinhold', u'R.'],
+    'Baringer': [u'Molly O.', u'Molly'],
     'Bindoff': [u'Nathan L.', u'Nathan'],
     'Budeus': [u'Gereon', u''],
     'Bullister': [u'Dr. John L.', u'John L.', u'John', u''],
     'Curry': [u'Ruth G.', u'Ruth'],
+    'Evans': [u'Leigh'],
     'Feely': [u'Richard A.', u'Richard'],
+    'Fine': [u'Dr. Rana A.', u'Rana A.', u'Rana'],
     'Freeland': [u'Howard J.', u'Howard'],
+    'Gardner': [u'Wilford', u'Wilf'],
+    'Gershey': [u'Robert M.', u'Robert'],
     'Gould': [u'W. John', u'W John'],
     'Hallock': [u'Zachariah R.', u''],
     'Hendry': [u'Ross M.', u'Ross'],
@@ -371,21 +356,34 @@ known_multiple_names = {
     'Holfort': [u'J\xc5rgen', u''],
     'Ishii': [u'Masao', u''],
     'Jenkins': [u'Prof. William J.', u'William J.', u'William ', u'Bill'],
+    'Jean-Baptiste': [u'Dr. Phillipe', u'Phillipe', u'Philippe'],
+    'Joyce': [u'Terrence M.', u'Terry'],
     'Kawano': [u'Mr. Takeshi', u'Takeshi'],
     'Key': [u'Dr. Robert M.', u'Robert M.', u'Robert ', u'Bob', u'Bpb', u''],
     'King': [u'Dr. Brian A.', u'Brian A.', u'Brian', u''], 
+    'Falkner': [u'Kelly', u'K'],
+    'Kattner': [u'Gerhard'],
     'Kelly Falkner': [u''],
     'Koltermann': [u'K. Peter', u'K.-Peter'],
+    'Kozyr': [u'Alex', u'Alexander', u'Akex'],
+    'Langdon': [u'Christopher', u'Chris'],
     'Lee': [u'Hoyle', u''],
+    'Lemke': [u'Peter'],
+    'McPhaden': [u'Mike', u'M.'],
+    'Measures': [u'Christopher', u'Chris'],
     'Mercier': [u'Herl\xe9', u'Herle'],
+    'Millero': [u'Frank J.', u'Frank'],
     'McCartney': [u'Dr. Michael S.', u'Michael', u'Michael S.', u'Mike', u'Dr. Michael'],
     'Musgrave': [u'David L.', u'David'],
+    'Muus': [u'David', u'Dave'],
     'Nakano': [u'Toshiya', u''],
     'New': [u'Adrian L.', u''],
     'Olsen': [u'A', u''],
     'Pickart': [u'Robert', u'Robert '],
     'Quadfasel': [u'Detlef R.', u'R. Detlef'],
+    'Quay': [u'Dr. Paul', u'Paul D.', u'Paul'],
     'Rintoul': [u'Stephen R.', u'Steve R.'],
+    'Rios': [u'Aida'],
     'Rojas': [u'Ricardo L.', u'Ricardo'],
     'Rosenberg': [u'Mark', u''],
     'Schott': [u'Friedrich A.', u'Fritz'],
@@ -394,12 +392,16 @@ known_multiple_names = {
     'Smethie': [u'William A.', u'William', u'Bill'],
     'Swift': [u'Dr. James H.', u'James', u'Jim', u'Dr. James'],
     'Talley': [u'Dr. Lynne', u'Lynne'],
+    'Toole': [u'John'],
     'Uchida': [u'Hiroshi', u''],
     'van Aken': [u'Dr. Hendrik M.', u'', u'Hendrik M.'],
+    'Wanninkhof': [u'Rik'],
+    'Warner': [u'Mark J.', u'Mark'],
     'Warren': [u'Bruce A.', u''],
     'Watson': [u'Andrew J.', u'Andrew'],
     'Wijffels': [u'Susan E.', u'Susan'],
     'Williams': [u'Robert', u'', u'Robert '],
+    'Wong': [u'C. S.', u'C.S.'],
     'Zhang': [u'Huai-Min', u''],
 }
 
@@ -409,60 +411,69 @@ def _find_person_with_qlastn_name_first(qlastn, name_first):
     if len(people) == 1:
         return people[0]
     elif len(people) > 1:
-        log.error(
-            u'Multiple people for {0} {1!r}'.format(str(qlastn), name_first))
+        log.warn(u'Multiple people for first name {0!r}'.format(name_first))
     else:
-        log.error(
-            u'No person for {0} {1!r}'.format(str(qlastn), name_first))
-    return None
+        log.warn(u'No person for first name {0!r}'.format(name_first))
+    raise ValueError() 
 
 
-def _name_to_person(updater, cruise, name):
-    qlastn = Person.query().filter(Person.name_last == name)
+def _person_inst_to_person(updater, cruise, person_inst):
+    if len(person_inst) > 1:
+        lname, _ = person_inst
+    else:
+        lname = person_inst[0]
+    qlastn = Person.query().filter(Person.name_last == lname)
     people = qlastn.all()
     if len(people) == 1:
         return people[0]
     elif len(people) > 1:
         try:
-            name_first = known_first_name_for_cruise[cruise.id]
-            person = _find_person_with_qlastn_name_first(
-                qlastn, name_first)
-            if person is not None:
-                return person
-        except KeyError:
-            try:
-                name_first = known_first_name_given_last_name_for_cruise[
-                    (cruise.id, name)]
-                person = _find_person_with_qlastn_name_first(
-                    qlastn, name_first)
-                if person is not None:
-                    return person
-            except KeyError:
-                first_names = [p.name_first for p in people]
-                ids = [p.id for p in people]
-                log.warn(u'>1 match for {0!r} {1!r} (cruise {2})'.format(
-                    first_names, ids, cruise.id))
-                if name in known_duplicates:
-                    log.info(u'Known duplicate %s' % name)
-                    return people[0]
-                if name in known_multiple_names.keys():
-                    log.info(u'Known multiple names %s' % name)
-                    return people[0]
-        log.error(u'Unable to pick person for last name {0!r}'.format(name))
+            fname = known_first_name_for_person_inst[tuple(person_inst)]
+            return _find_person_with_qlastn_name_first(qlastn, fname)
+        except (ValueError, KeyError):
+            pass
+        try:
+            fname = known_first_name_for_cruise[cruise.uid]
+            return _find_person_with_qlastn_name_first(qlastn, fname)
+        except (ValueError, KeyError):
+            pass
+        try:
+            fname = known_first_name_given_last_name_for_cruise[
+                (cruise.uid, lname)]
+            return _find_person_with_qlastn_name_first(qlastn, fname)
+        except (ValueError, KeyError):
+            first_names = [p.name_first for p in people]
+            ids = [p.id for p in people]
+            filtered_people = filter(lambda p: p.name_first is None, people)
+            if len(filtered_people) == 1:
+                log.info(u'Picked first person with a first name')
+                return filtered_people[0]
+            if len(set(first_names)) == 1:
+                log.info(u'Picked first person, all names are the same')
+                return people[0]
+            if lname in known_duplicates:
+                log.info(u'Known duplicate %s' % lname)
+                return people[0]
+            if lname in known_multiple_names.keys():
+                log.info(u'Known multiple names %s' % lname)
+                return people[0]
+            log.warn(u'>1 match for {0} {1!r} {2!r} ({3!r})'.format(
+                lname, first_names, ids, cruise))
+        log.error(u'Unable to pick person for last name {0!r}'.format(lname))
 
     # No people found
-    log.warn('No person matched {0!r} (cruise {1!r})'.format(name, cruise.id))
-    return _import_contact(updater, name, None, name=name)
+    log.warn('No person matched {0!r} ({1!r})'.format(lname, cruise))
+    return _import_contact(updater, lname, None, name=lname)
 
 
 def _name_to_inst(updater, name, p):
-    if name is None or name == 'None' or name == '':
+    if name is None or name == '' or name == 'None':
         return None
 
     try:
         names = known_institutions[name]
     except KeyError:
-        names = []
+        names = [name]
 
     try:
         iname = p.institution.name or ''
@@ -476,11 +487,12 @@ def _name_to_inst(updater, name, p):
         replacement = names[0]
         return _import_inst(updater, replacement)
     except IndexError:
+        log.warn(u'Unable to find inst {0!r}'.format(names))
         return None
 
 
 def _person_insts_to_pi(updater, cruise, person_insts):
-    p = _name_to_person(updater, cruise, person_insts[0])
+    p = _person_inst_to_person(updater, cruise, person_insts)
     if len(person_insts) > 1:
         i = _name_to_inst(updater, person_insts[1], p)
     else:
@@ -493,30 +505,24 @@ def _cchdo_pi_to_person_insts(pi, cruise, updater):
     Institutions pairs.
 
     """
-    log.info(
-        u'Mapping {0!r} {1} to person-institution'.format(pi, cruise.id))
+    log.info(u'Mapping {0!r} {1} to person-institution'.format(pi, cruise))
 
     # Special cases
     if pi == 'Unknown':
         return []
-    if pi == 'Miller/NOAA':
-        return [_import_person_inst(
-                    updater, u'Miller', u'Rick', u'NOAA',
-                    u'Hendrick.V.Miller@noaa.gov')]
-    if pi == 'Gaillard/NWU':
-        return [_import_person_inst(
-                    updater, u'Gaillard', u'Jean-François',
-                    u'Northwestern University',
-                    u'jf-gaillard@northwestern.edu')]
     if pi == 'JOHNSON':
-        return [_import_person_inst(
-                    updater, u'Johnson', u'Rodney J.',
-                    u'Bermuda Institute of Ocean Sciences',
-                    u'rod.johnson@bios.edu')]
+        pi = 'Johnson/BIOS'
 
     names = [_ustr2uni(x.strip()) for x in pi.split(',')]
     pis = []
     for name in names:
+        if ',' in name:
+            names = map(lambda x: x.strip(), name.split(','))
+            for name in names:
+                if '/' in name:
+                    pi.extend([tuple(name.split('/', 1))])
+                else:
+                    pi.extend([(name, None)])
         if ':' in name:
             name0, name1 = map(lambda x: x.strip(), name.split(':', 1))
             if '/' in name0:
@@ -547,13 +553,16 @@ def _cchdo_pi_to_person_insts(pi, cruise, updater):
             pis.extend([(name0, name1)])
             continue
         try:
-            pis.extend([known_names[name]])
+            pis.append(known_names[name])
             continue
         except KeyError:
             pass
         pis.append((name, None, ))
-    return [_person_insts_to_pi(updater, cruise, pi) \
-            for pi in filter(None, pis)]
+    filtered_pis = filter(None, pis)
+    log.info(filtered_pis)
+    result = [_person_insts_to_pi(updater, cruise, pi) for pi in filtered_pis]
+    log.info(repr(result))
+    return result
 
 
 def _import_inst(updater, name):
@@ -1468,6 +1477,21 @@ def _import_parameters(session):
         codes[int(code.Code)] = codes_name_to_param_info_code[code.Status]
     codes[0] = None
 
+    # Import missing contacts
+    _import_person_inst(
+        updater, u'Miller', u'Bill', u'NERC Research Vessel Services', u'w.miller@wpo.nerc.ac.uk')
+    _import_person_inst(
+        updater, u'Miller', u'Rick', u'NOAA', u'Hendrick.V.Miller@noaa.gov')
+    _import_person_inst(
+        updater, u'Gaillard', u'Jean-François', u'Northwestern University',
+        u'jf-gaillard@northwestern.edu')
+    _import_person_inst(
+        updater, u'Johnson', u'Rodney J.',
+        u'Bermuda Institute of Ocean Sciences', u'rod.johnson@bios.edu')
+    _import_person_inst(
+        updater, u'Johnson', u'Keith',
+        u'Institute of Ocean Sciences', u'Keith.Johnson@dfo- mpo.gc.ca')
+    
     parameters = {}
     for param in legacy.CruiseParameterInfo._PARAMETERS:
         parameter = Parameter.query().filter(Parameter.name == param).first()
@@ -1512,12 +1536,13 @@ def _import_parameters(session):
             try:
                 pi = getattr(p, param + '_PI')
                 if pi and pi != 'None':
+                    log.info(u'CPI for {0}'.format(param))
                     pis = _cchdo_pi_to_person_insts(
                         _ustr2uni(pi), cruise, updater)
                 else:
                     pis = []
-            except TypeError, e:
-                log.warn(e)
+            except TypeError, err:
+                log.warn(repr(err))
                 pis = []
             
             try:
@@ -2207,8 +2232,6 @@ def _import_documents(session, downloader, nthreads):
 
     # Instead of importing the documents table, go the other way around and
     # import documents for each cruise
-    # TODO FIXME what about the files with no ExpoCode? or ExpoCode == 'NULL'?
-    # package those up?
     expocodes = [ccc.expocode for ccc in DBSession.query(Cruise.expocode).all()]
 
     log.info(u'Found {0} expocodes. initializing threads...'.format(

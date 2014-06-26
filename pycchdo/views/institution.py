@@ -9,17 +9,19 @@ from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
+def _institutions(request):
+    institutions = Institution.query().filter(Institution.accepted).all()
+    institutions = sorted(institutions, key=lambda c: c.name)
+    return institutions
+
+
 def institutions_index(request):
-    institutions = Institution.query().all()
-    institutions = sorted(institutions, key=lambda x: x.name)
-    institutions = paged(request, institutions)
+    institutions = paged(request, _institutions(request))
     return {'institutions': institutions}
 
 
 def institutions_index_json(request):
-    institutions = Institution.query().all()
-    institutions = sorted(institutions, key=lambda x: x.name)
-    institutions = [i.to_dict() for i in institutions]
+    institutions = [i.to_dict() for i in _institutions(request)]
     return institutions
 
 

@@ -9,16 +9,18 @@ from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
+def _ships(request):
+    ships = Ship.query().filter(Ship.accepted).all()
+    ships = sorted(ships, key=lambda c: c.name)
+    return ships
+
+
 def ships_index(request):
-    ships = Ship.query().all()
-    ships = sorted(ships, key=lambda s: s.name)
-    return {'ships': ships}
+    return {'ships': _ships(request)}
 
 
 def ships_index_json(request):
-    ships = Ship.query().all()
-    ships = sorted(ships, key=lambda s: s.name)
-    return [s.to_dict() for s in ships]
+    return [s.to_dict() for s in _ships(request)]
 
 
 def _get_ship(request):

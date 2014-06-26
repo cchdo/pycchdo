@@ -10,7 +10,7 @@ from pyramid.httpexceptions import HTTPSeeOther
 #from jinja2 import Template as Jinja2Template
 
 from pycchdo.tests import PersonBaseTest, RequestBaseTest
-from pycchdo.models.serial import DBSession, Cruise, Person
+from pycchdo.models.serial import DBSession, Cruise, Person, Collection
 from pycchdo.log import getLogger
 
 
@@ -52,7 +52,58 @@ class TestCruise(RequestBaseTest):
         self.request.matchdict['cruise_id'] = expocode
         result = cruise_show(self.request)
         self.assertEqual(result['cruise'].date_start.year, future_date.year)
+
+    def test_list_rejected_cruise(self):
+        """Rejected cruise should not appear."""
+        from pycchdo.views.cruise import cruises_index
+        expocode = 'rejected'
+
+        ccc = Cruise.propose(self.testPerson).obj
+        ccc.set(self.testPerson, 'expocode', expocode)
+
+        result = cruises_index(self.request)
+        self.assertEqual(0, len(result['cruises']))
+
+        ccc.change.accept(self.testPerson)
+        result = cruises_index(self.request)
+        self.assertEqual(1, len(result['cruises']))
+
+        ccc.change.reject(self.testPerson)
+        result = cruises_index(self.request)
+        self.assertEqual(0, len(result['cruises']))
+
+    def test_rejected_cruise(self):
+        """Rejected cruise should not appear."""
+        from pycchdo.views.cruise import cruise_show
+        expocode = 'rejected'
+
+        ccc = Cruise.propose(self.testPerson).obj
+        ccc.set(self.testPerson, 'expocode', expocode)
+        ccc.change.reject(self.testPerson)
+
+        self.request.matchdict['cruise_id'] = expocode
+        with self.assertRaises(HTTPSeeOther):
+            cruise_show(self.request)
         
+
+class TestCollection(RequestBaseTest):
+    def test_list_rejected_cruise(self):
+        """Rejected cruise should not appear."""
+        from pycchdo.views.collection import collections_index
+
+        ccc = Collection.propose(self.testPerson).obj
+
+        result = collections_index(self.request)
+        self.assertEqual(0, len(result['collections']))
+
+        ccc.change.accept(self.testPerson)
+        result = collections_index(self.request)
+        self.assertEqual(1, len(result['collections']))
+
+        ccc.change.reject(self.testPerson)
+        result = collections_index(self.request)
+        self.assertEqual(0, len(result['collections']))
+
 
 class TestStaffModeration(RequestBaseTest):
     def test_moderation_create_asr(self):

@@ -10,17 +10,19 @@ from pycchdo.models.searchsort import sort_list
 from pycchdo.views import log, staff
 
 
-def collections_index(request):
-    collections = Collection.query().all()
+def _collections(request):
+    collections = Collection.query().filter(Collection.accepted).all()
     collections = sorted(collections, key=lambda c: c.name)
-    collections = paged(request, collections)
+    return collections
+
+
+def collections_index(request):
+    collections = paged(request, _collections(request))
     return {'collections': collections}
 
 
 def collections_index_json(request):
-    collections = Collection.query().all()
-    collections = sorted(collections, key=lambda c: c.name)
-    collections = [c.to_dict() for c in collections]
+    collections = [c.to_dict() for c in _collections(request)]
     return collections
 
 

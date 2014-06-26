@@ -2733,7 +2733,12 @@ class Cruise(Obj):
         if not cruise_obj:
             # If not, try based on aliases.
             cruise_obj = Cruise.query().filter(
-                Cruise.aliases.contains(cruise_id)).first()
+                Cruise.aliases.contains(cruise_id)).filter(
+                Cruise.accepted == True).first()
+
+        if not cruise_obj.accepted:
+            raise ValueError('Not found')
+
         if not cruise_obj:
             raise ValueError('Not found')
         return cruise_obj

@@ -12,16 +12,18 @@ from pycchdo.models.searchsort import sort_list
 from pycchdo.views import staff
 
 
+def _countries(request):
+    countries = Country.query().filter(Country.accepted).all()
+    countries = sorted(countries, key=lambda c: c.name)
+    return countries
+
+
 def countries_index(request):
-    countries = Country.query().all()
-    countries = sorted(countries, key=lambda x: x.name)
-    return {'countries': countries}
+    return {'countries': _countries(request)}
 
 
 def countries_index_json(request):
-    countries = Country.query().all()
-    countries = sorted(countries, key=lambda x: x.name)
-    countries = [c.to_dict() for c in countries]
+    countries = [c.to_dict() for c in _countries(request)]
     return countries
 
 

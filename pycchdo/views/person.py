@@ -13,15 +13,18 @@ from pycchdo.views.staff import staff_signin_required
 from pycchdo.views import staff
 
 
+def _people(request):
+    people = Person.query().filter(Person.accepted).order_by(Person.name_last).all()
+    return people
+
+
 def people_index(request):
-    people = Person.query().order_by(Person.name_last).all()
-    people = paged(request, people)
+    people = paged(request, _people(request))
     return {'people': people}
 
 
 def people_index_json(request):
-    people = Person.query().order_by(Person.name_last).all()
-    people = [p.to_dict() for p in people]
+    people = [p.to_dict() for p in _people](request)
     return people
 
 

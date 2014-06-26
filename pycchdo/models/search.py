@@ -13,7 +13,7 @@ from traceback import format_exc
 
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
-from whoosh.writing import BufferedWriter
+from whoosh.writing import BufferedWriter, IndexingError
 from whoosh.qparser import (
     QueryParser, MultifieldParser, AndGroup, FieldAliasPlugin,
     )
@@ -159,27 +159,6 @@ def _str_to_date(text, end=False):
             return _str_to_date('{0}-01-01'.format(text))
 
 
-def _datematch_cruise(cruise, date_match_items):
-    """Determine whether the cruise is in the date range."""
-    for dtype, dt in date_match_items.items():
-        dst = cruise.date_start
-        den = cruise.date_end
-        if dtype == 'dstart':
-            if ((dst and type(dst) is datetime and dst < dt) or
-                (den and type(den) is datetime and den < dt)):
-                return False
-        elif dtype == 'dend':
-            if ((den and type(den) is datetime and den > dt) or
-                (dst and type(dst) is datetime and dst > dt)):
-                return False
-    return True
-
-
-def _filter_cruises_for_date_match(cruises, date_match_items):
-    # Filter out cruises that are not in the date range.
-    return filter(lambda ccc: _datematch_cruise(ccc, date_match_items), cruises)
-
-
 class SearchIndex(object):
     """Encapsulates a directory that is used as a Whoosh search index."""
     index_dir = '.'
@@ -258,8 +237,14 @@ class SearchIndex(object):
             raise
         finally:
             if not writer:
-                ixw.commit()
-                # TODO TEST make sure the note is committed afterward.
+                try:
+                    ixw.commit()
+                except IndexingError, err:
+                    # According to whoosh, bufferedwriters can be committed
+                    # multiple times. Not sure why this last call can result in
+                    # already closed if a commit was already called.
+                    if str(err) != 'This writer is closed':
+                        raise
                 if buffered:
                     ixw.close()
                 ix.close()
@@ -569,18 +554,12 @@ class SearchIndex(object):
                         # supposed to have cruises associated with them, so we
                         # just put them directly into the results.
                         results[model_name] = objects
-# TODO
-                        #results[model_name] = _filter_cruises_for_date_match(
-                        #    objects, date_match_items)
                     else:
                         # Everything else can have associated cruises. We will
                         # map each Obj to its associated cruises in the results
                         container = SearchResult()
                         for obj in objects:
-# TODO
                             container[obj] = obj.cruises
-                            #container[obj] = _filter_cruises_for_date_match(
-                            #    obj.cruises, date_match_items)
                         results[model_name] = container
 
                 except NotImplementedError, err:

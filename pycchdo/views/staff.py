@@ -130,7 +130,7 @@ def _moderate_submission(request):
     asr_specs = []
     if submission.is_multiple():
         try:
-            with    store_context(request.fsstore), \
+            with    store_context(request.registry.settings['fsstore']), \
                     submission.multiple_files() as zfile:
                 if fname is None:
                     # Attach all of the multiple files as separate ASRs to the
@@ -180,7 +180,7 @@ def create_asr(request, signer, cruise, data_type, fsfile, parameters=None,
                batched=False):
     """Add data as a suggestion and send As Received confirmation email."""
     try:
-        with store_context(request.fsstore):
+        with store_context(request.registry.settings['fsstore']):
             asr = cruise.sugg(signer, data_type, fsfile)
             if parameters is not None:
                 asr._notes.append(Note(

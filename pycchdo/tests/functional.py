@@ -9,25 +9,12 @@ from pyramid.httpexceptions import HTTPSeeOther
 # them for expected results.
 #from jinja2 import Template as Jinja2Template
 
-from pycchdo.tests import PersonBaseTest, fsstore
-from pycchdo.routes import configure_routes
+from pycchdo.tests import PersonBaseTest, RequestBaseTest
 from pycchdo.models.serial import DBSession, Cruise, Person
 from pycchdo.log import getLogger
 
 
 log = getLogger(__name__)
-
-
-class RequestBaseTest(PersonBaseTest):
-    def setUp(self):
-        super(RequestBaseTest, self).setUp()
-        self.config.include('pyramid_mailer.testing')
-        self.request = testing.DummyRequest()
-        self.request.registry = self.config.registry
-        self.request.user = self.testPerson
-        self.request.fsstore = fsstore
-
-        configure_routes(self.config)
 
 
 class TestToplevel(RequestBaseTest):

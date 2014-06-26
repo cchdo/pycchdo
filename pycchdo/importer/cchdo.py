@@ -1120,8 +1120,6 @@ def _import_contacts_cruises(session):
         except KeyError:
             cruise_contacts[cruiseid] = [(role, contactid, inst)]
 
-        # TODO institution
-
     for cruiseid, contacts in cruise_contacts.items():
         cruise = get_by_import_id(Cruise, cruiseid)
         if not cruise:
@@ -1458,7 +1456,6 @@ def _import_parameter_groups(session):
 
 def _import_bottle_dbs(session):
     log.info("Importing Bottle DBs")
-    # TODO regenerate bottle parameter information cache
     log.info("Omitting import in favor of regenerating this information")
 
 
@@ -1643,7 +1640,7 @@ def _import_submission(session, downloader, updater, dsug, sub):
         Submission.import_id == import_id).first()
     if not submission:
         log.info("Creating Submission %s" % import_id)
-        submission = Submission.create(updater.importer).obj
+        submission = Submission.propose(updater.importer).obj
         submission.import_id = import_id
     else:
         log.info("Updating Submission %s" % import_id)

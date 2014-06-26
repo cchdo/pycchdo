@@ -4,6 +4,13 @@ from webob.multidict import MultiDict
 
 
 class AllowableMgr(object):
+    """Limit the allowable attributes for a given object.
+
+    Convenient lists to get the allowable attributes.
+
+    allowed_attrs, allowed_attrs_list, allowed_attrs_human_names
+
+    """
     __allowed_attrs_by_cls = {}
 
     @classmethod
@@ -36,16 +43,7 @@ class AllowableMgr(object):
 
     @classmethod
     def _update_allowed_attrs_caches(cls):
-        """Update the attr caches.
-
-        These include allowed_attrs, allowed_attrs_list, and
-        allowed_attrs_human_names. These are convenience attributes that should
-        be replaced with function calls.
-
-        TODO replace allowed_attrs, allowed_attrs_list, and
-        allowed_attrs_human_names with functions.
-
-        """
+        """Update the attr caches."""
         attrs = cls._allowed_attrs()
 
         d = MultiDict()

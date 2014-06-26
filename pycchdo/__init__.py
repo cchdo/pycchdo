@@ -30,9 +30,6 @@ from pycchdo.models.filestorage import FSStore
 from pycchdo.views.datacart import get_datacart
 
 
-fsstore = None
-
-
 class RequestFactory(Request):
     @reify
     def user(self):
@@ -51,7 +48,7 @@ class RequestFactory(Request):
 
     @reify
     def fsstore(self):
-        return fsstore
+        return self.registry.settings['fsstore']
 
     @reify
     def datacart(self):
@@ -108,6 +105,16 @@ def _configure(config):
     configure_routes(config)
 
 
+def initialize_from_settings(settings):
+    settings['db.engine'] = engine_from_config(settings, 'sqlalchemy.')
+    DBSession.configure(bind=settings['db.engine'])
+    settings['fsstore'] = FSStore(
+        path=settings['file_system_path'],
+        base_url='/',
+    )
+    push_store_context(settings['fsstore'])
+
+
 def create_config(settings):
     authentication_policy = AuthTktAuthenticationPolicy(
         settings['key_auth_policy'])
@@ -128,14 +135,7 @@ def create_config(settings):
 
 def main(global_config, **settings):
     """This function returns a Pyramid WSGI application."""
-    global fsstore
-    engine = engine_from_config(settings, 'sqlalchemy.')
-    DBSession.configure(bind=engine)
-    fsstore = FSStore(
-        path=settings['file_system_path'],
-        base_url='/',
-    )
-    push_store_context(fsstore)
+    initialize_from_settings(settings)
 
     reenable_logs()
     patch_pyramid_exclog()

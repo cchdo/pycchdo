@@ -895,7 +895,7 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
 
         """
         creation_time = self.change.ts_c
-        accepted = self.changes_query(state='accepted').order_by(Change.ts_j.desc()).first()
+        accepted = self._order_changes(self.changes_query('accepted')).first()
         if not accepted:
             return creation_time
         last_attr_ctime = accepted.ts_j
@@ -935,16 +935,22 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         else:
             return filter_changes_data(changes, data)
 
+    @classmethod
+    def _order_changes(cls, query):
+        """Order a query for Changes by non-ascending time of judgment."""
+        return query.order_by(Change.ts_j.desc())
+
+    @classmethod
+    def _filter_changes_attr(cls, query, attr):
+        return cls._order_changes(query.filter(Change.attr == attr))
+
     @property
     def attr_keys(self):
-        changes = self._changes.\
-            with_entities(distinct(Change.attr), Change.ts_j).\
-            order_by(Change.ts_j.desc())
+        """A list of tracked attrs on this Obj."""
+        changes = self._order_changes(self._changes.\
+            with_entities(distinct(Change.attr), Change.ts_j))
         changes = changes.all()
         return uniquify(filter(None, [c[0] for c in changes]))
-
-    def _filter_changes_attr(self, query, attr):
-        return query.filter(Change.attr == attr).order_by(Change.ts_j.desc())
 
     def get_attr(self, attr):
         """Return the most recent accepted Change for key.
@@ -958,10 +964,6 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
             raise KeyError(attr)
         return change
 
-    def get_attr_change(self, attr):
-        """Return the last Change for this Obj's attr."""
-        return self._filter_changes_attr(self._changes, attr).first()
-
     def get_attr_or(self, attr, default=None):
         """Return the most recent accepted Change for key or default."""
         try:
@@ -969,13 +971,21 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         except KeyError:
             return default
 
+    def get_attr_change(self, attr):
+        """Return the last Change for Obj's attr regardless of acceptance."""
+        return self._filter_changes_attr(self._changes, attr).first()
+
     def get_attrs_or(self, attrs, default=None):
         """Return the most recent accepted Change for the keys or default."""
-# TODO make sure this actually returns the most recently accepted Change for each attr
-# I believe this may return all of them
-        change = self.changes_query('accepted').filter(Change.attr.in_(attrs)).\
-            order_by(Change.ts_j).all()
-        return change
+        changes = self._order_changes(self.changes_query('accepted').\
+            filter(Change.attr.in_(attrs))).all()
+        first_occurence = {}
+        for change in changes:
+            try:
+                first_occurence[change.attr]
+            except KeyError:
+                first_occurence[change.attr] = change
+        return filter(None, [first_occurence.get(attr, None) for attr in attrs])
 
     def sugg(self, person, attr, value):
         """Suggest that an attribute's value should be."""
@@ -1082,10 +1092,11 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         return self.sugg(person, attr, None)
 
     def remove(self):
-        """Delete this Obj from the database and remove its Changes."""
-        # This option purges the Changes as well.
-        # TODO Is this desirable because there would no longer be a log of that
-        # obj's creation?
+        """Delete this Obj and its Changes.
+
+        NOTE: Use reject for normal purposes.
+
+        """
         DBSession.delete(self)
 
     @classmethod
@@ -1706,10 +1717,9 @@ class MultiName(object):
         """Returns all collections that match the given name.
 
         Parameters:
-            name - either a string or a regular expression object
+            name - string
         
         """
-        # TODO handle regular expression names
         return DBSession.query(cls).filter(cls.names.contains(name)).all()
 
 
@@ -1967,11 +1977,6 @@ class Parameter(Obj):
     @bounds.setter
     def bounds(self, value):
         self._bounds = dumps(value)
-
-    @property
-    def display_order(self):
-        # TODO
-        return 0
 
     def to_dict(self):
         response = {'parameter': {
@@ -2359,8 +2364,10 @@ class Submission(Obj, FileHolder):
     @classmethod
     def unacknowledged(cls):
         """Return Submissions that have not yet been reviewed."""
-        # TODO
-        return []
+        return cls.query().with_transformation(Submission.change.join).\
+            filter(Submission.change._aliased.ts_ack.is_(None)).\
+            filter(Submission.change._aliased.ts_j.is_(None)).\
+            order_by(Submission.change._aliased.ts_c.desc()).all()
 
     @contextmanager
     def multiple_files(self):
@@ -2717,10 +2724,9 @@ class Cruise(Obj):
         file_types.remove('map_thumb')
         file_types.remove('map_full')
 
-        baseq = Change.query().\
+        baseq = cls._order_changes(Change.query().\
             filter(Change.accepted == True).\
-            filter(Change.attr.in_(file_types)).\
-            order_by(Change.ts_j.desc())
+            filter(Change.attr.in_(file_types)))
 
         skip = 0
         step = limit * 4

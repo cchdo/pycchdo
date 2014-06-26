@@ -1,73 +1,58 @@
 import os
 import os.path
 from unittest import TestCase
-from logging import getLogger, StreamHandler, DEBUG, INFO, CRITICAL
-from sys import stderr
-from tempfile import mkdtemp
-from ConfigParser import SafeConfigParser
+from logging import getLogger, DEBUG
 
 from pyramid import testing
 from pyramid.paster import bootstrap
 
 import transaction
 
-from sqlalchemy import engine_from_config
 from sqlalchemy.exc import InvalidRequestError
 
 from sqlalchemy_imageattach.context import (
     pop_store_context, push_store_context)
 
+from pycchdo import initialize_from_settings
+from pycchdo.routes import configure_routes
 from pycchdo.util import StringIO, pyStringIO, MemFile as MockFile
 from pycchdo.models.serial import (
     DBSession, reset_fs, Person, 
     )
-from pycchdo.models.filestorage import FSStore
-from pycchdo.log import getLogger, color_console
+from pycchdo.log import color_console
 
 
 log = getLogger(__name__)
 
 
 db_echo = False
-engine = None
-logger = None
+pyramid_settings = None
+log_name_engine = 'sqlalchemy.engine'
 
 
-fsstore = FSStore(path=mkdtemp(), base_url='/')
+INI_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'test.ini')
 
 
 def setUpModule():
-    global engine, logger
-    if engine is None:
-        env = bootstrap(os.path.join(os.path.dirname(__file__), '..', '..', 'test.ini'))
-        settings = env['registry'].settings
-        engine = engine_from_config(settings, 'sqlalchemy.')
-        DBSession.configure(bind=engine)
+    global pyramid_settings
+    if pyramid_settings is None:
+        env = bootstrap(INI_PATH)
+        pyramid_settings = env['registry'].settings
+        initialize_from_settings(pyramid_settings)
 
         if db_echo:
-            logger = _add_handler('sqlalchemy.engine')
-            engine_loglevel(DEBUG)
-
-
-def engine_loglevel(level):
-    if logger:
-        logger.setLevel(level)
-
-
-def _add_handler(logger_name):
-    logger = getLogger(logger_name)
-    logger.addHandler(color_console)
-    return logger
+            logger = getLogger(log_name_engine)
+            logger.addHandler(color_console)
+            logger.setLevel(DEBUG)
 
 
 def tearDownModule():
-    reset_fs(fsstore)
-    engine = None
+    reset_fs(pyramid_settings['fsstore'])
 
 
 class BaseTest(TestCase):
     def setUp(self):
-        push_store_context(fsstore)
+        push_store_context(pyramid_settings['fsstore'])
         self.config = testing.setUp()
         transaction.begin()
         transaction.get().doom()
@@ -93,6 +78,18 @@ class PersonBaseTest(BaseTest):
 
     def tearDown(self):
         super(PersonBaseTest, self).tearDown()
+
+
+class RequestBaseTest(PersonBaseTest):
+    def setUp(self):
+        super(RequestBaseTest, self).setUp()
+        self.request = testing.DummyRequest()
+        self.config.include('pyramid_mailer.testing')
+        self.request.registry = self.config.registry
+        self.request.registry.settings = pyramid_settings
+        self.request.user = self.testPerson
+
+        configure_routes(self.config)
 
 
 class MockFieldStorage():

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from StringIO import StringIO
 from cgi import FieldStorage
+from logging import getLogger
 
 from nose.tools import nottest
 
@@ -31,8 +32,11 @@ from pycchdo.models.serial import (
     )
 
 from pycchdo.tests import (
-    log, PersonBaseTest, MockFile, MockFieldStorage, engine_loglevel, DEBUG
+    PersonBaseTest, MockFile, MockFieldStorage
     )
+
+
+log = getLogger(__name__)
 
 
 class TestModelChange(PersonBaseTest):
@@ -173,7 +177,7 @@ class TestModelChange(PersonBaseTest):
         ch0._set_value(set([col0]))
         self.assertEqual(cr0.collections, [col0])
 
-    def test_get_attr_changes(self):
+    def test_changes(self):
         """Objs have changes, the creation and attr changes."""
         obj = Unit.propose(self.testPerson).obj
 
@@ -365,7 +369,6 @@ class TestModelParameter(PersonBaseTest):
 
 class TestModelParameterInformation(PersonBaseTest):
     def test_delete(self):
-        engine_loglevel(DEBUG)
         cruise = Cruise.create(self.testPerson).obj
         param = Parameter.create(self.testPerson).obj
         inst = Institution.create(self.testPerson).obj

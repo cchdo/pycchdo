@@ -175,7 +175,7 @@ def file_response(request, file, disposition='inline'):
     # Let's set one for almost a month so we have the opportunity to change it.
     resp.cache_control.max_age = 60 * 60 * 24 * 30
 
-    with store_context(request.fsstore):
+    with store_context(request.registry.settings['fsstore']):
         try:
             resp.app_iter = file.open_file()
         except IOError:

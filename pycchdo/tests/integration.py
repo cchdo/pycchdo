@@ -2,11 +2,11 @@ from pyramid import testing
 from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPUnauthorized, HTTPNoContent
 
-from pycchdo.tests import BaseTest, fsstore, MockFieldStorage, MockFile
+from pycchdo.tests import RequestBaseTest, MockFieldStorage, MockFile
 from pycchdo.models.serial import DBSession, Cruise, Person, FSFile
 
 
-class ViewIntegrationTests(BaseTest):
+class ViewIntegrationTests(RequestBaseTest):
     def setUp(self):
         """This sets up the application registry with the registrations your
         application declares in its ``includeme`` function.
@@ -39,10 +39,7 @@ class ViewIntegrationTests(BaseTest):
 
         """
         from pycchdo.views.toplevel import data
-        request = testing.DummyRequest()
-        request.fsstore = fsstore
-
-        person = request.user = Person.create().obj
+        person = self.request.user = Person.create().obj
         person.set_id_names(identifier=u'person')
 
         cruise = Cruise.create(person).obj
@@ -53,20 +50,20 @@ class ViewIntegrationTests(BaseTest):
         data_attr.permissions = {}
         DBSession.flush()
 
-        request.matchdict['data_id'] = 'c{0}'.format(data_attr.id)
+        self.request.matchdict['data_id'] = 'c{0}'.format(data_attr.id)
 
         # No permissions required, no user -> ok
-        request.user = None
+        self.request.user = None
 
         try:
-            data(request)
+            data(self.request)
         except HTTPNoContent:
             pass
-        request.user = person
+        self.request.user = person
 
         # No permissions required, has no permissions -> ok
         try:
-            data(request)
+            data(self.request)
         except HTTPNoContent:
             pass
 
@@ -75,19 +72,19 @@ class ViewIntegrationTests(BaseTest):
         DBSession.flush()
 
         # argo group required, no user -> unauthorized
-        request.user = None
+        self.request.user = None
         with self.assertRaises(HTTPUnauthorized):
-            data(request)
-        request.user = person
+            data(self.request)
+        self.request.user = person
 
         # argo group required, has no permissions -> unauthorized
         with self.assertRaises(HTTPUnauthorized):
-            data(request)
+            data(self.request)
 
         # argo group required, has argo permission -> ok
         person.permissions = [u'argo']
         try:
-            data(request)
+            data(self.request)
         except HTTPNoContent:
             pass
         
@@ -95,7 +92,7 @@ class ViewIntegrationTests(BaseTest):
         # argo group required, has staff permission -> ok
         person.permissions = [u'staff']
         try:
-            data(request)
+            data(self.request)
         except HTTPNoContent:
             pass
 
@@ -103,11 +100,11 @@ class ViewIntegrationTests(BaseTest):
         del data_attr.ts_j
         # data is not judged, user -> ok
         try:
-            data(request)
+            data(self.request)
         except HTTPNoContent:
             pass
 
         # data is not judged, no user -> unauthorized
-        request.user = None
+        self.request.user = None
         with self.assertRaises(HTTPUnauthorized):
-            data(request)
+            data(self.request)

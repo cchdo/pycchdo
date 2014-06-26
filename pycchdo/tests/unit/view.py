@@ -5,21 +5,19 @@ from pyramid import testing
 from pyramid.httpexceptions import HTTPBadRequest
 
 from pycchdo.tests import (
-    PersonBaseTest, MockFieldStorage, MockFile, MockSession, fsstore
+    RequestBaseTest, PersonBaseTest, MockFieldStorage, MockFile, MockSession
     )
 from pycchdo.models.serial import Cruise, FSFile
 
 
-class TestGlobal(PersonBaseTest):
+class TestGlobal(RequestBaseTest):
     def test_file_response_content_type(self):
         """content_type must be a string."""
         from pycchdo.views import file_response
         fst = MockFieldStorage(
             MockFile('', 'mockfile.txt'), contentType='text/plain')
         fff = FSFile.from_fieldstorage(fst)
-        request = testing.DummyRequest()
-        request.fsstore = fsstore
-        resp = file_response(request, fff)
+        resp = file_response(self.request, fff)
         self.assertTrue(isinstance(resp.content_type, basestring))
 
 
@@ -35,6 +33,8 @@ class TestView(PersonBaseTest):
         self.assertEquals(collapse_dict(d), {'a': 1, 'c': {'e': 2}})
         d = {'a': 1, 'b': 1, 'c': {'d': 1, 'e': 1}}
         self.assertEquals(collapse_dict(d, 1), 1)
+        d = {'a': 1, 'b': [{'d': None, 'e': None}]}
+        self.assertEquals(collapse_dict(d), {'a': 1})
 
     def test_cruise_show(self):
         # XXX HACK because route_url doesn't work without route config
@@ -84,7 +84,7 @@ class TestView(PersonBaseTest):
         # TODO test response for recognizing bad type
 
 
-class TestStaff(PersonBaseTest):
+class TestStaff(RequestBaseTest):
     def test_create_asr_bad_data_type(self):
         from pycchdo.views.staff import create_asr
         ccc = Cruise.create(self.testPerson).obj
@@ -94,8 +94,6 @@ class TestStaff(PersonBaseTest):
         fst.type = 'text/plain'
         fst.file = StringIO('hello')
 
-        request = testing.DummyRequest()
-        request.fsstore = fsstore
-        create_asr(request, self.testPerson, ccc, '', fst)
-        self.assertEqual(request.response.status, '400 Bad Request')
+        create_asr(self.request, self.testPerson, ccc, '', fst)
+        self.assertEqual(self.request.response.status, '400 Bad Request')
         

@@ -855,11 +855,16 @@ class ObjChangeTransformer(Comparator):
 
 
 class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
-    """
+    """An Obj.
 
     The ideal is to provide an Obj with the relevant current attr values stored
     in the database to allow for quicker queries against them. The suggested and
     rejected Changes should still be accessible through the interfaces provided.
+
+    get_all_by_attrs() is a type of query that was omitted for the sake of using
+    the cache. This may end up being something we want in the future but it is
+    not needed at the moment. Querying against JSON would help immensely in the
+    implementation.
 
     All Obj notes are stored against the Obj's Change.
 
@@ -1793,8 +1798,24 @@ class Collection(MultiName, Obj):
         except IndexError:
             return None
 
+    def _replace_occurrences_with(self, lll, mmm, val):
+        """Delete elements in mmm from lll, replacing the first with val."""
+        nnn = []
+        replaced = False
+        if val in lll:
+            replaced = True
+        for ll in lll:
+            if ll in mmm:
+                if not replaced:
+                    nnn.append(val)
+                    replaced = True
+            else:
+                nnn.append(ll)
+        return nnn
+
     def merge(self, signer, *mergees):
         """Merge other Collections into this one."""
+        log.debug(u'Merging into {0} <- {1}'.format(self, mergees))
         mergee_set = OrderedSet(mergees)
         names = OrderedSet(self.names)
         types = OrderedSet(filter(None, [self.type]))
@@ -1829,8 +1850,8 @@ class Collection(MultiName, Obj):
         # Cruises referencing mergees via collections need to be redirected to
         # this collection instead.
         for cruise in cruises:
-            colls = OrderedSet(cruise.collections)
-            colls = colls - mergee_set
+            colls = self._replace_occurrences_with(
+                cruise.collections, mergee_set, self)
             change = cruise.get_attr('collections')
             change._set_value(colls)
 

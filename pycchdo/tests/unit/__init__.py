@@ -3,8 +3,6 @@ from StringIO import StringIO
 from cgi import FieldStorage
 from logging import getLogger
 
-from nose.tools import nottest
-
 import transaction
 
 from pyramid import testing
@@ -703,135 +701,6 @@ class TestModelObj(PersonBaseTest):
         DBSession.flush()
         self.assertEqual(Change.query().get(attr.id), None)
 
-    @nottest
-    def test_get_all_by_attrs(self):
-        """Retrieve objects whose current values for attrs matches the query.
-
-        """
-        objs = []
-        ans = None
-        num = 4
-        Obj.allow_attr('a', Integer, 'testa')
-        Obj.allow_attr('b', Integer, 'testb')
-        for i in range(0, num + 1):
-            obj = Obj.create(self.testPerson).obj
-            obj.set(self.testPerson, 'a', i)
-            obj.set(self.testPerson, 'b', num - i)
-            objs.append(obj)
-            if i == 3:
-                ans = obj
-
-        objs_gotten = Obj.get_all_by_attrs({'a': 3, 'b': 1})
-        obj = objs_gotten[0]
-        self.assertEquals(len(objs_gotten), 1)
-        self.assertEquals(ans.get('a'), obj.get('a'))
-
-        objs_gotten = Obj.get_all_by_attrs({'a': 3, 'b': 0})
-        self.assertEquals(len(objs_gotten), 0)
-
-    @nottest
-    def test_get_all_by_attrs_list(self):
-        """Retrieve Objs whose current values in a list for attrs matches the
-        query.
-
-        Lists may be specified.
-
-        """
-        key = self._testMethodName
-        key0 = key + '0'
-        Obj.allow_attr(key, TextList)
-        Obj.allow_attr(key0, (IDList, 'Obj'))
-
-        obj = Obj.create(self.testPerson).obj
-        obj.set(self.testPerson, key, ['aaa', 'bbb'])
-        obj.set(self.testPerson, key0, [1, 2, 3])
-
-        objs_gotten = Obj.get_all_by_attrs({key: 'aaa'})
-        self.assertEquals(len(objs_gotten), 1)
-
-        objs_gotten = Obj.get_all_by_attrs({key: 'bbb'})
-        self.assertEquals(len(objs_gotten), 1)
-
-        objs_gotten = Obj.get_all_by_attrs({key: ['aaa', 'bbb']})
-        self.assertEquals(len(objs_gotten), 1)
-
-        objs_gotten = Obj.get_all_by_attrs({key: ['bbb', 'aaa']})
-        self.assertEquals(len(objs_gotten), 0)
-
-        objs_gotten = Obj.get_all_by_attrs({key0: 1})
-        self.assertEquals(len(objs_gotten), 1)
-
-        objs_gotten = Obj.get_all_by_attrs({key: 'aaa', key0: 3})
-        self.assertEquals(len(objs_gotten), 1)
-
-        ccc = Collection.create(self.testPerson).obj
-
-        aaa = ccc.set(self.testPerson, 'names', ['aaa'])
-        bbb = ccc.set(self.testPerson, 'type', 'ccc')
-        self.assertEqual(
-            ccc, Collection.get_one_by_attrs({'type': 'ccc'}))
-        aaa._set(['bbb'])
-        bbb._set('ddd')
-
-        DBSession.flush()
-
-        log.warn([c.key for c in CacheObjAttrs.query().all()])
-
-        ccc._clear_cache_attrs_current()
-        CacheObjAttrs.cache(ccc)
-        DBSession.flush()
-
-        log.warn([c.key for c in CacheObjAttrs.query().all()])
-
-        self.assertEqual(
-            ccc, Collection.get_one_by_attrs({'names': 'bbb'}))
-        self.assertEqual(
-            ccc, Collection.get_one_by_attrs({'names': ['bbb']}))
-        self.assertEqual(
-            ccc, Collection.get_one_by_attrs(
-                {'names': ['bbb'], 'type': 'ddd'}))
-        self.assertEqual(
-            None,
-            Collection.get_one_by_attrs(
-                {'names': ['bbb'], 'type': 'ccc'}))
-
-
-    @nottest
-    def test_all_get_by_attrs_accepted_value_match(self):
-        """Retrieve objects whose current values for attrs matches the query.
-
-        Attributes can be accepted either as is or with a new value. Make sure
-        no Attrs with value matching but accepted_value not matching are
-        returned.
-
-        """
-        key = self._testMethodName
-        ooo = Obj.create(self.testPerson).obj
-        Obj.allow_attr(key, String, 'test')
-
-        aaa = ooo.set(self.testPerson, key, 'first')
-
-        ound = Obj.get_all_by_attrs({key: 'first'})
-        self.assertEquals(len(found), 1)
-
-        aaa.accept(self.testPerson, 'second')
-
-        found = Obj.get_all_by_attrs({key: 'second'})
-        self.assertEquals(len(found), 1)
-
-        found = Obj.get_all_by_attrs({key: 'first'})
-        self.assertEquals(len(found), 0)
-
-        # Make sure it finds the correct Change for the most recent value.
-        bbb = ooo.set(self.testPerson, key, 'third')
-        self.assertEquals(ooo.get(key), 'third')
-
-        found = Obj.get_all_by_attrs({key: 'first'})
-        self.assertEquals(len(found), 0)
-
-        found = Obj.get_all_by_attrs({key: 'third'})
-        self.assertEquals(len(found), 1)
-
     def test_order_by_change_attrs(self):
         """Make Objs orderable by the corresponding Change's attributes."""
         oo0 = Obj.create(self.testPerson).obj
@@ -866,10 +735,6 @@ class TestModelObj(PersonBaseTest):
         cruise = Cruise.create(self.testPerson).obj
         cruise.mtime
 
-
-# TODO decide whether get_all_by_attrs is needed or not. If handling all queries
-# with cache attributes, then probably not needed. Check whether seahunt queries
-# will need it?
 
 class TestModelPerson(PersonBaseTest):
     def test_new(self):
@@ -1227,85 +1092,19 @@ class TestParticipant(PersonBaseTest):
 
         self.assertEqual(len(pps), 2)
 
-    # TODO figure out how best to do this interface
-    @nottest
-    def test_add_participant(self):
-        """Add participants to a cruise."""
-        c = Cruise.create(self.testPerson).obj
+    def test_replace(self):
+        """Replacing participants."""
+        # Participant lists should be edited wholesale by simply re-setting the
+        # attribute.
+        cruise = Cruise.create(self.testPerson).obj
+        part0 = Participant.create('chief_scientist', self.testPerson)
+        part1 = Participant.create('cochief_scientist', self.testPerson)
 
-        c.participants.extend_(
-            c, self.testPerson,
-            Participant.create('Chief Scientist', self.testPerson)
-            ).accept(self.testPerson)
-
-        self.assertEquals(
-            [self.testPerson], [pi.person for pi in c.chief_scientists])
-
-        c.participants.extend_(c, self.testPerson,
-            Participant.create('Co-Chief Scientist', self.testPerson)
-            ).accept(self.testPerson)
-        self.assertEquals(
-            [(self.testPerson, 'Chief Scientist'),
-             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
-
-    @nottest
-    def test_remove_participant(self):
-        """Remove participants from a cruise."""
-        c = Cruise.create(self.testPerson).obj
-
-        ppp = Participant.create('Chief Scientist', self.testPerson)
-
-        c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
-        self.assertEquals(
-            [self.testPerson], [pi.person for pi in c.chief_scientists])
-
-        c.participants.remove_(c, self.testPerson, ppp).accept(self.testPerson)
-        self.assertEquals([], c.participants.roles)
-
-    @nottest
-    def test_replace_participants(self):
-        """Replace participants for a cruise."""
-        c = Cruise.create(self.testPerson).obj
-
-        ppp = Participant.create('Chief Scientist', self.testPerson)
-
-        c.participants.extend_(c, self.testPerson, ppp).accept(self.testPerson)
-        self.assertEquals(
-            [self.testPerson], [pi.person for pi in c.chief_scientists])
-
-        qqq = Participant.create('Co-Chief Scientist', self.testPerson)
-
-        c.participants.replace_(c, self.testPerson, qqq).accept(self.testPerson)
-        self.assertEquals(
-            [(self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
-
-    @nottest
-    def test_replace_participants_attrvalue(self):
-        """Replace the participants directly."""
-        c = Cruise.create(self.testPerson).obj
-
-        count_pre = DBSession.query(models._AttrValueParticipants).count()
-
-        ppp = Participant.create('Chief Scientist', self.testPerson)
-
-        a = c.participants.extend_(c, self.testPerson, ppp)
-        a.accept(self.testPerson)
-        DBSession.flush()
-
-        qqq = Participant.create('Co-Chief Scientist', self.testPerson)
-
-        aaa = c.get_attr('participants')
-        aaa._set(Participants([ppp, qqq]))
-        self.assertEquals(
-            [(self.testPerson, 'Chief Scientist'),
-             (self.testPerson, 'Co-Chief Scientist')], c.participants.roles)
-        DBSession.flush()
-
-        # Make sure only one participants object was added.
-        # TODO
-        #self.assertEquals(
-        #    count_pre + 1,
-        #    DBSession.query(models._AttrValueParticipants).count())
+        participants = Participants(part0, part1)
+        part = cruise.set(self.testPerson, 'participants', participants)
+        self.assertEqual(cruise.participants, participants)
+        part = cruise.set(self.testPerson, 'participants', Participants())
+        self.assertEqual(cruise.participants, Participants())
 
 
 class TestModelCruiseAssociate(PersonBaseTest):
@@ -1370,7 +1169,6 @@ class TestModelCollection(PersonBaseTest):
         self.assertEqual(coll1, Collection.query().filter(
             Collection.basins.contains('southern')).first())
 
-    @nottest
     def test_merge(self):
         """Collections can be merged.
         Collections that are merged together should have:
@@ -1439,7 +1237,6 @@ class TestModelFSFile(PersonBaseTest):
         DBSession.flush()
         self.assertNotEqual(fsfile.id, None)
 
-    @nottest
     def test_multiple_files(self):
         """Multiple files in the same transaction.
 
@@ -1458,7 +1255,7 @@ class TestModelFSFile(PersonBaseTest):
             attr0._set(file0)
         else:
             attr0 = ccc.set(self.testPerson, key, file0)
-        attr0.attr_value.value.import_id = '0'
+        attr0.import_id = '0'
         DBSession.flush()
         file0.file.close()
     
@@ -1466,15 +1263,15 @@ class TestModelFSFile(PersonBaseTest):
         attr1 = ccc._filter_changes_attr(ccc._changes, key).\
             order_by(Change.ts_c).first()
         if attr1:
-            attr1._set(file1)
+            attr1.value = file1
         else:
             attr1 = ccc.set(self.testPerson, key, file1)
-        attr1.attr_value.value.import_id = '1'
+        attr1.import_id = '1'
         DBSession.flush()
         file1.file.close()
 
         self.assertEqual(attr0, attr1)
-        self.assertEqual(attr1.attr_value.value.name, 'f1.txt')
+        self.assertEqual(attr1.value.name, 'f1.txt')
     
     def test_get(self):
         """Get a file-like object with attributes from the fs."""

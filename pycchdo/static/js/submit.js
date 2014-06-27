@@ -30,7 +30,7 @@ $(document).ready(function () {
     var f = $(this);
     var p = f.parent();
     var c = f.clone();
-    f.click(noop).prop('disabled', true);
+    f.click(noop);
     file_list.prepend(
       $('<li></li>').append(f).
         append(remove_button.clone().click(remove)).

@@ -1,5 +1,6 @@
 from cgi import FieldStorage
 from StringIO import StringIO
+from logging import getLogger
 
 from pyramid import testing
 from pyramid.httpexceptions import HTTPBadRequest
@@ -8,6 +9,9 @@ from pycchdo.tests import (
     RequestBaseTest, PersonBaseTest, MockFieldStorage, MockFile, MockSession
     )
 from pycchdo.models.serial import Cruise, FSFile
+
+
+log = getLogger(__name__)
 
 
 class TestGlobal(RequestBaseTest):
@@ -84,16 +88,41 @@ class TestView(PersonBaseTest):
         # TODO test response for recognizing bad type
 
 
+class TestSubmit(RequestBaseTest):
+    def test_submit_post(self):
+        from pycchdo.views.submit import submit
+        self.request.method = 'POST'
+
+        submit(self.request)
+        self.assertEqual(self.request.response.status, '400 Bad Request')
+        self.assertEqual(
+            self.request.session.pop_flash('error'),
+            ['Please correct the errors below'])
+
+    def test_submit_response(self):
+        from pycchdo.views.submit import response_from_submission_request
+        fst = MockFieldStorage(
+            MockFile('hello', 'asdf.txt'), 'asdf.txt', 'text/plain')
+        self.request.method = 'POST'
+        self.request.POST['files[0]'] = fst
+        resp = response_from_submission_request(self.request)
+        self.assertEqual(resp['submission'][0].file.open_file().read(), 'hello')
+        
+
 class TestStaff(RequestBaseTest):
     def test_create_asr_bad_data_type(self):
         from pycchdo.views.staff import create_asr
         ccc = Cruise.create(self.testPerson).obj
 
-        fst = FieldStorage()
-        fst.filename = 'asr.txt'
-        fst.type = 'text/plain'
-        fst.file = StringIO('hello')
+        fst = MockFieldStorage(
+            MockFile('hello', 'asr.txt'), 'asr.txt', 'text/plain')
 
         create_asr(self.request, self.testPerson, ccc, '', fst)
         self.assertEqual(self.request.response.status, '400 Bad Request')
         
+
+class TestMail(RequestBaseTest):
+    def test_get_from_addr(self):
+        from pycchdo.mail import get_email_addresses
+        self.assertNotEqual(
+            '', get_email_addresses(self.request, 'from_address')[0])

@@ -5,6 +5,7 @@ from pyramid_mailer.message import Message
 
 from libcchdo.fns import uniquify
 
+from pycchdo import helpers as h
 from pycchdo.log import getLogger
 
 
@@ -16,29 +17,31 @@ def send(request, message):
     mailer.send_sendmail(message)
 
 
-from_addr = 'cchdo@ucsd.edu'
-
-
-def _get_email_recipients(request, key, start=[]):
+def get_email_addresses(request, key, start=[]):
+    """Email addresses for given emails plus given configuration setting."""
     recipient = request.registry.settings.get(key, None)
     return filter(None, start + [recipient])
 
 
+def _submission_public_status_to_description(status):
+    if status == 'public':
+        return 'will be public'
+    elif status == 'non_public':
+        return 'will *not* be public'
+    elif status == 'non_public_argo':
+        return 'will be available for use exclusively by the Argo program'
+
+
 def send_submission_confirmation(request, d, submissions):
-    recipients = _get_email_recipients(request, 'recipient_submission_confirm',
+    recipients = get_email_addresses(request, 'recipient_submission_confirm',
                                        [request.user.email])
 
     d['user_name'] = request.user.name
     d['file_noun'] = h.whtext.plural(
         len(d['file_names']), 'file', 'files', False)
 
-    if d['public_status'] == 'public':
-        d['public_description'] = 'will be public'
-    elif d['public_status'] == 'non_public':
-        d['public_description'] = 'will *not* be public'
-    elif d['public_status'] == 'non_public_argo':
-        d['public_description'] = \
-            'will be available for use exclusively by the Argo program'
+    d['public_description'] = _submission_public_status_to_description(
+        d['public_status'])
     d['file_list'] = '\n'.join(d['file_names'])
     d['actions'] = '\n'.join(d['action_list'])
 
@@ -91,7 +94,7 @@ Additional information collected:
         subject="[CCHDO] Submission by {name}: {id}".format(
             name=d['user_name'],
             id=' '.join([d['woce_line'], d['identifier']])),
-        sender=from_addr,
+        sender=get_email_addresses(request, 'from_address')[0],
         recipients=recipients,
         body=body,
     )
@@ -151,10 +154,10 @@ This is an automated message on {date}.
         subject_items.append(dtypes)
     subject = ' - '.join(subject_items)
 
-    recipients = _get_email_recipients(request, 'recipient_asr_confirm')
+    recipients = get_email_addresses(request, 'recipient_asr_confirm')
     message = Message(
         subject=subject,
-        sender=from_addr,
+        sender=get_email_addresses(request, 'from_address')[0],
         recipients=recipients,
         body=body,
     )

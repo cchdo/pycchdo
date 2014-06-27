@@ -50,20 +50,23 @@ def listlike(x):
 def collapse_dict(d, n=None):
     """Collapses a dict recursively into the value n if it has no values that
     are not n."""
-    e = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
+    if isinstance(d, dict):
+        e = {}
+        for k, v in d.items():
             # recurse into sub-dicts
             v = collapse_dict(v, n)
-        if isinstance(v, list):
-            v = filter(lambda x: x != n, [collapse_dict(w, n) for w in v])
-            if len(v) == 0:
-                v = n
-        if v != n:
-            e[k] = v
-    if len(e) < 1:
-        return n
-    return e
+            if v != n:
+                e[k] = v
+        if len(e) < 1:
+            return n
+        return e
+    elif isinstance(d, list):
+        e = filter(lambda x: x != n, [collapse_dict(w, n) for w in d])
+        if len(e) == 0:
+            return n
+        return e
+    else:
+        return d
 
 
 def timestamp_now():

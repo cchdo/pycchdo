@@ -9,8 +9,10 @@ from pyramid.httpexceptions import HTTPSeeOther
 # them for expected results.
 #from jinja2 import Template as Jinja2Template
 
-from pycchdo.tests import PersonBaseTest, RequestBaseTest
-from pycchdo.models.serial import DBSession, Cruise, Person, Collection
+from pycchdo.tests import (
+    PersonBaseTest, RequestBaseTest, MockFieldStorage, MockFile,
+    )
+from pycchdo.models.serial import DBSession, Cruise, Person, Collection, Note
 from pycchdo.log import getLogger
 
 
@@ -23,22 +25,28 @@ class TestToplevel(RequestBaseTest):
         result = home(self.request)
         self.assertEqual(result, {'updated': [], 'upcoming': []})
 
-    def test_cruise_show(self):
+
+class TestCruise(RequestBaseTest):
+    def test_show(self):
         from pycchdo.views.cruise import cruise_show
         expocode = '33RR20090320'
 
         ccc = Cruise.create(self.testPerson).obj
         ccc.set(self.testPerson, 'expocode', expocode)
 
+        fst = MockFieldStorage(
+            MockFile('hello', 'btl_hy1.csv'), 'btl_hy1.csv', 'text/csv')
+        ccc.sugg(self.testPerson, 'bottle_exchange', fst).accept(self.testPerson)
+
+        ccc.notes.append(Note(self.testPerson, 'a note'))
+
         self.request.matchdict['cruise_id'] = str(ccc.id)
         with self.assertRaises(HTTPSeeOther):
             cruise_show(self.request)
 
-        self.request.matchdict['cruise_id'] = expocode
+        self.request.matchdict['cruise_id'] = ccc.uid
         cruise_show(self.request)
 
-
-class TestCruise(RequestBaseTest):
     def test_index_reduced_specificity(self):
         from pycchdo.views.cruise import cruise_show
         expocode = '33RR20090320'
@@ -113,10 +121,8 @@ class TestStaffModeration(RequestBaseTest):
 
         ccc = Cruise.create(self.testPerson).obj
 
-        fst = FieldStorage()
-        fst.filename = 'asr.txt'
-        fst.type = 'text/plain'
-        fst.file = StringIO('hello')
+        fst = MockFieldStorage(
+            MockFile('hello', 'asr.txt'), 'asr.txt', 'text/plain')
 
         self.request.params['_method'] = 'PUT'
         self.request.params['action'] = 'create'

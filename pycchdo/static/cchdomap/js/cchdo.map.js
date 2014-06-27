@@ -2205,6 +2205,24 @@ RegionLayer.prototype.edit = function () {
   //</p>
 
   var timeslider = new TimeSlider([self._query.time_min, self._query.time_max]);
+  
+  var label_nelng = $('<label for="nelng">Lng</label>');
+  var label_nelat = $('<label for="nelat">Lat</label>');
+  var label_swlng = $('<label for="swlng">Lng</label>');
+  var label_swlat = $('<label for="swlat">Lat</label>');
+  var label_centerlng = $('<label for="centerlng">Lng</label>');
+  var label_centerlat = $('<label for="centerlat">Lat</label>');
+
+  var nelng = $('<input type="text" class="coord" name="nelng">');
+  var nelat = $('<input type="text" class="coord" name="nelat">');
+  var swlng = $('<input type="text" class="coord" name="swlng">');
+  var swlat = $('<input type="text" class="coord" name="swlat">');
+
+  var centerlng = $('<input type="text" class="coord" name="centerlng">');
+  var centerlat = $('<input type="text" class="coord" name="centerlat">');
+  var radius = $('<input type="text" name="radius">');
+
+  var polypoints = $('<textarea name="polypoints"></textarea>');
 
   function updateTimeRange() {
     var timerange = timeslider.getTimeRange();
@@ -2212,6 +2230,31 @@ RegionLayer.prototype.edit = function () {
                   self._query.time_max != timerange[1];
     self._query.time_min = timerange[0];
     self._query.time_max = timerange[1];
+
+    if (shape instanceof google.maps.Rectangle) {
+      var sw = new google.maps.LatLng(swlat.val(), swlng.val());
+      var ne = new google.maps.LatLng(nelat.val(), nelng.val());
+      var bounds = new google.maps.LatLngBounds(sw, ne);
+      self._query.query.setBounds(bounds);
+      changed = true;
+    } else if (shape instanceof google.maps.Circle) {
+      var center = new google.maps.LatLng(centerlat.val(), centerlng.val());
+      self._query.query.setCenter(center);
+      self._query.query.setRadius(radius.val());
+      changed = true;
+    } else if (shape instanceof google.maps.Polygon) {
+      var points = polypoints.val().split("\n");
+      var path = [];
+      for (var i = 0; i < points.length; i++) {
+        var coord = points[i].split(", ");
+        path.push(new google.maps.LatLng(coord[1], coord[0]));
+      }
+      self._query.query.setPath(path);
+      changed = true;
+    } else {
+      console.log('uneditable shape', shape);
+    }
+
     if (changed) {
       self.query();
     }
@@ -2232,6 +2275,50 @@ RegionLayer.prototype.edit = function () {
       }
     }
   }).append(timeslider._dom);
+
+  var shape = self._query.query;
+  var shapeEditor = $('<div class="shape-editor"></div>');
+
+  if (shape instanceof google.maps.Rectangle) {
+    var bounds = shape.getBounds();
+    var ne = bounds.getNorthEast();
+    var sw = bounds.getSouthWest();
+    shapeEditor
+      .append('<h1>North East</h1>')
+      .append(label_nelng)
+      .append(nelng.val(ne.lng()))
+      .append(label_nelat)
+      .append(nelat.val(ne.lat()))
+      .append('<h1>South West</h1>')
+      .append(label_swlng)
+      .append(swlng.val(sw.lng()))
+      .append(label_swlat)
+      .append(swlat.val(sw.lat()));
+  } else if (shape instanceof google.maps.Circle) {
+    var center = shape.getCenter();
+    var radius = shape.getRadius();
+    shapeEditor
+      .append('<h1>Circle center</h1>')
+      .append(label_centerlat)
+      .append(centerlng.val(center.lng()))
+      .append(label_centerlat)
+      .append(centerlat.val(center.lat()))
+      .append('<h1>Radius</h1>')
+      .append(radius.val(radius));
+  } else if (shape instanceof google.maps.Polygon) {
+    var latlngs = shape.getPath();
+    var path = [];
+    latlngs.forEach(function(latlng, i) {
+      path.push(latlng.lng() + ", " + latlng.lat());
+    });
+    shapeEditor
+      .append('<p>Lng, Lat</p>')
+      .append(polypoints.val(path.join("\n")));
+  } else {
+    console.log('uneditable shape', shape);
+  }
+
+  dialog.append(shapeEditor);
   return false;
 };
 

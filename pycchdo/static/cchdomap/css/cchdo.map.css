@@ -127,3 +127,11 @@ div.pane-handle {
 .pane-handle.right {
   background-image: url('/static/cchdomap/images/shade_arrow_right.png');
 }
+
+.shape-editor input.coord {
+  width: 5em;
+  margin-right: 1em;
+}
+.shape-editor textarea {
+  width: 100%;
+}

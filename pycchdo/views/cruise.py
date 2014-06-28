@@ -438,7 +438,7 @@ def _add_note(request, cruise_obj):
         note = request.params['note_note']
     except KeyError:
         log.warn('Attempted to add note with missing attributes')
-        request.response_status = '400 Bad Request'
+        request.response.status = '400 Bad Request'
         request.session.flash('Your note was missing parts. Please try again.',
                               'help')
         return
@@ -448,7 +448,7 @@ def _add_note(request, cruise_obj):
     except KeyError:
         public = False
 
-    cruise_obj._notes.append(
+    cruise_obj.change._notes.append(
         Note(request.user, note, action, data_type, summary, not public))
 
 
@@ -552,7 +552,6 @@ def cruise_new(request):
         obj = _obj_new(request)
         return {'cruise_id': obj['obj']}
 
-    log.warn('new!')
     try:
         cruise_id = request.matchdict['cruise_id']
     except KeyError:

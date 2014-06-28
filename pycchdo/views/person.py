@@ -24,7 +24,7 @@ def people_index(request):
 
 
 def people_index_json(request):
-    people = [p.to_dict() for p in _people](request)
+    people = [p.to_dict() for p in _people(request)]
     return people
 
 

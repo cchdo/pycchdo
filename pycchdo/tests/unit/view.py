@@ -107,6 +107,52 @@ class TestSubmit(RequestBaseTest):
         self.request.POST['files[0]'] = fst
         resp = response_from_submission_request(self.request)
         self.assertEqual(resp['submission'][0].file.open_file().read(), 'hello')
+
+
+class TestCruise(RequestBaseTest):
+    def test_add_note(self):
+        from pycchdo.views.cruise import _add_note
+
+        ccc = Cruise.create(self.testPerson).obj
+
+        _add_note(self.request, ccc)
+
+        self.assertEqual(self.request.response.status, '400 Bad Request')
+
+        self.request.params['note_data_type'] = 'data_type'
+        self.request.params['note_action'] = 'action'
+        self.request.params['note_summary'] = 'summary'
+        self.request.params['note_note'] = 'note'
+
+        _add_note(self.request, ccc)
+
+
+class TestCountry(RequestBaseTest):
+    def test_index(self):
+        from pycchdo.views.country import countries_index, countries_index_json
+        countries_index(self.request)
+        countries_index_json(self.request)
+
+
+class TestInstitution(RequestBaseTest):
+    def test_index(self):
+        from pycchdo.views.institution import institutions_index, institutions_index_json
+        institutions_index(self.request)
+        institutions_index_json(self.request)
+
+
+class TestShip(RequestBaseTest):
+    def test_index(self):
+        from pycchdo.views.ship import ships_index, ships_index_json
+        ships_index(self.request)
+        ships_index_json(self.request)
+
+
+class TestCollection(RequestBaseTest):
+    def test_index(self):
+        from pycchdo.views.collection import collections_index, collections_index_json
+        collections_index(self.request)
+        collections_index_json(self.request)
         
 
 class TestStaff(RequestBaseTest):

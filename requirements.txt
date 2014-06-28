@@ -1,6 +1,5 @@
 --index-url https://pypi.python.org/simple/
 
-https://bitbucket.org/ghdc/libcchdo/get/master.tar.bz2#egg=libcchdo
---allow-external libcchdo
+-e git+git@bitbucket.org:ghdc/libcchdo.git#egg=libcchdo
 
 -e .

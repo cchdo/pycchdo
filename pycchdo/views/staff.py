@@ -4,6 +4,7 @@ import os
 import tempfile
 import time
 import shutil
+from json import loads as json_loads
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -26,7 +27,7 @@ from pycchdo.helpers import (
     )
 from pycchdo.models.serial import (
     store_context, DBSession, Submission, OldSubmission, Change, Cruise, Person,
-    Note, FSFile,
+    Note, FSFile, UOW,
     )
 
 from pycchdo.views import *
@@ -361,6 +362,86 @@ def _moderate_attribute(request):
 
 
 @staff_signin_required
+def pending_changes(request):
+    """A list of pending Changes.
+
+    May be filtered by id.
+
+    :returns: A list of pending Changes.
+
+    """
+    ids = request.params.get('ids', '')
+    ids = filter(None, ids.split(','))
+    qmod = lambda q: q.options(joinedload('submission'))
+    if ids:
+        p_qmod = qmod
+        qmod = lambda q: p_qmod(q.filter(Change.id.in_(ids)))
+    return Change.filtered_data('unjudged', query_modifier=qmod)
+
+
+@staff_signin_required
+def uow(request):
+    method = http_method(request)
+    if method != 'POST':
+        request.response.status = 400
+        return {'status': 'error', 'error': 'Must use POST'}
+    person = request.user
+    results = {}
+    for k, v in request.POST.items():
+        if k.startswith('result['):
+            key = int(k.split('[', 1)[1][:-1])
+            results[key] = v
+    if not results:
+        log.error(u'UOW missing results')
+        request.response.status = 400
+        return {'status': 'error', 'error': 'No data changes'}
+    try:
+        result_types = json_loads(request.params['result_types'])
+        support = request.POST['support']
+        uow_cfg = json_loads(request.params['uow_cfg'])
+        readme_str = request.POST['readme']
+    except KeyError as err:
+        request.response.status = 400
+        return {'status': 'error', 'error': 'Missing {0}'.format(err)}
+
+    cruise = Cruise.get_by_id(uow_cfg['expocode'])
+
+    log.info(u'creating uow')
+    uow = UOW()
+    DBSession.add(uow)
+
+    uow.results = []
+    for iii, rtype in enumerate(result_types):
+        with store_context(request.fsstore):
+            uow.results.append(cruise.set(person, rtype, results[iii]))
+
+    with store_context(request.fsstore):
+        uow.support = FSFile.from_fieldstorage(support)
+
+    uow.suggestions = []
+    for qinfo in uow_cfg['q_infos']:
+        change = Change.query().get(qinfo['q_id'])
+        change.accept(person)
+        uow.suggestions.append(change)
+
+    title = uow_cfg['title']
+    summary = uow_cfg['summary']
+    action = 'Website Update'
+
+    note = Note(person, readme_str.file.read(), action, title, summary)
+    cruise.change._notes.append(note)
+    uow.note = note
+
+    with store_context(request.fsstore):
+        DBSession.flush()
+
+    log.info(u'done creating uow')
+
+    # TODO send email instead of allowing libcchdo to do it...
+    return {'status': 'ok'}
+
+
+@staff_signin_required
 def moderation(request):
     """List of Changes to be reviewed.
 
@@ -371,8 +452,7 @@ def moderation(request):
             return require_signin(request)
         _moderate_attribute(request)
 
-    pending = Change.filtered_data('unjudged',
-        query_modifier=lambda q: q.options(joinedload('submission')))
+    pending = pending_changes(request)
 
     dtc_to_q = {}
     for change in pending:

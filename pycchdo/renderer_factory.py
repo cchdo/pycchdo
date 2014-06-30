@@ -6,7 +6,7 @@ from datetime import datetime, date
 from sqlalchemy.ext.associationproxy import _AssociationList
 
 from pycchdo.models.serial import (
-    Participants, Participant, Parameter,
+    Participants, Participant, Parameter, Obj, Change, Note,
     )
 
 
@@ -26,6 +26,10 @@ class CustomJSONEncoder(JSONEncoder):
         elif (  isinstance(obj, Participants) or
                 isinstance(obj, Participant) or
                 isinstance(obj, Parameter)):
+            return obj.to_dict()
+        elif (  isinstance(obj, Obj) or
+                isinstance(obj, Change) or
+                isinstance(obj, Note)):
             return obj.to_dict()
         elif isinstance(obj, str) or isinstance(obj, unicode):
             return obj

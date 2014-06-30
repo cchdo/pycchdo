@@ -221,6 +221,16 @@ class Note(Base, DBQueryable, MixinCreation):
             self.subject == other.subject and 
             self.discussion == other.discussion)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'p_c': self.p_c.name,
+            'ts_c': self.ts_c,
+            'data_type': self.data_type,
+            'subject': self.subject,
+            'body': self.body,
+        }
+
     def __str__(self):
         return unicode(self)
 
@@ -561,6 +571,25 @@ class Change(Base, MixinCreation, DBQueryable):
     def __unicode__(self):
         return u'{1}.{2}(0)={3!r}'.format(
             _repr_state(self), self.obj, self.attr, self.value)
+
+    def to_dict(self):
+        ddd = {
+            'id': self.id,
+            'obj_id': self.obj.uid,
+            'ts_c': self.ts_c,
+            'p_c': self.p_c.name,
+            'attr': self.attr,
+            'value': self.value,
+        }
+        ddd['state'] = _repr_state(self)
+        if isinstance(self.value, FSFile):
+            if self.submission:
+                ddd['submission_id'] = self.submission.id
+            else:
+                ddd['submission_id'] = ''
+            fff = ddd['value']
+            ddd['value'] = fff.to_dict()
+        return ddd
 
     def __repr__(self):
         return u'<Change({0}, {1}, {2})>'.format(
@@ -1304,6 +1333,11 @@ class FSFile(Base, DBQueryable, AdaptedFile):
         DBSession.add(fsf)
         DBSession.flush()
         return fsf
+
+    def to_dict(self):
+        return {
+                'filename': self.name,
+            }
 
     def __unicode__(self):
         return u'FSFile({0}, {1!r})'.format(self.id, self.name)
@@ -2661,8 +2695,10 @@ class Cruise(Obj):
     @property
     def file_attrs(self):
         file_attrs = {}
-        for attr in self.get_attrs_or(data_file_descriptions.keys()):
-            file_attrs[attr.attr] = attr
+        keys = [key for key, av in
+                self._allowed_attrs().items() if av['type'] == File]
+        for change in self.get_attrs_or(keys):
+            file_attrs[change.attr] = change
         return file_attrs
 
     def _set_cache(self, attr, value):
@@ -2688,11 +2724,11 @@ class Cruise(Obj):
     def _get_cache(self, attr):
         """Attempt to get the attribute value from cache."""
         try:
-            if attr in data_file_descriptions.keys():
-                return self.files[attr].file
             if attr.endswith(self.DATA_STATUS_ENDING):
                 attr = attr[:-len(self.DATA_STATUS_ENDING)]
                 return self.files[attr].statuses
+            if self.attr_type(attr) == File:
+                return self.files[attr].file
         except KeyError:
             pass
         return super(Cruise, self)._get_cache(attr)
@@ -2862,6 +2898,11 @@ class Cruise(Obj):
             d['ship'] = self.ship.to_dict()
         if self.country:
             d['country'] = self.country.to_dict()
+
+        data = {}
+        for key, change in self.file_attrs.items():
+            data[key] = change.to_dict()
+        d['data'] = data
         rep.update(d)
         return rep
 

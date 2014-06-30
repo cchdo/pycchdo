@@ -8,7 +8,7 @@ from . import *
 from pycchdo.models import serial as model
 from pycchdo.models.serial import DBSession, Change, Note, Cruise, Obj
 from pycchdo.models.file_types import data_file_descriptions
-from pycchdo.helpers import has_mod
+from pycchdo.helpers import has_mod, has_edit
 from pycchdo.views import log
 from pycchdo.views.staff import staff_signin_required
 from session import require_signin
@@ -198,6 +198,23 @@ def obj_attrs(request):
     if change:
         change._notes.append(note)
     return {'obj': obj, 'type': __builtins__['type']}
+
+
+def obj_notes(request):
+    method = http_method(request)
+
+    obj_id = request.matchdict['obj_id']
+    obj = Obj.query().get(obj_id)
+    if not obj:
+        raise HTTPNotFound()
+
+    if method == 'GET':
+        if has_mod(request.user):
+            return obj.notes
+        elif has_edit(request.user):
+            return obj.notes_discussion
+        else:
+            return obj.notes_public
 
 
 @staff_signin_required

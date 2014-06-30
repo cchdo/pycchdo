@@ -539,7 +539,7 @@ def cruise_show_json(request):
     except ValueError:
         raise HTTPSeeOther(
             location=request.route_path('cruise_new', cruise_id=cruise_id))
-    return cruise_obj.to_dict()
+    return cruise_obj
 
 
 def cruise_new(request):

@@ -113,6 +113,8 @@ def configure_routes(config):
                'pycchdo.views.obj.obj_show', 'objs/show.jinja2')
     route_path(config, 'obj_attrs', '/obj/{obj_id}/a',
                'pycchdo.views.obj.obj_attrs', 'objs/attrs.jinja2')
+    route_path(config, 'obj_notes', '/obj/{obj_id}/notes.json',
+               'pycchdo.views.obj.obj_notes', 'json')
 
     route_path(config, 'obj_attr', '/obj/{obj_id}/a/{key}',
                'pycchdo.views.obj.obj_attr', 'objs/attr.jinja2')
@@ -279,6 +281,10 @@ def configure_routes(config):
                'pycchdo.views.legacy.submissions')
     route_path(config, 'staff_moderation', '/staff/moderation.html',
                'pycchdo.views.staff.moderation', 'staff/moderation.jinja2')
+    route_path(config, 'staff_moderation_json', '/staff/moderation.json',
+               'pycchdo.views.staff.pending_changes', 'json')
+    route_path(config, 'staff_uow', '/staff/uow',
+               'pycchdo.views.staff.uow', 'json')
     route_path(config, 'legacy_queue', '/queue',
                'pycchdo.views.legacy.queue')
     route_path(config, 'legacy_queue.html', '/queue.html',

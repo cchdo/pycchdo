@@ -4,7 +4,7 @@ from pyramid import testing
 
 from pycchdo.log import getLogger
 from pycchdo.tests import BaseTest, PersonBaseTest, RequestBaseTest
-from pycchdo.models.serial import SerializerDateTime, Unit
+from pycchdo.models.serial import SerializerDateTime, Unit, Cruise
 
 
 log = getLogger(__name__)
@@ -75,3 +75,10 @@ class TestObj(PersonBaseTest):
 
         changes = obj.get_attrs_or(['name', 'mnemonic'])
         self.assertEqual([bbb, ddd], changes)
+
+
+class TestCruise(PersonBaseTest):
+    def test_get_by_id(self):
+        ccc = Cruise.create(self.testPerson).obj
+        with self.assertRaises(ValueError):
+            Cruise.get_by_id('no such id')

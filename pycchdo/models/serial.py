@@ -2736,10 +2736,10 @@ class Cruise(Obj):
                 Cruise.aliases.contains(cruise_id)).filter(
                 Cruise.accepted == True).first()
 
-        if not cruise_obj.accepted:
+        if not cruise_obj:
             raise ValueError('Not found')
 
-        if not cruise_obj:
+        if not cruise_obj.accepted:
             raise ValueError('Not found')
         return cruise_obj
 

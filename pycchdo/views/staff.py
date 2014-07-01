@@ -32,7 +32,9 @@ from pycchdo.models.serial import (
 
 from pycchdo.views import *
 from pycchdo.views.session import signin_required, require_signin
-from pycchdo.mail import send_asr_attach_confirmation, asr_history_body
+from pycchdo.mail import (
+    send_asr_attach_confirmation, asr_history_body, send_processing_email,
+    )
 from pycchdo.log import getLogger
 
 
@@ -386,12 +388,31 @@ def pending_changes(request):
 
 @staff_signin_required
 def uow(request):
+    """
+
+    POST /staff/uow
+    data:
+        fly - if not blank, confirms that the operation is not a dry run
+        result[n] - a final result file to put in dataset
+        result_types - a JSON array that maps the result files to the dataset
+            data types
+        support - a file that is stored as supporting documentation with the 
+            UOW. Commonly a tar.
+        uow_cfg - a JSON object representing the UOW configuration
+        readme - the readme file, used for the history note
+
+    """
     method = http_method(request)
     if method != 'POST':
         request.response.status = 400
         return {'status': 'error', 'error': 'Must use POST'}
     person = request.user
     results = {}
+
+    dryrun = not bool(request.params.get('fly', False))
+    if dryrun:
+        log.info(u'Dry run UOW commit')
+        transaction.doom()
     for k, v in request.POST.items():
         if k.startswith('result['):
             key = int(k.split('[', 1)[1][:-1])
@@ -404,14 +425,14 @@ def uow(request):
         result_types = json_loads(request.params['result_types'])
         support = request.POST['support']
         uow_cfg = json_loads(request.params['uow_cfg'])
-        readme_str = request.POST['readme']
+        readme_file = request.POST['readme']
     except KeyError as err:
         request.response.status = 400
         return {'status': 'error', 'error': 'Missing {0}'.format(err)}
 
-    cruise = Cruise.get_by_id(uow_cfg['expocode'])
+    expocode = uow_cfg['expocode']
+    cruise = Cruise.get_by_id(expocode)
 
-    log.info(u'creating uow')
     uow = UOW()
     DBSession.add(uow)
 
@@ -433,16 +454,17 @@ def uow(request):
     summary = uow_cfg['summary']
     action = 'Website Update'
 
-    note = Note(person, readme_str.file.read(), action, title, summary)
+    readme_str = readme_file.file.read()
+    note = Note(person, readme_str, action, title, summary)
     cruise.change._notes.append(note)
     uow.note = note
 
     with store_context(request.fsstore):
         DBSession.flush()
 
-    log.info(u'done creating uow')
+    send_processing_email(request, readme_str, uow_cfg, note.id)
 
-    # TODO send email instead of allowing libcchdo to do it...
+    log.info(u'Committed UOW')
     return {'status': 'ok'}
 
 

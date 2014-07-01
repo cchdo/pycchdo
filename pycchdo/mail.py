@@ -1,9 +1,13 @@
+from StringIO import StringIO
 from collections import OrderedDict, defaultdict
 
 from pyramid_mailer import get_mailer
-from pyramid_mailer.message import Message
+from pyramid_mailer.message import Message, Attachment
 
 from libcchdo.fns import uniquify
+from libcchdo.datadir.util import q_from_uow_cfg
+from libcchdo.datadir.filenames import README_FILENAME
+from libcchdo.datadir.processing import ProcessingEmail, parse_readme
 
 from pycchdo import helpers as h
 from pycchdo.log import getLogger
@@ -161,4 +165,23 @@ This is an automated message on {date}.
         recipients=recipients,
         body=body,
     )
+    send(request, message)
+
+
+def send_processing_email(request, readme_str, uow_cfg, note_id):
+    uid = uow_cfg['expocode']
+    asrs, asr_ids = q_from_uow_cfg(uow_cfg)
+    dryrun = False
+    title, merger, subject = parse_readme(readme_str)
+    body = ProcessingEmail(dryrun).generate_body(
+        merger, uid, asrs, note_id, asr_ids)
+    message = Message(
+        subject=subject,
+        sender=get_email_addresses(request, 'from_address')[0],
+        recipients=get_email_addresses(request, 'recipient_processing'),
+        body=body,
+    )
+    readme_fobj = StringIO(readme_str)
+    attachment = Attachment(README_FILENAME, "text/plain", readme_fobj)
+    message.attach(attachment)
     send(request, message)

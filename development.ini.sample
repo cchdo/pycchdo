@@ -23,6 +23,7 @@ file_system_path = /Users/myshen/var/pycchdo/fs
 # submission confirmation recipient (leave blank for default)
 recipient_submission_confirm = myshen+submission@ucsd.edu
 recipient_asr_confirm = myshen+asr@ucsd.edu
+recipient_processing = myshen+processing@ucsd.edu
 from_address = cchdo@ucsd.edu
 
 analytics = False

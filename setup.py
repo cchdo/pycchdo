@@ -36,7 +36,7 @@ _requires_app = [
     'whoosh',
     'geojson',
     'shapely',
-    'libcchdo',
+    'libcchdo>=0.8.1',
 ]
 requires = \
     _requires_framework + \

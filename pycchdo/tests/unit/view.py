@@ -204,3 +204,23 @@ class TestMail(RequestBaseTest):
         from pycchdo.mail import get_email_addresses
         self.assertNotEqual(
             '', get_email_addresses(self.request, 'from_address')[0])
+
+    def test_send_processing_email(self):
+        from pycchdo.mail import send_processing_email
+        readme_str = 'readme'
+        uow_cfg = {
+            'expocode': 'EXPOCODE',
+            'q_infos': [
+                {
+                    'q_id': 'asr',
+                    'submission_id': 'sub',
+                    'filename': 'fname',
+                    'submitted_by': 'submitter',
+                    'date': '1970-01-01',
+                    'data_type': 'data_suggestion',
+                }
+            ],
+        }
+        note_id = 'note'
+        send_processing_email(self.request, readme_str, uow_cfg, note_id)
+

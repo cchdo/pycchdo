@@ -2669,9 +2669,9 @@ class Cruise(Obj):
         attributes may cause it to be considered preliminary as well.
 
         """
-        for attr in self.attrs_current.values():
-            if attr.key.endswith(self.DATA_STATUS_ENDING):
-                if 'preliminary' in attr.value:
+        for attr, change in self.attrs_current.items():
+            if attr.endswith(self.DATA_STATUS_ENDING):
+                if 'preliminary' in change.value:
                     return True
         return 'preliminary' in self.get('statuses', []) 
 
@@ -2691,6 +2691,14 @@ class Cruise(Obj):
     @track.setter
     def track(self, value):
         self._track = from_shape(value)
+
+    @property
+    def attrs_current(self):
+        changes = {}
+        keys = [key for key, av in self._allowed_attrs().items()]
+        for change in self.get_attrs_or(keys):
+            changes[change.attr] = change
+        return changes
 
     @property
     def file_attrs(self):

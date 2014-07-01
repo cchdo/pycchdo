@@ -8,11 +8,12 @@
     <table>
     {% for a in obj.attrs_current.values() %}
       <tr>
-        <th>{{ a.key }}</th>
-        <td>{{ a.value.__repr__() }}</td>
+        <th>{{ a.id }}</th>
+        <th>{{ a.attr }}</th>
+        <td>{{ a.value | pprint }}</td>
         <td>
           {{ whh.tags.form(request.url, method="DELETE") }}
-            <input type="hidden" name="key" value="{{ k }}">
+            <input type="hidden" name="key" value="{{ a.attr }}">
             <input type="submit" value="Delete">
             <label for="note">with note (optional)</label>
             <input type="text" name="note">
@@ -85,7 +86,7 @@
     <li>
       <code>
         {{ change }}
-        {{ change.key }} = {{ change.value }}
+        {{ change.attr }} = {{ change.value }}
       </code>
       {{ whh.tags.form('{0}/{1}'.format(request.path, change.id), method='PUT') }}
         <input type="submit" name="action" value="Accept">

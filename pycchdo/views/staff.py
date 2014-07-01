@@ -22,7 +22,7 @@ from pyramid.httpexceptions import (
 import transaction
 
 from pycchdo.helpers import (
-    link_cruise, pdate, link_person, whtext, has_edit, has_staff,
+    link_cruise, pdate, link_person, whtext, has_edit, has_staff, has_mod,
     link_submission, link_asr, path_asr, 
     )
 from pycchdo.models.serial import (
@@ -187,8 +187,10 @@ def create_asr(request, signer, cruise, data_type, fsfile, parameters=None,
                 asr._notes.append(Note(
                     signer, parameters, data_type='parameters',
                     discussion=True))
-            if not batched:
-                create_asrs_history(request, signer, cruise, [asr])
+            if has_mod(request):
+                asr.acknowledge(signer)
+                if not batched:
+                    create_asrs_history(request, signer, cruise, [asr])
             return asr
     except ValueError, err:
         request.response.status = 400
@@ -209,7 +211,8 @@ def create_asrs(request, signer, asr_specs):
             asrs.append(
                 create_asr(request, signer, cruise, data_type, fsf, parameters,
                            batched=True))
-        create_asrs_history(request, signer, cruise, asrs)
+        if has_mod(request):
+            create_asrs_history(request, signer, cruise, asrs)
         all_asrs += asrs
     return all_asrs
 
@@ -248,9 +251,10 @@ def submission_attach(request):
         else:
             asr = create_asr(request, request.user, cruise, data_type, data,
                              parameters)
-            request.session.flash(
-                'Attached data As Received {0}'.format(link_asr(request, asr)),
-                'action_taken')
+            msg = 'Attached data As Received {0}'.format(link_asr(request, asr))
+            if not has_mod(request):
+                msg += ' to be reviewed by staff before made public'
+            request.session.flash(msg, 'action_taken')
             return HTTPSeeOther(location=path_asr(request, asr))
     else:
         if not has_edit(request):
@@ -351,6 +355,7 @@ def _moderate_attribute(request):
             return
 
         attr.acknowledge(request.user)
+        create_asrs_history(request, request.user, attr.obj, [attr])
     else:
         if attr.is_judged():
             request.response_status = '400 Attempt to modify judged attribute'

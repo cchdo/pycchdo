@@ -165,6 +165,38 @@ class TestStaff(RequestBaseTest):
 
         create_asr(self.request, self.testPerson, ccc, '', fst)
         self.assertEqual(self.request.response.status, '400 Bad Request')
+
+    def test_create_asr(self):
+        from pycchdo.views.staff import create_asr
+        ccc = Cruise.create(self.testPerson).obj
+        fst = MockFieldStorage(
+            MockFile('', 'mockfile.txt'), contentType='text/plain')
+        fsf = FSFile.from_fieldstorage(fst)
+
+        # Doing so as editor will not acknowledge, no history note
+        len_prior = len(ccc.notes)
+        asr = create_asr(
+            self.request, self.testPerson, ccc, 'bottle_exchange', fsf)
+        self.assertEqual(len(ccc.notes), len_prior)
+
+        # Doing so as staff will acknowledge, and create a history note
+        self.testPerson.permissions = ['staff']
+        asr = create_asr(
+            self.request, self.testPerson, ccc, 'bottle_exchange', fsf)
+        self.assertEqual(len(ccc.notes) - 1, len_prior)
+        self.testPerson.permissions = []
+
+    def test_moderate_attribute(self):
+        from pycchdo.views.staff import _moderate_attribute
+        ccc = Cruise.create(self.testPerson).obj
+        fst = MockFieldStorage(
+            MockFile('', 'mockfile.txt'), contentType='text/plain')
+        asr = ccc.set(self.testPerson, 'bottle_exchange', fst)
+        self.request.params['action'] = 'Acknowledge'
+        self.request.params['attr'] = asr.id
+        len_prior = len(ccc.notes)
+        _moderate_attribute(self.request)
+        self.assertEqual(len(ccc.notes) - 1, len_prior)
         
 
 class TestMail(RequestBaseTest):

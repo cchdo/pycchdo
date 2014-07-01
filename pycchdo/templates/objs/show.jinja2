@@ -33,11 +33,11 @@
       <input type="submit" name="action" value="Acknowledge">
       <input type="submit" name="action" value="Reject">
 
-      {%- if obj.is_accepted() %}
+      {%- if obj.change.is_accepted() %}
         <p class="status status-accepted">Accepted</p>
-      {%- elif obj.is_rejected() %}
+      {%- elif obj.change.is_rejected() %}
         <p class="status status-rejected">Rejected</p>
-      {%- elif obj.is_acknowledged() %}
+      {%- elif obj.change.is_acknowledged() %}
         <p class="status status-acknowledged">Acknowledged</p>
       {%- else %}
         <p class="status status-created">Created</p>

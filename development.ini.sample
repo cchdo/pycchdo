@@ -25,6 +25,8 @@ recipient_submission_confirm = myshen+submission@ucsd.edu
 recipient_asr_confirm = myshen+asr@ucsd.edu
 from_address = cchdo@ucsd.edu
 
+analytics = False
+
 # Security keys
 key_auth_policy = ONLY_FOR_DEV
 key_session_factory = ONLY_FOR_DEV

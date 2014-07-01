@@ -25,6 +25,8 @@ recipient_submission_confirm = cchdo@ucsd.edu
 recipient_asr_confirm = cchdo@googlegroups.com
 from_address = cchdo@ucsd.edu
 
+analytics = True
+
 # Security keys
 key_auth_policy = 
 key_session_factory = 

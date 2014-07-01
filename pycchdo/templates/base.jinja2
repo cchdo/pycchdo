@@ -58,7 +58,9 @@
        {{ whh.tags.javascript_link(ASSET_URL) }}
     {%- endassets %}
     {%- block js %}{%- endblock %}
-    {%- include '_track.html' ignore missing %}
+    {%- if request.registry.settings.get('analytics') == 'True' %}
+      {%- include '_analytics.html' ignore missing %}
+    {%- endif %}
     {%- include '_ie6.html' ignore missing %}
   </div>
 </body>

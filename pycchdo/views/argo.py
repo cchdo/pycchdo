@@ -51,8 +51,10 @@ def index(request):
     if method == 'POST':
         return _create(request)
     elif method == 'GET':
-        argo_files = ArgoFile.query().join(ArgoFile._changes).\
-            order_by(Change.ts_c.asc())
+        argo_files = ArgoFile.query().\
+            with_transformation(ArgoFile.change.join).\
+            order_by(ArgoFile.change._aliased.ts_c.desc(),
+                     ArgoFile.text_identifier.asc())
         if not has_staff(request):
             argo_files = argo_files.filter(ArgoFile.display)
         argo_files = argo_files.all()
@@ -140,11 +142,10 @@ def _create(request):
     argo_file.description = description
     argo_file.display = bool(display)
     argo_file.file = FSFile.from_fieldstorage(file)
-
-    print argo_file
-    print argo_file.__dict__
     DBSession.add(argo_file)
-    transaction.commit()
+
+    log.debug(argo_file)
+    log.debug(argo_file.__dict__)
 
     request.session.pop_flash('form_entered_argo_expocode')
     request.session.pop_flash('form_entered_argo_date')

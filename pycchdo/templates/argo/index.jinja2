@@ -7,7 +7,7 @@
   {%- if argo_files %}
     <table class="has-meta-bodies pre-expand">
       <tr class="header">
-        <th>ExpoCode</th>
+        <th>Cruise</th>
         <th>File</th>
         {%- if h.has_mod(request) %}
           <th>Added</th>
@@ -25,10 +25,10 @@
           {%- set display_class = 'display-f' %}
         {%- endif %}
         <tr class="mb-link{{loop.index0}} meta {{ hl }} {{ display_class }}">
-          <td>{{ af.text_identifier }}</td>
+          <td>{{ whh.tags.link_to(af.text_identifier, request.route_path('cruise_show', cruise_id=af.text_identifier)) }}</td>
           <td class="filename">
-            {%- if af|attr('file') and af.file %}
-              <a href="{{ request.route_path('argo_file', id=af.id) }}">{{ af.file.name }}</a>
+            {%- if af|attr('value') and af.value %}
+              <a href="{{ request.route_path('argo_file', id=af.id) }}">{{ af.value.name }}</a>
             {%- else %}
               Not uploaded
             {%- endif %}

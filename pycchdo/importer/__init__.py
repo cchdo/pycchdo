@@ -17,7 +17,7 @@ from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
 
 from pycchdo.models.serial import (
     Change, Note,
-    DBSession, reset_database, reset_fs, 
+    store_context, DBSession, reset_database, reset_fs, 
     log as model_log,
     )
 from pycchdo.models.search import SearchIndex
@@ -285,11 +285,12 @@ def do_import():
             seahunt.clear()
             return 0
 
-        if not args.skip_cchdo:
-            cchdo.import_(wwwuser.pw_gid, pool_size, fsstore, args)
+        with store_context(fsstore):
+            if not args.skip_cchdo:
+                cchdo.import_(wwwuser.pw_gid, pool_size, args)
 
-        if not args.skip_seahunt:
-            seahunt.import_(wwwuser.pw_gid, fsstore, args)
+            if not args.skip_seahunt:
+                seahunt.import_(wwwuser.pw_gid, args)
 
     if not args.skip_search_index:
         log.info("indexing...")

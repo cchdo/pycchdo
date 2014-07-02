@@ -18,7 +18,6 @@ from pycchdo.importer.cchdo import *
 from pycchdo.log import getLogger
 import pycchdo.models as models
 from pycchdo.models.serial import (
-    store_context, 
     Cruise, Person, Obj, Institution, Country, Ship, Collection, 
     Participant, Participants, 
     )
@@ -694,7 +693,7 @@ def clear():
     return 
 
 
-def import_(import_gid, fsstore, args):
+def import_(import_gid, args):
     dl_files = not args.skip_downloads
 
     log.info("Get/Create Seahunt Importer to take blame")
@@ -702,7 +701,7 @@ def import_(import_gid, fsstore, args):
         import_person(None, 'importer', 'Seahunt', 'Seahunt_importer'))
 
     log.info('Connecting to seahunt db')
-    with db_session(session()) as sesh, store_context(fsstore):
+    with db_session(session()) as sesh:
         su = (sesh, updater)
 
         with conn_dl('sui.ucsd.edu', args.skip_downloads,

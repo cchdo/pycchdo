@@ -40,10 +40,9 @@ legacy = lcconvert.legacy
 from pycchdo import models
 from pycchdo.util import pyStringIO, StringIO, MemFile
 from pycchdo.models.serial import (
-    store_context, DBSession,
-    Note,
+    DBSession,
     FSFile,
-    Change,
+    Note, Change,
     Cruise, Person, Institution, Country, Participant, Participants, 
     ArgoFile,
     Collection,
@@ -2307,73 +2306,43 @@ libcchdo_to_pycchdo_file_type = {
 }
 
 
-def _import_argo_missingtxt(session, downloader, argo_file, file, filename, remote_path):
+def _import_argo_file(session, downloader, argo_file, afile, new_style=True):
+    filename = afile.filename
+    if new_style:
+        remote_path = afile.description
+
+        located = FSFile.query().\
+            filter(FSFile.import_path == remote_path).first()
+        if located:
+            cfiles = located.cruise_files
+            if cfiles:
+                cfile = cfiles[0]
+                argo_file.link(cfile.cruise, cfile.attr)
+                log.info(u'linked {0}'.format(cfile))
+                return
+    else:
+        remote_path = os.path.join('/data/argo/files', filename)
+
     try:
         lstat = downloader.lstat(remote_path)
     except (OSError, IOError), e:
         log.error('unable to get argo file stat {0} {1!r}'.format(
             remote_path, e))
         return
-    fs_argo = FieldStorage()
-    fs_argo.filename = filename
-    fs_argo.type = guess_mime_type(filename)
-    if stat.S_ISLNK(lstat.st_mode):
-        # Attempt to find the cruise and corresponding file type to link
-        symlink_target = downloader.readlink(remote_path)
-        log.debug(u'ArgoFile {0} is link to {1}'.format(
-            file.id, symlink_target))
 
-        # Get the ExpoCode from the symlink target's directory
-        expopath = os.path.join(
-            os.path.dirname(symlink_target), 'ExpoCode')
-        expocode = None
-        with downloader.dl(expopath) as expo:
-            if expo:
-                expocode = expo.read().strip()
-            else:
-                log.warn(
-                    u'Unable to get ExpoCode for linked ArgoFile {0}.'.format(file.id))
-
-        if expocode:
-            cruise = _query_cruise_by_expocode(expocode).first()
-            if cruise:
-                file_type = libcchdo.fns.guess_file_type(symlink_target)
-                if file_type:
-                    log.debug(
-                        u'Guessed file type to be {}'.format(file_type))
-                    try:
-                        file_type = libcchdo_to_pycchdo_file_type[file_type]
-                    except KeyError:
-                        pass
-                    log.info(
-                        u'linking to {0} {1}'.format(cruise, file_type))
-                    argo_file.link(cruise, file_type)
-                    return
-                else:
-                    log.debug(
-                        u'Finding file in imported documents to link')
-                    fsfile = FSFile.query().filter(
-                        FSFile.import_path == symlink_target).first()
-                    if fsfile:
-                        attr = fsfile.change.attr
-                        if attr:
-                            argo_file.link(cruise, attr.key)
-                            return
-        log.warn(
-            u'Unable to find cruise {0} to link ArgoFile {1} to. '
-            'Attaching actual file instead.'.format(expocode, file.id))
-
-    # File is not a link or was unable to find cruise so just download
-    # and attach the file
-    with downloader.dl(remote_path) as f:
-        if f:
-            fs_argo.file = f
-            with su(su_lock=downloader.su_lock):
-                argo_file.value = FSFile.from_fieldstorage(fs_argo)
-        else:
+    # download and attach the file
+    with downloader.dl(remote_path) as fff:
+        if not fff:
             log.error(
                 u'Unable to attach argo file by download: could not '
                 'download {0}'.format(remote_path))
+            return
+
+        log.info(u'downloaded {0}'.format(remote_path))
+        with su(su_lock=downloader.su_lock):
+            mimetype = guess_mime_type(filename)
+            argo_file.value = FSFile(fff, filename, mimetype)
+            DBSession.flush()
 
 
 def _import_argo_files(session, downloader):
@@ -2381,40 +2350,46 @@ def _import_argo_files(session, downloader):
     updater = _get_updater()
     argo_files = session.query(legacy.ArgoFile).all()
 
-    for file in argo_files:
-        filename = file.filename
+    for afile in argo_files:
+        filename = afile.filename
 
         argo_file = ArgoFile.query().\
-            filter(ArgoFile.text_identifier == file.expocode).\
-            filter(Change.ts_c == file.created_at).first()
+            with_transformation(ArgoFile.change.join).\
+            filter(ArgoFile.text_identifier == afile.expocode).\
+            filter(ArgoFile.change._aliased.ts_c == afile.created_at).first()
         if not argo_file:
-            log.info(
-                u'Creating Argo File ({0}, {1}, {2})'.format(
-                    file.id, filename, file.created_at))
-            user = get_by_import_id(Person, str(file.user.id))
+            log.info(u'Creating Argo File ({0}, {1}, {2})'.format(
+                afile.id, filename, afile.created_at))
+            user = get_by_import_id(Person, str(afile.user.id))
             if not user:
                 user = updater.importer
             argo_file = ArgoFile.create(user).obj
-            argo_file.change.ts_c = file.created_at
+            argo_file.change.ts_c = afile.created_at
         else:
             log.info(u'Updating Argo File ({0}, {1}, {2}) = {3}'.format(
-                file.id, filename, file.created_at, argo_file.id))
-        argo_file.text_identifier = file.expocode
-        argo_file.description = file.description
-        argo_file.display = file.display
+                afile.id, filename, afile.created_at, argo_file.id))
+        argo_file.text_identifier = afile.expocode
+        argo_file.display = afile.display
 
-        remote_path = os.path.join('/data/argo/files', filename)
-        log.debug(remote_path)
+        new_style = afile.content_type > 2
+        if not new_style:
+            argo_file.description = afile.description
+        elif afile.description == 'in_process':
+            argo_file.description = 'in process'
+        else:
+            argo_file.description = ''
 
-        # Special case for missing.txt because there is no actual file. Just
-        # ignore it and add the description but no file.
-        if filename != 'missing.txt':
-            _import_argo_missingtxt(
-                session, downloader, argo_file, file, filename, remote_path)
+        # Special case for missing.txt or in_process because there is no actual
+        # file. Just don't import a file...
+        if not ((new_style and afile.description == 'in_process') or
+                filename == 'missing.txt'):
+            _import_argo_file(session, downloader, argo_file, afile, new_style)
+        else:
+            log.info(u'No file imported')
 
-        if file.downloads:
+        if afile.downloads:
             requests = []
-            for dl in file.downloads:
+            for dl in afile.downloads:
                 req = FakeWebObRequest(date=dl.created_at, remote_addr=dl.ip)
                 reqfor = RequestFor(req)
                 requests.append(reqfor)
@@ -2426,7 +2401,7 @@ def _get_updater():
     return Updater(import_person(None, 'importer', 'CCHDO', 'CCHDO_importer'))
 
 
-def import_(import_gid, nthreads, fsstore, args):
+def import_(import_gid, nthreads, args):
     log.info("Connecting to cchdo db")
     nthreads = 2
     try:
@@ -2477,15 +2452,13 @@ def import_(import_gid, nthreads, fsstore, args):
                 transaction.begin()
                 with conn_dl(remote_host, args.skip_downloads, import_gid,
                              local_rewriter=rewrite_dl_path_to_local,
-                             su_lock=Lock()
-                            ) as downloader, store_context(fsstore):
+                             su_lock=Lock()) as downloader:
                     _import_queue_files(session, downloader)
                     _import_submissions(session, downloader)
                     _import_old_submissions(session, downloader)
                     _import_documents(session, downloader, nthreads - 1)
                     _import_argo_files(session, downloader)
-                    DBSession.flush()
-                transaction.commit()
+                    transaction.commit()
     except (KeyboardInterrupt, Exception):
         log.info('aborted transaction')
         transaction.abort()

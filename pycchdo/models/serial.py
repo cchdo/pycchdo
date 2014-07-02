@@ -2543,10 +2543,11 @@ class _CruiseFile(Base):
     __tablename__ = 'cruise_files'
     id = Column(Integer, primary_key=True)
     cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    cruise = relationship('Cruise', lazy='joined')
     attr = Column(Unicode)
 
     file_id = Column(ForeignKey('fsfiles.id'))
-    file = relationship(FSFile, lazy='joined')
+    file = relationship(FSFile, lazy='joined', backref='cruise_files')
 
     _statuses = relationship(_CruiseFileStatus, lazy='joined', uselist=True)
     statuses = association_proxy('_statuses', 'status')
@@ -2555,6 +2556,10 @@ class _CruiseFile(Base):
         self.attr = attr
         self.file = file
         self.statuses = statuses
+
+    def __repr__(self):
+        return u'<CruiseFile({0}, {1}, {2})>'.format(
+            self.cruise, self.attr, self.file)
 
 
 class Cruise(Obj):

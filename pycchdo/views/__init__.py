@@ -1,9 +1,10 @@
 from datetime import datetime
 from cgi import FieldStorage
+import os.path
 
 from geojson import LineString as gj_LineString
 
-from pyramid.response import Response
+from pyramid.response import FileResponse
 from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent, HTTPUnauthorized
 from pyramid.url import current_route_url
 
@@ -154,50 +155,25 @@ def _humanize(obj):
 
 
 def file_response(request, file, disposition='inline'):
-    if disposition not in ['inline', 'attachment']:
-        raise ValueError('Disposition must be in %r' % disposition)
-
     if file is None:
         raise HTTPNoContent()
 
-    resp = Response(conditional_response=True)
-
     # Caching
-    try:
-        resp.etag = file.md5
-    except AttributeError:
-        pass
-    try:
-        resp.last_modified = file.upload_date
-    except AttributeError:
-        pass
     # For data files, there isn't really an expiry date.
     # Let's set one for almost a month so we have the opportunity to change it.
-    resp.cache_control.max_age = 60 * 60 * 24 * 30
+    cache_max_age = 60 * 60 * 24 * 30
 
-    with store_context(request.registry.settings['fsstore']):
+    fsstore = request.registry.settings['fsstore']
+    with store_context(fsstore):
         try:
-            resp.app_iter = file.open_file()
+            path = file.locate()
+            fullpath = os.path.join(fsstore.path, path[1:path.index('?')])
+            resp = FileResponse(fullpath, request, cache_max_age)
+            # TODO etag
+            return resp
         except IOError:
             log.error(u'Missing file: {0!r}'.format(file))
             return HTTPNotFound()
-        try:
-            resp.content_length = file.length
-        except AttributeError:
-            pass
-        try:
-            if file.content_type is not None and file.content_type != 'None':
-                resp.content_type = str(file.content_type)
-            else:
-                resp.content_type = guess_mime_type(file.name)
-        except AttributeError:
-            resp.content_type = guess_mime_type(file.name)
-        try:
-            resp.content_disposition = '{disp}; filename="{name}"'.format(
-                disp=disposition, name=file.name)
-        except AttributeError:
-            resp.content_disposition = disposition
-        return resp
 
 
 def notfound_view(request):

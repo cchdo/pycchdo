@@ -464,7 +464,10 @@ def uow(request):
 
     send_processing_email(request, readme_str, uow_cfg, note.id)
 
-    log.info(u'Committed UOW')
+    if dryrun:
+        log.info(u'Dryrun committed UOW')
+    else:
+        log.info(u'Committed UOW')
     return {'status': 'ok'}
 
 

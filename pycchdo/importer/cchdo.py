@@ -318,14 +318,20 @@ known_first_name_given_last_name_for_cruise = {
 
 
 known_first_name_for_person_inst = {
+    ('Anderson', 'AMK-GU', ): 'Leif',
+    ('Dickson', 'SIO', ): 'Andrew G.',
     ('Johnson', 'BNL', ): 'Kevin T. M.',
     ('Johnson', 'PMEL', ): 'Gregory C.',
     ('Gordon', 'OSU', ): 'Louis I.',
-    ('Moore', 'PMEL', ): 'Ben',
-    ('Liu', 'NTU', ): 'Cho-Teng',
-    ('Saito', 'JAMSTEC', ): 'Chizuru',
-    ('Miller', 'NOAA', ): 'Rick',
     ('Gaillard', 'NWU'): 'Jean-François',
+    ('Head', 'PML'): 'Robert',
+    ('Harrison', 'BIO'): 'Glen',
+    ('Liu', 'NTU', ): 'Cho-Teng',
+    ('Miller', 'NOAA', ): 'Rick',
+    ('Moore', 'PMEL', ): 'Ben',
+    ('Saito', 'JAMSTEC', ): 'Chizuru',
+    ('Saito', 'NIES', ): 'Chizuru',
+    ('Watanabe', 'JAMSTEC'): 'Shuichi',
 }
 
 
@@ -341,6 +347,7 @@ known_multiple_names = {
     'Bindoff': [u'Nathan L.', u'Nathan'],
     'Budeus': [u'Gereon', u''],
     'Bullister': [u'Dr. John L.', u'John L.', u'John', u''],
+    'Chapman': [u'Piers C.', u'Piers'],
     'Curry': [u'Ruth G.', u'Ruth'],
     'Evans': [u'Leigh'],
     'Feely': [u'Richard A.', u'Richard'],
@@ -623,6 +630,7 @@ def _import_contacts(session):
             updater.attr(person, 'fax', contact.fax)
         if contact.title:
             updater.attr(person, 'title', contact.title)
+        log.info(u'contact {0} -> {1}'.format(contact.id, person.id))
         person.import_id = str(contact.id)
 
 
@@ -705,10 +713,9 @@ def _import_country(updater, country_name):
     return country
 
 
-def _import_cruise(cruise, dblock):
+def _import_cruise(cruise, updater, dblock):
     import_id = str(cruise.id)
     with lock(dblock):
-        updater = _get_updater()
         c = get_by_import_id(Cruise, import_id)
         if c:
             log.info('Updating Cruise %s %s' % (import_id, cruise.ExpoCode))
@@ -776,7 +783,8 @@ class CruisesImporter(Thread):
 
     def run(self):
         try:
-            _import_cruise(self.cruise, self.dblock)
+            updater = _get_updater()
+            _import_cruise(self.cruise, updater, self.dblock)
         except Exception, e:
             # Close out the transaction for this thread. This is done here in
             # case of fast return from import method.
@@ -798,9 +806,10 @@ def _import_cruises(session, nthreads):
     #    importers.append(CruisesImporter(cruise, dblock))
     #_run_importers(importers, nthreads=1)
 
+    updater = _get_updater()
     plog = ProgressLog(cruises, nthreads)
     for cruise in cruises:
-        _import_cruise(cruise, dblock)
+        _import_cruise(cruise, updater, dblock)
         plog.log()
     
 
@@ -1093,6 +1102,55 @@ def _import_collections_cruises(session):
         updater.attr(cruise, 'collections', colls)
 
 
+def _contacts_to_participants(updater, participants, contacts):
+    """Return set of participants from given contacts.
+
+    :contacts: A list of legacy Contacts.
+    :returns: A set of Participants
+
+    """
+    new_participants = set()
+    for role, contactid, inst in contacts:
+        person = get_by_import_id(Person, contactid)
+        if not person:
+            log.error("Could not import ContactsCruise pair because person "
+                     '{0} does not exist.'.format(contactid))
+            continue
+        inst = _import_inst(updater, inst)
+
+        matching_participants = filter(
+            lambda ppp: ppp.role == role and ppp.person == person,
+            participants)
+
+        if not matching_participants:
+            new_participants.add(
+                Participant.create(role, person, inst))
+            continue
+
+        missing_inst = None
+        present = False
+        for ppp in matching_participants:
+            if ppp.institution == inst:
+                # The participant is already present, we're done.
+                present = True
+                break
+            if missing_inst is None and ppp.institution is None:
+                missing_inst = ppp
+        if present:
+            continue
+
+        # The role-person matches don't have this institution
+        if missing_inst:
+            missing_inst.institution = inst
+        else:
+            log.info(u'All participants for {0} and {1} already have '
+                     'institution. Adding new Participant.'.format(
+                role, person))
+            new_participants.add(
+                Participant.create(role, person, inst))
+    return new_participants
+
+
 def _import_contacts_cruises(session):
     log.info("Importing ContactsCruises")
     updater = _get_updater()
@@ -1128,47 +1186,8 @@ def _import_contacts_cruises(session):
             continue
 
         participants = set(cruise.participants)
-        new_participants = set()
-
-        for role, contactid, inst in contacts:
-            person = get_by_import_id(Person, contactid)
-            if not person:
-                log.error("Could not import ContactsCruise pair because person "
-                         '{0} does not exist.'.format(contactid))
-                continue
-            inst = _import_inst(updater, inst)
-
-            matching_participants = filter(
-                lambda ppp: ppp.role == role and ppp.person == person,
-                participants)
-
-            if not matching_participants:
-                new_participants.add(
-                    Participant.create(role, person, inst))
-                continue
-
-            missing_inst = None
-            present = False
-            for ppp in matching_participants:
-                if ppp.institution == inst:
-                    # The participant is already present, we're done.
-                    present = True
-                    break
-                if missing_inst is None and ppp.institution is None:
-                    missing_inst = ppp
-            if present:
-                continue
-
-            # The role-person matches don't have this institution
-            if missing_inst:
-                missing_inst.institution = inst
-            else:
-                log.info(u'All participants for {0} and {1} already have '
-                         'institution. Adding new Participant.'.format(
-                    role, person))
-                new_participants.add(
-                    Participant.create(role, person, inst))
-
+        new_participants = _contacts_to_participants(
+            updater, participants, contacts)
         updater.attr(cruise, 'participants', participants | new_participants)
 
 
@@ -1507,8 +1526,8 @@ def _import_parameters(session):
         else:
             log.info("Creating Cruise %s for CPI" % p.ExpoCode)
             cruise = Cruise.create(updater.importer).obj
+            cruise.import_id = 'cruise_param_info'
         updater.attr(cruise, 'expocode', p.ExpoCode)
-        cruise.import_id = 'cruise_param_info'
 
         param_infos = []
         for param in legacy.CruiseParameterInfo._PARAMETERS:

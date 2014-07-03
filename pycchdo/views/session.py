@@ -106,7 +106,9 @@ def session_show(request):
 
 
 def session_identify(request):
-    if request.user:
+    default_token_url = request.route_url('session_new')
+    token_url = request.params.get('token_url', default_token_url)
+    if request.user and default_token_url == token_url:
         raise HTTPSeeOther(location=request.route_url('session'))
     if not request.session.get('skip_save_signin_return_uri', False):
         _save_request(request)
@@ -114,7 +116,7 @@ def session_identify(request):
             del request.session['skip_save_signin_return_uri']
         except KeyError:
             pass
-    return {}
+    return {'token_url': token_url}
 
 
 def _sign_in_user(request, person):

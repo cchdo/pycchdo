@@ -98,6 +98,8 @@ def configure_routes(config):
 
     route_path(config, 'session', '/session',
                'pycchdo.views.session.session_show', 'sessions/show.jinja2')
+    route_path(config, 'session_json', '/session.json',
+               'pycchdo.views.session.session_show', 'json')
     route_path(config, 'session_identify', '/session/identify',
                'pycchdo.views.session.session_identify', 'sessions/identify.jinja2')
     route_path(config, 'session_new', '/session/new',

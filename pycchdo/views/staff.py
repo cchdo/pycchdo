@@ -288,6 +288,7 @@ def submissions(request):
         return HTTPSeeOther(location=request.current_route_path(_query=query))
     squery = squery.with_transformation(Submission.change.join)
     squery = squery.with_transformation(Change.p_c.join)
+    squery = squery.with_transformation(Change.notes.join)
     if query and ltype != 'id':
         likestr = '%{0}%'.format(query)
         or_list = [
@@ -295,6 +296,8 @@ def submissions(request):
             Submission.ship_name.ilike(likestr),
             Submission.line.ilike(likestr),
             Change.p_c._aliased.name.ilike(likestr),
+            Submission.line.ilike(likestr),
+            Change.notes._aliased.body.ilike(likestr),
         ]
         try:
             int(query)

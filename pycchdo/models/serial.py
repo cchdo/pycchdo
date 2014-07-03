@@ -303,6 +303,20 @@ def filter_changes_data(changes, data=True):
     return filter(func, changes)
 
 
+class ChangeNoteTransformer(Comparator):
+    """Transform a query for Change to enable queries against its Notes."""
+    def __init__(self, cls):
+        self._aliased = aliased(Note, name='chgn')
+        self._aliased_change = Obj.change._aliased
+
+    @property
+    def join(self):
+        def go(q):
+            return q.join(self._aliased,
+                self._aliased.change_id == self._aliased_change.id)
+        return go
+
+
 class ChangePersonTransformer(Comparator):
     """Transform a query for Change to enable queries against its Person."""
     def __init__(self, cls):
@@ -522,7 +536,7 @@ class Change(Base, MixinCreation, DBQueryable):
         """Return a query for this class only when accepted or not."""
         return cls.query().filter(cls.accepted == accepted)
 
-    @property
+    @hybrid_property
     def notes(self):
         return self._notes.all()
 
@@ -533,6 +547,13 @@ class Change(Base, MixinCreation, DBQueryable):
     @property
     def notes_discussion(self):
         return self._notes.filter(Note.discussion).all()
+
+    @notes.comparator
+    def notes(cls):
+        # memoize a ChangeNoteTransformer per class
+        if '_cnt' not in cls.__dict__:
+            cls._cnt = ChangeNoteTransformer(cls)
+        return cls._cnt
 
     def note_for_data_type(self, dtype):
         """The first note for the given data type."""

@@ -320,8 +320,10 @@ known_first_name_given_last_name_for_cruise = {
 known_first_name_for_person_inst = {
     ('Anderson', 'AMK-GU', ): 'Leif',
     ('Dickson', 'SIO', ): 'Andrew G.',
+    ('Johnson', 'SIO', ): 'Mary',
     ('Johnson', 'BNL', ): 'Kevin T. M.',
     ('Johnson', 'PMEL', ): 'Gregory C.',
+    ('Klein', 'UBIfU', ): 'Birgit',
     ('Gordon', 'OSU', ): 'Louis I.',
     ('Gaillard', 'NWU'): 'Jean-François',
     ('Head', 'PML'): 'Robert',
@@ -2034,13 +2036,19 @@ def _import_documents_unaccounted(
                 if stat.S_ISDIR(r_lstat.st_mode):
                     downloader.dl_dir(remote_path, local_path)
                 else:
-                    with downloader.dl(remote_path) as file:
-                        with open(local_path, 'wb') as ostream:
-                            copy_chunked(file, ostream) 
-            except (OSError, IOError), e:
+                    with downloader.dl(remote_path) as ifobj:
+                        try:
+                            with    su(su_lock=downloader.su_lock), \
+                                    open(local_path, 'wb') as ofobj:
+                                copyfileobj(ifobj, ofobj) 
+                        except (OSError, IOError) as err:
+                            log.error(
+                                u'Unable to save file {0}\n{1!r}'.format(
+                                    local_path, err))
+            except (OSError, IOError) as err:
                 log.error(
-                    u'Unable to download unaccounted file/dir {0}\n{1!r}'.format(
-                    remote_path, e))
+                    u'Unable to download unaccounted {0}\n{1!r}'.format(
+                    remote_path, err))
 
         if any_unaccounted:
             archive_name = 'archive_{0}.tar'.format(cruise.id)

@@ -37,7 +37,7 @@ docs_root = os.path.join(os.path.sep, 'Users', 'myshen', 'seahunt', 'docs')
 
 
 url = S.engine.url.URL(
-    'postgresql', cred[0], cred[1], 'sui.ucsd.edu', port=55432,
+    'postgresql', cred[0], cred[1], 'sui.ucsd.edu', port=5432,
     database='seahunt')
 
 

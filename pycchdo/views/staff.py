@@ -416,6 +416,8 @@ def uow(request):
     if dryrun:
         log.info(u'Dry run UOW commit')
         transaction.doom()
+    else:
+        log.info(u'UOW commit')
     for k, v in request.POST.items():
         if k.startswith('result['):
             key = int(k.split('[', 1)[1][:-1])

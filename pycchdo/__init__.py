@@ -22,7 +22,8 @@ from sqlalchemy import engine_from_config
 from sqlalchemy_imageattach.context import push_store_context
 
 from pycchdo import helpers
-from pycchdo.util import reenable_logs, patch_pyramid_exclog
+from pycchdo.util import (
+    reenable_logs, patch_pyramid_exclog, patch_get_all_pending)
 from pycchdo.routes import configure_routes
 from pycchdo.models.serial import DBSession, Person
 from pycchdo.models.search import SearchIndex
@@ -139,6 +140,7 @@ def main(global_config, **settings):
 
     reenable_logs()
     patch_pyramid_exclog()
+    patch_get_all_pending()
 
     config = create_config(settings)
     _configure(config)

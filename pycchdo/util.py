@@ -11,6 +11,8 @@ except ImportError:
 
 import transaction
 
+from sqlalchemy.orm import attributes
+from sqlalchemy.orm import dynamic
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import (
     MetaData,
@@ -153,6 +155,19 @@ def patch_pyramid_exclog():
             return _orig_exclog_tween(request, **kwargs)
         return exclog_tween
     pyramid_exclog.exclog_tween_factory = exclog_tween_factory
+
+
+def patch_get_all_pending():
+    """Patch SQLAlchemy
+    
+    https://bitbucket.org/zzzeek/sqlalchemy/issue/3099/get_all_pending-takes-3-positional
+
+    """
+    def get_all_pending(self, state, dict_,
+                        passive=attributes.PASSIVE_NO_INITIALIZE):
+         c = self._get_collection_history(state, passive)
+         return [(attributes.instance_state(x), x) for x in c.all_items]
+    dynamic.get_all_pending = get_all_pending
 
 
 def drop_everything(engine):

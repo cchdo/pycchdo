@@ -83,13 +83,12 @@ class PersonBaseTest(BaseTest):
 class RequestBaseTest(PersonBaseTest):
     def setUp(self):
         super(RequestBaseTest, self).setUp()
-        self.request = testing.DummyRequest()
         self.config.include('pyramid_mailer.testing')
+        configure_routes(self.config)
+        self.request = testing.DummyRequest()
         self.request.registry = self.config.registry
         self.request.registry.settings = pyramid_settings
         self.request.user = self.testPerson
-
-        configure_routes(self.config)
 
 
 class MockFieldStorage():

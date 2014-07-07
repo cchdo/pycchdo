@@ -195,6 +195,7 @@ def create_asr(request, signer, cruise, data_type, fsfile, parameters=None,
                     create_asrs_history(request, signer, cruise, [asr])
             return asr
     except ValueError, err:
+        log.error(err)
         request.response.status = 400
         request.session.flash('help', 'error')
         return
@@ -231,6 +232,12 @@ list_queries = OrderedDict([
 
 
 def submission_attach(request):
+    """Attach data directly to a cruise.
+
+    This can be used by both editors and moderators. Moderator edits result in
+    automatic acknowledgement.
+
+    """
     method = http_method(request)
     if method == 'PUT':
         if not has_edit(request):
@@ -253,6 +260,8 @@ def submission_attach(request):
         else:
             asr = create_asr(request, request.user, cruise, data_type, data,
                              parameters)
+            if not asr:
+                return
             msg = 'Attached data As Received {0}'.format(link_asr(request, asr))
             if not has_mod(request):
                 msg += ' to be reviewed by staff before made public'

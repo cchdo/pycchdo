@@ -157,17 +157,23 @@ def patch_pyramid_exclog():
     pyramid_exclog.exclog_tween_factory = exclog_tween_factory
 
 
-def patch_get_all_pending():
-    """Patch SQLAlchemy
-    
-    https://bitbucket.org/zzzeek/sqlalchemy/issue/3099/get_all_pending-takes-3-positional
+def patched_get_all_pending(self, state, dict_,
+                            passive=attributes.PASSIVE_NO_INITIALIZE):
+    """Patched version of method for sqlalchemy 0.9.6
+
+    sqlalchemy.orm.dynamic.DynamicAttributeImpl.get_all_pending()
+
+    https://bitbucket.org/zzzeek/sqlalchemy/issue/3099/
 
     """
-    def get_all_pending(self, state, dict_,
-                        passive=attributes.PASSIVE_NO_INITIALIZE):
-         c = self._get_collection_history(state, passive)
-         return [(attributes.instance_state(x), x) for x in c.all_items]
-    dynamic.get_all_pending = get_all_pending
+    c = self._get_collection_history(state, passive)
+    return [(attributes.instance_state(x), x) for x in c.all_items]
+
+def patch_get_all_pending():
+    """Patch SQLAlchemy
+
+    """
+    dynamic.DynamicAttributeImpl.get_all_pending = patched_get_all_pending
 
 
 def drop_everything(engine):

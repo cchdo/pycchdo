@@ -4,6 +4,7 @@ from logging import getLogger
 
 from pyramid import testing
 from pyramid.httpexceptions import HTTPBadRequest
+from pyramid_mailer import get_mailer
 
 from pycchdo.tests import (
     RequestBaseTest, PersonBaseTest, MockFieldStorage, MockFile, MockSession
@@ -222,5 +223,32 @@ class TestMail(RequestBaseTest):
             ],
         }
         note_id = 'note'
-        send_processing_email(self.request, readme_str, uow_cfg, note_id)
+        send_processing_email(self.request, readme_str, uow_cfg, note_id, False)
 
+        mailer = get_mailer(self.request)
+        self.assertEqual(len(mailer.outbox), 1)
+        self.assertEqual(mailer.outbox[0].subject, "")
+
+
+    def test_send_processing_email_dryrun(self):
+        from pycchdo.mail import send_processing_email
+        readme_str = 'readme'
+        uow_cfg = {
+            'expocode': 'EXPOCODE',
+            'q_infos': [
+                {
+                    'q_id': 'asr',
+                    'submission_id': 'sub',
+                    'filename': 'fname',
+                    'submitted_by': 'submitter',
+                    'date': '1970-01-01',
+                    'data_type': 'data_suggestion',
+                }
+            ],
+        }
+        note_id = 'note'
+        send_processing_email(self.request, readme_str, uow_cfg, note_id, True)
+
+        mailer = get_mailer(self.request)
+        self.assertEqual(len(mailer.outbox), 1)
+        self.assertEqual(mailer.outbox[0].subject, "DRYRUN None")

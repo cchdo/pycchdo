@@ -168,17 +168,20 @@ This is an automated message on {date}.
     send(request, message)
 
 
-def send_processing_email(request, readme_str, uow_cfg, note_id):
+def send_processing_email(request, readme_str, uow_cfg, note_id, dryrun=True):
     uid = uow_cfg['expocode']
     asrs, asr_ids = q_from_uow_cfg(uow_cfg)
-    dryrun = False
     title, merger, subject = parse_readme(readme_str)
+    recipients = get_email_addresses(request, 'recipient_processing')
+    if dryrun:
+        subject = 'DRYRUN {0}'.format(subject)
+        recipients = [request.user.email]
     body = ProcessingEmail(dryrun).generate_body(
         merger, uid, asrs, note_id, asr_ids)
     message = Message(
         subject=subject,
         sender=get_email_addresses(request, 'from_address')[0],
-        recipients=get_email_addresses(request, 'recipient_processing'),
+        recipients=recipients,
         body=body,
     )
     readme_fobj = StringIO(readme_str)

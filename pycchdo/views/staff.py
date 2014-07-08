@@ -476,7 +476,7 @@ def uow(request):
     with store_context(request.fsstore):
         DBSession.flush()
 
-    send_processing_email(request, readme_str, uow_cfg, note.id)
+    send_processing_email(request, readme_str, uow_cfg, note.id, dryrun)
 
     if dryrun:
         log.info(u'Dryrun committed UOW')

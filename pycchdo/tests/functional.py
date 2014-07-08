@@ -18,7 +18,7 @@ from pycchdo.log import getLogger
 from pycchdo.views.toplevel import home
 from pycchdo.views.cruise import cruise_show, cruises_index
 from pycchdo.views.submit import response_from_submission_request
-from pycchdo.views.staff import moderation, submission_attach
+from pycchdo.views.staff import moderation, submission_attach, uow
 from pycchdo.views.collection import collections_index
 
 

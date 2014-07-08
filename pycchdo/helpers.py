@@ -541,12 +541,12 @@ def cruise_history_rows(change, i, hl):
         action = change.action
         summary = change.subject
         class_ = 'history-note'
-        if change.body and change.body[0] == '=':
-            body = whh.literal(
-                reST_to_html_div(change.body, '{0}-'.format(note_id),
-                                 class_=class_))
+        body = unicode(change.body.encode('raw_unicode_escape'), 'utf8')
+        if body and body[0] == '=':
+            html = reST_to_html_div(body, '{0}-'.format(note_id), class_=class_)
+            body = whh.literal(html)
         else:
-            body = H.pre(change.body, class_=class_)
+            body = H.pre(body, class_=class_)
         if change.discussion:
             baseclass += ' discussion'
     else:

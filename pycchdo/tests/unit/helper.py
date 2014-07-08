@@ -5,6 +5,7 @@ from pycchdo.tests import (
     )
 from pycchdo.models.types import File
 from pycchdo.models.serial import DBSession, Cruise, Person
+from pycchdo.doc_rest import reST_to_html_div
 
 
 class TestHelper(PersonBaseTest):
@@ -45,3 +46,7 @@ class TestHelper(PersonBaseTest):
         answer = unicode(data_file_link(request, 'ctd_zip_exchange', data))
         for part in answer_parts:
             self.assertIn(part, answer)
+
+    def test_rest_to_html_div(self):
+        output = reST_to_html_div('\xe2\x80\x9cDEG_C\xe2\x80\x9d')
+        self.assertEqual(output, u'<div id="doc" class="history-note rendered">\n\n\n<p>\u201cDEG_C\u201d</p>\n</div>')

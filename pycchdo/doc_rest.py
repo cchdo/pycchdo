@@ -22,7 +22,7 @@ pub_out.set_writer('html')
 
 
 def reST_to_html_div(source, prefix='history-', class_='history-note'):
-    """Publish a reST document to an HTML snippet enclosed in a div.
+    """Publish a reST document to a unicode HTML snippet enclosed in a div.
 
     """
     pub_in.settings.id_prefix = prefix
@@ -53,4 +53,4 @@ def reST_to_html_div(source, prefix='history-', class_='history-note'):
         pub_out.settings.template = template.name
         pub_out.settings.table_style = 'borderless'
         pub_out.settings.report_level = 'quiet'
-        return pub_out.publish(enable_exit_status=False)
+        return unicode(pub_out.publish(enable_exit_status=False), 'utf8')

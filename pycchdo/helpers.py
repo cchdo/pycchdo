@@ -36,6 +36,7 @@ from pycchdo.util import collapse_dict
 from pycchdo.views import FILE_GROUPS_SELECT
 from pycchdo.views.datacart import get_datacart, ZIP_FILE_LIMIT
 from pycchdo.models.searchsort import Sorter
+from pycchdo.doc_rest import reST_to_html_div
 
 
 log = getLogger(__name__)
@@ -338,6 +339,11 @@ def pdatetime(dt, format='%F %T'):
         return str(dt)
 
 
+def pnote(note):
+    """Pretty print a note string as HTML."""
+    return note
+
+
 def attr_value(a):
     v = a.value
     try:
@@ -525,8 +531,8 @@ def cruise_history_rows(change, i, hl):
         i - The entry number
         hl - even or odd class name
     """
-
     baseclass = "mb-link{i} {hl}".format(i=i, hl=hl)
+    note_id = 'history_{0}'.format(change.id)
 
     if type(change) == Note:
         time = pdate(change.ts_c, '%Y-%m-%d')
@@ -534,7 +540,13 @@ def cruise_history_rows(change, i, hl):
         data_type = change.data_type
         action = change.action
         summary = change.subject
-        body = change.body
+        class_ = 'history-note'
+        if change.body and change.body[0] == '=':
+            body = whh.literal(
+                reST_to_html_div(change.body, '{0}-'.format(note_id),
+                                 class_=class_))
+        else:
+            body = H.pre(change.body, class_=class_)
         if change.discussion:
             baseclass += ' discussion'
     else:
@@ -549,8 +561,6 @@ def cruise_history_rows(change, i, hl):
             summary = change.value
         body = ''
 
-    note_id = 'history_{0}'.format(change.id)
-
     return H.tr(
             H.td(tags.link_to(time, '#' + note_id), class_='date'),
             H.td(data_type, class_='data_type'),
@@ -560,7 +570,7 @@ def cruise_history_rows(change, i, hl):
             class_=baseclass + " meta"
         ) + H.tr(
             H.td(person, class_='person'),
-            H.td(H.pre(body), colspan=3, class_='body'),
+            H.td(body, colspan=3, class_='body'),
             class_=baseclass + " body"
         )
 

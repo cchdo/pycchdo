@@ -104,18 +104,24 @@
   width: 100%;
 }
 #history .body {
-  font-size: 0.9em;
+  font-size: 0.95em;
 }
 #history .date {
   white-space: nowrap;
   padding-right: 0.5em;
 }
-#history .body .body {
-  letter-spacing: -1px;
-}
 #history input[type="text"] {
   width: 99%;
 }
+.history-note.rendered table {
+  border: #eeeeee;
+}
+.history-note.rendered ul {
+  padding-left: 0.5em;
+  margin-left: 1.5em;
+}
+.history-note.rendered li { list-style: disc; }
+.history-note.rendered li li { list-style: circle; }
 
 #updates table { width: 100%; }
 #updates .file_date { width: 14em; }

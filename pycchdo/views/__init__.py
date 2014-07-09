@@ -169,6 +169,8 @@ def file_response(request, file, disposition='inline'):
             path = file.locate()
             fullpath = os.path.join(fsstore.path, path[1:path.index('?')])
             resp = FileResponse(fullpath, request, cache_max_age)
+            resp.content_disposition = '{0}; filename={1}'.format(
+                disposition, file.name)
             # TODO etag
             return resp
         except IOError:

@@ -1342,7 +1342,12 @@ class FSFile(Base, DBQueryable, AdaptedFile):
         super(FSFile, self).__init__(mimetype=mimetype)
         self.file = fobj
         self.store = store
-        self.name = unicode(filename)
+        self.name = filename
+        if self.name is None:
+            try:
+                self.name = unicode(fobj.name)
+            except AttributeError:
+                self.name = unicode(filename)
         # TODO calculate md5 for etagging?
 
     @staticmethod

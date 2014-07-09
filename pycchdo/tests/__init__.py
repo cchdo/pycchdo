@@ -100,9 +100,6 @@ class MockFieldStorage():
         except AttributeError:
             self.filename = self.filename
         self.type = contentType
-        
-        if not self.filename and self.file.name:
-            self.filename = self.file.name
 
     def __repr__(self):
         return u'MockFieldStorage({0!r}, {1!r}, {2!r})'.format(

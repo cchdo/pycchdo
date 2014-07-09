@@ -1,20 +1,35 @@
+from logging import getLogger
+
 from pyramid import testing
 
 from pycchdo.tests import (
     PersonBaseTest, MockFieldStorage, MockFile
     )
 from pycchdo.models.types import File
-from pycchdo.models.serial import DBSession, Cruise, Person
+from pycchdo.models.serial import DBSession, Cruise, Person, FSFile, Submission
 from pycchdo.doc_rest import reST_to_html_div
+from pycchdo.helpers import data_file_link, data_uri
+
+
+log = getLogger(__name__)
 
 
 class TestHelper(PersonBaseTest):
-    def test_helper_data_file_link(self):
+    def test_data_uri(self):
+        fholder = Submission()
+        DBSession.add(fholder)
+        fname = 'testfile.txt'
+        fholder.file = FSFile(MockFile('content', fname))
+        DBSession.flush()
+        output = data_uri(fholder)
+        self.assertTrue(output.startswith("/data/b/"))
+        self.assertTrue(output.endswith(fname))
+
+    def test_data_file_link(self):
         """Given a Change with a file, provide a link to a file next to its
         description.
 
         """
-        from pycchdo.helpers import data_file_link
         request = testing.DummyRequest()
 
         self.config.add_route('datacart_add', 'test')
@@ -25,14 +40,14 @@ class TestHelper(PersonBaseTest):
         ccc = Cruise.create(self.testPerson).obj
 
         file = MockFieldStorage(
-            MockFile('', 'testfile.txt'), contentType='text/plain')
+            MockFile('', 'testfile.txt'), 'testfile.txt', contentType='text/plain')
         data = ccc.set(self.testPerson, key, file)
         DBSession.flush()
 
         answer_parts = [
             'class="bottle exchange"',
             '<abbr title="ASCII .csv bottle data with station information">',
-            '<a href="/data/b/c{id}">Bottle</a>'.format(id=data.id),
+            '<a href="/data/b/c{id}/testfile.txt">Bottle</a>'.format(id=data.id),
         ]
         answer = unicode(data_file_link(request, 'bottle_exchange', data))
         for part in answer_parts:
@@ -41,7 +56,7 @@ class TestHelper(PersonBaseTest):
         answer_parts = [
             'class="ctd zip exchange"',
             '<abbr title="ZIP archive of ASCII .csv CTD data with station information">',
-            '<a href="/data/b/c{id}">CTD</a>'.format(id=data.id),
+            '<a href="/data/b/c{id}/testfile.txt">CTD</a>'.format(id=data.id),
         ]
         answer = unicode(data_file_link(request, 'ctd_zip_exchange', data))
         for part in answer_parts:

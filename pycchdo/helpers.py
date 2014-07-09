@@ -1080,10 +1080,12 @@ def data_uri(fholder, original=False):
         return '/404.html'
 
     fht = fholder.file_holder_type
+    base = '/data/b/{fht}{id}/{name}'.format(fht=fht, id=fholder.id,
+                                             name=val.name)
     if original:
-        return '/data/b/{fht}{id}?orig=1'.format(fht=fht, id=fholder.id)
+        return '{base}?orig=1'.format(base=base)
     else:
-        return '/data/b/{fht}{id}'.format(fht=fht, id=fholder.id)
+        return base
 
 
 def short_data_type(type):

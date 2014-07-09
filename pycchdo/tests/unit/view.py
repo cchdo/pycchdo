@@ -19,11 +19,15 @@ class TestGlobal(RequestBaseTest):
     def test_file_response_content_type(self):
         """content_type must be a string."""
         from pycchdo.views import file_response
+        fname = 'somename.txt'
         fst = MockFieldStorage(
-            MockFile('', 'mockfile.txt'), contentType='text/plain')
+            MockFile('', fname), contentType='text/plain')
         fff = FSFile.from_fieldstorage(fst)
         resp = file_response(self.request, fff)
+
         self.assertTrue(isinstance(resp.content_type, basestring))
+
+        self.assertTrue(resp.content_disposition.split('filename=')[1], fname)
 
 
 class TestView(PersonBaseTest):

@@ -284,7 +284,7 @@ def configure_routes(config):
     route_path(config, 'staff_moderation', '/staff/moderation.html',
                'pycchdo.views.staff.moderation', 'staff/moderation.jinja2')
     route_path(config, 'staff_moderation_json', '/staff/moderation.json',
-               'pycchdo.views.staff.pending_changes', 'json')
+               'pycchdo.views.staff.as_received', 'json')
     route_path(config, 'staff_uow', '/staff/uow',
                'pycchdo.views.staff.uow', 'json')
     route_path(config, 'legacy_queue', '/queue',

@@ -9,7 +9,8 @@ from pyramid_mailer import get_mailer
 from pycchdo.tests import (
     RequestBaseTest, PersonBaseTest, MockFieldStorage, MockFile, MockSession
     )
-from pycchdo.models.serial import Cruise, FSFile
+from pycchdo.models.serial import Cruise, FSFile, DBSession
+from pycchdo.views.staff import _moderate_attribute, as_received
 
 
 log = getLogger(__name__)
@@ -192,7 +193,6 @@ class TestStaff(RequestBaseTest):
         self.testPerson.permissions = []
 
     def test_moderate_attribute(self):
-        from pycchdo.views.staff import _moderate_attribute
         ccc = Cruise.create(self.testPerson).obj
         fst = MockFieldStorage(
             MockFile('', 'mockfile.txt'), contentType='text/plain')
@@ -202,6 +202,28 @@ class TestStaff(RequestBaseTest):
         len_prior = len(ccc.notes)
         _moderate_attribute(self.request)
         self.assertEqual(len(ccc.notes) - 1, len_prior)
+
+    def test_as_received(self):
+        self.request.user = self.testPerson
+        self.testPerson.permissions = ['staff']
+
+        self.request.params['ids'] = ''
+        result = as_received(self.request)
+        self.assertEqual([], result)
+
+        ccc = Cruise.create(self.testPerson).obj
+        cc0 = ccc.sugg(self.testPerson, 'expocode', 'qwer')
+        cc1 = ccc.sugg(self.testPerson, 'expocode', 'asdf')
+        DBSession.flush()
+        self.request.params['ids'] = '{0},{1}'.format(cc0.id, cc1.id)
+        result = as_received(self.request)
+        self.assertEqual([cc0, cc1], result)
+
+        change = ccc.sugg(self.testPerson, 'expocode', '1234')
+        DBSession.flush()
+        self.request.params['ids'] = str('ZZ9912345678')
+        result = as_received(self.request)
+        self.assertEqual([], result)
         
 
 class TestMail(RequestBaseTest):

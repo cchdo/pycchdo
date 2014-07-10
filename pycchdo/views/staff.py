@@ -380,8 +380,7 @@ def _moderate_attribute(request):
             attr.reject(request.user)
 
 
-@staff_signin_required
-def pending_changes(request):
+def _pending_changes(request):
     """A list of pending Changes.
 
     May be filtered by id.
@@ -399,8 +398,37 @@ def pending_changes(request):
 
 
 @staff_signin_required
-def uow(request):
+def as_received(request):
+    """Return the changes specified.
+
+    GET /staff/moderation.json
+    data:
+        ids - comma separated integers
+    returns:
+        list of Changes in JSON
+
     """
+    ids = request.params.get('ids', '')
+    ids = filter(None, ids.split(','))
+    int_ids = []
+    for iid in ids:
+        try:
+            int_ids.append(int(iid))
+        except ValueError:
+            pass
+    ids = int_ids
+    qmod = lambda q: q.options(joinedload('submission'))
+    if ids:
+        p_qmod = qmod
+        qmod = lambda q: p_qmod(q.filter(Change.id.in_(ids)))
+    else:
+        return []
+    return Change.filtered(query_modifier=qmod)
+
+
+@staff_signin_required
+def uow(request):
+    """Commit a UOW.
 
     POST /staff/uow
     data:
@@ -496,7 +524,7 @@ def moderation(request):
             return require_signin(request)
         _moderate_attribute(request)
 
-    pending = pending_changes(request)
+    pending = _pending_changes(request)
 
     dtc_to_q = {}
     for change in pending:

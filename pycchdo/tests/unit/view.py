@@ -254,7 +254,7 @@ class TestMail(RequestBaseTest):
         mailer = get_mailer(self.request)
         self.assertEqual(len(mailer.outbox), 1)
         self.assertEqual(mailer.outbox[0].subject, "")
-
+        self.assertEqual(mailer.outbox[0].body[:10], "Dear CCHDO")
 
     def test_send_processing_email_dryrun(self):
         from pycchdo.mail import send_processing_email
@@ -278,3 +278,4 @@ class TestMail(RequestBaseTest):
         mailer = get_mailer(self.request)
         self.assertEqual(len(mailer.outbox), 1)
         self.assertEqual(mailer.outbox[0].subject, "DRYRUN None")
+        self.assertEqual(mailer.outbox[0].body[:10], "Dear CCHDO")

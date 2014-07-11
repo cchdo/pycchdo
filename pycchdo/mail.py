@@ -176,8 +176,7 @@ def send_processing_email(request, readme_str, uow_cfg, note_id, dryrun=True):
     if dryrun:
         subject = 'DRYRUN {0}'.format(subject)
         recipients = [request.user.email]
-    body = ProcessingEmail(dryrun).generate_body(
-        merger, uid, asrs, note_id, asr_ids)
+    body = ProcessingEmail.generate_body(merger, uid, asrs, note_id, asr_ids)
     message = Message(
         subject=subject,
         sender=get_email_addresses(request, 'from_address')[0],

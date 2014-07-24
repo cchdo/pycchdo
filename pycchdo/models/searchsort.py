@@ -24,7 +24,7 @@ class Sorter(dict):
         dstart = ccc.date_start
         if dstart:
             return dstart
-        return datetime(0, 1, 1)
+        return datetime(1, 1, 1)
 
     def aliases(self, ccc):
         aliases = ccc.aliases

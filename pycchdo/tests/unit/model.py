@@ -5,6 +5,7 @@ from pyramid import testing
 from pycchdo.log import getLogger
 from pycchdo.tests import BaseTest, PersonBaseTest, RequestBaseTest
 from pycchdo.models.serial import SerializerDateTime, Unit, Cruise
+from pycchdo.models.searchsort import Sorter
 
 
 log = getLogger(__name__)
@@ -55,6 +56,13 @@ class TestSearchIndex(RequestBaseTest):
                 raise ValueError()
         idx = sidx.open_or_create_index('country')
         self.assertEqual([0], list(idx.reader().all_doc_ids()))
+
+
+class TestSearchSort(BaseTest):
+    def test_date_start(self):
+        sorter = Sorter('')
+        cruise = Cruise()
+        self.assertEqual(datetime(1, 1, 1), sorter.date_start(cruise))
 
 
 class TestObj(PersonBaseTest):

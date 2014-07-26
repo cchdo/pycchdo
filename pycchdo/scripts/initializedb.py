@@ -86,7 +86,7 @@ def credentials(engine_url):
 
 
 def drop_and_create_db(args, engine_url):
-    host, port, dbname, owner, password, o = credentials(engine_url)
+    host, port, dbname, owner, pycchdo_password, o = credentials(engine_url)
 
     try:
         password = os.environ['PGPASSWORD']
@@ -105,7 +105,7 @@ def drop_and_create_db(args, engine_url):
             if not result.first():
                 print 'creating user {0}...'.format(owner)
                 with closing(conn.execute(
-                        sql_create_user(owner, password))) as result:
+                        sql_create_user(owner, pycchdo_password))) as result:
                     pass
 
         print 're-creating database...'

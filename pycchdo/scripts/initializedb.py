@@ -8,6 +8,7 @@ from subprocess import Popen, PIPE
 from argparse import ArgumentParser
 
 from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import OperationalError
 
 from pyramid.paster import get_appsettings, setup_logging
@@ -97,7 +98,7 @@ def drop_and_create_db(args, engine_url):
             args.superuser, quote(password), o.hostname, o.port),
         path=args.template_db)
     superuser_url = urlunsplit(new_split)
-    engine = create_engine(superuser_url)
+    engine = create_engine(superuser_url, poolclass=NullPool)
     with closing(engine.connect()) as conn:
         # ensure owner exists
         print 'checking for user {0}...'.format(owner)
@@ -108,17 +109,18 @@ def drop_and_create_db(args, engine_url):
                         sql_create_user(owner, pycchdo_password))) as result:
                     pass
 
-        print 're-creating database...'
+    print 're-creating database...'
+    with closing(engine.connect()) as conn:
         # These operations cannot be done inside a transaction. Commit the open
         # transaction first.
-        conn.execute("commit")
+        conn.execute("rollback")
         conn.execute(sql_drop(dbname, owner))
-        conn.execute("commit")
+        conn.execute("rollback")
         conn.execute(sql_create(dbname, owner))
     print 'granting...'
     new_split = new_split._replace(path=dbname)
     superuser_url = urlunsplit(new_split)
-    engine = create_engine(superuser_url)
+    engine = create_engine(superuser_url, poolclass=NullPool)
     with closing(engine.connect()) as conn:
         sql = sql_grant(owner)
         with closing(conn.execute(sql)) as result:
@@ -133,14 +135,18 @@ def main():
     engine_url = settings['sqlalchemy.url']
 
     # Check if database exists
+    print 'checking database...'
     db_missing = False
-    engine = create_engine(engine_url)
+    engine = create_engine(engine_url, poolclass=NullPool)
     try:
-        engine.connect().close()
+        conn = engine.connect()
+        conn.close()
     except OperationalError as err:
+        print 'database missing: {0!r}'.format(err)
         db_missing = True
 
     if args.full_reset or db_missing:
+        print 're-creating database...'
         drop_and_create_db(args, engine_url)
 
     if args.full_reset or db_missing or args.reset_db:

@@ -57,9 +57,13 @@ def search_results_json(request):
         log.error('Search failed: {0}'.format(format_exc()))
         results = {}
 
-    cruise_jsons = map(_cruise_to_json, results.get('cruise', {}))
-    for person, cruises in results.get('person', {}).items():
-        cruise_jsons.extend(map(_cruise_to_json, cruises))
+    cruises = results.get('cruise', [])
+    for key, value in results.items():
+        if key in ('cruise', 'note'):
+            continue
+        for obj, obj_cruises in value.items():
+            cruises.extend(obj_cruises)
+    cruise_jsons = map(_cruise_to_json, cruises)
     return {
         'query': query,
         'results': cruise_jsons,

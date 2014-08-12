@@ -28,7 +28,7 @@ log = getLogger(__name__)
 class TestToplevel(RequestBaseTest):
     def test_home(self):
         result = home(self.request)
-        self.assertEqual(result, {'updated': [], 'upcoming': []})
+        self.assertEqual(result, {'updated': []})
 
 
 class TestCruise(RequestBaseTest):

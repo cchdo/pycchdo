@@ -81,25 +81,6 @@
       {%- endfor %}
       </ol>
     </div>
-    <div id="upcoming">
-      <h2>Upcoming cruises (Seahunt)</h2>
-      <ol>
-      {%- for cruise in upcoming %}
-        <li>
-          <div class="thumb">
-            {{ show_thumb(cruise) }}
-          </div>
-          <div class="info">
-            <h3>{{ h.link_cruise(cruise) }}</h3> 
-            {%- set dates = h.cruise_dates(cruise) %}
-            {%- if dates %}
-              <p><strong>Dates:</strong> <span class="date-cruise" title="{{ '/'.join(dates[:2]) }}">{{ dates[2] }}</span></p>
-            {%- endif %}
-          </div>
-        </li>
-      {%- endfor %}
-      </ol>
-    </div>
   {% endcall %}
 {% endblock %}
 {% block js %}

@@ -24,7 +24,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property, Comparator
 from sqlalchemy.orm import (
-    relationship, scoped_session, sessionmaker, backref, aliased,
+    relationship, scoped_session, sessionmaker, backref, aliased, subqueryload,
     )
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
@@ -2835,7 +2835,9 @@ class Cruise(Obj):
         cruise_ids = set()
 
         while len(updated) < limit:
-            attrs = baseq.offset(skip).limit(step).all()
+            attrs = baseq.offset(skip).limit(step).\
+                options(subqueryload(Change.obj)).\
+                all()
             if not attrs:
                 break
             for attr in attrs:

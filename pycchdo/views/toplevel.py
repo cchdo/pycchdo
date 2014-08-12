@@ -78,13 +78,10 @@ tools_menu = staff_signin_required(empty_view)
 
 def home(request):
     num_updates = 8
-    num_upcoming = 2
     updated = Cruise.updated(num_updates)
-    upcoming = Cruise.upcoming(num_upcoming)
 
     return {
         'updated': updated,
-        'upcoming': upcoming,
     }
 
 

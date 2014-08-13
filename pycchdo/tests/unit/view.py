@@ -217,7 +217,8 @@ class TestStaff(RequestBaseTest):
         DBSession.flush()
         self.request.params['ids'] = '{0},{1}'.format(cc0.id, cc1.id)
         result = as_received(self.request)
-        self.assertEqual([cc0, cc1], result)
+        self.assertTrue(cc0 in result)
+        self.assertTrue(cc1 in result)
 
         change = ccc.sugg(self.testPerson, 'expocode', '1234')
         DBSession.flush()

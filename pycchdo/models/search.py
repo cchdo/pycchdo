@@ -463,13 +463,16 @@ class SearchIndex(object):
         to be returned.
 
         """
-        for iii, subq in enumerate(query.subqueries):
-            try:
-                if subq.fieldname == 'seahunt':
-                    del query.subqueries[iii]
-                    break
-            except AttributeError:
-                pass
+        try:
+            for iii, subq in enumerate(query.subqueries):
+                try:
+                    if subq.fieldname == 'seahunt':
+                        del query.subqueries[iii]
+                        break
+                except AttributeError:
+                    pass
+        except AttributeError:
+            pass
 
     def _model_query_string_to_query(self, model_name, qstring):
         """Parse the query string in the context of the given model. 

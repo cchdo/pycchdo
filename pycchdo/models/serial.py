@@ -2884,7 +2884,7 @@ class Cruise(Obj):
         """Gives a list of integer years that have pending cruises."""
         years = cls.filter_pending_date_start(
             DBSession.query(distinct(Cruise.date_start))).all()
-        return [y[0].year for y in years]
+        return uniquify([y[0].year for y in years])
 
     @classmethod
     def cruises_in_selection(

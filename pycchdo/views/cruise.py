@@ -807,8 +807,8 @@ def _contributions(request):
 
 def _contribution_kmzs(request):
     static_path = 'static/contrib'
-    kmz_dir = AssetResolver('pycchdo').resolve(
-        static_path).abspath()
+    kmz_dir = AssetResolver('pycchdo').resolve(static_path).abspath()
+    request.registry.settings['contributed_kmls_path']
     return [request.route_url('catchall_static',
                               subpath=os.path.join(static_path, x)
                              ) for x in os.listdir(kmz_dir)]

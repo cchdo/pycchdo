@@ -439,6 +439,17 @@ def cruise_nice_name(cruise):
     return label
 
 
+def show_thumb(request, cruise):
+    """Rreturn a linked thumbnail of a cruise's track."""
+    if cruise.get('map_thumb'):
+        src = request.route_path('cruise_map_thumb', cruise_id=cruise.uid)
+        alt = '%s thumbnail' % cruise.expocode
+    else:
+        src = '/static/img/etopo_static/etopo_thumb_no_track.png'
+        alt = 'No track available'
+    return whh.tags.link_to(whh.tags.image(src, alt), path_cruise(cruise))
+
+
 def cruise_summary(cruise):
     """Provide an English summary of the cruise's salient facts.
 
@@ -1384,66 +1395,66 @@ def data_file_link(request, type, data, leader=None):
 _here = os.path.dirname(__file__)
 
 
-def _basin_map_exists(path):
+def _ocean_map_exists(path):
     file_path = os.path.join(_here, path[1:])
     return os.path.isfile(file_path)
 
 
-def get_basin_map(basin, collection, cruises=[]):
+def get_ocean_map(ocean, collection, cruises=[]):
     cruise = None
     if len(cruises) > 0:
         cruise = cruises[0]
 
-    basin = basin.lower()
-    base_path = os.path.join(os.path.sep, 'static', 'img', 'maps', 'basin',
-                             basin)
-    basin_img_fmt = '%s_%%s.gif' % basin
+    ocean = ocean.lower()
+    base_path = os.path.join(os.path.sep, 'static', 'img', 'maps', 'ocean',
+                             ocean)
+    ocean_img_fmt = '%s_%%s.gif' % ocean
 
-    if basin == 'arctic':
+    if ocean == 'arctic':
         try:
             path = os.path.join(base_path,
-                                basin_img_fmt % collection.name.upper())
-            if _basin_map_exists(path):
+                                ocean_img_fmt % collection.name.upper())
+            if _ocean_map_exists(path):
                 return path
         except AttributeError:
             pass
         try:
-            path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
-            if _basin_map_exists(path):
+            path = os.path.join(base_path, ocean_img_fmt % cruise.expocode)
+            if _ocean_map_exists(path):
                 return path
         except AttributeError:
             pass
-    elif basin == 'southern':
+    elif ocean == 'southern':
         try:
             path = os.path.join(base_path,
-                                basin_img_fmt % collection.name.upper())
-            if _basin_map_exists(path):
+                                ocean_img_fmt % collection.name.upper())
+            if _ocean_map_exists(path):
                 return path
         except AttributeError:
             pass
         try:
-            path = os.path.join(base_path, basin_img_fmt % cruise.expocode)
-            if _basin_map_exists(path):
+            path = os.path.join(base_path, ocean_img_fmt % cruise.expocode)
+            if _ocean_map_exists(path):
                 return path
         except AttributeError:
             pass
-    elif basin == 'indian':
+    elif ocean == 'indian':
         try:
             path = os.path.join(
-                base_path, basin_img_fmt % collection.name.replace('/', '_'))
-            if _basin_map_exists(path):
+                base_path, ocean_img_fmt % collection.name.replace('/', '_'))
+            if _ocean_map_exists(path):
                 return path
         except AttributeError:
             pass
-    return os.path.join(base_path, '%s_base.gif' % basin)
+    return os.path.join(base_path, '%s_base.gif' % ocean)
 
 
-def image_map_id(basin):
-    if basin == 'Arctic':
+def image_map_id(ocean):
+    if ocean == 'Arctic':
         return '#m_arctic'
-    elif basin == 'Indian':
+    elif ocean == 'Indian':
         return '#m_indian'
-    elif basin == 'Southern':
+    elif ocean == 'Southern':
         return '#m_southern'
 
 

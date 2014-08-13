@@ -8,10 +8,10 @@ def map_search(request):
         location=request.route_path('search_map'))
 
 
-def basin(request):
+def ocean(request):
     raise HTTPMovedPermanently(
-        location=request.route_path('basin_show',
-                                    basin=request.matchdict.get('basin')))
+        location=request.route_path('ocean_show',
+                                    ocean=request.matchdict.get('ocean')))
 
 
 def add_extension(request, ext='html'):

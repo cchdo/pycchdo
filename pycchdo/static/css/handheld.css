@@ -55,7 +55,7 @@ ul, ol, p {
   display: block;
 }
 #cchdo_menu #cchdo_menu_get,
-#cchdo_menu #cchdo_menu_basins,
+#cchdo_menu #cchdo_menu_oceans,
 #cchdo_menu #cchdo_menu_give,
 #cchdo_menu #cchdo_menu_information {
   padding: 0;
@@ -175,12 +175,12 @@ ul, ol, p {
   width: auto;
   float: none;
 }
-#geo_search #basin,
+#geo_search #ocean,
 #geo_search #search_map_ad {
   float: none;
   margin: auto;
 }
-#basin_selector_map img,
+#ocean_selector_map img,
 #search_map_ad img {
   width: 100%;
 }

@@ -1,4 +1,4 @@
-from pycchdo.views.basin import basins
+from pycchdo.views.ocean import oceans
 
 
 def route_path(config, route_name, path, view_callable, renderer=None):
@@ -155,14 +155,14 @@ def configure_routes(config):
     route_path(config, 'argo_file', '/argo/{id}/file',
                'pycchdo.views.argo.file')
 
-    # Basin lists
-    basins_re = '|'.join(basins)
-    route_path(config, 'basin_show', '/basin/{basin:%s}.html' % basins_re,
-               'pycchdo.views.basin.basin_show', 'basin.jinja2')
-    route_path(config, 'legacy_basin', '/{basin:%s}{ext:|\.html}' % basins_re,
-               'pycchdo.views.legacy.basin')
+    # Ocean lists
+    oceans_re = '|'.join(oceans)
+    route_path(config, 'ocean_show', '/ocean/{ocean:%s}.html' % oceans_re,
+               'pycchdo.views.ocean.ocean_show', 'ocean.jinja2')
+    route_path(config, 'legacy_ocean', '/{ocean:%s}{ext:|\.html}' % oceans_re,
+               'pycchdo.views.legacy.ocean')
 
-	# Search routes
+    # Search routes
     route_path(config, 'search', '/search.html',
                'pycchdo.views.search.search')
     route_path(config, 'search_no_ext', '/search',

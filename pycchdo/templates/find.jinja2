@@ -18,8 +18,8 @@
     </p>
   </div>
 
-  <div id="basin" class="sub-section">
-    <h2>Basins</h2>
+  <div id="ocean" class="sub-section">
+    <h2>Oceans</h2>
     <ul>
       {{ whh.HTML.li(whh.tags.link_to('Arctic', '/arctic.html')) }}
       {{ whh.HTML.li(whh.tags.link_to('Atlantic', '/atlantic.html')) }}
@@ -27,7 +27,7 @@
       {{ whh.HTML.li(whh.tags.link_to('Indian', '/indian.html')) }}
       {{ whh.HTML.li(whh.tags.link_to('Southern', '/southern.html')) }}
     </ul>
-    {%- include "_basin_selector.jinja2" %}
+    {%- include "_ocean_selector.jinja2" %}
   </div>
 
   <div id="time-series" class="sub-section">
@@ -71,5 +71,5 @@
 {%- endcall %}
 {%- endblock %}
 {% block js %}
-  {{ whh.tags.javascript_link('/static/js/basin_selector.js') }}
+  {{ whh.tags.javascript_link('/static/js/ocean_selector.js') }}
 {% endblock %}

@@ -1157,17 +1157,17 @@ class TestModelCollection(PersonBaseTest):
         self.assertEqual(ccc.names, names)
         self.assertEqual(ccc.name, n2)
 
-    def test_basins(self):
+    def test_oceans(self):
         coll1 = Collection.create(self.testPerson).obj
         coll1.set(self.testPerson, 'names', ['000'])
-        colbassug = coll1.sugg(self.testPerson, 'basins', [u'southern'])
+        colbassug = coll1.sugg(self.testPerson, 'oceans', [u'southern'])
         self.assertEqual(coll1, Collection.query().filter(
             Collection.names.contains('000')).first())
         self.assertEqual(Collection.query().filter(
-            Collection.basins.contains('southern')).count(), 0)
+            Collection.oceans.contains('southern')).count(), 0)
         colbassug.accept(self.testPerson)
         self.assertEqual(coll1, Collection.query().filter(
-            Collection.basins.contains('southern')).first())
+            Collection.oceans.contains('southern')).first())
 
     def test_merge(self):
         """Collections can be merged.
@@ -1190,8 +1190,8 @@ class TestModelCollection(PersonBaseTest):
         c1.set(self.testPerson, 'names', [u'collnameC', u'collnameB'])
         c0.set(self.testPerson, 'type', u'group')
         c1.set(self.testPerson, 'type', u'WOCE line')
-        c0.set(self.testPerson, 'basins', [u'basinA', u'basinB'])
-        c1.set(self.testPerson, 'basins', [u'basinC', u'basinB'])
+        c0.set(self.testPerson, 'oceans', [u'oceanA', u'oceanB'])
+        c1.set(self.testPerson, 'oceans', [u'oceanC', u'oceanB'])
 
         cr0 = Cruise.create(self.testPerson).obj
         cr1 = Cruise.create(self.testPerson).obj
@@ -1209,7 +1209,7 @@ class TestModelCollection(PersonBaseTest):
         DBSession.flush()
         self.assertEquals(Collection.query().get(c1.id), None)
         self.assertEquals(
-            c0.get('basins'), ['basinA', 'basinB', 'basinC'])
+            c0.get('oceans'), ['oceanA', 'oceanB', 'oceanC'])
 
         c2 = Collection.create(self.testPerson).obj
         c2.set(self.testPerson, 'names', ['collnameC'])

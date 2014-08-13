@@ -4,16 +4,6 @@
   {{ whh.tags.stylesheet_link('/static/css/home.css') }}
 {%- endblock %}
 {%- block content_attrs %} class="home"{%- endblock %}
-{%- macro show_thumb(cruise) %}
-  {%- if cruise.get('map_thumb') %}
-    {% set src = request.route_path('cruise_map_thumb', cruise_id=cruise.uid) %}
-    {% set alt = '%s thumbnail' % cruise.expocode %}
-  {%- else %}
-    {% set src = '/static/img/etopo_static/etopo_thumb_no_track.png' %}
-    {% set alt = 'No track available' %}
-  {%- endif %}
-  {{ whh.tags.link_to(whh.tags.image(src, alt), h.path_cruise(cruise)) }}
-{%- endmacro %}
 {% block content %}
   {% call h.boxed('Welcome to the CCHDO', id='intro', class='left') %}
     <img src="/static/img/ctd_recovery.png">
@@ -46,9 +36,9 @@
         <h2><a href="/search/map">Search interactively</a></h2>
         <a href="/search/map"><img src="/static/img/cchdo_search_map.png"></a>
       </li>
-      <li id="basin">
-        <h2>Click on a basin</h2>
-        {%- include "_basin_selector.jinja2" %}
+      <li id="ocean">
+        <h2>Click on an ocean</h2>
+        {%- include "_ocean_selector.jinja2" %}
       </li>
     </ul>
     <div class="clear"></div>
@@ -62,7 +52,7 @@
         {%- if cruise %}
         <li>
           <div class="thumb">
-            {{ show_thumb(cruise) }}
+            {{ h.show_thumb(request, cruise) }}
           </div>
           <div class="info">
             <h3>{{ h.link_cruise(cruise) }}</h3> 
@@ -87,7 +77,7 @@
   {%- assets
     filters='rjsmin',
     output='gen/home.js',
-    'js/basin_selector.js'
+    'js/ocean_selector.js'
   %}
      {{ whh.tags.javascript_link(ASSET_URL) }}
   {%- endassets %}

@@ -8,8 +8,8 @@
     <table class="info nofill">
       <tr><th>Names</th><td>{{ collection.names|join(', ') }}</td></tr>
       <tr><th>Type</th><td>{{ collection.type }}</td></tr>
-      {%- if collection.get('basins') %}
-        <tr><th>basins</th><td>{{ collection.basins|sort|join(', ') }}</td></tr>
+      {%- if collection.get('oceans') %}
+        <tr><th>oceans</th><td>{{ collection.oceans|sort|join(', ') }}</td></tr>
       {%- endif %}
       <tr><th>ID</th><td>{{ collection.id }}</td></tr>
     </table>
@@ -19,7 +19,7 @@
         <table>
           <tr><th><label for="names">Names</label></th><td><input type="text" name="names" value="{{collection.names|join(',')}}"></td></tr>
           <tr><th><label for="type">Type</label></th><td><input type="text" name="type" value="{{collection.type}}"></td></tr>
-          <tr><th><label for="basins">Basins</label></th><td><input type="text" name="basins" value="{{collection.basins|join(',')}}"></td></tr>
+          <tr><th><label for="oceans">oceans</label></th><td><input type="text" name="oceans" value="{{collection.oceans|join(',')}}"></td></tr>
         </table>
         <input type="submit" value="Save">
       {{ whh.tags.end_form() }}

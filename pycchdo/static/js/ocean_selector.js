@@ -13,29 +13,29 @@
 })(jQuery)
 
 $(function () {
-  var img = $('#basin_selector_map img');
+  var img = $('#ocean_selector_map img');
   var basepath = img.attr('src').slice(0, img.attr('src').indexOf('base'));
 
-  function filename(basin) {
-    return basepath + basin + '.png';
+  function filename(ocean) {
+    return basepath + ocean + '.png';
   }
 
-  function swapin(basin) {
-    img.attr('src', filename(basin));
+  function swapin(ocean) {
+    img.attr('src', filename(ocean));
   }
 
   var imgs = [];
-  var basins = ['arctic', 'indian', 'pacific', 'atlantic', 'southern'];
-  for (var i = 0; i < basins.length; i++) {
-    var basin = basins[i];
-    imgs.push(filename(basin));
+  var oceans = ['arctic', 'indian', 'pacific', 'atlantic', 'southern'];
+  for (var i = 0; i < oceans.length; i++) {
+    var ocean = oceans[i];
+    imgs.push(filename(ocean));
   }
   jQuery.preLoadImages.apply(this, imgs);
 
-  $('#basin_selector_map').mouseout(function () {
+  $('#ocean_selector_map').mouseout(function () {
     swapin('base');
   });
-  $('#basin_selector_map .hoverable.basin').each(function () {
+  $('#ocean_selector_map .hoverable.ocean').each(function () {
     $(this).mouseover(function () {
       swapin(this.alt.toLowerCase());
     });

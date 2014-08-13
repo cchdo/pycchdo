@@ -1798,20 +1798,20 @@ class _CollectionName(Base):
         self.name = name
 
 
-class _CollectionBasin(Base):
-    __tablename__ = 'collection_basins'
+class _CollectionOcean(Base):
+    __tablename__ = 'collection_oceans'
     id = Column(Integer, primary_key=True)
     collection_id = Column(Integer, ForeignKey('collections.id'))
-    basin = Column(Unicode)
+    ocean = Column(Unicode)
 
-    def __init__(self, basin):
-        self.basin = basin
+    def __init__(self, ocean):
+        self.ocean = ocean
 
 
 class Collection(MultiName, Obj):
     """Essentially tags for Cruises.
     
-    A Cruise may belong to Basin Collection, WOCE line Collection, etc.
+    A Cruise may belong to Ocean Collection, WOCE line Collection, etc.
         
     A Collection will also include a type as part of its identifier to
     differentiate between the fields it came from in the original database.
@@ -1819,8 +1819,8 @@ class Collection(MultiName, Obj):
     Parameters::
     names - names associated with the collection. The first name in the list is
         the canonical name.
-    type - identifier of WOCE line, group, program, basin
-    basins - a list of any combination of atlantic, arctic, pacific,
+    type - identifier of WOCE line, group, program, ocean
+    oceans - a list of any combination of atlantic, arctic, pacific,
         indian, southern. Having this attribute designates the collection as
         a spatial_group.
     
@@ -1834,8 +1834,8 @@ class Collection(MultiName, Obj):
     _names = relationship('_CollectionName', lazy='joined', uselist=True)
     names = association_proxy('_names', 'name')
 
-    _basins = relationship('_CollectionBasin', lazy='joined', uselist=True)
-    basins = association_proxy('_basins', 'basin')
+    _oceans = relationship('_CollectionOcean', lazy='joined', uselist=True)
+    oceans = association_proxy('_oceans', 'ocean')
 
     date_start = Column(DateTime)
     date_end = Column(DateTime)
@@ -1879,7 +1879,7 @@ class Collection(MultiName, Obj):
         mergee_set = OrderedSet(mergees)
         names = OrderedSet(self.names)
         types = OrderedSet(filter(None, [self.type]))
-        basins = OrderedSet(self.basins)
+        oceans = OrderedSet(self.oceans)
         cruises = OrderedSet()
         mergee_ids = OrderedSet()
         for mergee in mergees:
@@ -1888,7 +1888,7 @@ class Collection(MultiName, Obj):
                 types.add(mergee.type)
             mergee_ids.add(mergee.id)
             cruises |= OrderedSet(mergee.cruises)
-            basins |= OrderedSet(mergee.basins)
+            oceans |= OrderedSet(mergee.oceans)
         names = list(names)
 
         if names != self.names:
@@ -1904,8 +1904,8 @@ class Collection(MultiName, Obj):
             if new_type != self.type:
                 self.set(signer, 'type', new_type)
 
-        if basins:
-            self.set(signer, 'basins', list(basins))
+        if oceans:
+            self.set(signer, 'oceans', list(oceans))
 
         # Cruises referencing mergees via collections need to be redirected to
         # this collection instead.
@@ -1924,7 +1924,7 @@ class Collection(MultiName, Obj):
         rep.update({
             'names': self.names,
             'type': self.type,
-            'basins': self.basins,
+            'oceans': self.oceans,
         })
         return rep
 
@@ -1936,7 +1936,7 @@ class Collection(MultiName, Obj):
 once_at_end.register(lambda:
 Collection.allow_attrs([
     ('type', Unicode),
-    ('basins', TextList),
+    ('oceans', TextList),
     ('names', TextList),
     ('date_start', [DateTime, Unicode], 'Start Date'), 
     ('date_end', [DateTime, Unicode], 'End Date'), 
@@ -2636,7 +2636,7 @@ class Cruise(Obj):
     of the value for the given file.
 
     Parameters::
-    basin - imported from "internal"
+    ocean - imported from "internal"
 
     """
     __tablename__ = 'cruises'

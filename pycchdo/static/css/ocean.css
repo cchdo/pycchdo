@@ -14,9 +14,9 @@
   height: 2em;
 }
 
-#basin_area_selector p,
-#basin_area_selector ol,
-#basin_area_selector li {
+#ocean_area_selector p,
+#ocean_area_selector ol,
+#ocean_area_selector li {
   display: inline;
 }
 

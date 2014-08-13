@@ -1321,13 +1321,13 @@ def _import_spatial_groups(session):
     log.info("Importing Spatial groups")
     updater = _get_updater()
     
-    major_basins = {}
-    major_basin_names = ['atlantic', 'arctic', 'pacific', 'indian', 'southern']
-    for mbn in major_basin_names:
-        major_basins[mbn] = import_Collection(updater, mbn.capitalize(), 'basin')
+    major_oceans = {}
+    major_ocean_names = ['atlantic', 'arctic', 'pacific', 'indian', 'southern']
+    for mbn in major_ocean_names:
+        major_oceans[mbn] = import_Collection(updater, mbn.capitalize(), 'ocean')
 
     coll_cache = {}
-    area_basins = defaultdict(list)
+    area_oceans = defaultdict(list)
 
     sgs = session.query(legacy.SpatialGroup).all()
     for sg in sgs:
@@ -1342,25 +1342,25 @@ def _import_spatial_groups(session):
         if not sg.area:
             continue
 
-        # Update the area collection to have basins.
+        # Update the area collection to have oceans.
         key = (sg.area, 'group')
         try:
             area_collection = coll_cache[key]
         except KeyError:
             area_collection = import_Collection(updater, *key)
             coll_cache[key] = area_collection
-        basins = area_basins[key]
-        for mbn in major_basin_names:
+        oceans = area_oceans[key]
+        for mbn in major_ocean_names:
             if getattr(sg, mbn) == '1':
-                basins.append(mbn)
-                _add_cruise_to_collection(updater, cruise, major_basins[mbn])
+                oceans.append(mbn)
+                _add_cruise_to_collection(updater, cruise, major_oceans[mbn])
             _add_cruise_to_collection(updater, cruise, area_collection)
-    for key, basins in area_basins.items():
-        updater.attr(coll_cache[key], 'basins', uniquify(basins))
+    for key, oceans in area_oceans.items():
+        updater.attr(coll_cache[key], 'oceans', uniquify(oceans))
     
 
 def _import_internal(session):
-    """The internal table maps a cruise to a basin."""
+    """The internal table maps a cruise to a ocean."""
     log.info("Importing Internal")
     updater = _get_updater()
     internals = session.query(legacy.Internal).all()
@@ -1377,7 +1377,7 @@ def _import_internal(session):
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', i.expocode)
 
-        collection = import_Collection(updater, i.Basin, 'internal_basin')
+        collection = import_Collection(updater, i.Basin, 'internal_ocean')
         _add_cruise_to_collection(updater, cruise, collection)
 
 
@@ -1398,7 +1398,7 @@ def _import_unused_tracks(session):
             cruise = updater.create_accept(Cruise)
             updater.attr(cruise, 'expocode', t.expocode)
 
-        collection = import_Collection(updater, t.Basin, 'basin')
+        collection = import_Collection(updater, t.Basin, 'ocean')
         _add_cruise_to_collection(updater, cruise, collection)
 
 

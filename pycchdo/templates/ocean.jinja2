@@ -1,9 +1,9 @@
 {%- extends "base.jinja2" %}
 {%- block head %}
   {{ whh.tags.stylesheet_link('/static/css/metaTable.css') }}
-  {{ whh.tags.stylesheet_link('/static/css/basin.css') }}
+  {{ whh.tags.stylesheet_link('/static/css/ocean.css') }}
 {%- endblock %}
-{%- block title %} Basin | {{basin}}{%- endblock %}
+{%- block title %} Ocean | {{ocean}}{%- endblock %}
 {%- macro show_area(area, collections) %}
   {%- if area %}
     <h2 id="area-{{area}}">{{ area }}</h2>
@@ -22,7 +22,7 @@
       <tr class="meta mb-link{{ loopi }} {{ hl }}">
         <td>{{h.link_collection(collection)}}</td>
         <td colspan="4">
-          {{h.lazyload_image(request, h.get_basin_map(basin, collection, cruises), lazyload=False, class_='map')}}
+          {{h.lazyload_image(request, h.get_ocean_map(ocean, collection, cruises), lazyload=False, class_='map')}}
         </td>
       </tr>
       {%- for cruise in cruises %}
@@ -41,8 +41,8 @@
     {%- endfor %}
   </table>
 {%- endmacro %}
-{%- macro image_map_for(basin) %}
-  {%- if basin == 'Arctic' %}
+{%- macro image_map_for(ocean) %}
+  {%- if ocean == 'Arctic' %}
     <map name="m_arctic" id="m_arctic">
       <area shape="poly" coords="291,125,336,123,348,148,372,146,357,164,379,193,392,185,385,171,415,188,415,197,411,200,400,192,381,204,387,204,396,218,421,217,424,224,394,228,380,213,368,214,343,187,341,172,348,163,334,134,292,134,291,125"
       {{ h.area_attrs_cruise('90AQ19940706', 'TUNDRA-94') }}> 
@@ -123,7 +123,7 @@
       <area shape="poly" coords="291,22,220,40,-1,2,-1,587,291,587,288,569,197,553,115,510,52,433,22,342,22,251,51,159,115,87,209,40,-1,0,581,0,582,586,289,590,288,565,388,553,465,503,525,426,559,342,557,247,525,163,462,84,388,39,291,22"
       {{ h.area_attrs_no() }}>
     </map>
-  {%- elif basin == 'Indian' %}
+  {%- elif ocean == 'Indian' %}
     <map name="m_indian" id="m_indian">
       <area shape="rect" coords="162,396,457,425"
       {{ h.area_attrs_search('S04') }}>
@@ -190,7 +190,7 @@
       <area shape="poly" coords="44,31,46,450,533,452,533,35,44,32,54,0,579,-1,582,486,-3,486,0,0,52,0,44,31"
       {{ h.area_attrs_no() }}>
     </map>
-  {%- elif basin == 'Southern' %}
+  {%- elif ocean == 'Southern' %}
     <map name="m_southern" id="m_southern"> 
       <area shape="poly" coords="189,233,197,244,238,222,269,218,275,225,285,204,287,145,280,146,273,210,231,207,189,233"
       {{ h.area_attrs_search('SR04') }}> 
@@ -292,44 +292,27 @@
   {%- endif %}
 {%- endmacro %}
 {%- block content %}
-  {%- call h.boxed('%s Cruises' % basin, class='by-ocean %s' % basin.lower()) %}
+  {%- call h.boxed('%s Cruises' % ocean, class='by-ocean %s' % ocean.lower()) %}
     <div id="map_side">
       <p>Mouse over the map and click on a highlighted cruise to visit its
         cruise page.
       </p>
-      {%- if basin == 'Arctic' or basin == 'Southern' %}
+      {%- if ocean == 'Arctic' or ocean == 'Southern' %}
         <p>Please note, the {{ whh.tags.link_to('Project Carina collection', request.route_path('project_carina')) }} is not shown on this map.</p>
       {%- endif %}
       <div id="map" class="mapimg">
-        <img src="{{h.get_basin_map(basin, None)}}" usemap="{{ h.image_map_id(basin) }}">
-        {{ image_map_for(basin) }}
+        <img src="{{h.get_ocean_map(ocean, None)}}" usemap="{{ h.image_map_id(ocean) }}">
+        {{ image_map_for(ocean) }}
       </div>
     </div>
     <div id="collection_side">
-      {%- if areas %}
-      <div id="basin_area_selector">
-        <p>Jump to an area:</p>
-        <ol>
-        {%- for area in areas %}
-          <li>{{ whh.tags.link_to(area, '#area-%s' % area)}}</li>
-        {%- endfor %}
-        </ol>
-      </div>
-      {%- endif %}
-
       <div id="cruises" class="scrollable-y">
-        {%- if collections['default'] %}
-          {{ show_area(None, collections['default']) }}
-        {%- else %}
-          {%- for area in areas %}
-            {{ show_area(area, collections[area.lower()]) }}
-          {%- endfor %}
-        {%- endif %}
+        {{ show_area(None, collections) }}
       </div>
     </div>
   {%- endcall %}
 {%- endblock %}
 {%- block js %}
   {{ whh.tags.javascript_link('/static/js/metaTable.js') }}
-  {{ whh.tags.javascript_link('/static/js/basin.js') }}
+  {{ whh.tags.javascript_link('/static/js/ocean.js') }}
 {%- endblock %}

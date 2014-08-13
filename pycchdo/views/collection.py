@@ -82,15 +82,15 @@ def collection_edit(request):
         collection.set(request.user, 'type', type)
 
     try:
-        basins = text_to_obj(request.params.get('basins', ''), TextList)
+        oceans = text_to_obj(request.params.get('oceans', ''), TextList)
     except ValueError:
         request.session.flash(
-            'Invalid collection basins. Please ensure basins are a list (x,y,z)',
+            'Invalid collection oceans. Please ensure oceans are a list (x,y,z)',
             'help')
         return response
 
-    if collection.get('basins') != basins:
-        collection.set(request.user, 'basins', basins)
+    if collection.get('oceans') != oceans:
+        collection.set(request.user, 'oceans', oceans)
 
     coll_id = collection.id
     transaction.commit()

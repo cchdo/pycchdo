@@ -132,6 +132,21 @@ def _create_parsers(schemas):
 _parsers = _create_parsers(_schemas)
 
 
+def rewrite_woce_line(parts):
+    """Turn the separate parts into a woce line."""
+    return u'{0}{1}'.format(parts[0], parts[1].zfill(2))
+
+
+r_woceline = re_compile("(.*[A-Za-z]+)(\d+.*)")
+
+
+def adapt_query_string_for_woce_line(qstr):
+    parts = r_woceline.match(qstr)
+    if parts:
+        return u'({0} OR {1})'.format(qstr, rewrite_woce_line(parts.groups()))
+    return qstr
+
+
 class SearchResult(dict):
     """Search results are returned as a dictionary mapping the group type.
 
@@ -517,6 +532,8 @@ class SearchIndex(object):
 
         """
         results = SearchResult()
+
+        query_string = adapt_query_string_for_woce_line(query_string)
 
         log.debug('New query: {0!r}'.format(query_string))
         # Search each model.

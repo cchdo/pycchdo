@@ -17,8 +17,9 @@ pyramid.includes =
 
 mail.sendmail_app = /usr/sbin/sendmail
 
-search_index_path = %(here)s/_si
-file_system_path = %(here)s/_fs
+search_index_path = /var/cchdo-coreos/share/pycchdo_data/si
+file_system_path = /var/cchdo-coreos/share/pycchdo_data/fs
+contributed_kmls_path = /var/cchdo-coreos/share/pycchdo_data/kmls
 
 # submission confirmation recipient (leave blank for default)
 recipient_submission_confirm = cchdo@ucsd.edu

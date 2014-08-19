@@ -1,5 +1,3 @@
 --index-url https://pypi.python.org/simple/
 
--e git+git@bitbucket.org:ghdc/libcchdo.git#egg=libcchdo
-
 -e .

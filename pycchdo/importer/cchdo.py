@@ -18,7 +18,7 @@ from traceback import format_exc
 from collections import defaultdict
 
 from sqlalchemy.sql.expression import select, alias
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, DataError
 from sqlalchemy.orm import lazyload, joinedload
 
 from paramiko import SSHException
@@ -875,7 +875,7 @@ def _import_track_lines(session):
     updater = _get_updater()
     for tl in tls:
         try:
-            wkt = session.scalar(tl.Track.wkt)
+            wkt = tl.Track
         except OperationalError:
             log.error("Unable to get track from CCHDO db for %s" % tl.id)
             continue
@@ -903,6 +903,13 @@ def _import_track_lines(session):
         log.info(u'Track for {0}'.format(tl.ExpoCode))
         log.debug(u'{0}'.format(linestring))
         updater.attr(cruise, 'track', linestring)
+        try:
+            DBSession.flush()
+        except DataError as exc:
+            log.error(exc)
+            log.error(u'{0} has out of bounds coordinates {1}'.format(
+                tl.ExpoCode, linestring))
+            transaction.begin()
 
 
 def import_person(updater, name_last, name_first,

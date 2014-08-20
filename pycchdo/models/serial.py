@@ -2813,9 +2813,6 @@ class Cruise(Obj):
 
         if not cruise_obj:
             raise ValueError('Not found')
-
-        if not cruise_obj.accepted:
-            raise ValueError('Not found')
         return cruise_obj
 
     @classmethod

@@ -7,11 +7,11 @@
   <tr class="parameter {{ odd }}">
     <th class="name">{{ h.link_parameter(p) }}</th>
     <td class="aliases">{{ p.aliases|join(', ') }}</td>
-    <td class="fullname">{{ p.get('full_name') or '' }}</td>
-    <td class="name_nc_os">{{ p.get('name_netcdf') or '' }}</td>
-    <td class="description">{{ p.get('description') or '' }}</td>
-    <td class="units">{%- if p.unit %}{{ p.unit.get('name') }}{%- endif %}</td>
-    <td class="woce_unit_mnemonic">{%- if p.unit %}{{ p.unit.get('mnemonic') }}{%- endif %}</td>
+    <td class="fullname">{{ p.full_name or '' }}</td>
+    <td class="name_nc_os">{{ p.name_netcdf or '' }}</td>
+    <td class="description">{{ p.description or '' }}</td>
+    <td class="units">{%- if p.unit %}{{ p.unit.name }}{%- endif %}</td>
+    <td class="woce_unit_mnemonic">{%- if p.unit %}{{ p.unit.mnemonic }}{%- endif %}</td>
     <td class="range">{{ h.parameter_bounds(p.bounds) }}</td>
     <td class="format">{{ p.get('format') or '' }}</td>
   </tr>

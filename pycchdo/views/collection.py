@@ -2,6 +2,8 @@ import transaction
 
 from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
 
+from sqlalchemy.orm import defer, load_only, noload
+
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models.serial import Collection
@@ -11,7 +13,9 @@ from pycchdo.views import log, staff
 
 
 def _collections(request):
-    collections = Collection.query().filter(Collection.accepted).all()
+    query = Collection.query().filter(Collection.accepted).\
+            options(noload('country'), noload('cruises'), noload('institution'))
+    collections = query.all()
     collections = sorted(collections, key=lambda c: c.name)
     return collections
 

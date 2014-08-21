@@ -1,6 +1,7 @@
 from cgi import FieldStorage
 from datetime import datetime, timedelta
 from StringIO import StringIO
+from collections import OrderedDict
 
 from pyramid import testing
 from pyramid.httpexceptions import HTTPSeeOther, HTTPUnauthorized
@@ -28,7 +29,7 @@ log = getLogger(__name__)
 class TestToplevel(RequestBaseTest):
     def test_home(self):
         result = home(self.request)
-        self.assertEqual(result, {'updated': []})
+        self.assertEqual(result, {'updated': OrderedDict()})
 
 
 class TestCruise(RequestBaseTest):

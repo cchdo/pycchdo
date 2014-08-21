@@ -25,6 +25,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property, Comparator
 from sqlalchemy.orm import (
     relationship, scoped_session, sessionmaker, backref, aliased, subqueryload,
+    joinedload, noload, with_polymorphic,
     )
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.collections import (
@@ -1834,7 +1835,7 @@ class Collection(MultiName, Obj):
     _names = relationship('_CollectionName', lazy='joined', uselist=True)
     names = association_proxy('_names', 'name')
 
-    _oceans = relationship('_CollectionOcean', lazy='joined', uselist=True)
+    _oceans = relationship('_CollectionOcean', lazy='subquery', uselist=True)
     oceans = association_proxy('_oceans', 'ocean')
 
     date_start = Column(DateTime)
@@ -1842,10 +1843,10 @@ class Collection(MultiName, Obj):
     url = Column(Unicode)
 
     institution_id = Column(ForeignKey('institutions.id'))
-    institution = relationship('Institution', foreign_keys=[institution_id])
+    institution = relationship('Institution', lazy='subquery', foreign_keys=[institution_id])
 
     country_id = Column(ForeignKey('countries.id'))
-    country = relationship('Country', foreign_keys=[country_id])
+    country = relationship('Country', lazy='subquery', foreign_keys=[country_id])
 
     __mapper_args__ = {
         'polymorphic_identity': 'collection',
@@ -2061,11 +2062,11 @@ class Parameter(Obj):
 
     def to_dict(self):
         response = {'parameter': {
-            'name': self.get('name', ''),
+            'name': self.name or '',
             'aliases': filter(None,
-                [self.get('name_netcdf'),
-                 self.get('full_name')] + self.aliases),
-            'format': self.get('format', ''),
+                [self.name_netcdf,
+                 self.full_name] + self.aliases),
+            'format': self.get('format') or '',
             'bounds': self.bounds,
             },
             'description': self.get('description', None),
@@ -2513,12 +2514,12 @@ class UOW(Base, DBQueryable):
     id = Column(Integer, primary_key=True)
     suggestions = relationship(
         'Change', secondary=uow_suggestions, backref=backref('uow'),
-        lazy='joined')
-    results = relationship('Change', secondary=uow_results, lazy='joined')
+        lazy='subquery')
+    results = relationship('Change', secondary=uow_results, lazy='subquery')
     support_id = Column(ForeignKey('fsfiles.id'))
     support = relationship(FSFile, lazy='joined')
     note_id = Column(ForeignKey('notes.id'))
-    note = relationship('Note', backref=backref('uow'), lazy='joined')
+    note = relationship('Note', backref=backref('uow'), lazy='subquery')
 
 
 cruise_collections = Table('cruise_collections', Base.metadata,
@@ -2644,7 +2645,7 @@ class Cruise(Obj):
     id = Column(Integer, ForeignKey('objs.id'), primary_key=True)
     expocode = Column(String)
 
-    _aliases = relationship(_CruiseAlias, lazy='joined', uselist=True)
+    _aliases = relationship(_CruiseAlias, lazy='subquery', uselist=True)
     aliases = association_proxy('_aliases', 'alias')
 
     _statuses = relationship(_CruiseStatus, lazy='joined', uselist=True)
@@ -2658,16 +2659,16 @@ class Cruise(Obj):
     date_end = Column(DateTime)
 
     ship_id = Column(Integer, ForeignKey('ships.id'))
-    ship = relationship(Ship, foreign_keys=[ship_id], lazy='joined', backref='cruises')
+    ship = relationship(Ship, foreign_keys=[ship_id], lazy='subquery', backref='cruises')
     country_id = Column(Integer, ForeignKey('countries.id'))
     country = relationship(
-        Country, foreign_keys=[country_id], lazy='joined', backref='cruises')
+        Country, foreign_keys=[country_id], lazy='subquery', backref='cruises')
 
     collections = relationship(
-        'Collection', secondary=cruise_collections, lazy='joined',
-        backref=backref('cruises', lazy='joined'))
+        'Collection', secondary=cruise_collections, lazy='subquery',
+        backref=backref('cruises', lazy='subquery'))
     institutions = relationship(
-        'Institution', secondary=cruise_institutions, lazy='joined', backref='cruises')
+        'Institution', secondary=cruise_institutions, lazy='subquery', backref='cruises')
 
     _track = Column(Geography(geometry_type='LINESTRING', srid=4326, dimension=2))
 
@@ -2824,7 +2825,8 @@ class Cruise(Obj):
 
         baseq = cls._order_changes(Change.query().\
             filter(Change.accepted == True).\
-            filter(Change.attr.in_(file_types)))
+            filter(Change.attr.in_(file_types))).\
+            options(subqueryload(Change.obj))
 
         skip = 0
         step = limit * 4
@@ -2832,9 +2834,8 @@ class Cruise(Obj):
         cruise_ids = set()
 
         while len(updated) < limit:
-            attrs = baseq.offset(skip).limit(step).\
-                options(subqueryload(Change.obj)).\
-                all()
+            attrs = baseq.offset(skip).limit(step)
+            attrs = attrs.all()
             if not attrs:
                 break
             for attr in attrs:

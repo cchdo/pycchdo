@@ -6,6 +6,7 @@ from pyramid.renderers import render_to_response
 from pyramid.httpexceptions import HTTPNotFound
 
 from sqlalchemy import distinct
+from sqlalchemy.orm import noload, subqueryload, joinedload
 
 from pycchdo.helpers import cruises_sort_by_date_start
 from pycchdo.views.toplevel import catchall_static
@@ -19,6 +20,17 @@ log = getLogger(__name__)
 static_oceans = ['atlantic', 'pacific', ]
 allowed_oceans = ['arctic', 'indian', 'southern', ]
 oceans = allowed_oceans + static_oceans
+
+
+def _collection_ocean_query(ocean):
+    return Collection.query().filter(Collection.oceans.contains(ocean)).\
+        options(noload('institution'), noload('country'),
+                joinedload('_oceans'),
+                joinedload('cruises'), joinedload('cruises.ship'),
+                noload('cruises._aliases'), noload('cruises.country'),
+                noload('cruises._statuses'), noload('cruises.institutions'),
+                noload('cruises.country'),
+                noload('cruises.participants.institution'))
 
 
 def _sorted_by_name(collections):
@@ -41,19 +53,19 @@ def _arctic():
     """Provide a list of collections with cruises in the Arctic circle.
 
     """
-    colls = Collection.query().filter(Collection.oceans.contains(u'arctic')).all()
+    colls = _collection_ocean_query(u'arctic').all()
     colls = _sort_results(colls)
     return colls, _coll_cruises(colls)
 
 
 def _indian():
-    colls = Collection.query().filter(Collection.oceans.contains(u'indian')).all()
+    colls = _collection_ocean_query(u'indian').all()
     colls = _sort_results(colls)
     return colls, _coll_cruises(colls)
 
 
 def _southern():
-    colls = Collection.query().filter(Collection.oceans.contains(u'southern')).all()
+    colls = _collection_ocean_query(u'southern').all()
     colls = _sort_results(colls)
     return colls, _coll_cruises(colls)
 

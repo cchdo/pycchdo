@@ -47,8 +47,7 @@
   {% call h.boxed('Recent Updates', id='rdev', class='right', box_content_class='scrollable-y') %}
     <div id="updated">
       <ol>
-      {%- for update in updated %}
-        {%- set cruise = update.obj %}
+      {%- for update, cruise in updated.items() %}
         {%- if cruise %}
         <li>
           <div class="thumb">

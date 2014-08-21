@@ -1,4 +1,5 @@
 import os
+from collections import OrderedDict
 
 import transaction
 
@@ -6,6 +7,8 @@ from pyramid.renderers import render_to_response
 from pyramid.response import Response
 from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
+
+from sqlalchemy.orm import noload, joinedload
 
 from jinja2.exceptions import TemplateNotFound
 
@@ -80,8 +83,26 @@ def home(request):
     num_updates = 8
     updated = Cruise.updated(num_updates)
 
+    update_map = OrderedDict()
+
+    cruise_ids = set()
+    for attr in updated:
+        cruise_ids.add(attr.obj_id)
+
+    cruise_id_map = {}
+    cruise_query = Cruise.query().filter(Cruise.id.in_(cruise_ids))
+    cruise_query = cruise_query.options(
+        noload(Cruise.participants), noload(Cruise._aliases),
+        noload(Cruise.collections), noload(Cruise.ship),
+        noload(Cruise._statuses), noload(Cruise.institutions),
+        noload(Cruise.country), joinedload(Cruise.files))
+    for cruise in cruise_query.all():
+        cruise_id_map[cruise.id] = cruise
+
+    for attr in updated:
+        update_map[attr] = cruise_id_map[attr.obj_id]
     return {
-        'updated': updated,
+        'updated': update_map,
     }
 
 
@@ -98,7 +119,8 @@ def project_carina(request):
 def _get_params_for_order(order):
     try:
         param_order = ParameterGroup.query().filter(
-            ParameterGroup.name == order).first()
+            ParameterGroup.name == order).\
+            options(joinedload('_order')).first()
         return list(param_order.order)
     except (AttributeError, IndexError):
         return []

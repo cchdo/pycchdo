@@ -163,7 +163,7 @@ def _suggest_file(request, cruise_obj):
             request.session.flash(
                 'You did not select a file. Please try again.', 'help')
             return
-        change = cruise_obj.set(request.user, type, file)
+        change = cruise_obj.sugg(request.user, type, file)
     elif add_file_action == 'Delete file':
         change = cruise_obj.delete(request.user, type)
 
@@ -230,7 +230,7 @@ def _edit_attr(request, cruise_obj):
                 u'Bad value for attribute {0}'.format(key), 'help')
             return
 
-        change = cruise_obj.set(request.user, key, value)
+        change = cruise_obj.sugg(request.user, key, value)
         if note:
             change._notes.append(note)
         request.session.flash(
@@ -301,7 +301,7 @@ def _edit_attr(request, cruise_obj):
         if participants is None:
             return
 
-        change = cruise_obj.set(request.user,
+        change = cruise_obj.sugg(request.user,
             'participants', Participants(participants))
         if change:
             change._notes.append(note)

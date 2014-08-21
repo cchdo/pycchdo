@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from re import compile as re_compile
 from traceback import format_exc
 
+from sqlalchemy.orm import noload, joinedload, subqueryload
+
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
 from whoosh.writing import BufferedWriter, IndexingError
@@ -110,6 +112,15 @@ _field_aliases = {
 
 
 _model_id_to_index_id = unicode
+
+
+model_options = {
+    Cruise: [joinedload('ship'), noload('collections'),
+             joinedload('_aliases'),
+             joinedload('files'),
+             noload('participants.institution'),
+             subqueryload('institutions')],
+}
 
 
 def _create_parsers(schemas):
@@ -567,7 +578,13 @@ class SearchIndex(object):
                     idwrappers = map(raw.fields, field_numbers)
                     idparams = [wrapper['id'] for wrapper in idwrappers]
 
-                    objects = model.get_all_by_ids(*idparams)
+                    load = model.query_all_by_ids(*idparams)
+                    try:
+                        options = model_options[model]
+                        load = load.options(*options)
+                    except KeyError:
+                        pass
+                    objects = load.all()
 
                     if model_name == 'cruise' or model_name == 'note':
                         # Cruises and Notes are quite simple. They are not

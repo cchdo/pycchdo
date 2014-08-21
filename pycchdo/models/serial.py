@@ -148,13 +148,18 @@ class DBQueryable(object):
         return DBSession.query(cls)
 
     @classmethod
-    def get_all_by_ids(cls, *ids):
+    def query_all_by_ids(cls, *ids):
         """Return the instances in the order of the ids."""
         # Fast track empty lists, avoid SQL generation error
         ids = filter(None, ids)
         if not ids:
-            return []
-        return query_in_order_ids(cls.query(), cls.id, ids).all()
+            return cls.query().limit(0)
+        return query_in_order_ids(cls.query(), cls.id, ids)
+
+    @classmethod
+    def get_all_by_ids(cls, *ids):
+        """Return the instances in the order of the ids."""
+        return cls.query_all_by_ids(*ids).all()
 
     @classmethod
     def get_id(cls, id):

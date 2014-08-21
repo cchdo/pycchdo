@@ -695,7 +695,6 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
             H.div(tags.submit('', 'History')),
             tags.end_form(),
             class_='links body {0}'.format(baseclass))
-        data_files = collect_data_files(cruise)
         row = [
             H.td(
                 H.div(link_cruise(cruise), class_='expocode'),
@@ -713,6 +712,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
             ),
         ]
         if show_data:
+            data_files = collect_data_files(cruise)
             row.append(H.td(
                 data_files_lists(request, data_files, condensed=True,
                                  classes=['body', baseclass]),

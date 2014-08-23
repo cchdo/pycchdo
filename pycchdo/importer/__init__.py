@@ -12,7 +12,6 @@ from pyramid.paster import get_appsettings
 from sqlalchemy import engine_from_config
 from sqlalchemy.orm import lazyload
 
-from libcchdo.log import LOG as libcchdo_log
 from libcchdo.datadir.dl import AFTP, SFTP, pushd, lock, su
 
 from pycchdo.models.serial import (
@@ -216,7 +215,7 @@ def do_import():
         log.error('No such user {}'.format(username))
         argparser.exit(1)
 
-    libcchdo_log.setLevel(WARN)
+    getLogger('libcchdo').setLevel(WARN)
     log.setLevel(ERROR)
     if args.verbose >= 0:
         log.setLevel(WARN)

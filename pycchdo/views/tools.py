@@ -14,7 +14,6 @@ from pykml.factory import KML_ElementMaker as KML
 
 from lxml import etree
 
-from libcchdo import LOG
 from libcchdo.model.datafile import DataFile
 from libcchdo.fns import uniquify
 from libcchdo.formats.formats import read_arbitrary
@@ -71,19 +70,20 @@ def _xhr_response(request, obj, status=None):
 
 @contextmanager
 def _libcchdo_log_capture(level=INFO):
-    orig_log_level = LOG.getEffectiveLevel()
-    LOG.setLevel(level)
+    log = getLogger('libcchdo')
+    orig_log_level = log.getEffectiveLevel()
+    log.setLevel(level)
 
     log_stream = StringIO()
     conversion_log_handler = logging.StreamHandler(log_stream)
     conversion_log_handler.setFormatter(
         logging.Formatter('%(levelname)s: %(message)s'))
-    LOG.addHandler(conversion_log_handler)
+    log.addHandler(conversion_log_handler)
 
     yield log_stream
 
-    LOG.removeHandler(conversion_log_handler)
-    LOG.setLevel(orig_log_level)
+    log.removeHandler(conversion_log_handler)
+    log.setLevel(orig_log_level)
 
 
 @staff_signin_required

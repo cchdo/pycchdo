@@ -747,6 +747,11 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
         expanded_query = {'query': request.params.get('query'), 'expanded': True}
         expanded_button_str = 'Expand'
 
+    if show_data:
+        dcart_link = datacart_link_cruises(request, cruises)
+    else:
+        dcart_link = ''
+
     return H.div(
         H.div(
             H.div(
@@ -756,8 +761,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
                 tags.end_form(),
                 whtext.plural(len(cruises), 'result', 'results'),
                     class_='tool tool-count'
-            ),
-            datacart_link_cruises(request, cruises), 
+            ), dcart_link, 
             class_='tools'
         ),
         table,

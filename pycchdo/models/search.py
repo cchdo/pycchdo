@@ -114,12 +114,36 @@ _field_aliases = {
 _model_id_to_index_id = unicode
 
 
+_cruises_load_options = [
+    noload('cruises.collections'), joinedload('cruises'),
+    subqueryload('cruises._aliases'), subqueryload('cruises.ship'),
+    subqueryload('cruises.country'),
+    noload('cruises.institutions'),
+    noload('cruises.participants.person._permissions'),
+    noload('cruises.participants.institution'),
+]
+
+
 model_options = {
-    Cruise: [joinedload('ship'), noload('collections'),
-             joinedload('_aliases'),
-             joinedload('files'),
-             noload('participants.institution'),
-             subqueryload('institutions')],
+    Cruise: [
+        subqueryload('ship'), subqueryload('_aliases'),
+        subqueryload('_statuses'), joinedload('files'),
+        subqueryload('country'), noload('collections'),
+        noload('participants.person._permissions'),
+        noload('participants.institution'), noload('institutions')
+    ],
+    Institution: _cruises_load_options,
+    Collection: _cruises_load_options + [
+        noload('_oceans'), noload('institution'), noload('country')
+    ],
+    Ship: _cruises_load_options,
+    Country: _cruises_load_options,
+    Person: [
+        noload('country'), noload('institution'),
+        noload('_permissions'),
+        joinedload('participants.cruise'), noload('participants.institution'),
+        joinedload('participants.cruise.ship'), 
+    ],
 }
 
 
@@ -578,13 +602,16 @@ class SearchIndex(object):
                     idwrappers = map(raw.fields, field_numbers)
                     idparams = [wrapper['id'] for wrapper in idwrappers]
 
-                    load = model.query_all_by_ids(*idparams)
-                    try:
-                        options = model_options[model]
-                        load = load.options(*options)
-                    except KeyError:
-                        pass
-                    objects = load.all()
+                    if idparams:
+                        load = model.query_all_by_ids(*idparams)
+                        try:
+                            options = model_options[model]
+                            load = load.options(*options)
+                        except KeyError:
+                            pass
+                        objects = load.all()
+                    else:
+                        objects = []
 
                     if model_name == 'cruise' or model_name == 'note':
                         # Cruises and Notes are quite simple. They are not

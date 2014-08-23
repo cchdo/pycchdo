@@ -2575,13 +2575,13 @@ class _CruiseFile(Base):
     __tablename__ = 'cruise_files'
     id = Column(Integer, primary_key=True)
     cruise_id = Column(Integer, ForeignKey('cruises.id'))
-    cruise = relationship('Cruise', lazy='joined')
+    cruise = relationship('Cruise')
     attr = Column(Unicode)
 
     file_id = Column(ForeignKey('fsfiles.id'))
     file = relationship(FSFile, lazy='joined', backref='cruise_files')
 
-    _statuses = relationship(_CruiseFileStatus, lazy='joined', uselist=True)
+    _statuses = relationship(_CruiseFileStatus, uselist=True)
     statuses = association_proxy('_statuses', 'status')
 
     def __init__(self, attr, file=None, statuses=[]):
@@ -2653,7 +2653,7 @@ class Cruise(Obj):
     _aliases = relationship(_CruiseAlias, lazy='subquery', uselist=True)
     aliases = association_proxy('_aliases', 'alias')
 
-    _statuses = relationship(_CruiseStatus, lazy='joined', uselist=True)
+    _statuses = relationship(_CruiseStatus, lazy='subquery', uselist=True)
     statuses = association_proxy('_statuses', 'status')
 
     files = relationship(_CruiseFile,
@@ -2680,7 +2680,7 @@ class Cruise(Obj):
     participants = relationship(
         Participant, uselist=True, collection_class=Participants,
         backref='cruise',
-        lazy='joined', cascade='all, delete-orphan')
+        lazy='subquery', cascade='all, delete-orphan')
 
     __mapper_args__ = {
         'polymorphic_identity': 'cruise',

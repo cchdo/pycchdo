@@ -2,7 +2,7 @@ import transaction
 
 from pyramid.httpexceptions import HTTPNotFound, HTTPSeeOther, HTTPBadRequest, HTTPUnauthorized
 
-from sqlalchemy.orm import defer, load_only, noload
+from sqlalchemy.orm import defer, load_only, noload, joinedload, subqueryload
 
 from . import *
 import pycchdo.helpers as h
@@ -32,7 +32,14 @@ def collections_index_json(request):
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    collection = Collection.query().get(coll_id)
+    collection = Collection.query().\
+            options(
+                subqueryload('cruises'),
+                noload('cruises.institutions'),
+                joinedload('cruises.participants'),
+                noload('cruises.participants.institution'),
+            ).\
+        get(coll_id)
     return collection
 
 

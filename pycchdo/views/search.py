@@ -22,7 +22,7 @@ def advanced_search(request):
 
 def search_results(request):
     query = request.params.get('query', None)
-    orderby = request.params.get('orderby', '')
+    orderby = request.params.get('orderby', 'date_start')
     expanded = request.params.get('expanded', '')
 
     request.session['query'] = query
@@ -46,7 +46,7 @@ def search_results(request):
 
 def search_results_json(request):
     query = request.params.get('query', None)
-    orderby = request.params.get('orderby', '')
+    orderby = request.params.get('orderby', 'date_start')
     if not query:
         raise HTTPBadRequest()
     try:

@@ -99,8 +99,8 @@ _schemas = {
 _field_aliases = {
     'cruise': {
         'names': ['cruise', 'expocode', 'alias', 'aliases', ],
-        'date_start': ['from', ],
-        'date_end': ['to', ],
+        'date_start': ['from', 'start'],
+        'date_end': ['to', 'end'],
     },
     'person': {'name': ['people', 'person', ], },
     'ship': {'name': ['ship', ], },
@@ -172,13 +172,18 @@ def rewrite_woce_line(parts):
     return u'{0}{1}'.format(parts[0], parts[1].zfill(2))
 
 
-r_woceline = re_compile("(.*[A-Za-z]+)(\d+.*)")
+r_woceline = re_compile("(.*[A-Za-z]+)(\d+[^\s]*)")
 
 
 def adapt_query_string_for_woce_line(qstr):
-    parts = r_woceline.match(qstr)
+    parts = r_woceline.search(qstr)
     if parts:
-        return u'({0} OR {1})'.format(qstr, rewrite_woce_line(parts.groups()))
+        log.info(parts.start())
+        log.info(parts.end())
+        log.info(parts.groups())
+        woce_line_query = u'({0} OR {1})'.format(
+            ''.join(parts.groups()), rewrite_woce_line(parts.groups()))
+        return qstr[:parts.start()] + woce_line_query + qstr[parts.end():]
     return qstr
 
 
@@ -515,6 +520,7 @@ class SearchIndex(object):
         """
         try:
             for iii, subq in enumerate(query.subqueries):
+                self._filter_seahunt_for_cruise_parser(subq)
                 try:
                     if subq.fieldname == 'seahunt':
                         del query.subqueries[iii]
@@ -532,7 +538,7 @@ class SearchIndex(object):
         model_parser = _parsers.get(model_name)
         try:
             query = model_parser.parse(qstring)
-            if model_name == 'cruise':
+            if model_name == 'cruise' and 'seahunt' not in qstring:
                 self._filter_seahunt_for_cruise_parser(query)
             log.debug(u'Query: {0}\t{1!r}'.format(model_name, query))
         except Exception, err:

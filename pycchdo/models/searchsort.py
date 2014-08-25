@@ -105,6 +105,10 @@ def sort_results(results, orderby=None):
     sorter = Sorter(orderby)
     if results:
         for category, cruises in results.items():
-            results[category] = sorter.sort(cruises)
+            if isinstance(cruises, list):
+                results[category] = sorter.sort(cruises)
+            else:
+                for obj, ccs in cruises.items():
+                    cruises[obj] = sorter.sort(ccs)
     return results
 

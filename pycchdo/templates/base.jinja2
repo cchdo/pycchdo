@@ -32,6 +32,8 @@
   {{ whh.tags.stylesheet_link('//fonts.googleapis.com/css?family=Open+Sans') }}
 </head>
 <body>
+  {%- set banner = h.global_banner(request) %}
+  {% if banner %}{{ banner }}{% endif %}
   <div id="centering" class="{%- block fullwidth_class %}{%- endblock %}">
     {%- include '_base_header.jinja2' with context %}
     <div id="content"{%- block content_attrs -%}{%- endblock %}>

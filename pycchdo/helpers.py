@@ -81,6 +81,20 @@ def GAPI_autoload(request, module_list):
     return tags.javascript_link(uri)
 
 
+def global_banner(request):
+    """Return HTML for a banner that will show up globally.
+
+    Return false-y to not show a banner.
+
+    """
+    path = os.path.join(
+        request.registry.settings.get('webassets.base_dir', ''),
+        'banner-global.html')
+    if os.path.isfile(path):
+        return H.div(whh.literal(open(path, 'r').read()), class_='banner-global')
+    return None
+
+
 def has_edit(request):
     if not request:
         return False

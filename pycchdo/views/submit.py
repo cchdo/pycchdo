@@ -111,7 +111,7 @@ def _get_form_input(request):
     h.form_entered(request, 'files', d['file_names'])
 
     if len(d['files']) < 1:
-        log.debug(str(request))
+        log.debug(repr(request))
         log.error(u'No files submitted')
         request.session.flash(
             'At least one file must be selected', 'form_error_files')

@@ -988,3 +988,31 @@ span.datesep {
   padding: 0 0.3em;
   color: #CCCCCC;
 }
+
+div.banner-global {
+    background: #FAAC58;
+    padding: 1em;
+}
+div.banner-global h1 {
+  margin-top: 0;
+  padding: 0.2em;
+  font-size: 1.1em;
+}
+div.banner-global .btn {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  margin-top: 5px;
+  color: #ffffff;
+  background: #5cb85c;
+  border: 1px solid #4cae4c;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+div.banner-global .btn:hover {
+  background-color: #449d44;
+  border-color: #398439;
+}

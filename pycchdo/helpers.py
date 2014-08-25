@@ -640,7 +640,7 @@ def _orderby_path(request, direction, key):
 
 
 def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
-                   show_data=True):
+                   show_data=False):
     cruises = filter(None, cruises)
     if not cruises and not allow_empty:
         return ''

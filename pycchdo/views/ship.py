@@ -6,7 +6,7 @@ from . import *
 import pycchdo.helpers as h
 from pycchdo.models.serial import Ship
 from pycchdo.models.searchsort import sort_list
-from pycchdo.views import staff
+from pycchdo.views import staff, load_cruises_for
 
 
 def _ships(request):
@@ -25,7 +25,7 @@ def ships_index_json(request):
 
 def _get_ship(request):
     ship_id = request.matchdict.get('ship_id')
-    return Ship.query().get(ship_id)
+    return load_cruises_for(Ship.query()).get(ship_id)
 
 
 def _redirect_response(request, id):
@@ -33,12 +33,14 @@ def _redirect_response(request, id):
 
 
 def ship_show(request):
+    expanded = request.params.get('expanded', '')
     ship = _get_ship(request)
     if not ship:
         raise HTTPNotFound()
     cruises = ship.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
-    return {'ship': ship, 'cruises': cruises}
+    cruises = paged(request, cruises)
+    return {'ship': ship, 'cruises': cruises, 'expanded': expanded}
 
 
 def ship_archive(request):

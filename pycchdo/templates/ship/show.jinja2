@@ -21,7 +21,7 @@
     {%- endif %}
     {%- if h.has_mod(request) %}
     <div class="subsection editor merger">
-      <h2>This ship is exactly the same as another one</h2>
+      <h2>Is this ship exactly the same as another one?</h2>
       <p>Enter the other ship's id here to replace the other with this one.</p>
       {{ whh.tags.form(request.route_path('ship_merge', ship_id=ship.id), 'PUT') }}
         <label for="ship_id">ship ID</label>
@@ -33,7 +33,8 @@
     {%- if cruises %}
       <div class="subsection">
         <h2>Cruises</h2>
-        {{ h.cruise_listing(request, cruises, pre_expand=True) }}
+        {{ h.cruise_listing(request, cruises, pre_expand=expanded, show_data=expanded) }}
+        {{ h.pager_for(cruises) }}
       </div>
     {%- endif %}
   {%- endcall %}

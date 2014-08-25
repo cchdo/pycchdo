@@ -6,7 +6,7 @@ from . import *
 import pycchdo.helpers as h
 from pycchdo.models.serial import Institution
 from pycchdo.models.searchsort import sort_list
-from pycchdo.views import staff
+from pycchdo.views import staff, load_cruises_for
 
 
 def _institutions(request):
@@ -27,7 +27,7 @@ def institutions_index_json(request):
 
 def _get_institution(request):
     institution_id = request.matchdict.get('institution_id')
-    return Institution.query().get(institution_id)
+    return load_cruises_for(Institution.query()).get(institution_id)
 
 
 def _redirect_response(request, id):
@@ -36,12 +36,14 @@ def _redirect_response(request, id):
 
 
 def institution_show(request):
+    expanded = request.params.get('expanded', '')
     institution = _get_institution(request)
     if not institution:
         raise HTTPNotFound()
     cruises = institution.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
-    return {'institution': institution, 'cruises': cruises}
+    cruises = paged(request, cruises)
+    return {'institution': institution, 'cruises': cruises, 'expanded': expanded}
 
 
 def institution_archive(request):

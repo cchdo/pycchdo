@@ -15,7 +15,7 @@
            important. Also, cruises are the only Obj that
            can't have cruises associated with them. #}
         <h2>Cruises</h2>
-        {{- h.cruise_listing(request, results['cruise'], pre_expand=True, show_data=expanded) }}
+        {{- h.cruise_listing(request, results['cruise'], pre_expand=expanded, show_data=expanded) }}
       {%- endif %}
 
       {%- for category, items in results.items() %}
@@ -24,7 +24,7 @@
           {%- for result in items %}
             <h3>{{- h.link_obj_polymorph(result) }}</h3>
             {%- if items[result]|length > 0 %}
-              {{- h.cruise_listing(request, items[result], pre_expand=True, show_data=expanded) }}
+              {{- h.cruise_listing(request, items[result], pre_expand=expanded, show_data=expanded) }}
             {%- endif %}
           {%- endfor %}
         {%- endif %}

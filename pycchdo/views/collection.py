@@ -9,7 +9,7 @@ import pycchdo.helpers as h
 from pycchdo.models.serial import Collection
 from pycchdo.models.types import TextList, Unicode
 from pycchdo.models.searchsort import sort_list
-from pycchdo.views import log, staff
+from pycchdo.views import log, staff, load_cruises_for
 
 
 def _collections(request):
@@ -32,13 +32,7 @@ def collections_index_json(request):
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    collection = Collection.query().\
-            options(
-                subqueryload('cruises'),
-                noload('cruises.institutions'),
-                joinedload('cruises.participants'),
-                noload('cruises.participants.institution'),
-            ).\
+    collection = load_cruises_for(Collection.query()).\
         get(coll_id)
     return collection
 
@@ -49,12 +43,14 @@ def _redirect_response(request, id):
 
 
 def collection_show(request):
+    expanded = request.params.get('expanded', '')
     collection = _get_collection(request)
     if not collection:
         raise HTTPNotFound()
     cruises = collection.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
-    return {'collection': collection, 'cruises': cruises}
+    cruises = paged(request, cruises)
+    return {'collection': collection, 'cruises': cruises, 'expanded': expanded}
 
 
 def collection_archive(request):

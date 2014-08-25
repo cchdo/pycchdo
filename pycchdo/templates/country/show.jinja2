@@ -34,7 +34,7 @@
     {%- endif %}
     {%- if h.has_mod(request) %}
     <div class="subsection editor merger">
-      <h2>This country is exactly the same as another one</h2>
+      <h2>Is this country exactly the same as another one?</h2>
       <p>Enter the other country's id here to replace the other with this one.</p>
       {{ whh.tags.form(request.route_path('country_merge', country_id=country.id), 'PUT') }}
         <label for="country_id">country ID</label>
@@ -46,7 +46,8 @@
     {%- if cruises %}
       <div class="subsection">
         <h2>Cruises</h2>
-        {{ h.cruise_listing(request, cruises, pre_expand=True) }}
+        {{ h.cruise_listing(request, cruises, pre_expand=False, show_data=expanded) }}
+        {{ h.pager_for(cruises) }}
       </div>
     {%- endif %}
   {%- endcall %}

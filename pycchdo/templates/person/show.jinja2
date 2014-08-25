@@ -52,7 +52,7 @@
     {%- if cruises %}
       <div class="subsection">
         <h2>Cruises</h2>
-        {{ h.cruise_listing(request, cruises, pre_expand=True) }}
+        {{ h.cruise_listing(request, cruises, pre_expand=False) }}
       </div>
     {%- endif %}
   {%- endcall %}

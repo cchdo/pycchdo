@@ -14,6 +14,7 @@ from webob.multidict import MultiDict
 
 from pycchdo.models.types import *
 from pycchdo.models.serial import store_context, Obj
+from pycchdo.models.search import _cruises_load_options
 from pycchdo.models.file_types import DataFileTypes
 from pycchdo.util import guess_mime_type, collapse_dict
 from pycchdo.log import getLogger, DEBUG
@@ -173,7 +174,7 @@ def file_response(request, file, disposition='inline'):
                 disposition, file.name)
             # TODO etag
             return resp
-        except IOError:
+        except (OSError, IOError):
             log.error(u'Missing file: {0!r}'.format(file))
             return HTTPNotFound()
 
@@ -204,3 +205,8 @@ def server_error_view(request):
         'errmsg': ("Oops! Sorry, that's an error. We have been notified and "
                    "will take a look shortly."),
     }
+
+
+def load_cruises_for(query):
+    """Add options to a query for object that takes a cruise."""
+    return query.options(*_cruises_load_options)

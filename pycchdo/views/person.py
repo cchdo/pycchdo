@@ -39,12 +39,14 @@ def _redirect_response(request, id):
 
 
 def person_show(request):
+    expanded = request.params.get('expanded', '')
     person = _get_person(request)
     if not person:
         raise HTTPNotFound()
     cruises = person.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
-    return {'person': person, 'cruises': cruises}
+    cruises = paged(request, cruises)
+    return {'person': person, 'cruises': cruises, 'expanded': expanded}
 
 
 def person_archive(request):

@@ -9,7 +9,7 @@ from . import *
 import pycchdo.helpers as h
 from pycchdo.models.serial import DBSession, Country
 from pycchdo.models.searchsort import sort_list
-from pycchdo.views import staff
+from pycchdo.views import staff, load_cruises_for
 
 
 def _countries(request):
@@ -30,11 +30,12 @@ def countries_index_json(request):
 def _get_country(request):
     c_id = request.matchdict.get('country_id')
     try:
-        return Country.query().get(c_id)
+        return load_cruises_for(Country.query()).get(c_id)
     except DataError:
         transaction.begin()
         try:
-            return Country.query().filter(Country.name == c_id).first()
+            return load_cruises_for(Country.query().filter(
+                Country.name == c_id)).first()
         except DataError:
             return None
 
@@ -45,12 +46,14 @@ def _redirect_response(request, id):
 
 
 def country_show(request):
+    expanded = request.params.get('expanded', '')
     country = _get_country(request)
     if not country:
         raise HTTPNotFound()
     cruises = country.cruises
     cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))
-    return {'country': country, 'cruises': cruises}
+    cruises = paged(request, cruises)
+    return {'country': country, 'cruises': cruises, 'expanded': expanded}
 
 
 def country_archive(request):

@@ -1297,7 +1297,10 @@ class Participants(InstrumentedSet):
         the new participant.
 
         """
-        if value.institution:
+        # Using the property institution causes a flush. This is inappropriate
+        # during a load and this method does get called during load. Therefore,
+        # use institution_id
+        if value.institution_id:
             for part in self:
                 if part.equal_role_person(value) and not part.institution:
                     part.institution = value.institution

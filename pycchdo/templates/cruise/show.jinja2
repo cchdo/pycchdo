@@ -1,4 +1,5 @@
-{%- if 'US Repeat Hydrography' in h.collection_names(cruise.collections) %}
+{%- set collnames = h.collection_names(cruise.collections) %}
+{%- if 'US Repeat Hydrography' in collnames or 'USHYDRO' in collnames %}
   {% extends "/ushydro.jinja2" %}
 {%- else %}
   {% extends "/base.jinja2" %}

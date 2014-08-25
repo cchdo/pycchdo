@@ -2597,6 +2597,26 @@ class _CruiseFile(Base):
             self.cruise, self.attr, self.file)
 
 
+
+class CruiseDateFilter(object):
+    def __init__(self, time_range):
+        log.info(time_range)
+        self.time_range = time_range
+        
+    def d2y(self, d):
+        try:
+            return d.date().year
+        except AttributeError:
+            try:
+                return int(d)
+            except (TypeError, ValueError):
+                return self.time_range[0]
+
+    def __call__(self, cruise):
+        return self.time_range[0] <= self.d2y(cruise.date_start) and \
+               self.d2y(cruise.date_end) <= self.time_range[1]
+
+
 class Cruise(Obj):
     """The basic unit of metadata storage.
 
@@ -2887,10 +2907,27 @@ class Cruise(Obj):
 
     @classmethod
     def pending_years(cls):
-        """Gives a list of integer years that have pending cruises."""
+        """Gives a list of integer years in the future that have pending
+        cruises.
+
+        """
         years = cls.filter_pending_date_start(
-            DBSession.query(distinct(Cruise.date_start))).all()
+            DBSession.query(distinct(Cruise.date_start))).\
+                filter(Cruise.date_start >= '{0}-01-01'.format(
+                    datetime.now().year)).all()
         return uniquify([y[0].year for y in years])
+
+    @classmethod
+    def load_cruise_options(cls, query):
+        """Set load options for a query so that performance is acceptable."""
+        from pycchdo.models.search import _cruise_load_options
+        return query.options(*_cruise_load_options)
+
+    @classmethod
+    def load_holder_options(cls, query):
+        """Set load options for a query so that performance is acceptable."""
+        from pycchdo.models.search import _cruises_load_options
+        return query.options(*_cruises_load_options)
 
     @classmethod
     def cruises_in_selection(
@@ -2905,25 +2942,15 @@ class Cruise(Obj):
         query = Cruise.query().\
             filter(Cruise._track.intersects(str(selection))).\
             limit(roi_result_limit)
-        cruises = query.all()
+        cruises = Cruise.load_cruise_options(query).all()
 
         limited = False
         if len(cruises) == roi_result_limit:
             limited = query.count() > roi_result_limit
 
-        log.info(time_range)
-        def date_filter(cruise):
-            def d2y(d):
-                try:
-                    return d.date().year
-                except AttributeError:
-                    try:
-                        return int(d)
-                    except (TypeError, ValueError):
-                        return time_range[0]
-            return time_range[0] <= d2y(cruise.date_start) and \
-                   d2y(cruise.date_end) <= time_range[1]
-        return (filter(date_filter, cruises), limited)
+        date_filter = CruiseDateFilter(time_range)
+        filtered = filter(date_filter, cruises)
+        return (filtered, limited)
 
     def to_dict(self):
         """Returns a dict representation of the Cruise."""

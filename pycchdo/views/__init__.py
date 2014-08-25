@@ -13,8 +13,7 @@ from webhelpers. paginate import Page
 from webob.multidict import MultiDict
 
 from pycchdo.models.types import *
-from pycchdo.models.serial import store_context, Obj
-from pycchdo.models.search import _cruises_load_options
+from pycchdo.models.serial import store_context, Obj, Cruise
 from pycchdo.models.file_types import DataFileTypes
 from pycchdo.util import guess_mime_type, collapse_dict
 from pycchdo.log import getLogger, DEBUG
@@ -209,4 +208,4 @@ def server_error_view(request):
 
 def load_cruises_for(query):
     """Add options to a query for object that takes a cruise."""
-    return query.options(*_cruises_load_options)
+    return Cruise.load_holder_options(query)

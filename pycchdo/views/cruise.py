@@ -17,7 +17,6 @@ from lxml import etree
 
 from webhelpers import text as whtext
 
-from sqlalchemy.orm import noload, lazyload, joinedload
 from sqlalchemy.ext.associationproxy import _AssociationList
 
 from libcchdo.fns import uniquify
@@ -603,14 +602,13 @@ def _cruise_to_json(cruise):
         if v:
             if isinstance(v, FSFile):
                 obj[attr_key] = v.id
-            else:
-                if isinstance(v, _AssociationList):
-                    try:
-                        obj[attr_key] = map(unicode, v)
-                    except TypeError:
-                        obj[attr_key] = unicode(v)
-                else:
+            elif isinstance(v, list) or isinstance(v, _AssociationList):
+                try:
+                    obj[attr_key] = map(unicode, v)
+                except TypeError:
                     obj[attr_key] = unicode(v)
+            else:
+                obj[attr_key] = unicode(v)
 
     track = cruise.track
     if track:
@@ -727,11 +725,10 @@ def kml(request):
     append_data_if_exists('ship', h.link_ship(cruise.ship))
     if cruise.participants:
         pi_table = H()
-        for role, pis in cruise.participants.items():
-            for pi in pis:
-                person = pi['person']
-                inst = pi['institution']
-                pi_table += H.tr(H.td(h.link_person(person)), H.td(role))
+        for part in list(cruise.participants):
+            person = part.person
+            inst = part.institution
+            pi_table += H.tr(H.td(h.link_person(person)), H.td(part.role))
         table = H.table(
             H.tr(H.th('Person'), H.th('Role')),
             pi_table,
@@ -807,8 +804,7 @@ def _contributions(request):
 
 def _contribution_kmzs(request):
     static_path = 'static/contrib'
-    kmz_dir = AssetResolver('pycchdo').resolve(static_path).abspath()
-    request.registry.settings['contributed_kmls_path']
+    kmz_dir = request.registry.settings['contributed_kmls_path']
     return [request.route_url('catchall_static',
                               subpath=os.path.join(static_path, x)
                              ) for x in os.listdir(kmz_dir)]

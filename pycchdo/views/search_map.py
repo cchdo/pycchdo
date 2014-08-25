@@ -29,7 +29,7 @@ RADIUS_EARTH = 6371.01 # km
 DEFAULTS = {
     'max_coords': 50,
     'time_min': 1967,
-    'time_max': datetime.date.today().year,
+    'time_max': datetime.date.today().year + 1,
     'roi_result_limit': 50,
 }
 
@@ -147,9 +147,10 @@ def ids(request):
 
         # All geo searches need to be refiltered because MySQL only selects for
         # MaxBoundingRectangleIntersection
-        for polygon, f in zip(polygons, filters):
+        for polygon, bounds_check in zip(polygons, filters):
             raw_tracks, limited = getTracksInSelection(polygon, time_min, time_max)
-            cruises.extend(filter(lambda t: f(t.track), raw_tracks))
+            cruises.extend(raw_tracks)
+            #cruises.extend(filter(lambda t: bounds_check(t.track), raw_tracks))
     elif req_ids:
         def get_by_id_or_expo(id):
             c = Cruise.get_id(id)
@@ -164,7 +165,10 @@ def ids(request):
     elif req_q:
         results = request.search_index.search(request.params.get('q', ''))
         cruises = search.compile_into_cruises(results)
+    log.debug(cruises)
     h.reduce_specificity(cruises)
+
+    log.debug(cruises)
 
     # Build JSON response with id: track
     id_track = {}

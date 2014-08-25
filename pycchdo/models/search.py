@@ -114,6 +114,15 @@ _field_aliases = {
 _model_id_to_index_id = unicode
 
 
+_cruise_load_options = [
+        subqueryload('ship'), subqueryload('_aliases'),
+        subqueryload('_statuses'), joinedload('files'),
+        subqueryload('country'), noload('collections'),
+        noload('participants.person._permissions'),
+        noload('participants.institution'), noload('institutions')
+]
+
+
 _cruises_load_options = [
     noload('cruises.collections'), joinedload('cruises'),
     subqueryload('cruises._aliases'), subqueryload('cruises.ship'),
@@ -125,13 +134,7 @@ _cruises_load_options = [
 
 
 model_options = {
-    Cruise: [
-        subqueryload('ship'), subqueryload('_aliases'),
-        subqueryload('_statuses'), joinedload('files'),
-        subqueryload('country'), noload('collections'),
-        noload('participants.person._permissions'),
-        noload('participants.institution'), noload('institutions')
-    ],
+    Cruise: _cruise_load_options,
     Institution: _cruises_load_options,
     Collection: _cruises_load_options + [
         noload('_oceans'), noload('institution'), noload('country')

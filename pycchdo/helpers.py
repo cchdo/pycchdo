@@ -566,7 +566,12 @@ def cruise_history_rows(change, i, hl):
         action = change.action
         summary = change.subject
         class_ = 'history-note'
-        body = unicode(change.body.encode('raw_unicode_escape'), 'utf8')
+        try:
+            body = unicode(change.body.encode('raw_unicode_escape'), 'utf8')
+        except UnicodeDecodeError as err:
+            log.debug(repr(change.body))
+            log.error(err)
+            body = unicode(change.body)
         if body and body[0] == '=':
             html = reST_to_html_div(body, '{0}-'.format(note_id), class_=class_)
             body = whh.literal(html)

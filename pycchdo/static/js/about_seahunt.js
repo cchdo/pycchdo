@@ -61,6 +61,10 @@ $(function () {
   var years_list = $('#years-list');
 
   $.get('/cruises.json?pending_years=y', function (years) {
+    if (years.length == 0) {
+      $('#searching').hide('fast').remove();
+      years_list.append($('<li>No future cruises have been entered</li>'));
+    }
     $.each(years, function (i, year) {
       var url = ['/search/results?query=date_start:', year].join('');
       var url_json = ['/search/results.json?query=date_start:', year].join('');

@@ -131,13 +131,14 @@ def ids(request):
                 # Do a rotl-1 to turn nw, se into sw, ne
                 if coords[0] and coords[2] and coords[0][0] < coords[2][0]:
                     coords = coords[1:] + [coords[0]]
+                log.debug(coords)
                 polygon = poly.Polygon(coords)
                 polygons.append(polygon)
-                filters.append(lambda track: track_in_polygon(polygon, track))
+                filters.append(lambda track: track_in_rectangle(polygon, track))
             elif special == 'circle':
                 polygon = poly.Polygon(coords)
                 polygons.append(polygon)
-                filters.append(lambda track: track_in_polygon(polygon, track))
+                filters.append(lambda track: True)
 
         time_min = int(request.params.get('time_min', DEFAULTS['time_min']))
         # Bump the year forward because we want searches up to 
@@ -150,7 +151,7 @@ def ids(request):
         for polygon, bounds_check in zip(polygons, filters):
             raw_tracks, limited = getTracksInSelection(polygon, time_min, time_max)
             cruises.extend(raw_tracks)
-            #cruises.extend(filter(lambda t: bounds_check(t.track), raw_tracks))
+            cruises.extend(filter(lambda t: bounds_check(t.track), raw_tracks))
     elif req_ids:
         def get_by_id_or_expo(id):
             c = Cruise.get_id(id)
@@ -165,10 +166,7 @@ def ids(request):
     elif req_q:
         results = request.search_index.search(request.params.get('q', ''))
         cruises = search.compile_into_cruises(results)
-    log.debug(cruises)
     h.reduce_specificity(cruises)
-
-    log.debug(cruises)
 
     # Build JSON response with id: track
     id_track = {}
@@ -183,7 +181,7 @@ def ids(request):
 
     response = {
         'id_t': id_track,
-        'i': _info(id_cruises),
+        'i': _info(request, id_cruises),
         't': _track(id_cruises, request.params.get('max_coords', '')),
         'limited': limited,
     }
@@ -256,7 +254,7 @@ def layer(request):
     raise HTTPNotFound()
 
 
-def _info(id_cruises):
+def _info(request, id_cruises):
     infos = {}
     for id, idt, cruise in id_cruises:
         try:
@@ -291,6 +289,14 @@ def _info(id_cruises):
             except AttributeError, e:
                 print e
                 infos[id]['ship'] = ''
+
+            data_files = h.collect_data_files(cruise)
+            data = h.H.div(
+                h.datacart_link_cruise(request, cruise), 
+                h.data_files_lists(request, data_files, condensed=True,
+                                 classes=['body']),
+                class_='dataset')
+            infos[id]['data'] = data
         except (KeyError, AttributeError) as e:
             log.warn('Unable to read info for %s %s' % (id, e))
     return infos
@@ -348,10 +354,10 @@ def between_lng(lower, test, upper):
 
 
 def track_in_rectangle(rect, track):
-    sw, ne = rect.points[0], rect.points[2]
+    sw, ne = rect.exterior.coords[0], rect.exterior.coords[2]
     def in_rect(coord):
-        return (between_lng(sw.x, coord.lng, ne.x) and
-                between_lat(sw.y, coord.lat, ne.y))
+        return (between_lng(sw[0], coord[0], ne[0]) and
+                between_lat(sw[1], coord[1], ne[1]))
     return any(in_rect(coord) for coord in track.coords)
 
 

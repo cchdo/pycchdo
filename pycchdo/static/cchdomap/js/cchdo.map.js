@@ -154,7 +154,7 @@ CCHDO.MAP.TIPS = {
 
 CCHDO.MAP.tip = (function () {
   var past = {};
-  return function (s) {
+  return function (s, options) {
     var lasttime = past[s];
     var now = new Date();
     if (lasttime && now - lasttime < CCHDO.MAP.TIP_SPAM_TIME) {
@@ -162,7 +162,7 @@ CCHDO.MAP.tip = (function () {
     }
 
     past[s] = now;
-    $.jGrowl(s);
+    $.jGrowl(s, options);
 
     // Clean up the cache
     for (var k in past) {
@@ -177,13 +177,13 @@ CCHDO.MAP.processCommands = function (commands) {
   for (var i = 0; i < commands.length; i += 1) {
     var command = commands[i];
     if (/^search\:(.+)/.test(command)) {
-      var searchCreator = CCHDO.MAP.layerView.layerSectionSearch.creator._content;
-      $(':text', searchCreator).val(command.substring('search:'.length));
-      $('form', searchCreator).submit();
+      var searchCreator = $(CCHDO.MAP.layerView.layerSectionSearch.creator._content);
+      searchCreator.find('input:not(:submit)').val(command.substring('search:'.length));
+      searchCreator.find('form').submit();
     } else if (/^kmllink\:(.+)/.test(command)) {
-      var kmllinkCreator = CCHDO.MAP.layerView.layerSectionKML.creatorLink._content;
-      $(':text', kmllinkCreator).val(command.substring('kmllink:'.length));
-      $('form', kmllinkCreator).submit();
+      var kmllinkCreator = $(CCHDO.MAP.layerView.layerSectionKML.creatorLink._content);
+      kmllinkCreator.find(':text').val(command.substring('kmllink:'.length));
+      kmllinkCreator.find('form').submit();
     } else if (/^graticules\:(.+)/.test(command)) {
       var on = true;
       var value = command.substring('graticules:'.length);
@@ -223,7 +223,7 @@ CCHDO.MAP.processSessionCommands = function () {
 };
 
 CCHDO.MAP.load = function () {
-  CCHDO.MAP.tip(CCHDO.MAP.TIPS['loading']);
+  CCHDO.MAP.tip(CCHDO.MAP.TIPS['loading'], {life: 300});
   var domroot = $('#map_space');
   var mapdiv = $('<div id="map" />').appendTo(domroot);
 
@@ -246,7 +246,7 @@ CCHDO.MAP.load = function () {
   var etopomt = new ETOPOMapType();
   CCHDO.MAP.map.mapTypes.set(etopo_map_type, etopomt);
 
-  CCHDO.MAP.earth = new EarthMapType(CCHDO.MAP.map);
+  CCHDO.MAP.earth = new EarthMapType(CCHDO.MAP.map, new Graticule(CCHDO.MAP.map));
 
   // Add map types to menu
   var mapTypeControlOptions = CCHDO.MAP.map.get('mapTypeControlOptions');
@@ -264,11 +264,21 @@ CCHDO.MAP.load = function () {
   CCHDO.MAP.pane._on = true;
   CCHDO.MAP.pane._open = true;
 
-  function completeInit() {
-    // graticules needs to be loaded before layerview
-    CCHDO.MAP.layerView = new CCHDO.MAP.Layers.DefaultLayerView(CCHDO.MAP.map);
-    CCHDO.MAP.pane.setPaneContent(CCHDO.MAP.layerView._dom);
+  // graticules needs to be loaded before layerview
+  CCHDO.MAP.layerView = new CCHDO.MAP.Layers.DefaultLayerView(CCHDO.MAP.map);
+  CCHDO.MAP.pane.setPaneContent(CCHDO.MAP.layerView._dom);
 
+  $(window).resize(function () {
+    domroot.height($(this).height());
+    var previousFx = $.fx.off;
+    $.fx.off = true;
+    CCHDO.MAP.pane.redraw();
+    $.fx.off = previousFx;
+  }).resize();
+
+  CCHDO.MAP.layerView.layerSectionPermanent.tablelayer.setOn(true);
+
+  function completeInit() {
     // TODO figure out how to do this without opening security hole
     //CCHDO.MAP.earth._withEarth(function (ge) {
     //  google.earth.addEventListener(ge, 'balloonopening', function (event) {
@@ -285,16 +295,6 @@ CCHDO.MAP.load = function () {
     //    return false;
     //  });
     //});
-
-    $(window).resize(function () {
-      domroot.height($(this).height());
-      var previousFx = $.fx.off;
-      $.fx.off = true;
-      CCHDO.MAP.pane.redraw();
-      $.fx.off = previousFx;
-    }).resize();
-
-    CCHDO.MAP.map.setCenter(center);
 
     CCHDO.MAP.processSessionCommands();
     CCHDO.MAP.processHashCommands();
@@ -1273,7 +1273,9 @@ function GVTable() {
       {label: 'Country', type: 'string'},
       {label: 'Cruise Dates', type: 'string'},
       {label: 'Contacts', type: 'string'},
-      {label: 'Institutions', type: 'string'}],
+      {label: 'Institutions', type: 'string'},
+      {label: 'Data', type: 'string'}
+    ],
     rows: []
   }, 0.6);
 
@@ -1290,12 +1292,43 @@ function GVTable() {
     'or track to select it and its information will appear here.</p>'
   ).appendTo(this._dom).hide();
 
-  this._table_dom = $('<div>').appendTo(this._dom);
+  this._table_dom = $('<div class="cruise-table">').appendTo(this._dom);
+
+  this._dcart_all = $('<div class="datacart-cruises-links data-formats">'+
+    '<a href="/datacart/add_cruises" ' +
+    'class="datacart-link datacart-results datacart-add" '+
+    'style="margin-left: 80%; margin-bottom: 0.5em;"' +
+    'title="Add all result data to data cart">' +
+    '<div class="datacart-icon">Add all data in result</div></a></div>')
+    .prependTo(this._dom);
 
   this.setTableJDOM(this._table_dom);
+
+  // Every ID added to the table might have a datacart dialog.
+  // All infodata-id buttons are datacart buttons and should toggle their
+  // respective dialogs.
+  this._dialogs = null;
+  $(this._table_dom).delegate('button[infodata-id]', 'click', function(event) {
+    var button = $(this);
+    var iid = button.attr('infodata-id');
+    $('#' + iid).dialog({
+      width: 350,
+      position: {my: 'right', at: 'left', of: button},
+    });
+    return false;
+  });
 }
 
 GVTable.prototype = new Table();
+
+// Getter for datacart dialogs
+GVTable.prototype.dcart_dialogs = function() { 
+  if (this._dialogs === null) {
+    this._dialogs = $('<div id="data-formats-dialogs"></div>').css('display', 'none');
+    this._dialogs.appendTo('body');
+  }
+  return this._dialogs;
+};
 
 GVTable.prototype.idsAdded = function (ids) {
   var model = this._model;
@@ -1352,15 +1385,17 @@ GVTable.prototype.setTableJDOM = function (jdom) {
     }
     return false;
   })
-  // TODO Sending a click will de select the cruise. Do we really want that?
-  .live('click', function () {
+  .live('click', function (event) {
+    // Ignore clicks on the datacart-icon
+    if (event.target.className == 'datacart-icon') {
+      return true;
+    }
     var dtrow = self.get_dtrow(this);
     if (dtrow > -1) {
       var link = self._dt.getValue(dtrow, 1);
-      console.log(self._dt, dtrow, link);
       window.open(link, '');
     }
-    return true;
+    return false;
   });
 
   google.visualization.events.addListener(this._table_view, 'sort', function (event) {
@@ -1446,9 +1481,20 @@ GVTable.prototype.get_trid = function (tr) {
 };
 
 GVTable.prototype.add = function (id, info, hasTrack) {
+  var dataid = info.name;
+  var infodataid = 'infodata' + id;
+  var datadiv = $('<div>' + info.data + '</div>').
+    addClass('data-formats').
+    css('position', 'relative').
+    attr('title', info.name).
+    attr('id', infodataid).
+    appendTo(this.dcart_dialogs());
+  var databutton = '<button class="datacart-blank" infodata-id="' + infodataid +
+    '" title="Add/remove data"><div class="datacart-icon"></div></button>';
   var data_row = this._dt.addRow([
     id, '/cruise/' + id, info.name, info.programs, info.ship, info.country,
-    info.cruise_dates, info.contacts, info.institutions]);
+    info.cruise_dates, info.contacts, info.institutions, databutton
+    ]);
   if (!hasTrack) {
     for (var i = 0; i < this._dt.getNumberOfColumns(); i += 1) {
       this._dt.setProperty(data_row, i, 'style', 'background-color: #fdd;');
@@ -1460,8 +1506,10 @@ GVTable.prototype.add = function (id, info, hasTrack) {
 GVTable.prototype.remove = function (ids) {
   if (ids instanceof Array) {
     ids = ids.sort();
+    var dcart_dialogs = this.dcart_dialogs();
     for (var i = ids.length - 1; i >= 0; i -= 1) {
       this._dt.removeRow(ids[i]);
+      dcart_dialogs.find('#infodata' + ids[i]).remove();
     }
   } else {
     this._dt.removeRow(ids);
@@ -1524,12 +1572,23 @@ GVTable.prototype.dark = function (id) {
   }
 };
 
+GVTable.prototype.setDatacartAllLink = function() {
+  var self = this;
+  var link = [];
+  this.tableRows().each(function(i, x) {
+    link.push("ids=" + self.getCruiseIdForTr(x));
+  });
+  this._dcart_all.find('a').attr('href', "/datacart/add_cruises?" + link.join('&'));
+};
+
 GVTable.prototype.redraw = function () {
   if (this._dt.getNumberOfRows() < 1) {
     $(this._explanation).show();
+    $(this._dcart_all).hide();
     $(this._table_dom).hide();
   } else {
     $(this._explanation).hide();
+    $(this._dcart_all).show();
     $(this._table_dom).show();
   }
   if (this._table_view) {
@@ -1544,6 +1603,7 @@ GVTable.prototype.redraw = function () {
     if (this.selected) {
       this._table_view.setSelection(this.selected);
     }
+    this.setDatacartAllLink();
   }
 };
 
@@ -1933,9 +1993,9 @@ DefaultLayerView.prototype = new LayerView();
 
 
 function PermanentLayerSection(table) {
-  LayerSection.call(this, '<img src="/static/cchdomap/images/layers_off.png" />');
+  LayerSection.call(this, '<img src="/static/cchdomap/images/layers_off.png" /> Layers');
 
-  this.tablelayer = new PermanentLayer('Table', false, function (on) {
+  this.tablelayer = new PermanentLayer('Table of selected cruises', false, function (on) {
     table.show(on);
   });
   table.setLayer(this.tablelayer);
@@ -2019,7 +2079,7 @@ function QueryLayer() {
   this._accessory_count = 
     $('<span class="accessory-count">loading...</span>').appendTo(this._accessory)[0];
   this._accessory_edit = 
-    $('<span class="accessory-edit">&raquo;</span>').appendTo(this._accessory)[0];
+    $('<span class="accessory-edit" title="edit selected region">edit</span>').appendTo(this._accessory)[0];
 
   $(this._accessory_edit).click(function () {
     return self.edit();

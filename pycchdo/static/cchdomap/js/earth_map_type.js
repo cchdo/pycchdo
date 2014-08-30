@@ -323,11 +323,16 @@ var EarthMapType = (function () {
     var ring = ge.createLinearRing('');
     var steps = 25;
     var pi2 = Math.PI * 2;
+    var coords = ring.getCoordinates();
     for (var i = 0; i < steps; i++) {
       var lat = centerLat + radius * Math.cos(i / steps * pi2);
       var lng = centerLng + radius * Math.sin(i / steps * pi2);
-      ring.getCoordinates().pushLatLngAlt(lat, lng, 0);
-    }
+      try {
+        coords.pushLatLngAlt(lat, lng, 1);
+      } catch (e) {
+        console.log(e);
+      }
+    } 
     return ring;
   }
   // TODO This is a BIG TODO. These creators are not complete.
@@ -617,8 +622,9 @@ var EarthMapType = (function () {
     doInsert(rect, polyr);
   };
 
-  function EarthMapType(map) {
+  function EarthMapType(map, graticules) {
     this.setMap(map);
+    this.set('overlay_graticules', graticules);
   }
   EarthMapType.prototype = new google.maps.OverlayView();
 
@@ -746,12 +752,6 @@ var EarthMapType = (function () {
       }
     }));
 
-    // Set up graticules if defined
-    if (window.Graticule) {
-      this.set('overlay_graticules', new Graticule(map));
-      this.get('overlay_graticules').hide();
-    }
-
     var earthDiv = document.createElement('DIV');
     earthDiv.id = 'CONTAINER_EARTH';
     earthDiv.style.width = "100%";
@@ -766,14 +766,13 @@ var EarthMapType = (function () {
     this.set('shim', shim);
 
     google.maps.event.addListener(this, 'graticules_changed', function () {
-      if (self.get('graticules')) {
-        if (self.get('overlay_graticules')) {
-          self.get('overlay_graticules').show();
-          self.get('overlay_graticules').draw();
-        }
-      } else {
-        if (self.get('overlay_graticules')) {
-          self.get('overlay_graticules').hide();
+      var overlay = self.get('overlay_graticules');
+      if (overlay) {
+        if (self.get('graticules')) {
+          overlay.show();
+          overlay.draw();
+        } else {
+          overlay.hide();
         }
       }
     });

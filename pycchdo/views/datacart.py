@@ -4,6 +4,11 @@
 from datetime import datetime
 from tempfile import SpooledTemporaryFile
 from zipfile import ZipFile, ZIP_DEFLATED
+from logging import getLogger
+
+
+log = getLogger(__name__)
+
 
 from pyramid.response import Response
 from pyramid.renderers import render_to_response
@@ -142,6 +147,7 @@ def add_cruises(request):
         cruise_ids = request.params.getall('ids')
     except KeyError:
         raise HTTPNotFound()
+    log.debug(cruise_ids)
 
     file_count_all = 0
     count_diff_all = 0
@@ -284,7 +290,10 @@ def download(request):
                 store_context(request.fsstore):
             for attr in attrs:
                 dfile = attr.value
-                zfile.writestr(dfile.name, dfile.open_file().read())
+                try:
+                    zfile.writestr(dfile.name, dfile.open_file().read())
+                except (OSError, IOError):
+                    log.error(u'Missing file {0}'.format(dfile))
 
         fname = TEMPNAME.format(datetime.now().strftime('%FT%T'))
         tfile.seek(0)

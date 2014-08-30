@@ -61,9 +61,16 @@ def http_method(request):
         return request.method
 
 
-def paged(request, l):
-    current_page = int(request.params.get('page', 1))
-    items_per_page = int(request.params.get('items_per_page', 30))
+def paged(request, l, default_current_page=1, default_items_per_page=30):
+    try:
+        current_page = int(request.params.get('page', default_current_page))
+    except ValueError:
+        current_page = default_current_page
+    try:
+        items_per_page = int(request.params.get('items_per_page',
+                                                default_items_per_page))
+    except ValueError:
+        items_per_page = default_items_per_page
     def page_url(page):
         query = request.params.copy()
         query['page'] = page

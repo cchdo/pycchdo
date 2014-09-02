@@ -679,8 +679,8 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
     ]
     if show_data:
         headers.append(H.th('Dataset', class_='dataset'))
-        # Extra column for the datacart cruise link
-        headers.append(H.th())
+    # Extra column for the datacart cruise link
+    headers.append(H.th())
     headers.append(H.th(class_='map'))
 
     list = [
@@ -737,7 +737,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
                                  classes=['body', baseclass]),
                 class_='dataset'
             ))
-            row.append(H.td(datacart_link_cruise(request, cruise)))
+        row.append(H.td(datacart_link_cruise(request, cruise)))
         row.append(
             H.td(
                 cruise_track_image(
@@ -766,10 +766,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
         expanded_query = {'query': request.params.get('query'), 'expanded': True}
         expanded_button_str = 'Expand'
 
-    if show_data:
-        dcart_link = datacart_link_cruises(request, cruises)
-    else:
-        dcart_link = ''
+    dcart_link = datacart_link_cruises(request, cruises)
 
     return H.div(
         H.div(

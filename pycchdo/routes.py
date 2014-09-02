@@ -170,6 +170,10 @@ def configure_routes(config):
 
     route_path(config, 'search_list_files', '/search/list_files',
                'pycchdo.views.legacy.list_files')
+    route_path(config, 'data_access_list_files', '/data_access/list_files',
+               'pycchdo.views.legacy.list_files')
+    route_path(config, 'manifest', '/manifest.json',
+               'pycchdo.views.toplevel.manifest', 'json')
 
     route_path(config, 'search_results', '/search/results.html',
                'pycchdo.views.search.search_results', 'search/results.jinja2')

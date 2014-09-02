@@ -17,6 +17,7 @@ from pycchdo.models.serial import (
     Submission, FileHolder,
     )
 from pycchdo.models.searchsort import sort_list
+from pycchdo.helpers import data_uri
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -114,6 +115,22 @@ def project_carina(request):
     else:
         cruises = []
     return {'cruises': cruises}
+
+
+def manifest(request):
+    """A text list of files available from us."""
+    json = {}
+    for cruise in Cruise.query().options(noload('*')).all():
+        files = {}
+        for key, fattr in cruise.file_attrs.items():
+            if key == 'archive' or key.startswith('map'):
+                continue
+            files[key] = {
+                "url": data_uri(fattr),
+                "ctime": unicode(fattr.ts_c),
+            }
+        json[cruise.uid] = files
+    return json
 
 
 def _get_params_for_order(order):

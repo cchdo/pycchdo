@@ -1,3 +1,9 @@
+import logging
+
+
+log = logging.getLogger(__name__)
+
+
 from pyramid.httpexceptions import HTTPMovedPermanently, HTTPNotFound, HTTPSeeOther
 
 from pycchdo.models.serial import FSFile
@@ -29,9 +35,7 @@ def data_access_show_cruise(request):
 
 
 def list_files(request):
-    log.error(u'List files accessed')
-    # TODO implement a file manifest system
-    raise HTTPNotFound()
+    raise HTTPMovedPermanently(location=request.route_path('manifest'))
 
 
 def data_df(request):

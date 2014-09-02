@@ -183,17 +183,16 @@ def create_asr(request, signer, cruise, data_type, fsfile, parameters=None,
                batched=False):
     """Add data as a suggestion and send As Received confirmation email."""
     try:
-        with store_context(request.registry.settings['fsstore']):
-            asr = cruise.sugg(signer, data_type, fsfile)
-            if parameters is not None:
-                asr._notes.append(Note(
-                    signer, parameters, data_type='parameters',
-                    discussion=True))
-            if has_mod(request):
-                asr.acknowledge(signer)
-                if not batched:
-                    create_asrs_history(request, signer, cruise, [asr])
-            return asr
+        asr = cruise.sugg(signer, data_type, fsfile)
+        if parameters is not None:
+            asr._notes.append(Note(
+                signer, parameters, data_type='parameters',
+                discussion=True))
+        if has_mod(request):
+            asr.acknowledge(signer)
+            if not batched:
+                create_asrs_history(request, signer, cruise, [asr])
+        return asr
     except ValueError, err:
         log.error(err)
         request.response.status = 400
@@ -480,11 +479,9 @@ def uow(request):
 
     uow.results = []
     for iii, rtype in enumerate(result_types):
-        with store_context(request.fsstore):
-            uow.results.append(cruise.set(person, rtype, results[iii]))
+        uow.results.append(cruise.set(person, rtype, results[iii]))
 
-    with store_context(request.fsstore):
-        uow.support = FSFile.from_fieldstorage(support)
+    uow.support = FSFile.from_fieldstorage(support)
 
     uow.suggestions = []
     for qinfo in uow_cfg['q_infos']:
@@ -501,8 +498,7 @@ def uow(request):
     cruise.change._notes.append(note)
     uow.note = note
 
-    with store_context(request.fsstore):
-        DBSession.flush()
+    DBSession.flush()
 
     send_processing_email(request, readme_str, uow_cfg, note.id, dryrun)
 

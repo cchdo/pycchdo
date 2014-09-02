@@ -34,12 +34,12 @@ def _create_submission(request, d):
     user = request.user
     sub = Submission.propose(user).obj
 
-    with store_context(request.registry.settings['fsstore']):
-        if len(d['files']) > 1:
-            with _generate_multiple_files_file(d['files']) as fsf:
-                sub.value = fsf
-        else:
-            sub.value = FSFile.from_fieldstorage(d['files'][0])
+    if len(d['files']) > 1:
+        with _generate_multiple_files_file(d['files']) as fsf:
+            sub.value = fsf
+    else:
+        sub.value = FSFile.from_fieldstorage(d['files'][0])
+    DBSession.flush()
 
     if d['identifier']:
         sub.expocode = d['identifier']

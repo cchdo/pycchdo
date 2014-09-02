@@ -171,18 +171,17 @@ def file_response(request, file, disposition='inline'):
     cache_max_age = 60 * 60 * 24 * 30
 
     fsstore = request.registry.settings['fsstore']
-    with store_context(fsstore):
-        try:
-            path = file.locate()
-            fullpath = os.path.join(fsstore.path, path[1:path.index('?')])
-            resp = FileResponse(fullpath, request, cache_max_age)
-            resp.content_disposition = '{0}; filename={1}'.format(
-                disposition, file.name)
-            # TODO etag
-            return resp
-        except (OSError, IOError):
-            log.error(u'Missing file: {0!r}'.format(file))
-            return HTTPNotFound()
+    try:
+        path = file.locate()
+        fullpath = os.path.join(fsstore.path, path[1:path.index('?')])
+        resp = FileResponse(fullpath, request, cache_max_age)
+        resp.content_disposition = '{0}; filename={1}'.format(
+            disposition, file.name)
+        # TODO etag
+        return resp
+    except (OSError, IOError):
+        log.error(u'Missing file: {0!r}'.format(file))
+        return HTTPNotFound()
 
 
 def notfound_view(request):

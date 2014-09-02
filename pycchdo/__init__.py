@@ -104,6 +104,7 @@ def _configure(config):
     _configure_bindings(config)
     _configure_error_views(config)
     configure_routes(config)
+    config.add_tween('pycchdo.tweens.fsstore_tween_factory')
 
 
 def initialize_from_settings(settings):
@@ -113,7 +114,6 @@ def initialize_from_settings(settings):
         path=settings['file_system_path'],
         base_url='/',
     )
-    push_store_context(settings['fsstore'])
 
 
 def create_config(settings):

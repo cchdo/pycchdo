@@ -1031,18 +1031,17 @@ def correlated_submission_attached(request, submission):
         # files to the same cruise.
         attached_to_whole = attached[:]
         file_asrs = [(None, '[All files]', attached_to_whole)]
-        with store_context(request.fsstore):
-            try:
-                with submission.multiple_files() as zfile:
-                    for zinfo in zfile.infolist():
-                        fname = zinfo.filename
-                        asrs = name_asrs[fname]
-                        for asr in asrs:
-                            attached_to_whole.remove(asr)
-                        file_asrs.append((fname, lim_str(fname), asrs))
-            except BadZipfile:
-                # Bad zip file? Just don't display anything.
-                pass
+        try:
+            with submission.multiple_files() as zfile:
+                for zinfo in zfile.infolist():
+                    fname = zinfo.filename
+                    asrs = name_asrs[fname]
+                    for asr in asrs:
+                        attached_to_whole.remove(asr)
+                    file_asrs.append((fname, lim_str(fname), asrs))
+        except BadZipfile:
+            # Bad zip file? Just don't display anything.
+            pass
     else:
         file_asrs = [(None, link_file_holder(submission), attached)]
 

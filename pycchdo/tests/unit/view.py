@@ -112,7 +112,7 @@ class TestSubmit(RequestBaseTest):
         self.request.method = 'POST'
         self.request.POST['files[0]'] = fst
         resp = response_from_submission_request(self.request)
-        self.assertEqual(resp['submission'][0].file.open_file().read(), 'hello')
+        self.assertEqual(resp['submission'].file.open_file().read(), 'hello')
 
 
 class TestCruise(RequestBaseTest):

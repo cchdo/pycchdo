@@ -10,7 +10,7 @@ from pyramid.httpexceptions import (
 from pycchdo import helpers as h
 from pycchdo.mail import send_submission_confirmation, get_email_addresses
 from pycchdo.models.serial import (
-    DBSession, FSFile, Submission, Note, RequestFor,
+    DBSession, FSFile, Submission, Note, RequestFor, store_context
     )
 from pycchdo.views.session import require_signin
 from pycchdo.log import getLogger
@@ -27,22 +27,19 @@ def _generate_multiple_files_file(files):
             for fff in files:
                 zfile.writestr(fff.filename, fff.file.read())
         temp.seek(0)
-        yield FSFile(temp, 'multiple_files..zip', 'application/zip')
+        yield FSFile(temp, 'multiple_files.zip', 'application/zip')
 
 
-def _create_submissions(request, d):
-    submissions = []
-
+def _create_submission(request, d):
     user = request.user
     sub = Submission.propose(user).obj
-    submissions.append(sub)
 
-    if len(d['files']) > 1:
-        with _generate_multiple_files_file(d['files']) as fsf:
-            sub.value = fsf
-    else:
-        sub.value = FSFile.from_fieldstorage(d['files'][0])
-    DBSession.flush()
+    with store_context(request.registry.settings['fsstore']):
+        if len(d['files']) > 1:
+            with _generate_multiple_files_file(d['files']) as fsf:
+                sub.value = fsf
+        else:
+            sub.value = FSFile.from_fieldstorage(d['files'][0])
 
     if d['identifier']:
         sub.expocode = d['identifier']
@@ -61,7 +58,7 @@ def _create_submissions(request, d):
     change = sub.change
     change.requests.append(RequestFor(request))
 
-    return submissions
+    return sub
 
 
 def _get_form_input(request):
@@ -84,7 +81,7 @@ def _get_form_input(request):
     d['type_merge_data'] = request.params.get('type_merge_data', '')
     d['type_place_online'] = request.params.get('type_place_online', '')
     d['type_update_params'] = request.params.get('type_update_params', '')
-    d['public_status'] = request.params.get('public', 'nonpublic')
+    d['public_status'] = request.params.get('public', 'non_public')
 
     # Persist in session for form errors
     for k, v in d.items():
@@ -133,12 +130,12 @@ def _get_form_input(request):
 
 def response_from_submission_request(request):
     d = _get_form_input(request)
-    submissions = _create_submissions(request, d)
-    send_submission_confirmation(request, d, submissions)
+    submission = _create_submission(request, d)
+    send_submission_confirmation(request, d, submission)
 
     from_addr = get_email_addresses(request, 'from_address')[0]
     return {'from_addr': from_addr, 'files': d['files'], 'file_names':
-         d['file_names'], 'submission': submissions}
+         d['file_names'], 'submission': submission}
 
 
 def submit(request):

@@ -34,9 +34,11 @@ def _submission_public_status_to_description(status):
         return 'will *not* be public'
     elif status == 'non_public_argo':
         return 'will be available for use exclusively by the Argo program'
+    log.error(u'Unrecognized submission public status: {0!r}'.format(status))
+    return ''
 
 
-def send_submission_confirmation(request, d, submissions):
+def send_submission_confirmation(request, d, submission):
     recipients = get_email_addresses(request, 'recipient_submission_confirm',
                                        [request.user.email])
 
@@ -88,7 +90,7 @@ Additional information collected:
         body_parts.append('Notes: ' + d['notes'] + '\n')
     body_parts.append('Thank you again for your submission.\n')
     body_parts.append('---\n')
-    for sub in submissions:
+    for sub in [submission]:
         body_parts.append(request.route_url('staff_submissions',
             _query={'ltype': 'id', 'query': sub.id}) + '\n')
 

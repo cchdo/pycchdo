@@ -65,11 +65,11 @@
           {{ whh.tags.radio('public', 'public',
                             checked=(public == 'public')) }}
           <label for="public_public">Public</label>
-          {{ whh.tags.radio('public', 'nonpublic',
-                            checked=(public == 'nonpublic' or not public)) }}
+          {{ whh.tags.radio('public', 'non_public',
+                            checked=(public == 'non_public' or not public)) }}
           <label for="public_nonpublic">Non-Public</label>
-          {{ whh.tags.radio('public', 'nonpublic_argo',
-                            checked=(public == 'nonpublic_argo')) }}
+          {{ whh.tags.radio('public', 'non_public_argo',
+                            checked=(public == 'non_public_argo')) }}
           <label for="public_nonpublic_argo">Non-Public for Argo calibration</label>
         </td>
         <td>{{ h.form_errors(request, 'public') }}</td>

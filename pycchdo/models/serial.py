@@ -2743,6 +2743,10 @@ class Cruise(Obj):
             return []
 
     @property
+    def woce_lines(self):
+        return filter(lambda www: www.type == 'WOCE line', self.collections)
+
+    @property
     def track(self):
         if self._track is not None:
             return to_shape(self._track)

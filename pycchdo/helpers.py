@@ -669,6 +669,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
             _sortable_link(request, 'ExpoCode', 'uid'), ' / ', 
             _sortable_link(request, 'Cruise dates', 'date_start'),
             class_='identifier'),
+        H.th('Collections', class_='aliases'),
         H.th(_sortable_link(request, 'Aliases', 'aliases'),
             class_='aliases'),
         H.th(
@@ -700,7 +701,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
         bodyclass = 'body ' + baseclass
 
         aliases = ', '.join(cruise.aliases)
-
+        collections = link_collections(cruise.woce_lines)
         cruise_page_buttons = H.div(
             tags.form(
                 request.route_path('cruise_show', cruise_id=cruise.uid),
@@ -721,6 +722,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
                 cruise_page_buttons,
                 class_='identifier'
             ),
+            H.td(collections, class_='aliases'),
             H.td(aliases, class_='aliases'),
             H.td(
                 H.div(link_person_institutions(cruise.chief_scientists),

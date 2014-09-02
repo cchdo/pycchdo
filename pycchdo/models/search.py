@@ -117,14 +117,14 @@ _model_id_to_index_id = unicode
 _cruise_load_options = [
         subqueryload('ship'), subqueryload('_aliases'),
         subqueryload('_statuses'), joinedload('files'),
-        subqueryload('country'), noload('collections'),
+        subqueryload('country'), subqueryload('collections'),
         noload('participants.person._permissions'),
         noload('participants.institution'), noload('institutions')
 ]
 
 
 _cruises_load_options = [
-    noload('cruises.collections'), joinedload('cruises'),
+    subqueryload('cruises.collections'), joinedload('cruises'),
     subqueryload('cruises._aliases'), subqueryload('cruises.ship'),
     subqueryload('cruises.country'),
     noload('cruises.institutions'),

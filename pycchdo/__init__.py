@@ -19,8 +19,6 @@ import geojson
 
 from sqlalchemy import engine_from_config
 
-from sqlalchemy_imageattach.context import push_store_context
-
 from pycchdo import helpers
 from pycchdo.util import (
     reenable_logs, patch_pyramid_exclog, patch_get_all_pending)

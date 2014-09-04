@@ -438,6 +438,20 @@ def cruise_date_summary(cruise):
     return text
 
 
+def cruise_parameters(parameters):
+    """Summarize the parameters available for a cruise."""
+    summary = []
+    for param in parameters:
+        if not param.parameter:
+            continue
+        summ = param.parameter.name
+        minimal = param.minimal
+        if minimal:
+            summ += '*'
+        summary.append(summ)
+    return ' '.join(summary)
+
+
 def cruise_nice_name(cruise):
     """ Runs through the cruise's attributes to try to produce a nice name
         before falling back to the id

@@ -2597,6 +2597,26 @@ class _CruiseFile(Base):
             self.cruise, self.attr, self.file)
 
 
+class CruiseParameter(Base):
+    __tablename__ = 'cruise_parameters'
+    id = Column(Integer, primary_key=True)
+    cruise_id = Column(Integer, ForeignKey('cruises.id'))
+    cruise = relationship('Cruise')
+
+    parameter_id = Column(ForeignKey('parameters.id'))
+    parameter = relationship(Parameter, lazy='joined', backref='cruise_parameters')
+
+    # Whether the parameter has less than 10 data points for this cruise.
+    minimal = Column(Boolean, default=False)
+
+    def __init__(self, parameter=None, minimal=False):
+        self.parameter = parameter
+        self.minimal = minimal
+
+    def __repr__(self):
+        return u'<CruiseParameter({0}, {1}, {2})>'.format(
+            self.cruise, self.parameter, self.minimal)
+
 
 class CruiseDateFilter(object):
     def __init__(self, time_range):
@@ -2685,6 +2705,10 @@ class Cruise(Obj):
 
     date_start = Column(DateTime)
     date_end = Column(DateTime)
+
+    num_stations = Column(Integer, default=None)
+    parameters = relationship('CruiseParameter', backref='cruises',
+                              cascade='all, delete-orphan')
 
     ship_id = Column(Integer, ForeignKey('ships.id'))
     ship = relationship(Ship, foreign_keys=[ship_id], lazy='subquery', backref='cruises')

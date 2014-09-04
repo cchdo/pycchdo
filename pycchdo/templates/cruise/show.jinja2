@@ -175,6 +175,9 @@
           {{- cruise_attr('Ports', cruise.get('ports', [])|join(', ')) }}
           {{- cruise_attr('Expedition Link', cruise.get('link'), whh.tags.link_to, cruise.get('link')) }}
           {{- cruise_attr('Statuses', cruise.statuses|join(', ')) }}
+
+          {{- cruise_attr('Stations', cruise.num_stations) }}
+          {{- cruise_attr('Parameters', h.cruise_parameters(cruise.parameters)) }}
           {%- if h.has_edit(request) %}
             {{- cruise_attr('ID', cruise.id) }}
           {%- endif %}

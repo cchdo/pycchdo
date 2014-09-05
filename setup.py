@@ -36,7 +36,8 @@ _requires_app = [
     'whoosh',
     'geojson',
     'shapely',
-    'libcchdo>=0.8.2',
+    #'libcchdo>=0.8.2',
+    'libcchdo',
 ]
 requires = \
     _requires_framework + \
@@ -86,6 +87,8 @@ setup(
             ('pycchdo_rebuild_search_index = '
              'pycchdo.scripts.rebuild_search_index:main'),
             'pycchdo_import = pycchdo.importer:do_import',
+            ('pycchdo_update_param_status_cache = '
+             'pycchdo.scripts.update_param_status_cache:main'),
         ],
     }
 )

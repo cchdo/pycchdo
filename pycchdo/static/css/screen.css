@@ -983,6 +983,17 @@ table.notes {
   color: #EEEEEE;
 }
 
+.param_station_summary h1 {
+  font-size: 0.9em;
+  color: #565656;
+  margin: 0;
+}
+.param_station_summary .parameters {
+  color: #a8a8a8;
+  font-size: 0.8em;
+  line-height: 1.3em;
+}
+
 span.datesep {
   font-size: 0.6em;
   padding: 0 0.3em;

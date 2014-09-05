@@ -624,9 +624,9 @@ def cruises_sort_by_date_start(cruises):
     return sorted(cruises, key=lambda c: c.date_start or zero)
 
 
-def cruise_track_image(map, cruise, classes=[]):
+def cruise_track_image(map, cruise, classes=[], **kwargs):
     return tags.image(map, cruise_nice_name(cruise) + ' thumbnail',
-        class_=' '.join(['cruise-track-img'] + classes))
+        class_=' '.join(['cruise-track-img'] + classes), **kwargs)
 
 
 def _curr_direction(sorter, key):
@@ -670,6 +670,26 @@ def _orderby_path(request, direction, key):
         orderby = key
     return request.current_route_path(
         _query=dict(request.params, **{'orderby': orderby}))
+
+
+def param_station_summary(cruise):
+    """Return a div containing a parameter station summary for a cruise."""
+    stn_sum_title = []
+    station_summary = ''
+    if cruise.num_stations:
+        stn_sum_title.append(u'{0} stations'.format(cruise.num_stations))
+    if cruise.parameters:
+        if cruise.num_stations:
+            stn_sum_title.append(u' with the following ')
+        stn_sum_title.append(u'parameters: ')
+        station_summary = H.div(cruise_parameters(cruise.parameters),
+            class_='parameters')
+
+    return H.div(
+        H.h1(''.join(stn_sum_title)),
+        station_summary,
+        class_='param_station_summary'
+    )
 
 
 def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
@@ -728,6 +748,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
                 method='get', class_='button-to'),
             H.div(tags.submit('', 'History')),
             tags.end_form(),
+            style='display: none;',
             class_='links body {0}'.format(baseclass))
         row = [
             H.td(
@@ -757,18 +778,15 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
         row.append(
             H.td(
                 cruise_track_image(
-                    map_path, cruise, classes=['body', baseclass]),
+                    map_path, cruise, style='display: none;',
+                    classes=['body', baseclass]),
                 class_='map'
             ))
         list.append(H.tr(*row, class_=metaclass))
-        # TODO number of stations, parameters (and count)
-        #list.append(
-        #    H.tr(
-        #        H.td('{0} stations with the following parameters:',
-        #            colspan=2), 
-        #        class_=bodyclass
-        #    ),
-        #)
+        list.append(
+            H.tr(H.td(param_station_summary(cruise), colspan=6),
+                 style='display: none;', class_=bodyclass),
+        )
 
     table_class = 'has-meta-bodies cruise-listing'
     if pre_expand:

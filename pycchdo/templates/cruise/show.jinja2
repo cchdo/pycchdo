@@ -29,7 +29,7 @@
         <span class="pending" title="{{ h.pdatetime(file.ts_ack) }}">(Under review)</span>
       {%- endif %}
     </td>
-    <td colspan="2">
+    <td colspan="3">
       {%- if h.has_mod(request) %}
         {{ whh.tags.form(
              '/obj/%s/a/%s' % (cruise.id, file.id),
@@ -68,6 +68,9 @@
     <div id="{{ subsection_type }}">
       <table class="has-meta-bodies">
         <tr class="header">
+          {% if h.has_edit(request) %}
+            <th>ID</th>
+          {% endif %}
           <th class="file_type">File Type</th>
           <th>File</th>
           <th class="file_date">Date
@@ -83,6 +86,9 @@
           {%- set hl = loop.cycle('even', 'odd') %}
           {%- set frag = '{0}_{1}'.format(subsection_type, file.id) %}
           <tr class="mb-link{{ loop.index0 }} meta {{ hl }}" id="{{ frag }}">
+            {% if h.has_edit(request) %}
+              <td>{{ file.id }}</td>
+            {% endif %}
             <td class="file_type">
               {%- if h.has_edit(request) %}
                 {{ whh.tags.link_to(file.attr, request.current_route_path(_anchor=frag)) }}
@@ -118,7 +124,7 @@
           {%- endif %}
           {%- if file.notes or h.has_edit(request) %}
             <tr class="mb-link{{ loop.index0 }} body {{ hl }}">
-              <td colspan="4">
+              <td colspan="5">
                 {{ show_notes_with_editor(request, loop.index0, file, subsection_type) }}
               </td>
             </tr>

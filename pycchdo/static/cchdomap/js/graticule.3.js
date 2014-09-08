@@ -51,12 +51,19 @@ var Graticule = (function () {
   };
   _.prototype.clear = function () {
     var container = this.get('container');
-    while (container.hasChildNodes()) {
-      container.removeChild(container.firstChild);
+    var children = container.childNodes;
+    for (var i = container.childNodes.length - 1; i >= 0; i--) {
+      if (children[i].className != 'removed') {
+        continue;
+      }
+      container.removeChild(children[i]);
     }
   };
   _.prototype.onRemove = function() {
     this.getPanes().mapPane.removeChild(container);
+  };
+  _.prototype.isShowing = function() {
+    return this.get('container').style.visibility == 'visible';
   };
   _.prototype.show = function () {
     this.get('container').style.visibility = 'visible';
@@ -195,12 +202,19 @@ var Graticule = (function () {
     }
     return false;
   }
+  _.prototype.markForClear = function () {
+    var container = this.get('container');
+    var children = container.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      children[i].className = 'removed';
+    }
+  };
 
   // Redraw the graticule based on the current projection and zoom level
   _.prototype.draw = function () {
-    this.clear();
+    this.markForClear();
 
-    if (this.get('container').style.visibility != 'visible') {
+    if (!this.isShowing()) {
       return;
     }
 
@@ -253,9 +267,16 @@ var Graticule = (function () {
 
     // lngs
     var crosslng = l + 2 * dLng;
+    if (crosslng > 180) {
+      crosslng -= 360;
+    }
     // labels on second column to avoid peripheral controls
     var y = latLngToPixel(this, b + 2 * dLat, l).y + 2;
 
+    // Expand the range if it's only one delta wide
+    if (l + dLng == r) {
+      r += 360.0;
+    }
     // lo<r to skip printing 180/-180
     for (var lo = l; lo < r; lo += dLng) {
       if (lo > 180.0) {
@@ -267,7 +288,7 @@ var Graticule = (function () {
 
       var atcross = eqE(lo, crosslng);
       this.addDiv(makeLabel(
-        px + (atcross ? 17 : 3), y - (atcross ? 3 : 0),
+        px + (atcross ? 10 : 3), y - (atcross ? 2 : 0),
         (this.sex_ ? this.decToSex(lo) : lo.toFixed(gridPrecision(dLng)))));
     }
 
@@ -281,9 +302,10 @@ var Graticule = (function () {
       this.addDiv(parallel(py));
 
       this.addDiv(makeLabel(
-        x, py + (eqE(b, crosslat) ? 7 : 2),
+        x, py + (eqE(b, crosslat) ? 9 : 2),
         (this.sex_ ? this.decToSex(b) : b.toFixed(gridPrecision(dLat)))));
     }
+    this.clear();
   };
 
   return _;

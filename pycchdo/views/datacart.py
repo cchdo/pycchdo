@@ -211,7 +211,10 @@ def clear(request):
     method = http_method(request)
     if method != 'POST':
         raise HTTPMethodNotAllowed()
-    del request.session['datacart']
+    try:
+        del request.session['datacart']
+    except KeyError:
+        pass
     if request.is_xhr:
         return _json_response({'cart_count': 0})
     else:

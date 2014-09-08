@@ -159,6 +159,15 @@ class TestCollection(RequestBaseTest):
         from pycchdo.views.collection import collections_index, collections_index_json
         collections_index(self.request)
         collections_index_json(self.request)
+
+
+class TestDatacart(RequestBaseTest):
+    def test_clear(self):
+        from pycchdo.views.datacart import clear
+        self.request.method = 'POST'
+        self.request.is_xhr = False
+        self.request.referrer = ''
+        clear(self.request)
         
 
 class TestStaff(RequestBaseTest):

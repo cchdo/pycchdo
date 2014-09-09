@@ -2,7 +2,10 @@ from datetime import datetime
 from tempfile import SpooledTemporaryFile
 from contextlib import contextmanager
 
+import transaction
+
 from pyramid.renderers import render_to_response
+from pyramid.security import remember
 from pyramid.httpexceptions import (
     HTTPBadRequest, HTTPUnauthorized, exception_response
     )
@@ -10,7 +13,7 @@ from pyramid.httpexceptions import (
 from pycchdo import helpers as h
 from pycchdo.mail import send_submission_confirmation, get_email_addresses
 from pycchdo.models.serial import (
-    DBSession, FSFile, Submission, Note, RequestFor, store_context
+    DBSession, FSFile, Submission, Note, RequestFor, store_context, Person
     )
 from pycchdo.views.session import require_signin
 from pycchdo.log import getLogger
@@ -31,7 +34,24 @@ def _generate_multiple_files_file(files):
 
 
 def _create_submission(request, d):
-    user = request.user
+    direct_name = request.params['name']
+    direct_email = request.params['email']
+    user = None
+    if h.has_edit(request):
+        user = request.user
+        if (user.name != direct_name) or (user.email != direct_email):
+            user = None
+    if not user:
+        direct_name = request.params['name']
+        direct_email = request.params['email']
+        person = Person.create().obj
+        person.set_id_names(name=direct_name)
+        person.email = direct_email
+        pid = person.id
+        transaction.commit()
+        user = Person.query().get(pid)
+        request.user = user
+        
     sub = Submission.propose(user).obj
 
     if len(d['files']) > 1:
@@ -86,6 +106,16 @@ def _get_form_input(request):
     # Persist in session for form errors
     for k, v in d.items():
         h.form_entered(request, k, v)
+
+    doomed = False
+    if d['name'].strip() == "":
+        request.session.flash('A name is required', 'form_error_name')
+        doomed = True
+    if d['email'].strip() == "":
+        request.session.flash('An email is required', 'form_error_email')
+        doomed = True
+    if doomed:
+        raise HTTPBadRequest()
 
     uploaded = [v for k, v in request.POST.items() if k.startswith('files[')]
 
@@ -142,21 +172,20 @@ def submit(request):
     method = http_method(request)
     if method == 'GET':
         if h.has_edit(request):
-            return {}
-        request.session.flash(PLEASE_SIGNIN_MESSAGE, 'help')
-        request.referrer = request.url
-        return require_signin(request)
+            request.session.flash(request.user.name, 'form_entered_name')
+            request.session.flash(request.user.email, 'form_entered_email')
+        return {}
     elif method == 'POST':
-        if not h.has_edit(request):
-            raise HTTPUnauthorized()
         try:
             response = response_from_submission_request(request)
         except HTTPBadRequest:
             request.response.status = 400
             request.session.flash('Please correct the errors below', 'error')
             return {}
-        return render_to_response(
+        response = render_to_response(
             'pycchdo:templates/submit_confirmation.jinja2',
             response, request=request)
+        response.headerlist.extend(remember(request, str(request.user.id)))
+        return response
     raise exception_response(405)
 

@@ -2,8 +2,6 @@ from datetime import datetime
 from tempfile import SpooledTemporaryFile
 from contextlib import contextmanager
 
-import transaction
-
 from pyramid.renderers import render_to_response
 from pyramid.security import remember
 from pyramid.httpexceptions import (
@@ -15,6 +13,7 @@ from pycchdo.mail import send_submission_confirmation, get_email_addresses
 from pycchdo.models.serial import (
     DBSession, FSFile, Submission, Note, RequestFor, store_context, Person
     )
+from pycchdo.views import create_person
 from pycchdo.views.session import require_signin
 from pycchdo.log import getLogger
 from . import *
@@ -44,12 +43,7 @@ def _create_submission(request, d):
     if not user:
         direct_name = request.params['name']
         direct_email = request.params['email']
-        person = Person.create().obj
-        person.set_id_names(name=direct_name)
-        person.email = direct_email
-        pid = person.id
-        transaction.commit()
-        user = Person.query().get(pid)
+        user = create_person(name=direct_name, email=direct_email)
         request.user = user
         
     sub = Submission.propose(user).obj

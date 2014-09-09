@@ -3,11 +3,10 @@ import urllib
 import urllib2
 import json
 
-import transaction
-
 from pyramid.security import remember, forget
 from pyramid.httpexceptions import HTTPSeeOther, HTTPInternalServerError
 
+from pycchdo.views import create_person
 from pycchdo.models.serial import DBSession, Person
 from pycchdo.log import getLogger
 
@@ -47,12 +46,9 @@ def _profile_to_person(profile):
 
     person = Person.query().filter(Person.identifier == identifier).first()
     if not person:
-        person = Person.create().obj
-        person.set_id_names(identifier=identifier, name=name['formatted'])
-        person.email = email
-        pid = person.id
-        transaction.commit()
-        person = Person.query().get(pid)
+        person = create_person(identifier=identifier, name=name['formatted'],
+                               email=email)
+
     return person
 
 
@@ -138,12 +134,7 @@ def session_new(request):
             raise HTTPSeeOther(location=_redirect_uri(request))
         if not direct_email:
             raise HTTPSeeOther(location=_redirect_uri(request))
-        person = Person.create().obj
-        person.set_id_names(name=direct_name)
-        person.email = direct_email
-        pid = person.id
-        transaction.commit()
-        person = Person.query().get(pid)
+        person = create_person(name=direct_name, email=direct_email)
         return _do_signin(request, person)
 
     # Sign in a user for real from Janrain
@@ -174,7 +165,7 @@ def session_new(request):
         profile = auth_info['profile']
         return _do_signin(request, _profile_to_person(profile))
     else:
-        print 'ERROR: During signin: ' + auth_info['err']['msg']
+        log.eror('During signin: ' + auth_info['err']['msg'])
         raise HTTPSeeOther(location='/session/identify')
 
 

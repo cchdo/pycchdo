@@ -2,6 +2,8 @@ from datetime import datetime
 from cgi import FieldStorage
 import os.path
 
+import transaction
+
 from geojson import LineString as gj_LineString
 
 from pyramid.response import FileResponse
@@ -13,7 +15,7 @@ from webhelpers. paginate import Page
 from webob.multidict import MultiDict
 
 from pycchdo.models.types import *
-from pycchdo.models.serial import store_context, Obj, Cruise
+from pycchdo.models.serial import store_context, Obj, Cruise, Person
 from pycchdo.models.file_types import DataFileTypes
 from pycchdo.util import guess_mime_type, collapse_dict
 from pycchdo.log import getLogger, DEBUG
@@ -215,3 +217,17 @@ def server_error_view(request):
 def load_cruises_for(query):
     """Add options to a query for object that takes a cruise."""
     return Cruise.load_holder_options(query)
+
+
+def create_person(**kwargs):
+    person = Person.create().obj
+    try:
+        email = kwargs['email']
+        del kwargs['email']
+        person.email = email
+    except KeyError:
+        pass
+    person.set_id_names(**kwargs)
+    pid = person.id
+    transaction.commit()
+    return Person.query().get(pid)

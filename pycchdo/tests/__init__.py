@@ -55,7 +55,6 @@ class BaseTest(TestCase):
         push_store_context(pyramid_settings['fsstore'])
         self.config = testing.setUp()
         transaction.begin()
-        transaction.get().doom()
 
     def tearDown(self):
         DBSession.flush()

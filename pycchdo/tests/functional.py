@@ -119,12 +119,14 @@ class TestSubmit(RequestBaseTest):
         fst = MockFieldStorage(
             MockFile('hello', 'asr.txt'), 'asr.txt', 'text/plain')
         self.request.POST['files[0]'] = fst
+        self.request.POST['name'] = 'name'
+        self.request.POST['email'] = 'email'
         response_from_submission_request(self.request)
 
         mailer = get_mailer(self.request)
         self.assertEqual(len(mailer.outbox), 1)
         self.assertEqual(mailer.outbox[0].subject,
-                         "[CCHDO] Submission by None:  ")
+                         "[CCHDO] Submission by name:  ")
 
 
 class TestStaffModeration(RequestBaseTest):

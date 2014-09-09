@@ -111,6 +111,8 @@ class TestSubmit(RequestBaseTest):
             MockFile('hello', 'asdf.txt'), 'asdf.txt', 'text/plain')
         self.request.method = 'POST'
         self.request.POST['files[0]'] = fst
+        self.request.POST['name'] = 'name'
+        self.request.POST['email'] = 'email'
         resp = response_from_submission_request(self.request)
         self.assertEqual(resp['submission'].file.open_file().read(), 'hello')
 

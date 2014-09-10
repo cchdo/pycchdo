@@ -65,7 +65,7 @@ def add(request):
         request.session.flash('Error adding file to data cart.', 'error')
         raise HTTPNotFound()
 
-    request.datacart.add(id)
+    request.datacart.add(dattr.id)
 
     if request.is_xhr:
         return _json_response({'cart_count': len(request.datacart)})
@@ -86,7 +86,7 @@ def remove(request):
         request.session.flash('Error removing file from data cart.', 'error')
         raise HTTPNotFound()
 
-    request.datacart.remove(id)
+    request.datacart.remove(dattr.id)
 
     if request.is_xhr:
         return _json_response({'cart_count': len(request.datacart)})

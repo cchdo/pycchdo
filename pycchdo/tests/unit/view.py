@@ -164,11 +164,44 @@ class TestCollection(RequestBaseTest):
 
 
 class TestDatacart(RequestBaseTest):
+    def setUp(self):
+        super(TestDatacart, self).setUp()
+        from pycchdo.models.datacart import Datacart
+        self.request.datacart = Datacart()
+        self.request.is_xhr = False
+        self.request.referrer = ''
+
+    def tearDown(self):
+        del self.request.datacart
+        super(TestDatacart, self).tearDown()
+
+    def test_add(self):
+        ccc = Cruise.create(self.testPerson).obj
+        fst = MockFieldStorage(
+            MockFile('', 'mockfile.txt'), contentType='text/plain')
+        ccc = ccc.set(self.testPerson, 'bottle_exchange', fst)
+        from pycchdo.views.datacart import add
+        self.request.params['id'] = unicode(ccc.id)
+        add(self.request)
+
+    def test_remove(self):
+        ccc = Cruise.create(self.testPerson).obj
+        fst = MockFieldStorage(
+            MockFile('', 'mockfile.txt'), contentType='text/plain')
+        fff = ccc.set(self.testPerson, 'bottle_exchange', fst)
+        from pycchdo.views.datacart import add, add_cruise, remove
+        self.request.params['id'] = unicode(fff.id)
+        add(self.request)
+        remove(self.request)
+
+        self.request.params['id'] = unicode(ccc.id)
+        add_cruise(self.request)
+        self.request.params['id'] = unicode(fff.id)
+        remove(self.request)
+
     def test_clear(self):
         from pycchdo.views.datacart import clear
         self.request.method = 'POST'
-        self.request.is_xhr = False
-        self.request.referrer = ''
         clear(self.request)
         
 

@@ -170,24 +170,33 @@ def _create_parsers(schemas):
 _parsers = _create_parsers(_schemas)
 
 
+def rewrite_woce_line_parts(parts):
+    """Turn the separate parts into a woce line.
+
+    The separate parts should be the leading alpha characters, the digit, and
+    the trailing alpha characters (if any).
+
+    """
+    return u''.join([parts[0], parts[1].zfill(2), parts[2]])
+
+
 def rewrite_woce_line(parts):
-    """Turn the separate parts into a woce line."""
-    return u'{0}{1}'.format(parts[0], parts[1].zfill(2))
+    return u'({0} OR {1})'.format(
+        ''.join(parts), rewrite_woce_line_parts(parts))
 
 
-r_woceline = re_compile("(.*[A-Za-z]+)(\d+[^\s]*)")
+r_woceline = re_compile(r"\b([A-Za-z]+)(\d+)([^\s]*)")
 
 
 def adapt_query_string_for_woce_line(qstr):
-    parts = r_woceline.search(qstr)
-    if parts:
-        log.info(parts.start())
-        log.info(parts.end())
-        log.info(parts.groups())
-        woce_line_query = u'({0} OR {1})'.format(
-            ''.join(parts.groups()), rewrite_woce_line(parts.groups()))
-        return qstr[:parts.start()] + woce_line_query + qstr[parts.end():]
-    return qstr
+    last_end = 0
+    new_str = qstr[:0]
+    for parts in r_woceline.finditer(qstr):
+        new_str += qstr[last_end:parts.start()] + \
+            rewrite_woce_line(parts.groups())
+        last_end = parts.end()
+    new_str += qstr[last_end:]
+    return new_str
 
 
 class SearchResult(dict):

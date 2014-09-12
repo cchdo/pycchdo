@@ -26,6 +26,31 @@ class TestSerializerDateTime(BaseTest):
         self.assertEqual(deserial, self.dtime)
 
 
+class TestSearch(BaseTest):
+    def test_woce_line(self):
+        """WOCE line numbers need to be detected and searched for differently.
+
+        A query with a WOCE line number that is a single digit should be
+        rewritten with a zero. e.g. I8S -> I08S, AR9 -> AR09
+
+        """
+        from pycchdo.models.search import adapt_query_string_for_woce_line
+        qqq = "i8s"
+        self.assertEqual(u"(i8s OR i08s)", adapt_query_string_for_woce_line(qqq))
+        qqq = "ar9"
+        self.assertEqual(u"(ar9 OR ar09)", adapt_query_string_for_woce_line(qqq))
+
+    def test_woce_line_inside(self):
+        """WOCE line substitution should happen for all terms inside a query."""
+        from pycchdo.models.search import adapt_query_string_for_woce_line
+        qqq = "ar9 AND blah"
+        self.assertEqual(u"(ar9 OR ar09) AND blah", adapt_query_string_for_woce_line(qqq))
+        qqq = "blah AND NOT ar9"
+        self.assertEqual(u"blah AND NOT (ar9 OR ar09)", adapt_query_string_for_woce_line(qqq))
+        qqq = "i8s AND ar9"
+        self.assertEqual(u"(i8s OR i08s) AND (ar9 OR ar09)", adapt_query_string_for_woce_line(qqq))
+
+
 class TestSearchIndex(RequestBaseTest):
     def test_writer_finally_commit(self):
         sidx = self.request.registry.settings['db.search_index']

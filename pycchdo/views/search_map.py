@@ -12,11 +12,14 @@ from pyramid.httpexceptions import (
 
 from webhelpers import html as whh
 
-from shapely.geometry import polygon as poly
+from shapely.ops import unary_union
+from shapely.geometry import (
+    polygon as poly, LineString, Point, box, MultiPolygon,
+)
 
 from pycchdo import models, helpers as h
 from pycchdo.models import search
-from pycchdo.models.serial import Cruise, Change
+from pycchdo.models.serial import Cruise, Change, OrderedSet
 from pycchdo.views import file_response
 from pycchdo.log import getLogger, DEBUG
 
@@ -124,21 +127,23 @@ def ids(request):
                 raise HTTPBadRequest()
 
             if special == 'polygon':
-                polygon = poly.Polygon(coords)
-                polygons.append(polygon)
-                filters.append(lambda track: track_in_polygon(polygon, track))
+                filter_func = track_in_polygon
             elif special == 'rectangle':
                 # Do a rotl-1 to turn nw, se into sw, ne
-                if coords[0] and coords[2] and coords[0][0] < coords[2][0]:
-                    coords = coords[1:] + [coords[0]]
-                log.debug(coords)
-                polygon = poly.Polygon(coords)
-                polygons.append(polygon)
-                filters.append(lambda track: track_in_rectangle(polygon, track))
+                #if coords[0] and coords[2] and coords[0][0] < coords[2][0]:
+                #    coords = coords[1:] + [coords[0]]
+                filter_func = track_in_rectangle
             elif special == 'circle':
-                polygon = poly.Polygon(coords)
-                polygons.append(polygon)
-                filters.append(lambda track: True)
+                filter_func = track_in_polygon
+            else:
+                continue
+            polygon = poly.orient(poly.Polygon(coords))
+            polygons.append(polygon)
+            # Safe the polygon against the dateline for filtering. This could
+            # be improved by allowing Cruise.cruises_in_selection to operate on
+            # multipolygons and safing those as well.
+            polygon = safe_shape(polygon)
+            filters.append(TrackInChecker(polygon, filter_func))
 
         time_min = int(request.params.get('time_min', DEFAULTS['time_min']))
         # Bump the year forward because we want searches up to 
@@ -150,8 +155,8 @@ def ids(request):
         # MaxBoundingRectangleIntersection
         for polygon, bounds_check in zip(polygons, filters):
             raw_tracks, limited = getTracksInSelection(polygon, time_min, time_max)
-            cruises.extend(raw_tracks)
-            cruises.extend(filter(lambda t: bounds_check(t.track), raw_tracks))
+            cruises.extend(
+                filter(lambda t: bounds_check(uniq_track(t.track)), raw_tracks))
     elif req_ids:
         def get_by_id_or_expo(id):
             c = Cruise.get_id(id)
@@ -337,6 +342,22 @@ def pareDown(line, max_coords=50):
     return [list(line.coords[i]) for i in range(0, l, step_size)]
 
 
+def uniq_track(linestr):
+    uniq_coords = list(OrderedSet(linestr.coords))
+    if len(uniq_coords) == 1:
+        uniq_coords.append(uniq_coords[0])
+    return LineString(uniq_coords)
+
+
+class TrackInChecker(object):
+    def __init__(self, shape, func):
+        self.shape = shape
+        self.func = func
+
+    def __call__(self, track):
+        return self.func(self.shape, track)
+
+
 def in_range(lo, x, hi):
     """ Tells if x is in the interval [lo, hi) """
     return lo <= x and x < hi
@@ -354,6 +375,7 @@ def between_lng(lower, test, upper):
 
 
 def track_in_rectangle(rect, track):
+    # check each point, intersection is weird over the dateline
     sw, ne = rect.exterior.coords[0], rect.exterior.coords[2]
     def in_rect(coord):
         return (between_lng(sw[0], coord[0], ne[0]) and
@@ -367,28 +389,134 @@ def _in_circle(pt, center, radius):
 
 
 def track_in_circle(center, radius, track):
-    return any(_in_circle(coord, center, radius) for coord in track.coords)
+    return any(_in_circle(coord, center, radius) for coord in track)
+
+
+def in_polygon(poly, pt):
+    # port of a C algorithm
+    # similar http://www.ariel.com.au/a/python-point-int-poly.html
+    l = len(poly)
+    j = l - 1
+    c = False
+    for i in range(0, l):
+        v1 = poly[i]
+        v2 = poly[j]
+        if (((v1[1] > pt[1]) != (v2[1] > pt[1])) and
+            (pt[0] < (v2[0] - v1[0]) * (pt[1] - v1[1]) / (v2[1] - v1[1]) +
+             v1[0])):
+            c = not c
+        j = i
+    return c
+
+
+def crosses_dateline(polygon):
+    prev_pos = None
+    for coord in polygon.exterior.coords:
+        x = coord[0]
+        pos = x > 0
+        if prev_pos:
+            if pos != prev_pos:
+                return True
+        else:
+            prev_pos = pos
+    return False
+
+
+def shift_pts(pts, num_dim):
+    """Internal function to perform shift of individual points"""
+    if num_dim == 2:
+        for x, y in pts:
+            if x < 0:
+                x += 360
+            elif x > 180:
+                x -= 360
+            yield (x, y)
+    elif num_dim == 3:
+        for x, y, z in pts:
+            if x < 0:
+                x += 360
+            elif x > 180:
+                x -= 360
+            yield (x, y, z)
+
+
+def unshift_pts(pts, num_dim):
+    """Internal function to perform unshift of individual points"""
+    if num_dim == 2:
+        for x, y in pts:
+            if x >= 180:
+                x -= 360
+            yield (x, y)
+    elif num_dim == 3:
+        for x, y, z in pts:
+            if x >= 180:
+                x -= 360
+            yield (x, y, z)
+
+
+def shift(geom, shifter=shift_pts):
+    """
+    https://github.com/gisjon/Shapely/commit/2555c8ba80cf275783df8a927a19bef2c8283206
+    Reads every point in every component of input geometry, and performs the following change:
+        if the longitude coordinate is <0, adds 360 to it.
+        if the longitude coordinate is >180, subtracts 360 from it.
+
+    Useful for shifting between 0 and 180 centric map
+
+    """
+
+    if geom.is_empty:
+        return geom
+
+    if geom.has_z:
+        num_dim = 3
+    else:
+        num_dim = 2
+
+    # Determine the geometry type to call appropriate handler
+    if geom.type in ('Point', 'LineString'):
+        return type(geom)(list(shift_pts(geom.coords, num_dim)))
+    elif geom.type == 'Polygon':
+        ring = geom.exterior
+        shell = type(ring)(list(shift_pts(ring.coords, num_dim)))
+        holes = list(geom.interiors)
+        for pos, ring in enumerate(holes):
+            holes[pos] = type(ring)(list(shift_pts(ring.coords, num_dim)))
+        return type(geom)(shell, holes)
+    elif geom.type.startswith('Multi') or geom.type == 'GeometryCollection':
+        # Recursive call to shift all components
+        return type(geom)([shift(part)
+                           for part in geom.geoms])
+    else:
+        raise ValueError('Type %r not supported' % geom.type)
+
+
+def split_across_dateline(polygon):
+    """
+
+    Alternative: http://stackoverflow.com/questions/3623703
+
+    """
+    polygon = shift(polygon)
+    lower = box(0, -90, 180, 90)
+    upper = box(180, -90, 360, 90)
+
+    lower_polys = polygon.intersection(lower)
+    upper_polys = polygon.intersection(upper)
+    shift(upper_polys, unshift_pts)
+
+    return unary_union([lower_polys, upper_polys])
+
+
+def safe_shape(polygon):
+    """Return a shape that can handle crossing the date line."""
+    if crosses_dateline(polygon):
+        return split_across_dateline(polygon)
+    return polygon
 
 
 def track_in_polygon(polygon, track):
-    def in_polygon(poly, pt):
-        l = len(poly)
-        j = l - 1
-        c = False
-        for i in range(0, l):
-            v1 = poly[i]
-            v2 = poly[j]
-            if (((v1[1] > pt[1]) != (v2[1] > pt[1])) and
-                (pt[0] < (v2[0] - v1[0]) * (pt[1] - v1[1]) / (v2[1] - v1[1]) +
-                 v1[0])):
-                c = not c
-            j = i
-        return c
-
-    # Our polygons are only single ringed. Shapely has multi-ringed polygons so
-    # take the first one.
-    return any(in_polygon(polygon.exterior.coords, coord) for coord in
-               track.coords)
+    return polygon.intersects(track)
 
 
 def track_in_any_loci(loci, radius, track):

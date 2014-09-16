@@ -82,7 +82,7 @@
           </th>
           <th class="suggested_by">Suggested by</th>
         </tr>
-        {%- for file in updates[subsection_type] %}
+        {%- for file in updates[subsection_type] if h.has_permission(request, file.permissions_read) %}
           {%- set hl = loop.cycle('even', 'odd') %}
           {%- set frag = '{0}_{1}'.format(subsection_type, file.id) %}
           <tr class="mb-link{{ loop.index0 }} meta {{ hl }}" id="{{ frag }}">

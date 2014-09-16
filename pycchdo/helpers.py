@@ -104,8 +104,19 @@ def has_edit(request):
         return False
 
 
+def has_permission(request, permissions):
+    """Return whether the current user is allowed, based on the given list."""
+    if not permissions:
+        return True
+    if not has_edit(request):
+        return False
+    return any(perm in request.user.permissions for perm in permissions)
+
+
 def has_argo(request):
     """Determines if the request's user has Argo SFR priviledges."""
+    if not has_edit(request):
+        return False
     if 'argo' in request.user.permissions:
         return True
     return False
@@ -113,11 +124,12 @@ def has_argo(request):
 
 def has_mod(request):
     """ Determines if the request's user has moderator powers """
-    if has_edit(request):
-        if has_staff(request):
-            return True
-        if 'moderator' in request.user.permissions:
-            return True
+    if not has_edit(request):
+        return False
+    if has_staff(request):
+        return True
+    if 'moderator' in request.user.permissions:
+        return True
     return False
 
 
@@ -126,9 +138,10 @@ def has_staff(request):
         This is even more powerful than moderator.
 
     """
-    if has_edit(request):
-        if 'staff' in request.user.permissions:
-            return True
+    if not has_edit(request):
+        return False
+    if 'staff' in request.user.permissions:
+        return True
     return False
 
 

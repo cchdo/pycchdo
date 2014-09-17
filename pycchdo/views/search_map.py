@@ -33,7 +33,7 @@ DEFAULTS = {
     'max_coords': 50,
     'time_min': 1967,
     'time_max': datetime.date.today().year + 1,
-    'roi_result_limit': 50,
+    'roi_result_limit': None,
 }
 
 
@@ -158,19 +158,12 @@ def ids(request):
             cruises.extend(
                 filter(lambda t: bounds_check(uniq_track(t.track)), raw_tracks))
     elif req_ids:
-        def get_by_id_or_expo(id):
-            c = Cruise.get_id(id)
-            if not c:
-                c = Cruise.get_all_by_expocode(id)
-                if len(c) > 0:
-                    c = c[0]
-                else:
-                    c = None
-            return c
-        cruises = [get_by_id_or_expo(id) for id in req_ids]
+        cruises = [Cruise.get_by_id(id) for id in req_ids]
     elif req_q:
         results = request.search_index.search(request.params.get('q', ''))
         cruises = search.compile_into_cruises(results)
+    log.debug(u'{0} cruises found'.format(len(cruises)))
+
     h.reduce_specificity(cruises)
 
     # Build JSON response with id: track
@@ -183,13 +176,13 @@ def ids(request):
             tid = None
         id_track[str(c.id)] = tid
         id_cruises.append((c.id, tid, c))
+    log.debug('tracks loaded')
+    tracks = _track(id_cruises, request.params.get('max_coords', ''))
+    log.debug('tracks entered')
+    infos = _info(request, id_cruises)
+    log.debug('infos entered')
 
-    response = {
-        'id_t': id_track,
-        'i': _info(request, id_cruises),
-        't': _track(id_cruises, request.params.get('max_coords', '')),
-        'limited': limited,
-    }
+    response = {'id_t': id_track, 'i': infos, 't': tracks, 'limited': limited}
     resp = Response(json.dumps(response, cls=MapsJSONEncoder))
     resp.content_type = 'application/json'
     return resp
@@ -259,49 +252,54 @@ def layer(request):
     raise HTTPNotFound()
 
 
+def _info_id_cruise(request, cruise):
+    info = {
+        'name': cruise.expocode or '',
+        'contacts': ', '.join(
+            [pi.person.name for pi in cruise.chief_scientists]) or '',
+        'cruise_dates': h.cruise_dates(cruise)[2],
+    }
+
+    country = cruise.country
+    if country:
+        info['country'] = country.name
+
+    try:
+        collections = cruise.collections
+        if collections:
+            info['programs'] = ', '.join(
+                [coll.name for coll in collections])
+        else:
+            info['programs'] = ''
+    except AttributeError:
+        info['programs'] = ''
+
+    try:
+        ship = cruise.ship
+        if ship:
+            info['ship'] = ship.name
+        else:
+            info['ship'] = ''
+    except AttributeError, e:
+        print e
+        info['ship'] = ''
+
+    data_files = h.collect_data_files(cruise)
+    data = h.H.div(
+        h.datacart_link_cruise(request, cruise), 
+        h.data_files_lists(request, data_files, condensed=True,
+                         classes=['body']),
+        class_='dataset')
+    info['data'] = data
+    return info
+
+
 def _info(request, id_cruises):
     infos = {}
     for id, idt, cruise in id_cruises:
+        id = str(id)
         try:
-            id = str(id)
-            infos[id] = {
-                'name': cruise.expocode or '',
-                'contacts': ', '.join(
-                    [pi.person.name for pi in cruise.chief_scientists]) or '',
-                'cruise_dates': h.cruise_dates(cruise)[2],
-            }
-
-            country = cruise.country
-            if country:
-                infos[id]['country'] = country.name
-
-            try:
-                collections = cruise.collections
-                if collections:
-                    infos[id]['programs'] = ', '.join(
-                        [coll.name for coll in collections])
-                else:
-                    infos[id]['programs'] = ''
-            except AttributeError:
-                infos[id]['programs'] = ''
-
-            try:
-                ship = cruise.ship
-                if ship:
-                    infos[id]['ship'] = ship.name
-                else:
-                    infos[id]['ship'] = ''
-            except AttributeError, e:
-                print e
-                infos[id]['ship'] = ''
-
-            data_files = h.collect_data_files(cruise)
-            data = h.H.div(
-                h.datacart_link_cruise(request, cruise), 
-                h.data_files_lists(request, data_files, condensed=True,
-                                 classes=['body']),
-                class_='dataset')
-            infos[id]['data'] = data
+            infos[id] = _info_id_cruise(request, cruise)
         except (KeyError, AttributeError) as e:
             log.warn('Unable to read info for %s %s' % (id, e))
     return infos
@@ -374,13 +372,14 @@ def between_lng(lower, test, upper):
     return in_range(lower, test, upper)
 
 
+def in_rect(coord, sw, ne):
+    return (between_lng(sw[0], coord[0], ne[0]) and
+            between_lat(sw[1], coord[1], ne[1]))
 def track_in_rectangle(rect, track):
     # check each point, intersection is weird over the dateline
-    sw, ne = rect.exterior.coords[0], rect.exterior.coords[2]
-    def in_rect(coord):
-        return (between_lng(sw[0], coord[0], ne[0]) and
-                between_lat(sw[1], coord[1], ne[1]))
-    return any(in_rect(coord) for coord in track.coords)
+    ext = rect.exterior.coords
+    sw, ne = ext[0], ext[2]
+    return any(in_rect(coord, sw, ne) for coord in track.coords)
 
 
 def _in_circle(pt, center, radius):

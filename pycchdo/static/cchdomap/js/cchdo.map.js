@@ -116,7 +116,7 @@ CCHDO.MAP = {
     'dim': google.maps.Marker.MAX_ZINDEX + 4,
     'dimhl': google.maps.Marker.MAX_ZINDEX + 5
   },
-  NRESULT_WARN_THRESHOLD: 50
+  NRESULT_WARN_THRESHOLD: 200
 };
 
 CCHDO.MAP.TIPS = {
@@ -1017,8 +1017,9 @@ Model.prototype.query = function (layer, query, callback, tracks_callback,
 
   function handleData(data) {
     var id_t = data["id_t"];
-    if (getNumberOfProperties(id_t) > CCHDO.MAP.NRESULT_WARN_THRESHOLD) {
-      $('<div>There are more than ' + CCHDO.MAP.NRESULT_WARN_THRESHOLD +
+    var numProps = getNumberOfProperties(id_t);
+    if (numProps > CCHDO.MAP.NRESULT_WARN_THRESHOLD) {
+      $('<div>There are ' + numProps +
         ' results for your query. If you continue, plotting will take time.' + 
         '</div>').dialog({
         modal: true,

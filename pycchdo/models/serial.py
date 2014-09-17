@@ -2959,7 +2959,7 @@ class Cruise(Obj):
 
     @classmethod
     def cruises_in_selection(
-            cls, selection, time_range, roi_result_limit=50):
+            cls, selection, time_range, roi_result_limit=None):
         """Return cruises in selected polygon and time range.
 
         Returns a tuple of the matching cruises and also whether or not there
@@ -2968,8 +2968,9 @@ class Cruise(Obj):
         """
         polygon = list(selection.exterior.coords)
         query = Cruise.query().\
-            filter(Cruise._track.intersects(str(selection))).\
-            limit(roi_result_limit)
+            filter(Cruise._track.intersects(str(selection)))
+        if roi_result_limit is not None:
+            query = query.limit(roi_result_limit)
         cruises = Cruise.load_cruise_options(query).all()
 
         limited = False

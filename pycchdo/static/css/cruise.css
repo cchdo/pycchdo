@@ -66,23 +66,23 @@
   margin-left: -0.5em;
 }
 
-.subsection.data-files th,
-.subsection.data-files td {
+.subsection.dataset th,
+.subsection.dataset td {
   text-align: left;
   vertical-align: top;
 }
-.subsection.data-files th {
+.subsection.dataset th {
   width: 9em;
   padding-left: 1em;
 }
-.subsection.data-files tr.preliminary td,
-.subsection.data-files tr.preliminary th,
-.subsection.data-files tr.preliminary th a {
+.subsection.dataset tr.preliminary td,
+.subsection.dataset tr.preliminary th,
+.subsection.dataset tr.preliminary th a {
   color: #FF5555;
   font-style: italic;
 }
 
-.data-files td.datacart {
+.dataset td.datacart {
   width: 10em;
 }
 

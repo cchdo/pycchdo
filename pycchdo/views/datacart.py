@@ -2,7 +2,8 @@
 
 """
 from datetime import datetime
-from tempfile import SpooledTemporaryFile
+from copy import copy
+from StringIO import StringIO
 from zipfile import ZipFile, ZIP_DEFLATED
 from logging import getLogger
 
@@ -13,9 +14,11 @@ log = getLogger(__name__)
 from pyramid.response import Response
 from pyramid.renderers import render_to_response
 from pyramid.httpexceptions import (
-    HTTPMethodNotAllowed, HTTPNotFound, HTTPSeeOther)
+    HTTPBadRequest, HTTPMethodNotAllowed, HTTPNotFound, HTTPSeeOther)
 
 from webhelpers.text import plural
+
+from tempfilezipstream import TempFileStreamingZipFile, FileWrapper
 
 from pycchdo.views import *
 from pycchdo.models.datacart import Datacart
@@ -274,32 +277,66 @@ def _remove_single_cruise(request, cruise_id):
     return (file_count, count_diff)
 
 
+class ChangeFileWrapper(FileWrapper):
+    EMPTY_FILE = StringIO('missing')
+
+    @property
+    def fobj(self):
+        if self._fobj is None:
+            try:
+                self._fobj = self.__fobj.open_file()
+            except (OSError, IOError):
+                self._fobj = copy(self.EMPTY_FILE)
+                log.error(u'Missing file {0}'.format(self.__fobj))
+        return self._fobj
+
+    @fobj.setter
+    def fobj(self, value):
+        self.__fobj = value
+        self._fobj = None
+
+    @fobj.deleter
+    def fobj(self):
+        del self.__fobj
+        del self._fobj
+
+
 def download(request):
     method = http_method(request)
     if method != 'POST':
         raise HTTPMethodNotAllowed()
 
     try:
-        archive = int(request.params['archive'])
-    except (KeyError, ValueError):
-        raise HTTPNotFound()
+        archive = request.params['archive']
+    except KeyError:
+        raise HTTPBadRequest()
 
-    start = archive * ZIP_FILE_LIMIT
-    to_dl = list(request.datacart)[start:start + ZIP_FILE_LIMIT]
+    try:
+        ids = map(int, archive.split(','))
+    except ValueError:
+        raise HTTPBadRequest()
 
-    attrs = Change.get_all_by_ids(*to_dl)
-    with SpooledTemporaryFile(max_size=2**10) as tfile:
-        with    ZipFile(tfile, 'w', ZIP_DEFLATED) as zfile, \
-                store_context(request.fsstore):
-            for attr in attrs:
-                dfile = attr.value
-                try:
-                    zfile.writestr(dfile.name, dfile.open_file().read())
-                except (OSError, IOError):
-                    log.error(u'Missing file {0}'.format(dfile))
+    attrs = Change.get_all_by_ids(*ids)
+
+    with store_context(request.fsstore):
+        wrappers = []
+        for attr in attrs:
+            dfile = attr.value
+            wrappers.append(ChangeFileWrapper(dfile.name, dfile))
+
+        zstream = TempFileStreamingZipFile(wrappers)
 
         fname = TEMPNAME.format(datetime.now().strftime('%FT%T'))
-        tfile.seek(0)
+        app_iter = iter(zstream)
+
+        # preload the files. fsstore context is gone by the time app_iter is
+        # started
+        zstream._load()
+        for wrapper in wrappers:
+            # This prevents load inside iter
+            wrapper._arcname = None
+
         return Response(
-            body=tfile.read(), content_type='application/zip', 
+            app_iter=app_iter,
+            content_type='application/zip', 
             content_disposition='attachment; filename={0}'.format(fname))

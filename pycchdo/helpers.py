@@ -734,8 +734,6 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
     ]
     if show_data:
         headers.append(H.th('Dataset', class_='dataset'))
-    # Extra column for the datacart cruise link
-    headers.append(H.th())
     headers.append(H.th(class_='map'))
 
     list = [
@@ -790,11 +788,11 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
         if show_data:
             data_files = collect_data_files(cruise)
             row.append(H.td(
+                datacart_link_cruise(request, cruise),
                 data_files_lists(request, data_files, condensed=True,
                                  classes=['body', baseclass]),
                 class_='dataset'
             ))
-        row.append(H.td(datacart_link_cruise(request, cruise)))
         row.append(
             H.td(
                 cruise_track_image(
@@ -1298,83 +1296,34 @@ def datacart_link(act, link={}, **kwargs):
     rel = 'nofollow' + ref
 
     return tags.link_to(
-        H.div(act, class_='datacart-icon'), link, rel=rel, **kwargs)
+            H.div(act, class_='datacart-icon'), 'javascript:;', rel=rel, **kwargs)
 
 
-def datacart_link_file(request, act, fileattr):
+def datacart_link_file(request, fileattr):
     """Datacart action link for a single file."""
-    if act == 'Remove':
-        action = 'remove'
-        classname = 'datacart-link datacart-remove'
-        title = 'Remove from data cart'
-    elif act == 'Add':
-        action = 'add'
-        classname = 'datacart-link datacart-add'
-        title = 'Add to data cart'
-
-    return datacart_link(act,
-        request.route_path('datacart_' + action, _query={'id': fileattr.id}),
-        class_=classname, title=title)
+    classname = 'datacart-link-file-placeholder'
+    return datacart_link("",
+        class_=classname, dataid=fileattr.id,
+        datafname=fileattr.value.name, expocode=fileattr.obj.expocode)
 
 
-def datacart_link_cruise_action(request, act, cruise):
-    if act == 'Remove':
-        action = 'remove_cruise'
-        classname = 'datacart-link datacart-cruise datacart-remove'
-        title = 'Remove all cruise data from data cart'
-    elif act == 'Add':
-        action = 'add_cruise'
-        classname = 'datacart-link datacart-cruise datacart-add'
-        title = 'Add all cruise data to data cart'
-
-    return datacart_link("{0} all".format(act),
-        request.route_path('datacart_{0}'.format(action),
-                           _query={'id': cruise.id}),
-        class_=classname, title=title)
+def datacart_link_cruise_action(request, cruise):
+    classname = 'datacart-cruise-placeholder'
+    return datacart_link("",
+        class_=classname, expocode=cruise.expocode)
 
 
 def datacart_link_cruise(request, cruise):
     """Datacart action link for all the files in a cruise."""
-    nfiles_in_cart, nfiles = request.datacart.cruise_files_in_cart(cruise)
-    if nfiles_in_cart > 0:
-        link = datacart_link_cruise_action(request, 'Remove', cruise)
-    elif nfiles > 0:
-        link = datacart_link_cruise_action(request, 'Add', cruise)
-    else:
-        link = ''
+    link = datacart_link_cruise_action(request, cruise)
     return H.div(link, class_='datacart-cruise-links')
 
 
 def datacart_link_cruises(request, cruises, div_attributes={}):
-    nfiles_in_cart_all = 0
-    nfiles_all = 0
-    for cruise in cruises:
-        nfiles_in_cart, nfiles = request.datacart.cruise_files_in_cart(cruise)
-        nfiles_in_cart_all += nfiles_in_cart
-        nfiles_all += nfiles
-
-    ids = [ccc.id for ccc in cruises]
-    if nfiles_in_cart_all > 0:
-        link_str = 'Remove all data in result'
-        link_params = request.route_path(
-            'datacart_remove_cruises', _query={'ids': ids})
-        link_attrs = {
-            'class_': 'datacart-link datacart-results datacart-remove',
-            'title': 'Remove all result data from data cart',
-        }
-    elif nfiles_all > 0:
-        link_str = 'Add all data in result'
-        link_params = request.route_path(
-            'datacart_add_cruises', _query={'ids': ids})
-        link_attrs = {
-            'class_': 'datacart-link datacart-results datacart-add',
-            'title': 'Add all result data to data cart',
-        }
-    else:
-        link_str = ''
-        link = ''
-        link_params = ''
-        link_attrs = {}
+    link_str = 'Add all data in result'
+    link_attrs = {
+        'class_': 'datacart-results-placeholder',
+    }
     div_attrs = {'class_': "datacart-cruises-links"}
     div_attrs_proper = dict(
         list(div_attributes.items()) + list(div_attrs.items()))
@@ -1383,7 +1332,7 @@ def datacart_link_cruises(request, cruises, div_attributes={}):
             filter(None, [
                 div_attrs.get('class_', None),
                 div_attributes['class_']]))
-    link = datacart_link(link_str, link_params, **link_attrs)
+    link = datacart_link(link_str, {}, **link_attrs)
     return H.div(link, **div_attrs_proper)
 
 
@@ -1435,11 +1384,7 @@ def data_file_link(request, type, data, leader=None):
                                  title=description)),
     ]
 
-    # If datacart has item
-    if data.id in get_datacart(request):
-        dcart_link = datacart_link_file(request, 'Remove', data)
-    else:
-        dcart_link = datacart_link_file(request, 'Add', data)
+    dcart_link = datacart_link_file(request, data)
     items.append(H.td(dcart_link, class_='datacart'))
 
     classes = [type.replace('_', ' ')]

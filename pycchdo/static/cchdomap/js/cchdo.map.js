@@ -1205,11 +1205,11 @@ function GVTable() {
   this._table_dom = $('<div class="cruise-table">').appendTo(this._dom);
 
   this._dcart_all = $('<div class="datacart-cruises-links data-formats">'+
-    '<a href="/datacart/add_cruises" ' +
-    'class="datacart-link datacart-results datacart-add" '+
+    '<a href="javascript:;" ' +
+    'class="datacart-link datacart-results-placeholder" '+
     'style="margin-left: 80%; margin-bottom: 0.5em;"' +
     'title="Add all result data to data cart">' +
-    '<div class="datacart-icon">Add all data in result</div></a></div>')
+    '<div class="datacart-icon"></div></a></div>')
     .prependTo(this._dom);
 
   this.setTableJDOM(this._table_dom);
@@ -1483,12 +1483,7 @@ GVTable.prototype.dark = function (id) {
 };
 
 GVTable.prototype.setDatacartAllLink = function() {
-  var self = this;
-  var link = [];
-  this.tableRows().each(function(i, x) {
-    link.push("ids=" + self.getCruiseIdForTr(x));
-  });
-  this._dcart_all.find('a').attr('href', "/datacart/add_cruises?" + link.join('&'));
+  make_datacart_links(jQuery);
 };
 
 GVTable.prototype.redraw = function () {

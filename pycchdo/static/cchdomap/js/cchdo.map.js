@@ -173,55 +173,6 @@ CCHDO.MAP.tip = (function () {
   };
 })();
 
-CCHDO.MAP.processCommands = function (commands) {
-  for (var i = 0; i < commands.length; i += 1) {
-    var command = commands[i];
-    if (/^search\:(.+)/.test(command)) {
-      var searchCreator = $(CCHDO.MAP.layerView.layerSectionSearch.creator._content);
-      searchCreator.find('input:not(:submit)').val(command.substring('search:'.length));
-      searchCreator.find('form').submit();
-    } else if (/^kmllink\:(.+)/.test(command)) {
-      var kmllinkCreator = $(CCHDO.MAP.layerView.layerSectionKML.creatorLink._content);
-      kmllinkCreator.find(':text').val(command.substring('kmllink:'.length));
-      kmllinkCreator.find('form').submit();
-    } else if (/^graticules\:(.+)/.test(command)) {
-      var on = true;
-      var value = command.substring('graticules:'.length);
-      if (value == 'off') {
-        on = false;
-      }
-      CCHDO.MAP.layerView.layerSectionPermanent.gratlayer.setOn(on);
-    } else if (/^atmosphere\:(.+)/.test(command)) {
-      var on = true;
-      var value = command.substring('atmosphere:'.length);
-      if (value == 'off') {
-        on = false;
-      }
-      CCHDO.MAP.layerView.layerSectionPermanent.atmolayer.setOn(on);
-    } else if (/^map_type\:earth/.test(command)) {
-      CCHDO.MAP.map.setMapTypeId('Earth');
-    } else {
-    }
-  }
-};
-
-CCHDO.MAP.processHashCommands = function () {
-  if (!CCHDO.MAP.layerView) {
-    return;
-  }
-  var hash = location.hash;
-  if (hash) {
-    commands = hash.substring(1).split(',');
-    CCHDO.MAP.processCommands(commands);
-  }
-};
-
-CCHDO.MAP.processSessionCommands = function () {
-  if (CCHDO.session_map_commands) {
-    CCHDO.MAP.processCommands(CCHDO.session_map_commands.split(','));
-  }
-};
-
 CCHDO.MAP.load = function () {
   CCHDO.MAP.tip(CCHDO.MAP.TIPS['loading'], {life: 300});
   var domroot = $('#map_space');
@@ -267,6 +218,7 @@ CCHDO.MAP.load = function () {
   // graticules needs to be loaded before layerview
   CCHDO.MAP.layerView = new CCHDO.MAP.Layers.DefaultLayerView(CCHDO.MAP.map);
   CCHDO.MAP.pane.setPaneContent(CCHDO.MAP.layerView._dom);
+  CCHDO.MAP.Commands = CCHDO.MAP.setupCommands(CCHDO.MAP.layerView);
 
   $(window).resize(function () {
     domroot.height($(this).height());
@@ -275,8 +227,6 @@ CCHDO.MAP.load = function () {
     CCHDO.MAP.pane.redraw();
     $.fx.off = previousFx;
   }).resize();
-
-  CCHDO.MAP.layerView.layerSectionPermanent.tablelayer.setOn(true);
 
   function completeInit() {
     // TODO figure out how to do this without opening security hole
@@ -296,8 +246,8 @@ CCHDO.MAP.load = function () {
     //  });
     //});
 
-    CCHDO.MAP.processSessionCommands();
-    CCHDO.MAP.processHashCommands();
+    CCHDO.MAP.Commands.processSession();
+    CCHDO.MAP.Commands.processHash();
   }
 
   google.maps.event.addListener(CCHDO.MAP.earth, 'initialized', completeInit);
@@ -433,8 +383,8 @@ PanedMap.prototype.setOpen = function (open) {
 return PanedMap;
 })();
 
-(function () {
- var CM = CCHDO.MAP;
+(function (CCHDO) {
+var CM = CCHDO.MAP;
 
 function ImportKML() {
 }
@@ -603,7 +553,7 @@ ColorWheel.tupleToHtml = function (t) {
                ColorWheel.magToHex(t[2]);
 };
 
-var nextColor = (function () {
+CM.nextColor = (function () {
   var i = 0;
   return function () {
     i += 1;
@@ -1065,6 +1015,8 @@ Model.prototype.query = function (layer, query, callback, tracks_callback,
       }
       ls.add(layer.id);
       self._l[layer.id] = layer;
+
+      CCHDO.MAP.layerView.layerSectionPermanent.tablelayer.setOn(true);
     }
 
     var infos = data["i"];
@@ -1091,57 +1043,14 @@ Model.prototype.query = function (layer, query, callback, tracks_callback,
     callback.call(self, ids);
   }
 
+  // Create query
   var queryData = {};
-
   var x = query.query;
-
   if (typeof(x) == 'string') {
-    queryData = {q: x};
+    queryData = {q: layer.serialize()};
   } else {
-    var overlay = x;
-    var shape = {shape: "polygon", v: []};
-    if (overlay instanceof google.maps.Circle) {
-      shape.shape = "circle";
-      shape.v = makeCirclePolygon(
-        overlay.getCenter(),
-        overlay.getRadius() / Math.pow(10, 5), 8).getPath();
-    } else if (overlay instanceof google.maps.Rectangle) {
-      shape.shape = "rectangle";
-      var b = overlay.getBounds();
-      var sw = b.getSouthWest();
-      var ne = b.getNorthEast();
-      var nw = new google.maps.LatLng(ne.lat(), sw.lng());
-      var se = new google.maps.LatLng(sw.lat(), ne.lng());
-      shape.v = [sw, nw, ne, se, sw];
-    } else {
-      shape.v = overlay.getPath();
-    }
-
-    function serializeLatLng(ll) {
-      return [ll.lng().toFixed(5), ll.lat().toFixed(5)].join(',');
-    }
-
-    function serializeVs(vs) {
-      var nvs = [];
-      if (vs instanceof google.maps.MVCArray) {
-        vs.forEach(function (x) {
-          nvs.push(serializeLatLng(x));
-        });
-      } else {
-        for (var i = 0; i < vs.length; i += 1) {
-          nvs.push(serializeLatLng(vs[i]));
-        }
-      }
-      return nvs.join('_');
-    }
-
-    function serializeShape(shape) {
-      return [shape.shape, serializeVs(shape.v)].join(':')
-    }
-
-    queryData = {shapes: [serializeShape(shape)].join('|')};
+    queryData = {shapes: layer.serialize()}
   }
-
   queryData.time_min = query.time_min || CM.TIME_MIN;
   queryData.time_max = query.time_max || CM.TIME_MAX;
 
@@ -1767,6 +1676,7 @@ function LayerSection(name) {
   this._title = document.createElement('H1');
   dom.appendChild(this._title);
 
+  this._layers = [];
   this._list = document.createElement('UL');
   dom.appendChild(this._list);
 
@@ -1792,21 +1702,30 @@ LayerSection.prototype.setName = function (name) {
 };
 
 LayerSection.prototype.addLayer = function (layer) {
+  if (this.commander) {
+    commander.updateHash();
+  }
   var lastChild = this._list.lastChild;
   if (lastChild && lastChild.className.indexOf('layer-creator') > -1) {
+    this._layers.unshift(layer);
     this._list.insertBefore(layer._dom, lastChild);
   } else {
+    this._layers.push(layer);
     this._list.appendChild(layer._dom);
   }
   layer._layerSection = this;
 };
 
 LayerSection.prototype.getLayers = function () {
-  return this._list;
+  return this._layers;
 };
 
 LayerSection.prototype.removeLayer = function (layer) {
+  if (this.commander) {
+    commander.updateHash();
+  }
   this._list.removeChild(layer._dom);
+  this._layers.splice($.inArray(layer, this._layers), 1);
   layer._layerSection = undefined;
 };
 
@@ -1986,6 +1905,7 @@ function DefaultLayerView(map) {
     this.layerSectionNAV
   ];
   for (var i = 0; i < sections.length; i += 1) {
+    sections[i].commander = CCHDO.MAP.Commands;
     this.pushSection(sections[i]);
   }
 }
@@ -2086,6 +2006,7 @@ function QueryLayer() {
     return self.edit();
   });
 }
+CM.QueryLayer = QueryLayer;
 
 QueryLayer.prototype = new Layer();
 
@@ -2176,6 +2097,10 @@ SearchLayer.prototype._associated = function () {
   $(this._accessory_count).empty().html(this._ids.getLength());
 };
 
+SearchLayer.prototype.serialize = function() {
+  return this._query.query;
+};
+
 SearchLayer.prototype.query = function () {
   var self = this;
   var query = this._query;
@@ -2217,7 +2142,7 @@ function SearchLayerCreator() {
     if (query.length < 1) {
       return false;
     }
-    var layer = new SearchLayer(query, nextColor());
+    var layer = new SearchLayer(query, CCHDO.MAP.nextColor());
     self._layerSection.addLayer(layer);
     layer.query();
     $(textfield).blur();
@@ -2241,15 +2166,44 @@ RegionLayerSection.prototype = new LayerSection();
 
 function RegionLayer(shape, color) {
   QueryLayer.call(this);
-  this._shape = shape;
+
+  var self = this;
+  this.requerier = function() {
+    CCHDO.MAP.Commands.updateHash();
+    self.query();
+  };
+
+  this.setShape(shape);
   this._query = {
     query: this._shape, time_min: CCHDO.MAP.TIME_MIN,
     time_max: CCHDO.MAP.TIME_MAX};
-
   addColorBox(this, color);
 }
 
 RegionLayer.prototype = new QueryLayer();
+
+RegionLayer.prototype.setShape = function(shape) {
+  this._shape = shape;
+  this._shape.setEditable(true);
+  this.addOnChangeRequeries(this._shape);
+};
+
+RegionLayer.prototype.addOnChangeRequery = function(overlay, change_event) {
+  google.maps.event.addListener(overlay, change_event, this.requerier);
+};
+
+RegionLayer.prototype.addOnChangeRequeries = function(overlay) {
+  if (overlay instanceof google.maps.Rectangle) {
+    this.addOnChangeRequery(overlay, 'bounds_changed');
+  } else if (overlay instanceof google.maps.Circle) {
+    this.addOnChangeRequery(overlay, 'center_changed');
+    this.addOnChangeRequery(overlay, 'radius_changed');
+  } else if (overlay instanceof google.maps.Polygon) {
+    this.addOnChangeRequery(overlay.getPath(), 'insert_at');
+    this.addOnChangeRequery(overlay.getPath(), 'remove_at');
+    this.addOnChangeRequery(overlay.getPath(), 'set_at');
+  }
+};
 
 RegionLayer.prototype.remove = function () {
   this._shape.setMap(null);
@@ -2422,6 +2376,51 @@ RegionLayer.prototype._associated = function () {
   this.setColor(this._color);
 };
 
+RegionLayer.prototype.serialize = function () {
+  var overlay = this._query.query;
+  var shape = {shape: "polygon", v: []};
+  if (overlay instanceof google.maps.Circle) {
+    shape.shape = "circle";
+    shape.v = makeCirclePolygon(
+      overlay.getCenter(),
+      overlay.getRadius() / Math.pow(10, 5), 8).getPath();
+  } else if (overlay instanceof google.maps.Rectangle) {
+    shape.shape = "rectangle";
+    var b = overlay.getBounds();
+    var sw = b.getSouthWest();
+    var ne = b.getNorthEast();
+    var nw = new google.maps.LatLng(ne.lat(), sw.lng());
+    var se = new google.maps.LatLng(sw.lat(), ne.lng());
+    shape.v = [sw, nw, ne, se, sw];
+  } else {
+    shape.v = overlay.getPath();
+  }
+
+  function serializeLatLng(ll) {
+    return [ll.lng().toFixed(5), ll.lat().toFixed(5)].join(',');
+  }
+
+  function serializeVs(vs) {
+    var nvs = [];
+    if (vs instanceof google.maps.MVCArray) {
+      vs.forEach(function (x) {
+        nvs.push(serializeLatLng(x));
+      });
+    } else {
+      for (var i = 0; i < vs.length; i += 1) {
+        nvs.push(serializeLatLng(vs[i]));
+      }
+    }
+    return nvs.join('_');
+  }
+
+  function serializeShape(shape) {
+    return [shape.shape, serializeVs(shape.v)].join(':')
+  }
+
+  return [serializeShape(shape)].join('|');
+};
+
 RegionLayer.prototype.query = function () {
   var self = this;
   this.disable();
@@ -2444,8 +2443,20 @@ RegionLayer.prototype.query = function () {
 function RegionLayerCreator() {
   LayerCreator.call(this);
   var button = document.createElement('BUTTON');
-  button.appendChild(document.createTextNode('Draw region of interest'));
+  button.style.backgroundColor = '#31b404';
+  var button_text_start = 'Draw region of interest';
+  var button_text_active = 'drawing mode active';
+  var button_text = null;
   this._content.appendChild(button);
+
+  function setButtonText(text) {
+    if (button_text) {
+      button.removeChild(button_text);
+    }
+    button_text = document.createTextNode(text);
+    button.appendChild(button_text);
+  }
+  setButtonText(button_text_start);
 
   var OverlayType = google.maps.drawing.OverlayType;
   this.drawingManager = new google.maps.drawing.DrawingManager({
@@ -2457,68 +2468,55 @@ function RegionLayerCreator() {
         OverlayType.RECTANGLE, OverlayType.CIRCLE, OverlayType.POLYGON]
     },
   });
-
-  var self = this;
-  button.onclick = function () {
-    self.drawingManager.setMap(self._layerSection._layerView._model._map);
-
-    var next_color = nextColor();
-
-    button.disabled = 'disabled';
-
-    self.drawingManager.setOptions({
+  this.drawingManager_options = function(color) {
+    return {
       rectangleOptions: {
-        fillColor: next_color,
-        strokeColor: next_color,
+        fillColor: color,
+        strokeColor: color,
         strokeWeight: 2
       },
       circleOptions: {
-        fillColor: next_color,
-        strokeColor: next_color,
+        fillColor: color,
+        strokeColor: color,
         strokeWeight: 2
       },
       polygonOptions: {
-        fillColor: next_color,
-        strokeColor: next_color,
+        fillColor: color,
+        strokeColor: color,
         strokeWeight: 2
       }
-    });
+    };
+  };
 
-    function finished() {
+  var self = this;
+  button.onclick = function () {
+    button.disabled = 'disabled';
+    setButtonText(button_text_active);
+
+    var color = CCHDO.MAP.nextColor();
+    self.drawingManager.setOptions(self.drawingManager_options(color));
+
+    function endDrawMode() {
       self.drawingManager.setMap(null)
       button.disabled = '';
+      setButtonText(button_text_start);
+      google.maps.event.removeListener(listenerEscape);
     }
+
+    var listenerEscape = google.maps.event.addDomListenerOnce(
+        window, 'keydown', function (event) {
+      if (event.keyCode == 27) {
+        endDrawMode();
+      }
+    });
 
     google.maps.event.addListenerOnce(
         self.drawingManager, 'overlaycomplete', function (event) {
-      var overlay = event.overlay;
-      overlay.setEditable(true);
-      var layer = new RegionLayer(overlay, next_color);
-      self._layerSection.addLayer(layer);
-      layer.query();
+      self.create(event.overlay, color);
+      endDrawMode();
+    });
 
-      var change_events = []
-      if (event.type == OverlayType.RECTANGLE) {
-        change_events.push('bounds_changed');
-      } else if (event.type == OverlayType.CIRCLE) {
-        change_events.push('center_changed');
-        change_events.push('radius_changed');
-      } else if (event.type == OverlayType.POLYGON) {
-        change_events.push('paths_changed');
-      }
-      for (var i = 0; i < change_events.length; i++) {
-        var change_event = change_events[i];
-        google.maps.event.addListener(overlay, change_event, function () {
-          layer.query();
-        });
-      }
-      finished();
-    });
-    google.maps.event.addDomListenerOnce(window, 'keydown', function (event) {
-      if (event.keyCode == 27) {
-        finished();
-      }
-    });
+    self.drawingManager.setMap(self._layerSection._layerView._model._map);
 
     CM.tip(CM.TIPS['startDraw']);
     return false;
@@ -2526,6 +2524,13 @@ function RegionLayerCreator() {
 }
 
 RegionLayerCreator.prototype = new LayerCreator();
+
+RegionLayerCreator.prototype.create = function(overlay, color) {
+  var layer_region = new RegionLayer(overlay, color);
+  this._layerSection.addLayer(layer_region);
+  layer_region.query();
+  return layer_region;
+};
 
 
 function KMLLayerSection() {
@@ -2885,7 +2890,7 @@ function NAVLayerCreator() {
                                              function (imported) {
         layer._mapobj = imported.mapsLayer;
 
-        layer.setColor(nextColor());
+        layer.setColor(CCHDO.MAP.nextColor());
         layer.enable();
         layer.setOn(true);
       });
@@ -2896,9 +2901,246 @@ function NAVLayerCreator() {
 
 NAVLayerCreator.prototype = new LayerCreator();
 
+function setupCommands(layerView) {
+  var ns = {};
+  ns.Command = (function() {
+    function _() {};
+    _.prototype.regexp = /^$/;
+    /* Test whether a string command matches this command
+     */
+    _.prototype.match = function(command) {
+      return this.regexp.test(command);
+    };
+    _.prototype.query = function(layer) {
+      return null;
+    };
+    _.prototype.queries = function() {
+      var layerSection = this.layerSection;
+      var layers = layerSection.getLayers();
+      var queries = [];
+      for (var i = 0; i < layers.length; i++) {
+        var layer = layers[i];
+        if (layer instanceof LayerCreator) {
+          continue;
+        }
+        queries.push(this.query(layer));
+      }
+      return queries;
+    };
+    return _;
+  })();
 
-if (window.CCHDO && window.CCHDO.MAP) {
-  window.CCHDO.MAP.Layers = {
+  ns.SearchCommand = (function() {
+    function _() {
+      this.layerSection = layerView.layerSectionSearch;
+    };
+    _.prototype = new ns.Command();
+    _.prototype.regexp = /^search\:(.+)/;
+    _.prototype.execute = function(command) {
+      var searchCreator = $(layerView.layerSectionSearch.creator._content);
+      searchCreator.find('input:not(:submit)').val(command.substring('search:'.length));
+      searchCreator.find('form').submit();
+    };
+    _.prototype.query = function(layer) {
+      return 'search:' + layer.serialize();
+    };
+    return _;
+  })();
+
+  ns.RegionCommand = (function() {
+    function _() {
+      this.layerSection = layerView.layerSectionRegion;
+    };
+    _.prototype = new ns.Command();
+    _.prototype.regexp = /^region\:(.+)/;
+    _.prototype.deserializePoint = function(pt) {
+      pt = pt.split(',');
+      return new google.maps.LatLng(pt[1], pt[0]);
+    };
+    _.prototype.deserializePoints = function(pts) {
+      pts = pts.split('_');
+      var coords = [];
+      for (var i = 0; i < pts.length; i++) {
+        coords.push(this.deserializePoint(pts[i]));
+      }
+      return coords;
+    };
+    _.prototype.execute = function(command) {
+      var parts = command.split(':');
+      var overlay = null;
+      if (parts[1] == 'rectangle') {
+        var coords = parts[2].split('_');
+        var sw = this.deserializePoint(coords[0]);
+        var ne = this.deserializePoint(coords[2]);
+        overlay = new google.maps.Rectangle({
+          bounds: new google.maps.LatLngBounds(sw, ne)
+        });
+      } else if (parts[1] == 'circle') {
+        var coords = this.deserializePoints(parts[2]);
+        var bounds = new google.maps.LatLngBounds();
+        bounds.extend.apply(bounds, coords);
+        var sw = bounds.getSouthWest();
+        var ne = bounds.getNorthEast();
+        var midx = (ne.lng() - sw.lng()) / 2 + sw.lng();
+        var midy = (ne.lat() - sw.lat()) / 2 + sw.lat();
+        var pt0 = new google.maps.LatLng(ne.lat(), midx);
+        var pt1 = new google.maps.LatLng(sw.lat(), midx);
+
+        // TODO acutally calculate the distance
+        var radius = (ne.lat() - sw.lat()) * 1000;
+
+        overlay = new google.maps.Circle({
+          center: bounds.getCenter(),
+          radius: radius,
+        });
+      } else if (parts[1] == 'polygon') {
+        var coords = this.deserializePoints(parts[2]);
+        overlay = new google.maps.Polygon({
+          path: coords
+        });
+      } else {
+        return;
+      }
+      var regionCreator = layerView.layerSectionRegion.creator;
+      regionCreator.create(overlay, CCHDO.MAP.nextColor());
+    };
+    _.prototype.query = function(layer) {
+      return 'region:' + layer.serialize();
+    };
+    return _;
+  })();
+
+  ns.KMLCommand = (function() {
+    function _() {
+      this.layerSection = layerView.layerSectionKML;
+    };
+    _.prototype = new ns.Command();
+    _.prototype.regexp = /^kmllink\:(.+)/;
+    _.prototype.execute = function(command) {
+      var kmllinkCreator = $(layerView.layerSectionKML.creatorLink._content);
+      kmllinkCreator.find(':text').val(command.substring('kmllink:'.length));
+      kmllinkCreator.find('form').submit();
+    };
+    _.prototype.query = function(layer) {
+      console.log(layer);
+      return 'kmllink:' + layer._query.query;
+    };
+    return _;
+  })();
+
+  ns.GraticulesCommand = (function() {
+    function _() {};
+    _.prototype = new ns.Command();
+    _.prototype.regexp = /^graticules\:(.+)/;
+    _.prototype.execute = function(command) {
+      var on = true;
+      var value = command.substring('graticules:'.length);
+      if (value == 'off') {
+        on = false;
+      }
+      layerView.layerSectionPermanent.gratlayer.setOn(on);
+    };
+    _.prototype.queries = function() {
+      var value = 'off';
+      if (layerView.layerSectionPermanent.gratlayer._check.checked) {
+        value = 'on';
+      }
+      return ['graticules:' + value];
+    };
+    return _;
+  })();
+
+  ns.AtmosphereCommand = (function() {
+    function _() {};
+    _.prototype = new ns.Command();
+    _.prototype.regexp = /^atmo(sphere?)\:(.+)/;
+    _.prototype.execute = function(command) {
+      var on = true;
+      var value = command.substring('atmosphere:'.length);
+      if (value == 'off') {
+        on = false;
+      }
+      layerView.layerSectionPermanent.atmolayer.setOn(on);
+    };
+    _.prototype.queries = function() {
+      var lsPerm = layerView.layerSectionPermanent;
+      if (lsPerm.atmolayer && !lsPerm.atmolayer.getOn()) {
+        return ['atmosphere:off'];
+      }
+      return [];
+    };
+    return _;
+  })();
+
+  ns.MapTypeEarthCommand = (function() {
+    function _() {};
+    _.prototype = new ns.Command();
+    _.prototype.regexp = /^map_type\:earth/;
+    _.prototype.execute = function(command) {
+      CCHDO.MAP.map.setMapTypeId('Earth');
+    };
+    _.prototype.queries = function() {
+      if (CCHDO.MAP.map.getMapTypeId() == 'Earth') {
+        return ['map_type:earth'];
+      }
+      return [];
+    };
+    return _;
+  })();
+
+  ns.commands = [
+    new ns.SearchCommand(), new ns.RegionCommand(), new ns.KMLCommand(),
+    new ns.GraticulesCommand(), new ns.AtmosphereCommand(), new
+    ns.MapTypeEarthCommand()];
+
+  ns.process = function (commands) {
+    for (var i = 0; i < commands.length; i += 1) {
+      var command = commands[i];
+      var responders = CCHDO.MAP.Commands.commands;
+      for (var j = 0; j < responders.length; j++) {
+        if (responders[j].match(command)) {
+          responders[j].execute(command);
+          break;
+        }
+      }
+    }
+  };
+
+  ns.generate = function() {
+    var commands = [];
+    var responders = ns.commands;
+    for (var i = 0; i < responders.length; i++) {
+      Array.prototype.push.apply(commands, responders[i].queries());
+    }
+    return commands.join(';');
+  };
+
+  ns.updateHash = function() {
+    location.hash = ns.generate();
+  };
+
+  ns.processHash = function () {
+    if (!layerView) {
+      return;
+    }
+    var hash = location.hash;
+    if (hash) {
+      commands = hash.substring(1).split(';');
+      ns.process(commands);
+    }
+  };
+
+  ns.processSession = function () {
+    if (CCHDO.session_map_commands) {
+      ns.process(CCHDO.session_map_commands.split(';'));
+    }
+  };
+  return ns;
+}
+
+if (CCHDO && CCHDO.MAP) {
+  CCHDO.MAP.setupCommands = setupCommands;
+  CCHDO.MAP.Layers = {
     LayerView: LayerView,
     DefaultLayerView: DefaultLayerView,
     LayerSection: LayerSection,
@@ -2906,7 +3148,6 @@ if (window.CCHDO && window.CCHDO.MAP) {
     LayerCreator: LayerCreator
   };
 }
-
-})();
+})(CCHDO);
 
 google.setOnLoadCallback(CCHDO.MAP.load);

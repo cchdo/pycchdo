@@ -18,6 +18,8 @@ H = whh.HTML
 from webhelpers.html import tags, tools as whhtools
 from webhelpers import text as whtext
 
+from docutils.utils import SystemMessage
+
 from pyramid.url import route_path
 
 from sqlalchemy_imageattach.context import store_context
@@ -600,8 +602,13 @@ def cruise_history_rows(change, i, hl):
             log.error(err)
             body = unicode(change.body)
         if body and body[0] == '=':
-            html = reST_to_html_div(body, '{0}-'.format(note_id), class_=class_)
-            body = whh.literal(html)
+            try:
+                html = reST_to_html_div(body, '{0}-'.format(note_id), class_=class_)
+            except SystemMessage as err:
+                log.error(err)
+                body = whh.literal('<pre>{0}</pre>'.format(body))
+            else:
+                body = whh.literal(html)
         else:
             body = H.pre(body, class_=class_)
         if change.discussion:

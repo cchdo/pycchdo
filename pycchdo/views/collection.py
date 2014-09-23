@@ -32,8 +32,11 @@ def collections_index_json(request):
 
 def _get_collection(request):
     coll_id = request.matchdict.get('collection_id')
-    collection = load_cruises_for(Collection.query()).\
-        get(coll_id)
+    try:
+        collection = load_cruises_for(Collection.query()).\
+            get(coll_id)
+    except ValueError:
+        raise HTTPBadRequest()
     return collection
 
 

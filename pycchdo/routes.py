@@ -63,6 +63,15 @@ def obj_routes(config, obj, plural_obj=None,
                    '{0}/show.jinja2'.format(obj))
 
 
+def obj_cruise_routes(config, name, plural=None):
+    opts = dict(mergeable=True, editable=True, json_index=True,
+                archiveable=True)
+    if plural is not None:
+        obj_routes(config, name, plural, **opts)
+    else:
+        obj_routes(config, name, **opts)
+
+
 def configure_routes(config):
     # Serve static files from root
     route_path(config, 'favicon', '/favicon.ico',
@@ -132,16 +141,11 @@ def configure_routes(config):
     route_path(config, 'cruises_archive', '/cruises/archive.zip',
                'pycchdo.views.cruise.cruises_archive')
 
-    obj_routes(config, 'collection', mergeable=True, editable=True,
-               json_index=True, archiveable=True)
-    obj_routes(config, 'country', 'countries', mergeable=True, editable=True,
-               json_index=True, archiveable=True)
-    obj_routes(config, 'person', 'people', mergeable=True, editable=True,
-               json_index=True, archiveable=True)
-    obj_routes(config, 'institution', mergeable=True, editable=True,
-               json_index=True, archiveable=True)
-    obj_routes(config, 'ship', mergeable=True, editable=True,
-               json_index=True, archiveable=True)
+    obj_cruise_routes(config, 'collection')
+    obj_cruise_routes(config, 'country', 'countries')
+    obj_cruise_routes(config, 'person', 'people')
+    obj_cruise_routes(config, 'institution')
+    obj_cruise_routes(config, 'ship')
 
     # Argo Secure File Repository
     route_path(config, 'argo_index', '/argo.html',

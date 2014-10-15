@@ -611,7 +611,7 @@ def _import_users(session):
             updater, None, user.username, user.username)
         updater.attr(person, 'password_hash', user.password_hash)
         updater.attr(person, 'password_salt', user.password_salt)
-        person.import_id = str(user.id)
+        person.import_id = 'user{0}'.format(user.id)
 
 
 def _import_contacts(session):
@@ -1125,6 +1125,7 @@ def _contacts_to_participants(updater, participants, contacts):
             log.error("Could not import ContactsCruise pair because person "
                      '{0} does not exist.'.format(contactid))
             continue
+        log.debug('{0} -> {1}'.format(contactid, person))
         inst = _import_inst(updater, inst)
 
         matching_participants = filter(
@@ -1164,7 +1165,7 @@ def _import_contacts_cruises(session):
     log.info("Importing ContactsCruises")
     updater = _get_updater()
     contacts_cruises = session.query(legacy.ContactsCruise).all()
-    cruise_contacts = {}
+    cruise_contacts = defaultdict(list)
     for cc in contacts_cruises:
         if not cc.cruise:
             log.info("Bad Cruise ID %s" % (cc.cruise_id))
@@ -1180,11 +1181,7 @@ def _import_contacts_cruises(session):
         cruiseid = str(cc.cruise_id)
         contactid = str(cc.contact_id)
         inst = cc.institution
-
-        try:
-            cruise_contacts[cruiseid].append((role, contactid, inst))
-        except KeyError:
-            cruise_contacts[cruiseid] = [(role, contactid, inst)]
+        cruise_contacts[cruiseid].append((role, contactid, inst))
 
     for cruiseid, contacts in cruise_contacts.items():
         cruise = get_by_import_id(Cruise, cruiseid)

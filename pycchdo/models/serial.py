@@ -1,6 +1,7 @@
 import sys
 import os
 import os.path
+from copy import copy
 from shutil import rmtree
 from contextlib import closing, contextmanager
 from cgi import FieldStorage
@@ -483,7 +484,7 @@ class Change(Base, MixinCreation, DBQueryable):
         # FieldStorages need to be deserialized as FSFiles.
         if val is None or isinstance(val, FieldStorage):
             val = self.value
-        self.obj._set_cache(self.attr, val)
+        self.obj._set_cache(self, val)
 
     @hybrid_property
     def is_obj(self):
@@ -1071,7 +1072,7 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         except KeyError:
             pass
 
-    def _set_cache(self, attr, value):
+    def _set_cache(self, change, value):
         """Set the attribute value to cache.
 
         In the case that multiple types are acceptable, we will have to check
@@ -1080,6 +1081,7 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         invalidate the cache.
 
         """
+        attr = change.attr
         # Multiple acceptable types always end in Unicode. That is the
         # cache unpersistable type.
         if isinstance(self.attr_type(attr), list):
@@ -2575,11 +2577,15 @@ class _CruiseFileStatus(Base):
 
 
 class _CruiseFile(Base):
+    """Cached value of a cruise's current files."""
     __tablename__ = 'cruise_files'
     id = Column(Integer, primary_key=True)
     cruise_id = Column(Integer, ForeignKey('cruises.id'))
     cruise = relationship('Cruise')
     attr = Column(Unicode)
+
+    _attr_id = Column('attr_id', ForeignKey('changes.id'))
+    _attr = relationship('Change')
 
     file_id = Column(ForeignKey('fsfiles.id'))
     file = relationship(FSFile, lazy='joined', backref='cruise_files')
@@ -2790,15 +2796,14 @@ class Cruise(Obj):
 
     @property
     def file_attrs(self):
-        file_attrs = {}
-        keys = [key for key, av in
-                self._allowed_attrs().items() if av['type'] == File]
-        for change in self.get_attrs_or(keys):
-            file_attrs[change.attr] = change
+        file_attrs = copy(self.files)
+        for key, val in file_attrs.items():
+            file_attrs[key] = val._attr
         return file_attrs
 
-    def _set_cache(self, attr, value):
+    def _set_cache(self, change, value):
         """Set the attribute value to cache."""
+        attr = change.attr
         if attr == 'participants':
             self.participants = set(value)
             return
@@ -2811,11 +2816,12 @@ class Cruise(Obj):
             return
         elif self.attr_type(attr) == File:
             try:
-                self.files[attr].file = value
+                cfile = self.files[attr].file = value
             except KeyError:
-                self.files[attr] = _CruiseFile(attr, value)
+                cfile = self.files[attr] = _CruiseFile(attr, value)
+            cfile._attr = change
             return
-        return super(Cruise, self)._set_cache(attr, value)
+        return super(Cruise, self)._set_cache(change, value)
 
     def _get_cache(self, attr):
         """Attempt to get the attribute value from cache."""

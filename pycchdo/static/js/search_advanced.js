@@ -64,7 +64,8 @@ $(document).ready(function(upperBound, lowerBound) {
       currentMinDate = $(this).val();
     })
     .change(function() {
-      var newDate = new Date($(this).val());
+      var date = $(this).val() + ' 00:00:00';
+      var newDate = new Date(date);
       if (newDate < upperBound && newDate > lowerBound){
         $("#defaultDateSlider").dateRangeSlider("min", newDate);
       } else{
@@ -76,7 +77,8 @@ $(document).ready(function(upperBound, lowerBound) {
       currentMaxDate = $(this).val();
     })
     .change(function() {
-      newDate = new Date($(this).val());
+      var date = $(this).val() + ' 00:00:00';
+      newDate = new Date(date);
       if (newDate < upperBound && newDate > lowerBound){
         $("#defaultDateSlider").dateRangeSlider("max", newDate);
       } else{

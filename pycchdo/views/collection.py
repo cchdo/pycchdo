@@ -7,6 +7,7 @@ from sqlalchemy.orm import defer, load_only, noload, joinedload, subqueryload
 from . import *
 import pycchdo.helpers as h
 from pycchdo.models.serial import Collection
+from pycchdo.models.search import _cruises_load_options
 from pycchdo.models.types import TextList, Unicode
 from pycchdo.models.searchsort import sort_list
 from pycchdo.views import log, staff, load_cruises_for
@@ -14,7 +15,7 @@ from pycchdo.views import log, staff, load_cruises_for
 
 def _collections(request):
     query = Collection.query().filter(Collection.accepted).\
-            options(noload('country'), noload('cruises'), noload('institution'))
+            options(*_cruises_load_options)
     collections = query.all()
     collections = sorted(collections, key=lambda c: c.name)
     return collections

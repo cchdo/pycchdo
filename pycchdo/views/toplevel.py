@@ -17,7 +17,7 @@ from pycchdo.models.serial import (
     Submission, FileHolder,
     )
 from pycchdo.models.searchsort import sort_list
-from pycchdo.helpers import data_uri
+from pycchdo.models.search import _cruises_load_options
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -108,7 +108,9 @@ def home(request):
 
 
 def project_carina(request):
-    collection = Collection.query().filter(Collection.names.contains('CARINA')).first()
+    collection = Collection.query().\
+        filter(Collection.names.contains('CARINA')).\
+        options(*_cruises_load_options).first()
     if collection:
         cruises = collection.cruises
         cruises = sort_list(cruises, orderby=request.params.get('orderby', ''))

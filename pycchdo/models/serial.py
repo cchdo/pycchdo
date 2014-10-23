@@ -1226,7 +1226,8 @@ class Participant(Base, Creatable, DBQueryable):
     cruise_id = Column(ForeignKey('cruises.id'))
 
     person_id = Column(ForeignKey('people.id'), nullable=False)
-    person = relationship('Person', lazy='joined', backref='participants')
+    person = relationship(
+        'Person', backref=backref('participants', lazy='joined'), lazy='joined')
 
     institution_id = Column(Integer, ForeignKey('institutions.id'))
     institution = relationship('Institution', backref='participants')
@@ -2585,7 +2586,7 @@ class _CruiseFile(Base):
     attr = Column(Unicode)
 
     _attr_id = Column('attr_id', ForeignKey('changes.id'))
-    _attr = relationship('Change')
+    _attr = relationship('Change', lazy='joined')
 
     file_id = Column(ForeignKey('fsfiles.id'))
     file = relationship(FSFile, lazy='joined', backref='cruise_files')
@@ -2707,14 +2708,14 @@ class Cruise(Obj):
 
     files = relationship(_CruiseFile,
         collection_class=attribute_mapped_collection('attr'),
-        cascade='all, delete-orphan')
+        lazy='subquery', cascade='all, delete-orphan')
 
     date_start = Column(DateTime)
     date_end = Column(DateTime)
 
     num_stations = Column(Integer, default=None)
     parameters = relationship('CruiseParameter', backref='cruises',
-                              cascade='all, delete-orphan')
+                              lazy='subquery', cascade='all, delete-orphan')
 
     ship_id = Column(Integer, ForeignKey('ships.id'))
     ship = relationship(Ship, foreign_keys=[ship_id], lazy='subquery', backref='cruises')
@@ -2732,7 +2733,7 @@ class Cruise(Obj):
 
     participants = relationship(
         Participant, uselist=True, collection_class=Participants,
-        backref='cruise',
+        backref=backref('cruise', lazy='subquery'),
         lazy='subquery', cascade='all, delete-orphan')
 
     __mapper_args__ = {

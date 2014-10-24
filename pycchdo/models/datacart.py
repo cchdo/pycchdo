@@ -33,6 +33,6 @@ class Datacart(OrderedSet):
         for ftype, fattr in file_attrs.items():
             if not self.is_file_type_allowed(ftype):
                 continue
-            if fattr.id in self:
+            if fattr and fattr.id in self:
                 file_count += 1
         return (file_count, len(file_attrs))

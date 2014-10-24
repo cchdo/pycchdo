@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from re import compile as re_compile
 from traceback import format_exc
 
-from sqlalchemy.orm import noload, joinedload, subqueryload
+from sqlalchemy.orm import noload, joinedload, subqueryload, lazyload
 
 from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
@@ -30,7 +30,7 @@ from pycchdo.models.serial import (
 
 
 log = getLogger(__name__)
-log.setLevel(DEBUG)
+log.setLevel(INFO)
 
 
 _name_model = {
@@ -50,7 +50,7 @@ _schemas = {
         date_start=DATETIME,
         date_end=DATETIME,
         ship=TEXT,
-        country=TEXT,
+        country=KEYWORD(lowercase=True, commas=True),
         pis=KEYWORD(lowercase=True, commas=True),
         collections=KEYWORD(lowercase=True, commas=True),
         seahunt=BOOLEAN,
@@ -226,6 +226,78 @@ def _str_to_date(text, end=False):
             return _str_to_date('{0}-01-01'.format(text))
 
 
+class IndexerVisitor(object):
+    """Functions related to saving objs to index."""
+
+    @classmethod
+    def date_to_lexicon(cls, date):
+        if type(date) is not datetime:
+            return None
+        return date
+
+    @classmethod
+    def ship_to_lexicon(cls, obj):
+        return unicode(obj.name)
+
+    @classmethod
+    def collection_to_lexicon(cls, obj):
+        return u','.join(filter(None, obj.names))
+
+    @classmethod
+    def country_to_lexicon(cls, obj):
+        names = filter(
+            None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
+        names = [name.strip() for name in names]
+        return u','.join(names)
+
+    def visit(self, obj):
+        doc = {}
+        name = obj.obj_type.lower()
+        getattr(self, 'visit_' + name)(obj, doc)
+        return doc
+
+    def visit_cruise(self, obj, doc):
+        names = filter(None, [obj.expocode] + obj.aliases)
+        doc['names'] = u','.join(names)
+        if obj.date_start:
+            doc['date_start'] = self.date_to_lexicon(obj.date_start)
+        if obj.date_end:
+            doc['date_end'] = self.date_to_lexicon(obj.date_end)
+        if obj.ship:
+            doc['ship'] = self.ship_to_lexicon(obj.ship)
+        if obj.country:
+            doc['country'] = self.country_to_lexicon(obj.country)
+        chiscis = obj.chief_scientists
+        if chiscis:
+            doc['pis'] = u','.join(
+                [unicode(pi.person.full_name) for pi in chiscis])
+        if obj.collections:
+            doc['collections'] = u','.join(
+                [self.collection_to_lexicon(c) for c in obj.collections])
+        doc['status'] = u','.join(obj.statuses)
+        doc['seahunt'] = not obj.accepted
+
+    def visit_person(self, obj, doc):
+        doc['name'] = unicode(obj.full_name)
+        doc['email'] = unicode(obj.email)
+
+    def visit_ship(self, obj, doc):
+        doc['name'] = self.ship_to_lexicon(obj)
+
+    def visit_country(self, obj, doc):
+        doc['names'] = self.country_to_lexicon(obj)
+
+    def visit_institution(self, obj, doc):
+        doc['name'] = unicode(obj.name)
+        doc['uri'] = unicode(obj.get('url', None))
+
+    def visit_collection(self, obj, doc):
+        doc['names'] = self.collection_to_lexicon(obj)
+
+
+indexer_visitor = IndexerVisitor()
+
+
 class SearchIndex(object):
     """Encapsulates a directory that is used as a Whoosh search index."""
     index_dir = '.'
@@ -300,8 +372,6 @@ class SearchIndex(object):
 
         try:
             yield ixw
-        except Exception, err:
-            raise
         finally:
             if not writer:
                 try:
@@ -333,61 +403,19 @@ class SearchIndex(object):
             return
         with self.writer(name, writer) as ixw:
             if ixw is None:
-                log.warn(
-                    u'Unable to index obj {0!r}, could not open index {1}'.format(
-                    obj, name))
+                log.warn(u'Could not open index for {0}'.format(name))
                 return
-            doc = {}
 
-            if name == 'cruise':
-                names = filter(None, [obj.expocode] + obj.aliases)
-                doc['names'] = u','.join(names)
-                if obj.date_start:
-                    doc['date_start'] = obj.date_start
-                    if type(doc['date_start']) is not datetime:
-                        doc['date_start'] = None
-                if obj.date_end:
-                    doc['date_end'] = obj.date_end
-                    if type(doc['date_end']) is not datetime:
-                        doc['date_end'] = None
-                if obj.ship:
-                    doc['ship'] = unicode(obj.ship.name)
-                if obj.country:
-                    doc['country'] = unicode(obj.country.name)
-                chiscis = obj.chief_scientists
-                if chiscis:
-                    doc['pis'] = u','.join(
-                        [unicode(pi.person.full_name) for pi in chiscis])
-                if obj.collections:
-                    doc['collections'] = u','.join(
-                        [unicode(c.name) for c in obj.collections])
-                doc['status'] = u','.join(obj.statuses)
-                doc['seahunt'] = not obj.accepted
-            elif name == 'person':
-                doc['name'] = unicode(obj.full_name)
-                doc['email'] = unicode(obj.email)
-            elif name == 'ship':
-                doc['name'] = unicode(obj.name)
-            elif name == 'country':
-                names = filter(
-                    None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
-                names = [name.strip() for name in names]
-                doc['names'] = u','.join(names)
-            elif name == 'institution':
-                doc['name'] = unicode(obj.name)
-                doc['uri'] = unicode(obj.get('url', None))
-            elif name == 'collection':
-                doc['names'] = u','.join(filter(None, obj.names))
-            else:
+            try:
+                doc = obj.accept_visitor(indexer_visitor)
+            except AttributeError:
                 ixw.cancel()
-                ix.close()
-                return
-
-            doc['mtime'] = obj.mtime
-            doc['id'] = _model_id_to_index_id(obj.id)
-            log.debug(u'saving {0!r}'.format(doc))
-            ixw.update_document(**doc)
-
+                ixw.close()
+            else:
+                doc['mtime'] = obj.mtime
+                doc['id'] = _model_id_to_index_id(obj.id)
+                log.debug(u'saving {0} {1!r}'.format(name, doc))
+                ixw.update_document(**doc)
 
     def save_note(self, note, writer=None):
         try:
@@ -396,7 +424,7 @@ class SearchIndex(object):
             return
         with self.writer('note', writer) as ixw:
             if ixw is None:
-                log.warn(u'Unable to index note {0!r}'.format(note))
+                log.warn(u'Could not open index for note')
                 return
             doc = {}
             if note.body:
@@ -409,8 +437,8 @@ class SearchIndex(object):
                 doc['subject'] = unicode(note.subject)
             doc['mtime'] = note.ts_c
             doc['id'] = _model_id_to_index_id(note.id)
+            log.debug(u'saving {0!r}'.format(doc))
             ixw.update_document(**doc)
-
 
     def remove_obj(self, obj, writer=None):
         name = obj.obj_type.lower()
@@ -419,7 +447,6 @@ class SearchIndex(object):
                 log.warn(u'Unable to unindex obj {0!r}'.format(obj))
                 return
             ixw.delete_by_term('id', _model_id_to_index_id(obj.id))
-
 
     def remove_note(self, note, writer=None):
         with self.writer('note', writer) as ixw:
@@ -435,12 +462,19 @@ class SearchIndex(object):
             # Walk each index
             for fields in ixs.all_stored_fields():
                 indexed_id = fields['id']
-                indexed_ids.add(indexed_id)
+                indexed_ids.add(int(indexed_id))
 
-                log.debug('Check %s existance' % indexed_id)
+            id_objs = {}
+            objs = model.query().options(
+                lazyload('*')).filter(model.id.in_(indexed_ids)).all()
+            for obj in objs:
+                id_objs[obj.id] = obj
+
+            for indexed_id in indexed_ids:
+                log.debug('Check existance {0} {1}'.format(model, indexed_id))
 
                 # for missing docs
-                obj = model.query().get(indexed_id)
+                obj = id_objs[indexed_id]
                 if not obj:
                     log.debug('Remove missing id %s' % indexed_id)
                     ixw.delete_by_term('id', indexed_id)
@@ -453,7 +487,7 @@ class SearchIndex(object):
                             mtime = obj.mtime
                         except AttributeError:
                             # Notes don't have an mtime
-                            pass
+                            mtime = None
                         if not mtime:
                             mtime = obj.ctime
                         if mtime > indexed_time:
@@ -461,8 +495,8 @@ class SearchIndex(object):
                             to_index.add(indexed_id)
                     except (KeyError, TypeError):
                         to_index.add(indexed_id)
-        except Exception, err:
-            log.error(repr(err))
+        except Exception as err:
+            log.error(format_exc(err))
         finally:
             ixs.close()
 
@@ -542,7 +576,43 @@ class SearchIndex(object):
         except AttributeError:
             pass
 
-    def _model_query_string_to_query(self, model_name, qstring):
+    def _query_date_range(self, query):
+        """Return the date_start and date_end queries if present.
+
+        """
+        dstart = None
+        dend = None
+
+        try:
+            for subq in query:
+                try:
+                    if subq.fieldname == 'date_start':
+                        dstart = subq
+                        if dend:
+                            return (dstart, dend)
+                    elif subq.fieldname == 'date_end':
+                        dend = subq
+                        if dstart:
+                            return (dstart, dend)
+                except AttributeError:
+                    subdstart, subdend = self._query_date_range(subq)
+                    if subdstart and not dstart:
+                        dstart = subdstart
+                    if subdend and not subdend:
+                        dend = subdend
+                    if dstart and dend:
+                        return (dstart, dend)
+        except NotImplementedError:
+            try:
+                if query.fieldname == 'date_start':
+                    dstart = query
+                elif query.fieldname == 'date_end':
+                    dend = query
+            except AttributeError:
+                pass
+        return (dstart, dend)
+
+    def _model_parse_query(self, model_name, qstring):
         """Parse the query string in the context of the given model. 
         Also get the objects that we will need to search the model index.
 
@@ -552,11 +622,18 @@ class SearchIndex(object):
             query = model_parser.parse(qstring)
             if model_name == 'cruise' and 'seahunt' not in qstring:
                 self._filter_seahunt_for_cruise_parser(query)
-            log.debug(u'Query: {0}\t{1!r}'.format(model_name, query))
+
+            # Rewrite date ranges if both start and end are present to match
+            drange = self._query_date_range(query)
+            if all(drange):
+                drange[1].start = drange[0].start
+                drange[0].end = drange[1].end
         except Exception, err:
-            log.error('Query parse failed for {0} {1!r}: {2}'.format(
+            log.error('Query parse failed for {0} {1!r}: {2!r}'.format(
                 model_name, qstring, err))
             query = None
+        else:
+            log.debug(u'Query({0})\t{1!r}'.format(model_name, query))
         return query
 
     def search(self, query_string, search_notes=False, **kwargs):
@@ -588,14 +665,14 @@ class SearchIndex(object):
 
         query_string = adapt_query_string_for_woce_line(query_string)
 
-        log.debug('New query: {0!r}'.format(query_string))
+        log.debug('woce adapted query: {0!r}'.format(query_string))
         # Search each model.
         for model_name, model_schema in _schemas.items():
             # Skip Notes if they were not requested.
             if model_name is 'note' and not search_notes:
                 continue
 
-            query = self._model_query_string_to_query(model_name, query_string)
+            query = self._model_parse_query(model_name, query_string)
             if not query:
                 continue
 

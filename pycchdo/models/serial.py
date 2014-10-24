@@ -950,13 +950,17 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
         return self.id
 
     @property
+    def ctime(self):
+        return self.change.ts_c
+
+    @property
     def mtime(self):
         """Last modified time.
         This is either the object creation time or the latest attribute judgment
         time.
 
         """
-        creation_time = self.change.ts_c
+        creation_time = self.ctime
         accepted = self._order_changes(self.changes_query('accepted')).first()
         if not accepted:
             return creation_time
@@ -1199,6 +1203,9 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
             'id': self.id,
             'obj_type': self.__class__.__name__,
         }
+
+    def accept_visitor(self, visitor):
+        return visitor.visit(self)
 
     def __repr__(self):
         return u'{cls}()'.format(cls=type(self))

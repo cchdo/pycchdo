@@ -2806,7 +2806,10 @@ class Cruise(Obj):
     def file_attrs(self):
         file_attrs = copy(self.files)
         for key, val in file_attrs.items():
-            file_attrs[key] = val._attr
+            attr = val._attr
+            if not attr:
+                attr = self.get_attr_or(key)
+            file_attrs[key] = attr
         return file_attrs
 
     def _set_cache(self, change, value):

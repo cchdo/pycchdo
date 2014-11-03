@@ -7,7 +7,9 @@ import transaction
 from geojson import LineString as gj_LineString
 
 from pyramid.response import FileResponse
-from pyramid.httpexceptions import HTTPNotFound, HTTPNoContent, HTTPUnauthorized
+from pyramid.httpexceptions import (
+    HTTPNotFound, HTTPNoContent, HTTPUnauthorized, HTTPBadRequest
+)
 from pyramid.url import current_route_url
 
 from webhelpers. paginate import Page
@@ -184,6 +186,8 @@ def file_response(request, file, disposition='inline'):
     except (OSError, IOError):
         log.error(u'Missing file: {0!r}'.format(file))
         return HTTPNotFound()
+    except AttributeError:
+        return HTTPBadRequest()
 
 
 def notfound_view(request):

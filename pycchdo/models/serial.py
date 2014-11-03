@@ -1234,7 +1234,7 @@ class Participant(Base, Creatable, DBQueryable):
 
     person_id = Column(ForeignKey('people.id'), nullable=False)
     person = relationship(
-        'Person', backref=backref('participants', lazy='joined'), lazy='joined')
+        'Person', backref=backref('participants'), lazy='joined')
 
     institution_id = Column(Integer, ForeignKey('institutions.id'))
     institution = relationship('Institution', backref='participants')

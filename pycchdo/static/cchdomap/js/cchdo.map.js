@@ -886,7 +886,6 @@ Model.prototype.click = function(layer, t) {
     ids = layer._ids;
 
     var selected = layer._ids.intersection(this._selected);
-
     if (selected.isEqual(layer._ids)) {
       this.removeSelected(selected);
       layer.dim();
@@ -894,9 +893,10 @@ Model.prototype.click = function(layer, t) {
         this.dim();
       });
     } else {
-      this.addSelected(layer._ids);
+      var unselected = layer._ids.difference(this._selected);
+      this.addSelected(unselected);
       layer.dimhl();
-      this.eachT(layer._ids.toArray(), function () {
+      this.eachT(unselected.toArray(), function () {
         this.hl();
       });
     }

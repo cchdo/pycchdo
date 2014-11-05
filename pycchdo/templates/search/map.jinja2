@@ -10,7 +10,8 @@
   {%- assets
     filters='cssmin',
     output='gen/search.map.css', 
-    'css/overcast/jquery-ui-1.7.2.custom.css',
+    'vendor/jquery-ui/jquery-ui.css',
+    'vendor/jqx/styles/jqx.base.css',
     'cchdomap/css/jquery.jgrowl.css',
     'cchdomap/css/tipTip.css',
     'cchdomap/css/colorpicker/colorpicker.css',
@@ -20,20 +21,11 @@
   {%- endassets %}
 {%- endblock %}
 {%- block content %}
-<div id="map_space">
-  {%- include "/_noscript_warning.txt" %}
-</div>
+{%- include "/_noscript_warning.txt" %}
+<div id="map_space"></div>
 {%- endblock %}
 {%- block js %}
   {{- h.GAPI_autoload(request, [
-            {
-                'name': 'jquery',
-                'version': '1.6.4',
-            },
-            {
-                'name': 'jqueryui',
-                'version': '1.8.16',
-            },
             {
                 'name': 'maps',
                 'version': '3',
@@ -52,15 +44,23 @@
   {%- assets
     filters='rjsmin',
     output='gen/search.map.0.js', 
+    'js/jquery-1.10.2.min.js',
+    'vendor/jquery-ui/jquery-ui.js',
+    'vendor/jqx/jqwidgets/jqxcore.js',
+    'vendor/jqx/jqwidgets/jqxbuttons.js',
+    'vendor/jqx/jqwidgets/jqxscrollbar.js',
+    'vendor/jqx/jqwidgets/jqxsplitter.js',
+    'vendor/jqx/jqwidgets/jqxpanel.js',
+    'cchdomap/js/jquery.scrollstop.js',
     'cchdomap/js/jquery.form.js',
-    'cchdomap/js/jquery.jgrowl_minimized.js',
+    'cchdomap/js/jquery.jgrowl.js',
     'cchdomap/js/jquery.tipTipTip.js',
-    'cchdomap/js/jquery.autopopdialog.js',
     'cchdomap/js/colorpicker/colorpicker.js',
     'cchdomap/js/graticule.3.js',
     'cchdomap/js/earth_map_type.js',
     'cchdomap/js/etopo_map_type.js',
-    'cchdomap/js/LatLngTooltip.3.js'
+    'cchdomap/js/LatLngTooltip.3.js',
+    'cchdomap/js/gearth.extensions.pack.js'
   %}
      {{ whh.tags.javascript_link(ASSET_URL) }}
   {%- endassets %}
@@ -77,5 +77,4 @@
   %}
      {{ whh.tags.javascript_link(ASSET_URL) }}
   {%- endassets %}
-  {{ whh.tags.javascript_link("//earth-api-utility-library.googlecode.com/svn/tags/extensions-0.2.1/dist/extensions.pack.js") }}
 {%- endblock %}

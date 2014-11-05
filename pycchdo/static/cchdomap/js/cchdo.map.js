@@ -4,6 +4,7 @@
 //   kmldomwalk
 //   google.maps v3
 //   google.visualization [table]
+//   http://www.jqwidgets.com/jquery-widgets-demo/demos/jqxsplitter/index.htm?(arctic)#demos/jqxsplitter/defaultfunctionality.htm
 
 function csrf() {
   var data = {};
@@ -57,37 +58,6 @@ function makeCirclePolygon(center, radius, steps) {
   return poly;
 }
 
-/* http://james.padolsey.com/javascript/special-scroll-events-for-jquery/ */
-(function(){
-  var special = jQuery.event.special,
-      uid1 = 'D' + (+new Date()),
-      uid2 = 'D' + (+new Date() + 1);
-  special.scrollstop = {
-    latency: 300,
-    setup: function() {
-      var timer,
-          handler = function(evt) {
-          var _self = this,
-              _args = arguments;
- 
-          if (timer) {
-            clearTimeout(timer);
-          }
- 
-          timer = setTimeout(function(){
-            timer = null;
-            evt.type = 'scrollstop';
-            jQuery.event.handle.apply(_self, _args);
-          }, special.scrollstop.latency);
-        };
-      jQuery(this).bind('scroll', handler).data(uid2, handler);
-    },
-    teardown: function() {
-      jQuery(this).unbind( 'scroll', jQuery(this).data(uid2) );
-    }
-  };
-})();
-
 var CCHDO = defaultTo(CCHDO, {});
 
 (function (CCHDO) {
@@ -97,7 +67,6 @@ var CCHDO = defaultTo(CCHDO, {});
 CCHDO.MAP = {
   map: null,
   earth: null,
-  pane: null,
   host: (function () {
     var loc = window.location;
     return [loc.protocol, '//', loc.host].join('');
@@ -173,11 +142,7 @@ CCHDO.MAP.tip = (function () {
   };
 })();
 
-CCHDO.MAP.load = function () {
-  CCHDO.MAP.tip(CCHDO.MAP.TIPS['loading'], {life: 300});
-  var domroot = $('#map_space');
-  var mapdiv = $('<div id="map" />').appendTo(domroot);
-
+CCHDO.MAP.loadMap = function (mapdiv) {
   var center = new google.maps.LatLng(0, 180);
   var opts = {
     zoom: 2,
@@ -190,17 +155,17 @@ CCHDO.MAP.load = function () {
                    google.maps.MapTypeId.HYBRID, google.maps.MapTypeId.ROADMAP]
     }
   };
-  CCHDO.MAP.map = new google.maps.Map(mapdiv[0], opts);
-  var lltip = new LatLngTooltip(CCHDO.MAP.map);
+  var map = new google.maps.Map(mapdiv[0], opts);
+  var lltip = new LatLngTooltip(map);
 
   var etopo_map_type = 'ETOPO';
   var etopomt = new ETOPOMapType();
-  CCHDO.MAP.map.mapTypes.set(etopo_map_type, etopomt);
+  map.mapTypes.set(etopo_map_type, etopomt);
 
-  CCHDO.MAP.earth = new EarthMapType(CCHDO.MAP.map, new Graticule(CCHDO.MAP.map));
+  CCHDO.MAP.earth = new EarthMapType(map, new Graticule(map));
 
   // Add map types to menu
-  var mapTypeControlOptions = CCHDO.MAP.map.get('mapTypeControlOptions');
+  var mapTypeControlOptions = map.get('mapTypeControlOptions');
   var ids = mapTypeControlOptions.mapTypeIds;
   if (!ids) {
     ids = [];
@@ -208,24 +173,83 @@ CCHDO.MAP.load = function () {
   ids.push(CCHDO.MAP.earth.name);
   ids.push(etopo_map_type);
   mapTypeControlOptions.mapTypeIds = ids;
-  CCHDO.MAP.map.set('mapTypeControlOptions', mapTypeControlOptions);;
-  CCHDO.MAP.map.set('mapTypeId', etopo_map_type);
+  map.set('mapTypeControlOptions', mapTypeControlOptions);;
+  map.set('mapTypeId', etopo_map_type);
+  return map;
+};
+CCHDO.MAP.setupTopSnap = function () {
+  // If the page is dropped inside a zone surrounding the top of the map,
+  // scroll to the nicest viewing spot.
+  var content_offset = $('#content').offset().top + 3;
+  $('body').animate({'scrollTop': content_offset}, 1000, function () {
+    var toler_top = $('#picture').height() * .7;
+    var toler_bot = $('#gfooter').outerHeight();
+    $(document).bind('scrollstop', function () {
+      var scrollTop = $(this).scrollTop();
+      if (scrollTop - toler_bot <= content_offset && 
+          content_offset <= scrollTop + toler_top) {
+        $('body').animate({'scrollTop': content_offset}, 'fast');
+      }
+    });
+  });
+};
+CCHDO.MAP.setupSplitters = function (base) {
+  var primary = $('<div class="pane-content">').appendTo(base);
+  var secondary = $('<div>').appendTo(base);
 
-  CCHDO.MAP.pane = new PanedMap(domroot[0], CCHDO.MAP.map);
-  CCHDO.MAP.pane._on = true;
-  CCHDO.MAP.pane._open = true;
+  base.jqxSplitter({
+      width: "100%",
+      height: "100%",
+      splitBarSize: 7,
+      panels: [{size: 260}]
+    });
+
+  var tablespace = $('<div>').appendTo(secondary);
+  var mapdiv = $('<div id="map">').appendTo(tablespace);
+  var tablediv = $('<div class="gvtable">').appendTo(tablespace);
+  CCHDO.MAP.tablespace = tablespace;
+  CCHDO.MAP.tablediv = tablediv;
+
+  var map = CCHDO.MAP.loadMap(mapdiv);
+  CCHDO.MAP.map = map;
+
+  tablespace.jqxSplitter({
+      width: "100%",
+      height: "100%",
+      splitBarSize: 7,
+      orientation: "horizontal",
+      panels: [{size: "80%", collapsible: false}]
+    })
+    .on('resize', function () {
+      console.log('resize triggered')
+      google.maps.event.trigger(map, 'resize');
+    })
+    .jqxSplitter("collapse");
 
   // graticules needs to be loaded before layerview
-  CCHDO.MAP.layerView = new CCHDO.MAP.Layers.DefaultLayerView(CCHDO.MAP.map);
-  CCHDO.MAP.pane.setPaneContent(CCHDO.MAP.layerView._dom);
-  CCHDO.MAP.Commands = CCHDO.MAP.setupCommands(CCHDO.MAP.layerView);
+  var table = new CCHDO.MAP.Layers.GVTable(tablediv, tablespace);
+  CCHDO.MAP.layerView = new CCHDO.MAP.Layers.DefaultLayerView(map, table);
+  primary.append(CCHDO.MAP.layerView._dom);
 
+  function tableToggle(on) {
+    CCHDO.MAP.layerView.layerSectionPermanent.tablelayer._setOn(on);
+  }
+  tablespace
+    .on('expanded', function() {tableToggle(true);})
+    .on('collapsed', function() {tableToggle(false);});
+
+  CCHDO.MAP.Commands = CCHDO.MAP.setupCommands(CCHDO.MAP.layerView);
+};
+CCHDO.MAP.load = function () {
+  CCHDO.MAP.tip(CCHDO.MAP.TIPS['loading'], {life: 500});
+  var base = $('#map_space');
+
+  CCHDO.MAP.setupSplitters(base);
+
+  // Maintain the map space as the size of the window
   $(window).resize(function () {
-    domroot.height($(this).height());
-    var previousFx = $.fx.off;
-    $.fx.off = true;
-    CCHDO.MAP.pane.redraw();
-    $.fx.off = previousFx;
+    CCHDO.MAP.tablespace.on('resize');
+    base.height($(this).height());
   }).resize();
 
   function completeInit() {
@@ -255,133 +279,9 @@ CCHDO.MAP.load = function () {
     CCHDO.MAP.tip(CCHDO.MAP.TIPS['earthPluginBlocked']);
     completeInit();
   });
-
-  // If the page is dropped inside a zone surrounding the top of the map,
-  // scroll to the nicest viewing spot.
-  var content_offset = $('#content').offset().top;
-  $('body').animate({'scrollTop': content_offset}, 1000, function () {
-    var toler_top = $('#picture').height() * .7;
-    var toler_bot = $('#gfooter').outerHeight();
-    $(document).bind('scrollstop', function () {
-      var scrollTop = $(this).scrollTop();
-      if (scrollTop - toler_bot <= content_offset && 
-          content_offset <= scrollTop + toler_top) {
-        $('body').animate({'scrollTop': content_offset}, 'fast');
-      }
-    });
-  });
+  CCHDO.MAP.setupTopSnap();
 };
 })(CCHDO);
-
-var PanedMap = (function () {
-function PanedMap(dom, map) {
-  this._on = false;
-  this._open = false;
-
-  this._root = dom;
-  this._map = map;
-
-  this._content = document.createElement('DIV');
-  this._content.className = 'pane-content unselectable';
-  this._root.appendChild(this._content);
-
-  $(this._content).disableSelection();
-
-  this._handle = document.createElement('DIV');
-  this._handle.className = 'pane-handle unselectable clickable right';
-  this._root.insertBefore(this._handle, this._root.firstChild);
-
-  var self = this;
-  $(this._handle).css('visibility', 'hidden').click(function () {
-    self._open = !self._open;
-    self.redraw();
-  });
-
-  var paneWidth;
-  function checkPaneScrolling() {
-    var newPaneWidth = self._paneWidth();
-    if (newPaneWidth != paneWidth) {
-      self.redraw();
-    }
-    paneWidth = newPaneWidth;
-  }
-
-  $(this._content).scroll(checkPaneScrolling);
-}
-
-PanedMap.prototype._paneWidth = function () {
-  var contentChild = $(this._content).children()[0];
-  var paneWidth = $(contentChild).outerWidth();
-
-  if ($(contentChild).height() > $(this._content).height()) {
-    // Account for scrollbar
-    paneWidth += 15;
-  }
-  return paneWidth;
-};
-
-PanedMap.prototype.redraw = function () {
-  var rootHeight = $(this._root).outerHeight();
-  var rootWidth = $(this._root).outerWidth();
-  var paneWidth = this._paneWidth();
-  var mapWidth = rootWidth - paneWidth;
-
-  var self = this;
-
-  function resizedMap() {
-    google.maps.event.trigger(self._map, 'resize');
-  }
-
-  function closePane() {
-    $(self._content).animate({width: 0}, function () {
-      $(this).css('visibility', 'hidden')
-    });
-    $(self._map.getDiv()).animate({'left': 0, width: rootWidth}, resizedMap);
-    $(self._handle).animate({left: 0}).removeClass('left').addClass('right');
-  }
-
-  $(self._map.getDiv()).height(rootHeight);
-
-  if (this._on) {
-    $(this._handle).css({top: $(this._handle).height() / 4, visibility: 'visible'});
-
-    if (this._open) {
-      $(this._content).css('visibility', 'visible').animate({width: paneWidth});
-      $(this._map.getDiv()).animate({'left': paneWidth, width: mapWidth}, resizedMap);
-      $(this._handle).animate({left: paneWidth}).removeClass('right').addClass('left');
-    } else {
-      closePane();
-    }
-  } else {
-    closePane();
-    $(this._handle).css('visibility', 'hidden');
-  }
-};
-
-PanedMap.prototype.setPaneContent = function (dom) {
-  var previous = this._content.firstChild;
-  if (previous) {
-    this._content.removeChild(previous);
-  }
-  this._content.appendChild(dom);
-  return previous;
-};
-
-PanedMap.prototype.setOn = function (on) {
-  this._on = on;
-  this.redraw();
-  return this;
-};
-
-PanedMap.prototype.setOpen = function (open) {
-  this._open = open;
-  this.redraw();
-  return this;
-};
-
-
-return PanedMap;
-})();
 
 (function (CCHDO) {
 var CM = CCHDO.MAP;
@@ -1015,8 +915,6 @@ Model.prototype.query = function (layer, query, callback, tracks_callback,
       }
       ls.add(layer.id);
       self._l[layer.id] = layer;
-
-      CCHDO.MAP.layerView.layerSectionPermanent.tablelayer.setOn(true);
     }
 
     var infos = data["i"];
@@ -1132,23 +1030,12 @@ TimeSlider.prototype.getTimeRange = function () {
 };
 
 
-function Table() {
+function Table(dom, splitter) {
   View.call(this);
   var self = this;
 
-  this._dom = document.createElement('DIV');
-  $(this._dom).autoPopDialog({
-    autoOpen: false,
-    position: ['left', 'bottom'],
-    width: 800,
-    height: 300,
-    title: 'Cruise information for selected cruises',
-    close: function () {
-      if (self._layer) {
-        $(self._layer._check).prop('checked', false);
-      }
-    }
-  });
+  this._dom = dom;
+  this._splitter = splitter;
 }
 
 Table.prototype = new View();
@@ -1165,14 +1052,15 @@ Table.prototype.idsRemoved = function (ids) {
 
 Table.prototype.show = function (show) {
   if (show) {
-    $(this._dom).dialog('open');
+    this._splitter.jqxSplitter('expand');
   } else {
-    $(this._dom).dialog('close');
+    this._splitter.jqxSplitter('collapse');
   }
 }
 
-function GVTable() {
-  Table.call(this);
+function GVTable(dom, splitter) {
+  Table.call(this, dom, splitter);
+  this.ROWS_SELECTOR = 'tr[class^=google-visualization-table-tr]:not([class$=head])';
   this._dt = new google.visualization.DataTable({
     cols: [
       {label: 'id', type: 'string'},
@@ -1196,10 +1084,9 @@ function GVTable() {
     sortColumn: 0,
     sortAscending: false
   };
-
   this._explanation = $(
-    '<p>Click on a layer ' +
-    'or track to select it and its information will appear here.</p>'
+    '<p>Click on layers ' +
+    'or tracks to select them and their information will appear here.</p>'
   ).appendTo(this._dom).hide();
 
   this._table_dom = $('<div class="cruise-table">').appendTo(this._dom);
@@ -1207,10 +1094,24 @@ function GVTable() {
   this._dcart_all = $('<div class="datacart-cruises-links data-formats">'+
     '<a href="/datacart/add_cruises" ' +
     'class="datacart-link datacart-results datacart-add" '+
-    'style="margin-left: 80%; margin-bottom: 0.5em;"' +
+    'style="float: right; width: 10em; margin: 0.2em;"' +
     'title="Add all result data to data cart">' +
     '<div class="datacart-icon">Add all data in result</div></a></div>')
     .prependTo(this._dom);
+
+  this._pintype = $('<button class="splitbutton"></button>')
+    .prependTo(this._dom)
+    .click(function() {
+      if ($(this).html().indexOf('vertically') > 0) {
+        $(this).html('Split horizontally');
+        CCHDO.MAP.tablespace.jqxSplitter({orientation: 'vertical'});
+      } else {
+        $(this).html('Split vertically');
+        CCHDO.MAP.tablespace.jqxSplitter({orientation: 'horizontal'});
+      }
+      CCHDO.MAP.tablespace.trigger('resize');
+    })
+    .click();
 
   this.setTableJDOM(this._table_dom);
 
@@ -1248,6 +1149,7 @@ GVTable.prototype.idsAdded = function (ids) {
     var info = model._infos[id];
     self.add(id, info, tid != null);
   });
+  CCHDO.MAP.layerView.layerSectionPermanent.tablelayer.setOn(true);
   this.redraw();
 };
 
@@ -1280,26 +1182,27 @@ GVTable.prototype.setTableJDOM = function (jdom) {
 
   var self = this;
 
-  this.tableRows()
-  .live('mouseover', function () {
+  this._table_jdom
+  .on('mouseover', this.ROWS_SELECTOR, function () {
     var cid = self.getCruiseIdForTr(this);
     if (cid !== undefined && cid > -1) {
       self._model.over(null, self.getTrackForCid(cid));
     }
     return false;
   })
-  .live('mouseout', function () {
+  .on('mouseout', this.ROWS_SELECTOR, function () {
     var cid = self.getCruiseIdForTr(this);
     if (cid !== undefined && cid > -1) {
       self._model.out(null, self.getTrackForCid(cid));
     }
     return false;
   })
-  .live('click', function (event) {
+  .on('click', this.ROWS_SELECTOR, function (event) {
     // Ignore clicks on the datacart-icon
     if (event.target.className == 'datacart-icon') {
       return true;
     }
+
     var dtrow = self.get_dtrow(this);
     if (dtrow > -1) {
       var link = self._dt.getValue(dtrow, 1);
@@ -1325,8 +1228,7 @@ GVTable.prototype.syncSortorder = function (event) {
 GVTable.prototype.tableRows = function () {
   // WARN: This must be bound to a DOM node context, not a jQuery object,
   // hence the subscript.
-  return $('tr[class^=google-visualization-table-tr]:not([class$=head])',
-           this._table_jdom[0]);
+  return $(this.ROWS_SELECTOR, this._table_jdom[0]);
 };
 
 GVTable.prototype.getDtRowsForCid = function (cid) {
@@ -1782,12 +1684,16 @@ Layer.prototype._turnOn = function (on) {
   }
 };
 
-Layer.prototype.setOn = function (on) {
+Layer.prototype._setOn = function (on) {
   this._check.checked = on ? 'checked' : '';
+};
+
+Layer.prototype.setOn = function (on) {
+  this._setOn(on);
   try {
     $(this._check).change();
   } catch (e) {
-    this._check.checked = !on ? 'checked' : '';
+    this._setOn(!on);
   }
 };
 
@@ -1885,11 +1791,10 @@ function LayerCreator() {
 LayerCreator.prototype = new Layer();
 
 
-function DefaultLayerView(map) {
+function DefaultLayerView(map, table) {
   var dom = this._dom = document.createElement('DIV');
   dom.className = 'layerview unselectable';
   this._sections = [];
-  var table = new GVTable();
   this._model = new Model(map, table);
 
   this.layerSectionPermanent = new PermanentLayerSection(table);
@@ -2459,16 +2364,20 @@ function RegionLayerCreator() {
   setButtonText(button_text_start);
 
   var OverlayType = google.maps.drawing.OverlayType;
-  this.drawingManager = new google.maps.drawing.DrawingManager({
-    drawingMode: OverlayType.RECTANGLE,
-    drawingControl: true,
-    drawingControlOptions: {
-      position: google.maps.ControlPosition.TOP_CENTER,
-      drawingModes: [
-        OverlayType.RECTANGLE, OverlayType.CIRCLE, OverlayType.POLYGON]
-    },
-  });
-  this.drawingManager_options = function(color) {
+
+  function createDrawingManager() {
+    return new google.maps.drawing.DrawingManager({
+      drawingMode: OverlayType.RECTANGLE,
+      drawingControl: true,
+      drawingControlOptions: {
+        position: google.maps.ControlPosition.TOP_CENTER,
+        drawingModes: [
+          OverlayType.RECTANGLE, OverlayType.CIRCLE, OverlayType.POLYGON]
+      },
+    });
+  }
+
+  function drawingManager_options(color) {
     return {
       rectangleOptions: {
         fillColor: color,
@@ -2486,7 +2395,7 @@ function RegionLayerCreator() {
         strokeWeight: 2
       }
     };
-  };
+  }
 
   var self = this;
   button.onclick = function () {
@@ -2494,12 +2403,14 @@ function RegionLayerCreator() {
     setButtonText(button_text_active);
 
     var color = CCHDO.MAP.nextColor();
-    self.drawingManager.setOptions(self.drawingManager_options(color));
+    var drawingManager = createDrawingManager();
+    drawingManager.setOptions(drawingManager_options(color));
 
     function endDrawMode() {
-      self.drawingManager.setMap(null)
+      drawingManager.setMap(null)
       button.disabled = '';
       setButtonText(button_text_start);
+      delete drawingManager;
       google.maps.event.removeListener(listenerEscape);
     }
 
@@ -2511,12 +2422,12 @@ function RegionLayerCreator() {
     });
 
     google.maps.event.addListenerOnce(
-        self.drawingManager, 'overlaycomplete', function (event) {
+        drawingManager, 'overlaycomplete', function (event) {
       self.create(event.overlay, color);
       endDrawMode();
     });
 
-    self.drawingManager.setMap(self._layerSection._layerView._model._map);
+    drawingManager.setMap(self._layerSection._layerView._model._map);
 
     CM.tip(CM.TIPS['startDraw']);
     return false;
@@ -3022,7 +2933,6 @@ function setupCommands(layerView) {
       kmllinkCreator.find('form').submit();
     };
     _.prototype.query = function(layer) {
-      console.log(layer);
       return 'kmllink:' + layer._query.query;
     };
     return _;
@@ -3144,6 +3054,7 @@ if (CCHDO && CCHDO.MAP) {
     LayerView: LayerView,
     DefaultLayerView: DefaultLayerView,
     LayerSection: LayerSection,
+    GVTable: GVTable,
     Layer: Layer,
     LayerCreator: LayerCreator
   };

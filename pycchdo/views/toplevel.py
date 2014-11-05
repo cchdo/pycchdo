@@ -211,15 +211,21 @@ def data(request):
         perms = fholder.permissions_read
         try:
             if perms and not request.user.is_authorized(perms):
+                log.error(u'User does not have sufficient permissions. {0} '
+                          '{1} {2}'.format(data_id, perms, request.user))
                 raise HTTPUnauthorized()
         except AttributeError:
+            log.error(u'No user present. Insufficient permissions. {0} '
+                      '{1}'.format(data_id, perms))
             raise HTTPUnauthorized()
     except (KeyError, AttributeError):
         pass
 
-    # If fholder is not accepted, only show it to signed in users.
+    # If fholder has not been reviewed, only show it to signed in users.
     try:
-        if not fholder.is_accepted() and not request.user:
+        if not ((fholder.is_pending() or fholder.is_accepted()) or request.user):
+            log.error(u'No user present and data has not been reviewed. {0} '
+                      '{1}'.format(data_id, perms))
             raise HTTPUnauthorized()
     except AttributeError:
         pass

@@ -35,7 +35,7 @@ __CONSTANTS__ = [
 __all__ = [
     'log',
     'collapse_dict', 'http_method', 'paged', 'text_to_obj', 'str_to_track',
-    'file_response', ] + __CONSTANTS__
+    'fsstore_path', 'file_response', ] + __CONSTANTS__
 
 
 PLEASE_SIGNIN_MESSAGE = """\
@@ -165,6 +165,11 @@ def _humanize(obj):
     return str(obj)
 
 
+def fsstore_path(fsstore, file):
+    path = file.locate()
+    return os.path.join(fsstore.path, path[1:path.index('?')])
+
+
 def file_response(request, file, disposition='inline'):
     if file is None:
         raise HTTPNoContent()
@@ -176,8 +181,7 @@ def file_response(request, file, disposition='inline'):
 
     fsstore = request.registry.settings['fsstore']
     try:
-        path = file.locate()
-        fullpath = os.path.join(fsstore.path, path[1:path.index('?')])
+        fullpath = fsstore_path(fsstore, file)
         resp = FileResponse(fullpath, request, cache_max_age)
         resp.content_disposition = '{0}; filename={1}'.format(
             disposition, file.name)

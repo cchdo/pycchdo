@@ -98,11 +98,15 @@ def _repr_state(obj):
         return 'acc'
     if obj.ts_j:
         return 'rej'
-    try:
-        if obj.change.ts_ack:
+    if isinstance(obj, Obj):
+        try:
+            if obj.change.ts_ack:
+                return 'ack'
+        except Exception:
+            pass
+    else:
+        if obj.ts_ack:
             return 'ack'
-    except Exception:
-        pass
     return 'sug'
 
 
@@ -304,9 +308,10 @@ def filter_changes_data(changes, data=True):
     """Filter Changes to those pertaining to attributes that store Files.
 
     """
-    func = lambda change: change.obj.attr_type(change.attr) == File
-    if not data:
-        func = lambda change: change.obj.attr_type(change.attr) != File
+    if data:
+        func = lambda change: change.is_data()
+    else:
+        func = lambda change: not change.is_data()
     return filter(func, changes)
 
 
@@ -491,6 +496,12 @@ class Change(Base, MixinCreation, DBQueryable):
         """Return whether the change is an Obj."""
         return self.attr is None and self._value is None
 
+    def is_data(self):
+        try:
+            return self.obj.attr_type(self.attr) == File
+        except ValueError:
+            return False
+
     def is_judged(self):
         return self.ts_j is not None
 
@@ -597,8 +608,8 @@ class Change(Base, MixinCreation, DBQueryable):
         return unicode(self)
 
     def __unicode__(self):
-        return u'{1}.{2}(0)={3!r}'.format(
-            _repr_state(self), self.obj, self.attr, self.value)
+        return u'{0}.{1}({2})={3!r}'.format(
+            self.obj, self.attr, _repr_state(self), self.value)
 
     def to_dict(self):
         ddd = {
@@ -1653,6 +1664,14 @@ class Person(Obj):
     def full_name(cls):
         return cls.name
 
+    @property
+    def uid(self):
+        if self.name:
+            return self.name
+        if self.identifier:
+            return self.identifier
+        return unicode(self.id)
+
     def is_verified(self):
         return self.identifier is not None
 
@@ -2531,9 +2550,10 @@ class UOW(Base, DBQueryable):
     __tablename__ = 'uows'
     id = Column(Integer, primary_key=True)
     suggestions = relationship(
-        'Change', secondary=uow_suggestions, backref=backref('uow'),
+        'Change', secondary=uow_suggestions, backref=backref('sugg_uows'),
         lazy='subquery')
-    results = relationship('Change', secondary=uow_results, lazy='subquery')
+    results = relationship('Change', secondary=uow_results,
+                           backref=backref('result_uows'), lazy='subquery')
     support_id = Column(ForeignKey('fsfiles.id'))
     support = relationship(FSFile, lazy='joined')
     note_id = Column(ForeignKey('notes.id'))

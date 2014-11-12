@@ -15,11 +15,16 @@ from zipfile import BadZipfile
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, subqueryload
 
+from pyramid.response import FileResponse
 from pyramid.httpexceptions import (
-    HTTPUnauthorized, HTTPBadRequest, HTTPSeeOther,
+    HTTPUnauthorized, HTTPBadRequest, HTTPSeeOther, HTTPMethodNotAllowed,
     )
 
 import transaction
+
+from libcchdo.datadir.processing import mkdir_working
+from libcchdo.datadir.util import DirName
+from libcchdo.datadir.filenames import README_FILENAME
 
 from pycchdo.helpers import (
     link_cruise, pdate, link_person, whtext, has_edit, has_staff, has_mod,
@@ -379,54 +384,266 @@ def _moderate_attribute(request):
             attr.reject(request.user)
 
 
-def _pending_changes(request):
-    """A list of pending Changes.
-
-    May be filtered by id.
-
-    :returns: A list of pending Changes.
-
-    """
-    ids = request.params.get('ids', '')
-    ids = filter(None, ids.split(','))
-    qmod = lambda q: q.options(joinedload('submission'))
-    if ids:
-        p_qmod = qmod
-        qmod = lambda q: p_qmod(q.filter(Change.id.in_(ids)))
-    return Change.filtered_data('unjudged', query_modifier=qmod)
-
-
-@staff_signin_required
-def as_received(request):
-    """Return the changes specified.
-
-    GET /staff/moderation.json
-    data:
-        ids - comma separated integers
-    returns:
-        list of Changes in JSON
-
-    """
-    ids = request.params.get('ids', '')
-    ids = filter(None, ids.split(','))
+def _int_ids(ids):
+    """Convert list of string ids to int ids."""
     int_ids = []
     for iid in ids:
         try:
             int_ids.append(int(iid))
         except ValueError:
             pass
-    ids = int_ids
+    return int_ids
+
+
+def _pending_changes(request):
+    """A list of pending data Changes.
+
+    May be filtered by id. In this case, ids will be returned regardless of
+    pending status.
+
+    :returns: A list of pending data Changes.
+
+    """
+    text_ids = request.params.get('ids', '')
+    ids = _int_ids(filter(None, text_ids.split(',')))
     qmod = lambda q: q.options(joinedload('submission'))
-    if ids:
+    if text_ids:
         p_qmod = qmod
         qmod = lambda q: p_qmod(q.filter(Change.id.in_(ids)))
-    else:
-        return []
-    return Change.filtered(query_modifier=qmod)
+        return Change.filtered(query_modifier=qmod)
+    return Change.filtered_data('unjudged', query_modifier=qmod)
 
 
 @staff_signin_required
-def uow(request):
+def as_received(request):
+    """Return the data changes.
+
+    If ids is not specified, return all Changes not judged.
+
+    GET /staff/moderation.json
+    data:
+        ids - (optional) comma separated integers
+    returns:
+        list of Changes in JSON
+
+    """
+    return _pending_changes(request)
+
+
+def _tar_response(request, fname, callback):
+    """Return a FileResponse with a tarball of the tempdir.
+
+    Arguments:
+        request - the original request being responded to
+        fname - the file name for the tarball
+        callback(archive) - a function
+
+    """
+    with tempfile.NamedTemporaryFile(delete=True) as temp:
+        archive = tarfile.open(mode='w:bz2', fileobj=temp)
+        try:
+            callback(archive)
+        finally:
+            archive.close()
+
+        temp.seek(0)
+        return FileResponse(temp.name, request,
+                            content_type='application/x-tar-bz2')
+
+
+def _tar_add_dir(archive, tempdir):
+    savedir = os.getcwd()
+    os.chdir(tempdir)
+    try:
+        archive.add('.')
+    finally:
+        os.chdir(savedir)
+
+
+def copy_fsfile_to(fsstore, fsfile, path):
+    with store_context(fsstore):
+        fpath = fsstore_path(fsstore, fsfile)
+        tarpath = os.path.join(path, fsfile.name)
+        try:
+            shutil.copyfile(fpath, tarpath)
+        except (IOError, OSError):
+            log.error(u'Missing file {0}'.format(fsfile))
+
+
+def _sanitize_for_fname(string):
+    return "".join([
+        c for c in string if c.isalpha() or c.isdigit()]).rstrip()
+
+
+class CruiseHistoryRepr(object):
+    """Construct a directory representing the cruise's data change history."""
+
+    def __init__(self, fsstore, dirpath, cruise):
+        self.fsstore = fsstore
+        self.dirpath = dirpath
+        self.cruise = cruise
+
+        self._uows = set()
+
+        self.asr_dir = os.path.join(dirpath, 'asr')
+        self.merged_dir = os.path.join(dirpath, 'merged')
+
+        self.archive()
+        self.changes()
+        self.uows()
+
+    def archive(self):
+        archive = self.cruise.files.get('archive', None)
+        if archive:
+            copy_fsfile_to(self.fsstore, archive.file, self.dirpath)
+
+    def change(self, change):
+        # There are three cases of how to display a change in history
+        # Case 1: accepted with new value
+        # Case 2: accepted value
+        # Case 3: pending value
+        # In all other cases, the data should not be shown in history.
+
+# Modes in which data can be added to a cruise
+# 1. assimilating from submissions
+# 2. direct addition to cruise
+
+# Cruise
+# Case 3 - in ASR
+#  1. data_suggestion btlex_bob (assimilated, pending)
+#  3. bottle_exchange btlex (assimilated,     pending)
+#  4. bottle_exchange btlex (directly added,  pending)
+# Case 1 - original value in originals, accepted value in tgo
+#  2. data_suggestion ctdex_bob ctdex (assimilated, accepted with value)
+#  6. bottle_exchange btlex btlex2 (directly added, accepted with value)
+# Case 2 - accepted value in tgo
+#  5. bottle_exchange btlex (directly added, accepted)
+#  7. bottle_exchange btlex (directly set,   accepted)
+
+# If the change is not part of a UOW, it is from the import.
+# Case 4 - in merged
+
+        # If the change is part of a UOW, use that information to generate the
+        # work directory in history. Otherwise, the work directory is simpler
+        # and only based on the change itself.
+
+        # work directories follow the format:
+        #  date_summary_who
+        #   * submissions - data causing the change
+        #   * originals   - data being changed
+        #   * processing  - supporting documentation (00_README.txt, processing)
+        #   * tgo         - new data
+
+        if change.is_accepted():
+            # Case 1
+            if not change.sugg_uows and not change.result_uows:
+                # Case 1a - original (if any) in asr, accepted in merged
+                work_dir = self.work_dir(self.dirpath, change.p_c.uid,
+                                         str(change.id), change.ts_c)
+                if change._value_accepted:
+                    change_dir = os.path.join(work_dir, DirName.original)
+                    copy_fsfile_to(
+                        self.fsstore, change.value_original, change_dir)
+                change_dir = os.path.join(work_dir, DirName.tgo)
+                copy_fsfile_to(
+                    self.fsstore, change.value, change_dir)
+            else:
+                # Case 1b
+                self._uows |= set(change.sugg_uows)
+                self._uows |= set(change.result_uows)
+        elif change.is_acknowledged():
+            # Case 2 - value in ASR
+            change_dir = os.path.join(self.asr_dir, str(change.id))
+            os.makedirs(change_dir)
+            copy_fsfile_to(self.fsstore, change.value, change_dir)
+
+    def changes(self):
+        # reconstruct the history of a cruise by replaying the changes
+        changes = self.cruise._changes.order_by(Change.ts_c.asc()).all()
+
+        for change in changes:
+            if not change.is_data():
+                continue
+            if change.attr == 'archive':
+                continue
+            self.change(change)
+
+    def work_dir(self, basepath, person, title, dtime, has_processing=False):
+        person = _sanitize_for_fname(person)
+        title = _sanitize_for_fname(title)
+        return mkdir_working(self.dirpath, person, title, dtime,
+                             processing_subdirs=has_processing)
+
+    def uow(self, uow):
+        work_dir = self.work_dir(self.dirpath, uow.note.p_c.uid,
+                                 uow.note.subject, uow.results[0].ts_j)
+        orig_dir = os.path.join(work_dir, DirName.original)
+        sub_dir = os.path.join(work_dir, DirName.submission)
+        tgo_dir = os.path.join(work_dir, DirName.tgo)
+
+        with open(os.path.join(work_dir, README_FILENAME), 'w') as fff:
+            fff.write(uow.note.body)
+
+        for change in uow.suggestions:
+            if change in uow.results:
+                continue
+            # if a change is a suggestion of a uow, its original value should
+            # appear in submissions. accepted value should go in originals
+            if change._value_accepted:
+                copy_fsfile_to(self.fsstore, change.value_original, sub_dir)
+            copy_fsfile_to(self.fsstore, change.value, orig_dir)
+
+        for change in uow.results:
+            # If a change is a result of a uow, its original value should appear
+            # in submissions and its accepted value should appear in tgo
+            if change._value_accepted:
+                copy_fsfile_to(self.fsstore, change.value_original, sub_dir)
+            copy_fsfile_to(self.fsstore, change.value, tgo_dir)
+
+    def uows(self):
+        for uow in self._uows:
+            self.uow(uow)
+
+
+def _uow_fetch(request):
+    """Fetch a cruise's history.
+
+    GET /staff/uow
+
+    Fetch a UOW's history because creating the actual directory is better
+    handled by the client.
+
+    data:
+        cruise_id - the cruise to fetch history for
+
+    raises:
+        HTTPBadRequest - if no cruise_id
+        HTTPNotFound - if the cruise is not found
+
+    response:
+        a tarball containing a reconstructed original directory
+
+    """
+    try:
+        cid = request.params['cruise_id']
+    except KeyError:
+        raise HTTPBadRequest()
+    cruise = Cruise.get_by_id(cid)
+    if not cruise:
+        raise HTTPNotFound()
+
+    tempdir = tempfile.mkdtemp()
+    try:
+        fsstore = request.registry.settings['fsstore']
+        CruiseHistoryRepr(fsstore, tempdir, cruise)
+        fname = 'uow.{0}.original.tar.bz2'.format(cid)
+        return _tar_response(
+            request, fname, lambda arc: _tar_add_dir(arc, tempdir))
+    finally:
+        shutil.rmtree(tempdir)
+
+
+def _uow_commit(request):
     """Commit a UOW.
 
     POST /staff/uow
@@ -441,10 +658,6 @@ def uow(request):
         readme - the readme file, used for the history note
 
     """
-    method = http_method(request)
-    if method != 'POST':
-        request.response.status = 400
-        return {'status': 'error', 'error': 'Must use POST'}
     person = request.user
     results = {}
 
@@ -507,6 +720,22 @@ def uow(request):
     else:
         log.info(u'Committed UOW')
     return {'status': 'ok'}
+
+
+@staff_signin_required
+def uow(request):
+    """UOW operations
+
+    GET and POST allowed.
+
+    """
+    method = http_method(request)
+    if method == 'GET':
+        return _uow_fetch(request)
+    elif method == 'POST':
+        return _uow_commit(request)
+    else:
+        return HTTPMethodNotAllowed()
 
 
 @staff_signin_required
@@ -577,41 +806,28 @@ def archive(request, cruises, filename='archive.tbz', formats=['exchange'],
         tree - see _archive_path
     """
     tempdir = tempfile.mkdtemp()
+    try:
+        for cruise in cruises:
+            path = os.path.join(tempdir, _archive_path(cruise, tree))
+            for type, file in cruise.files.items():
+                if not any(type.endswith(format) for format in formats):
+                    continue
 
-    for cruise in cruises:
-        path = os.path.join(tempdir, _archive_path(cruise, tree))
-        for type, file in cruise.files.items():
-            if not any(type.endswith(format) for format in formats):
-                continue
+                try:
+                    os.makedirs(path)
+                except OSError:
+                    pass
+                filepath = os.path.join(path, file.name)
 
-            try:
-                os.makedirs(path)
-            except OSError:
-                pass
-            filepath = os.path.join(path, file.name)
+                with open(filepath, 'w') as f:
+                    f.write(file.read())
 
-            with open(filepath, 'w') as f:
-                f.write(file.read())
+                now = time.time()
+                d = file.upload_date
+                created = time.mktime(d.timetuple())
+                os.utime(filepath, (now, created))
 
-            now = time.time()
-            d = file.upload_date
-            created = time.mktime(d.timetuple())
-            os.utime(filepath, (now, created))
-
-    temp = tempfile.SpooledTemporaryFile()
-    archive = tarfile.open(mode='w:bz2', fileobj=temp)
-    savedir = os.getcwd()
-    os.chdir(tempdir)
-    archive.add('.')
-    os.chdir(savedir)
-    archive.close()
-    shutil.rmtree(tempdir)
-
-    field = FieldStorage()
-    field.name = filename
-    field.file = temp
-    field.content_type = 'application/x-tar-bz2'
-    temp.seek(0, os.SEEK_END)
-    field.length = temp.tell()
-    temp.seek(0)
-    return file_response(request, field, 'attachment')
+        return _tar_response(
+            request, fname, lambda arc: _tar_add_dir(arc, tempdir))
+    finally:
+        shutil.rmtree(tempdir)

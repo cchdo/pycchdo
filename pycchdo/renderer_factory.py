@@ -2,6 +2,7 @@ import json as JSON
 from json import JSONEncoder
 from decimal import Decimal
 from datetime import datetime, date
+from shapely.geometry.linestring import LineString
 
 from sqlalchemy.ext.associationproxy import _AssociationList
 
@@ -23,6 +24,8 @@ class CustomJSONEncoder(JSONEncoder):
             return str(obj)
         elif isinstance(obj, Decimal):
             return float(obj)
+        elif isinstance(obj, LineString):
+            return list(obj.coords)
         elif (  isinstance(obj, Participants) or
                 isinstance(obj, Participant) or
                 isinstance(obj, Parameter)):

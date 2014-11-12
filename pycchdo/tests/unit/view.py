@@ -1,6 +1,10 @@
+import os
 from cgi import FieldStorage
 from StringIO import StringIO
+from shutil import rmtree
 from logging import getLogger
+from tempfile import mkdtemp
+from datetime import date
 
 from pyramid import testing
 from pyramid.httpexceptions import HTTPBadRequest
@@ -9,7 +13,7 @@ from pyramid_mailer import get_mailer
 from pycchdo.tests import (
     RequestBaseTest, PersonBaseTest, MockFieldStorage, MockFile, MockSession
     )
-from pycchdo.models.serial import Cruise, FSFile, DBSession
+from pycchdo.models.serial import Cruise, FSFile, DBSession, UOW, Note
 from pycchdo.views.staff import _moderate_attribute, as_received
 
 
@@ -256,19 +260,106 @@ class TestStaff(RequestBaseTest):
         self.assertEqual([], result)
 
         ccc = Cruise.create(self.testPerson).obj
-        cc0 = ccc.sugg(self.testPerson, 'expocode', 'qwer')
-        cc1 = ccc.sugg(self.testPerson, 'expocode', 'asdf')
+        fst = MockFieldStorage(
+            MockFile('qwer', 'test.txt'), 'test.txt', 'text/plain')
+        cc0 = ccc.sugg(self.testPerson, 'data_suggestion', fst)
+        fst = MockFieldStorage(
+            MockFile('asdf', 'test.txt'), 'test.txt', 'text/plain')
+        cc1 = ccc.sugg(self.testPerson, 'data_suggestion', fst)
         DBSession.flush()
         self.request.params['ids'] = '{0},{1}'.format(cc0.id, cc1.id)
         result = as_received(self.request)
         self.assertTrue(cc0 in result)
         self.assertTrue(cc1 in result)
 
-        change = ccc.sugg(self.testPerson, 'expocode', '1234')
+        fst = MockFieldStorage(
+            MockFile('1234', 'test.txt'), 'test.txt', 'text/plain')
+        change = ccc.sugg(self.testPerson, 'data_suggestion', fst)
         DBSession.flush()
         self.request.params['ids'] = str('ZZ9912345678')
         result = as_received(self.request)
         self.assertEqual([], result)
+
+    def test_create_history_repr(self):
+        from pycchdo.views.staff import CruiseHistoryRepr
+        ccc = Cruise.create(self.testPerson).obj
+
+        # Case 1a
+        fst = MockFieldStorage(
+            MockFile('case1aa', 'case1aa'), 'case1aa', 'text/plain')
+        chg1aa = ccc.sugg(self.testPerson, 'data_suggestion', fst)
+        fst = MockFieldStorage(
+            MockFile('case1ab', 'case1ab'), 'case1ab', 'text/plain')
+        chg1aa.accept(self.testPerson, fst)
+
+        # Case 1b
+        uow = UOW()
+        uow.note = Note(self.testPerson, 'readme', 'action', 'title', 'summary')
+        fst = MockFieldStorage(
+            MockFile('case1ba', 'case1ba'), 'case1ba', 'text/plain')
+        uow.results.append(ccc.set(self.testPerson, 'bottle_exchange', fst))
+
+        fst = MockFieldStorage(
+            MockFile('case1bb', 'case1bb'), 'case1bb', 'text/plain')
+        chg1bb = ccc.set(self.testPerson, 'data_suggestion', fst)
+        uow.suggestions.append(chg1bb)
+
+        fst = MockFieldStorage(
+            MockFile('case1bc', 'case1bc'), 'case1bc', 'text/plain')
+        chg1bc = ccc.sugg(self.testPerson, 'bottle_woce', fst)
+        fst = MockFieldStorage(
+            MockFile('case1bd', 'case1bd'), 'case1bd', 'text/plain')
+        chg1bc.accept(self.testPerson, fst)
+        uow.suggestions.append(chg1bc)
+
+        # Case 2
+        fst = MockFieldStorage(
+            MockFile('case2', 'case2'), 'case2', 'text/plain')
+        chg2 = ccc.sugg(self.testPerson, 'data_suggestion', fst)
+        chg2.acknowledge(self.testPerson)
+
+        tempdir = mkdtemp()
+        try:
+            fsstore = self.request.registry.settings['fsstore']
+            CruiseHistoryRepr(fsstore, tempdir, ccc)
+
+            # Case 1a
+            uowdir = '{0}_{1}_{2}'.format(
+                date.today().strftime('%Y.%m.%d'), str(chg1aa.id),
+                self.testPerson.uid)
+
+            self.assertEqual(
+                ['case1aa'],
+                os.listdir(os.path.join(tempdir, uowdir, 'originals')))
+            self.assertEqual(
+                ['case1ab'],
+                os.listdir(os.path.join(tempdir, uowdir, 'to_go_online')))
+
+            # Case 1b
+            uowdir = '{0}_{1}_{2}'.format(
+                date.today().strftime('%Y.%m.%d'), 'summary',
+                self.testPerson.uid)
+            self.assertTrue(uowdir in os.listdir(tempdir))
+
+            readme_path = os.path.join(tempdir, uowdir, '00_README.txt')
+            self.assertEqual(u'readme', open(readme_path, 'r').read(6))
+
+            self.assertEqual(
+                ['case1bb', 'case1bd'],
+                os.listdir(os.path.join(tempdir, uowdir, 'originals')))
+            self.assertEqual(
+                ['case1bc'],
+                os.listdir(os.path.join(tempdir, uowdir, 'submission')))
+            self.assertEqual(
+                ['case1ba'],
+                os.listdir(os.path.join(tempdir, uowdir, 'to_go_online')))
+
+            # Case 2
+            self.assertEqual(
+                ['case2'],
+                os.listdir(os.path.join(tempdir, 'asr', str(chg2.id))))
+        finally:
+            rmtree(tempdir)
         
 
 class TestMail(RequestBaseTest):

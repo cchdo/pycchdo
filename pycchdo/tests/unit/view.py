@@ -109,6 +109,19 @@ class TestSubmit(RequestBaseTest):
             self.request.session.pop_flash('error'),
             ['Please correct the errors below'])
 
+    def test_create_submission(self):
+        from pycchdo.views.submit import _create_submission
+        self.request.method = 'POST'
+        self.request.params['name'] = 'direct_name'
+        self.request.params['email'] = 'direct_email'
+
+        ddd = {
+            'files': [
+                MockFieldStorage(MockFile('aaa', 'aaa.txt')), 
+                MockFieldStorage(MockFile('bbb', 'bbb.txt'))]
+        }
+        sub = _create_submission(self.request, ddd)
+
     def test_submit_response(self):
         from pycchdo.views.submit import response_from_submission_request
         fst = MockFieldStorage(

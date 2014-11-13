@@ -1,6 +1,7 @@
 from datetime import datetime
 from tempfile import SpooledTemporaryFile
 from contextlib import contextmanager
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from pyramid.renderers import render_to_response
 from pyramid.security import remember
@@ -32,6 +33,18 @@ def _generate_multiple_files_file(files):
         yield FSFile(temp, 'multiple_files.zip', 'application/zip')
 
 
+def do_if_exists(ddd, dkey, func):
+    try:
+        if ddd[dkey]:
+            func(ddd[dkey])
+    except KeyError:
+        pass
+
+
+def set_if_exists(submission, subkey, ddd, dkey):
+    do_if_exists(ddd, dkey, lambda val: setattr(submission, subkey, val))
+
+
 def _create_submission(request, d):
     direct_name = request.params['name']
     direct_email = request.params['email']
@@ -48,27 +61,28 @@ def _create_submission(request, d):
         
     sub = Submission.propose(user).obj
 
-    if len(d['files']) > 1:
-        with _generate_multiple_files_file(d['files']) as fsf:
-            sub.value = fsf
-    else:
-        sub.value = FSFile.from_fieldstorage(d['files'][0])
-    DBSession.flush()
+    try:
+        sfiles = d['files']
+    except KeyError:
+        raise HTTPBadRequest()
 
-    if d['identifier']:
-        sub.expocode = d['identifier']
-    if d['woce_line']:
-        sub.line = d['woce_line']
-    if d['ship']:
-        sub.ship_name = d['ship']
-    if d['cruise_dates']:
-        sub.cruise_date = d['cruise_dates']
-    if d['action_list']:
-        sub.action = ', '.join(d['action_list'])
-    if d['public_status']:
-        sub.type = d['public_status']
-    if d['notes']:
-        sub.notes.append(Note(user, d['notes']))
+    if len(sfiles) > 1:
+        with _generate_multiple_files_file(sfiles) as fsf:
+            sub.value = fsf
+            DBSession.flush()
+    else:
+        sub.value = FSFile.from_fieldstorage(sfiles[0])
+        DBSession.flush()
+
+    set_if_exists(sub, 'expocode', d, 'identifier')
+    set_if_exists(sub, 'line', d, 'woce_line')
+    set_if_exists(sub, 'ship_name', d, 'ship')
+    set_if_exists(sub, 'cruise_date', d, 'cruise_dates')
+    set_if_exists(sub, 'type', d, 'public_status')
+    do_if_exists(
+        d, 'action_list', lambda val: setattr(sub, 'action', ', '.join(val)))
+    do_if_exists(
+        d, 'notes', lambda val: sub.notes.append(Note(user, val)))
     change = sub.change
     change.requests.append(RequestFor(request))
 

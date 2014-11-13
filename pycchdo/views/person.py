@@ -69,6 +69,7 @@ def person_edit(request):
     name_last = request.params.get('name_last', '')
 
     inst_id = request.params.get('institution', '')
+    form_spoiled = False
     try:
         if inst_id:
             institution = text_to_obj(inst_id, ID)
@@ -77,7 +78,7 @@ def person_edit(request):
     except:
         request.response.status = 400
         h.form_errors_for(request, 'institution', 'Bad institution id')
-        return {'person': person}
+        form_spoiled = True
 
     country_id = request.params.get('country', '')
     try:
@@ -88,7 +89,7 @@ def person_edit(request):
     except:
         request.response.status = 400
         h.form_errors_for(request, 'country', 'Bad country id')
-        return {'person': person}
+        form_spoiled = True
 
     email = request.params.get('email', '')
     try:
@@ -96,7 +97,10 @@ def person_edit(request):
     except:
         request.response.status = 400
         h.form_errors_for(request, 'permissions', 'Bad permissions format')
-        return {'person': person}
+        form_spoiled = True
+
+    if form_spoiled:
+        return _redirect_response(request, person_id)
 
     person.identifier = identifier
     person.name = name

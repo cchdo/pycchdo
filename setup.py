@@ -89,6 +89,8 @@ setup(
             'pycchdo_import = pycchdo.importer:do_import',
             ('pycchdo_update_param_status_cache = '
              'pycchdo.scripts.update_param_status_cache:main'),
+            ('pycchdo_edit_perms = '
+             'pycchdo.scripts.edit_perms:main'),
         ],
     }
 )

@@ -1027,3 +1027,8 @@ div.banner-global .btn:hover {
   background-color: #449d44;
   border-color: #398439;
 }
+
+ul.sort-options li {
+  display: inline-block;
+  margin-right: 1em;
+}

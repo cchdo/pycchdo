@@ -22,32 +22,15 @@
           <input name="commit" type="submit" value="Filter">
         </div>
       </form>
-      {# TODO sort
-      <div class="sort">
-          <h1>Sort by:</h1>
-            <input checked="checked" id="sort_submission_date" name="sort" type="radio" value="submission_date">
-            <label for="sort_submission_date">submission_date</label>
-            <input id="sort_name" name="sort" type="radio" value="name">
-            <label for="sort_name">name</label>
-            <input id="sort_institute" name="sort" type="radio" value="institute">
-            <label for="sort_institute">institute</label>
-            <input id="sort_country" name="sort" type="radio" value="Country">
-            <label for="sort_country">Country</label>
-            <input id="sort_email" name="sort" type="radio" value="email">
-            <label for="sort_email">email</label>
-            <input id="sort_line" name="sort" type="radio" value="Line">
-            <label for="sort_line">Line</label>
-            <input id="sort_expocode" name="sort" type="radio" value="ExpoCode">
-            <label for="sort_expocode">ExpoCode</label>
-            <input id="sort_ship_name" name="sort" type="radio" value="Ship_Name">
-            <label for="sort_ship_name">Ship_Name</label>
-            <input id="sort_cruise_date" name="sort" type="radio" value="cruise_date">
-            <label for="sort_cruise_date">cruise_date</label>
-        </div>
-      #}
+      <ul class="sort-options">
+        <li>Sort by:</li>
+        {% for key, val in sorter.sort_types.iteritems() %}
+          <li>{{ h.sortable_link(request, sorter, key, val) }}</li>
+        {% endfor %}
+      </ul>
     </div>
     <div class="help">
-      <p>The key here is to attach submissions to specific cruises.</p>
+      <p>Attach submissions to specific cruises.</p>
       <ol>
         <li>Try to figure out what kind of data and which cruise each submission belongs to</li>
         <li>Then enter the cruise ID or expocode and data type and <span class="action">Accept</span></li>

@@ -34,6 +34,7 @@ from pycchdo.models.serial import (
     store_context, DBSession, Submission, OldSubmission, Change, Cruise, Person,
     Note, FSFile, UOW,
     )
+from pycchdo.models.searchsort import SubmissionSorter
 
 from pycchdo.views import *
 from pycchdo.views.session import signin_required, require_signin
@@ -224,6 +225,13 @@ def create_asrs(request, signer, asr_specs):
     return all_asrs
 
 
+def _query_submission_by_id(request):
+    sid = request.params['query']
+    if not sid:
+        return Submission.query().filter(False)
+    return Submission.filtered(sid=sid)
+
+
 list_queries = OrderedDict([
     ['Not attached not Argo', lambda _: Submission.filtered(attached=False, argo_type=False)],
     ['Not attached all', lambda _: Submission.filtered(attached=False)],
@@ -231,7 +239,7 @@ list_queries = OrderedDict([
     ['Attached', lambda _: Submission.filtered(attached=True)],
     ['All', lambda _: Submission.query()],
     ['Old Submissions', lambda _: OldSubmission.query()],
-    ['id', lambda request: Submission.filtered(sid=request.params['query'])],
+    ['id', _query_submission_by_id],
 ])
 
 
@@ -293,10 +301,12 @@ def submissions(request):
 
     query = request.params.get('query', '')
     ltype = request.params.get('ltype', _get_default_list_query())
+    sorter = SubmissionSorter(request.params.get('orderby', ''))
     try:
         squery = list_queries[ltype](request)
     except KeyError:
-        query = request.params
+        # Redirect to default ltype
+        query = request.params.dict_of_lists()
         query['ltype'] = _get_default_list_query()
         return HTTPSeeOther(location=request.current_route_path(_query=query))
     squery = squery.with_transformation(Submission.change.join)
@@ -316,15 +326,16 @@ def submissions(request):
             int(query)
             or_list.append(Submission.id == query)
         except ValueError:
-            pass
+            raise HTTPBadRequest()
         squery = squery.filter(or_(*or_list))
     squery = squery.order_by(Submission.change._aliased.ts_c.desc())
-    submissions = squery.all()
+    submissions = sorter.sort(squery.all())
     submissions = paged(request, submissions)
 
     return {
         'ltype': ltype,
         'lqueries': list_queries,
+        'sorter': sorter,
         'query': query,
         'submissions': submissions,
         'FILE_GROUPS_SELECT': FILE_GROUPS_SELECT,

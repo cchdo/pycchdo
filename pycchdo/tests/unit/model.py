@@ -6,7 +6,7 @@ from pycchdo.log import getLogger
 from pycchdo.tests import BaseTest, PersonBaseTest, RequestBaseTest
 from pycchdo.models.serial import SerializerDateTime, Unit, Cruise, Ship
 from whoosh import writing
-from pycchdo.models.searchsort import Sorter
+from pycchdo.models.searchsort import CruiseSorter
 
 
 log = getLogger(__name__)
@@ -142,7 +142,7 @@ class TestSearchIndex(RequestBaseTest):
 
 class TestSearchSort(BaseTest):
     def test_date_start(self):
-        sorter = Sorter('')
+        sorter = CruiseSorter('')
         cruise = Cruise()
         self.assertEqual(datetime(1, 1, 1), sorter.date_start(cruise))
 

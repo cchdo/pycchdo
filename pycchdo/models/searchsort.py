@@ -1,4 +1,5 @@
 from datetime import datetime
+from collections import OrderedDict
 
 from pycchdo.log import getLogger
 
@@ -17,38 +18,17 @@ class Sorter(dict):
         except AttributeError:
             return None
 
-    def uid(self, ccc):
-        return ccc.uid
-
-    def date_start(self, ccc): 
-        dstart = ccc.date_start
-        if dstart:
-            return dstart
-        return datetime(1, 1, 1)
-
-    def aliases(self, ccc):
-        aliases = ccc.aliases
-        if aliases:
-            return aliases[0]
-        return ''
-
-    def chiscis(self, ccc):
-        chiscis = ccc.chief_scientists
-        if chiscis:
-            return chiscis[0].person.name
-        return ''
-
-    def ship(self, ccc):
-        ship = ccc.ship
-        if ship:
-            return ship.name
-        return ''
-
-    def country(self, ccc):
-        country = ccc.country
-        if country:
-            return country.name
-        return ''
+    def curr_direction(self, key):
+        """The current sort direction for the given key."""
+        orderkeys = dict(self.orderkeys)
+        if key in orderkeys:
+            if orderkeys[key]:
+                direction = 'asc'
+            else:
+                direction = 'desc'
+        else:
+            direction = None
+        return direction
 
     def parse_orderby_to_keys(self, orderby):
         """Break an orderby string down into tuples of keys and direction.
@@ -90,11 +70,83 @@ class Sorter(dict):
         return mmm
 
 
+class CruiseSorter(Sorter):
+
+    def uid(self, ccc):
+        return ccc.uid
+
+    def date_start(self, ccc): 
+        dstart = ccc.date_start
+        if dstart:
+            return dstart
+        return datetime(1, 1, 1)
+
+    def aliases(self, ccc):
+        aliases = ccc.aliases
+        if aliases:
+            return aliases[0]
+        return ''
+
+    def chiscis(self, ccc):
+        chiscis = ccc.chief_scientists
+        if chiscis:
+            return chiscis[0].person.name
+        return ''
+
+    def ship(self, ccc):
+        ship = ccc.ship
+        if ship:
+            return ship.name
+        return ''
+
+    def country(self, ccc):
+        country = ccc.country
+        if country:
+            return country.name
+        return ''
+
+
+class SubmissionSorter(Sorter):
+
+    sort_types = OrderedDict([
+        ['Submission date', 'submission_date'],
+        ['Submitter name', 'submitter_name'],
+        ['Line', 'line'],
+        ['ExpoCode', 'expocode'],
+        ['Ship', 'ship'],
+        ['Cruise date', 'date'],
+    ])
+
+    def submission_date(self, sub):
+        return sub.change.ts_c
+
+    def submitter_name(self, sub):
+        person = sub.change.ts_p
+        if person:
+            return person.name
+        return ''
+
+    def line(self, sub):
+        return sub.line
+
+    def expocode(self, sub):
+        return sub.expocode
+
+    def ship(self, sub):
+        return sub.ship_name
+
+    def date(self, sub):
+        date = sub.cruise_date
+        if date:
+            return date
+        return datetime(1, 1, 1)
+
+
 def sort_list(lll, orderby=None):
     """Sort a list of cruises using the orderby criteria."""
     if orderby is None:
         orderby = 'uid'
-    sorter = Sorter(orderby)
+    sorter = CruiseSorter(orderby)
     return sorter.sort(lll)
 
 
@@ -102,7 +154,7 @@ def sort_results(results, orderby=None):
     """Sort each category's result cruises using the orderby criteria."""
     if orderby is None:
         orderby = 'uid'
-    sorter = Sorter(orderby)
+    sorter = CruiseSorter(orderby)
     if results:
         for category, cruises in results.items():
             if isinstance(cruises, list):

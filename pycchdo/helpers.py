@@ -649,37 +649,26 @@ def cruise_track_image(map, cruise, classes=[], **kwargs):
         class_=' '.join(['cruise-track-img'] + classes), **kwargs)
 
 
-def _curr_direction(sorter, key):
-    orderkeys = dict(sorter.orderkeys)
-    if key in orderkeys:
-        if orderkeys[key]:
-            direction = 'asc'
-        else:
-            direction = 'desc'
-    else:
-        direction = None
-    return direction
+UARROW = '<span class="sortdir asc">&#x25B2;</span>'
+DARROW = '<span class="sortdir desc">&#x25BC;</span>'
 
 
-def _sortable_link(request, link, key):
+def sortable_link(request, sorter, link, key):
     """Return an HTML link to a order the current page."""
-    sorter = Sorter(request.params.get('orderby', ''))
-    direction = _curr_direction(sorter, key)
-    uarrow = '<span class="sortdir asc">&#x25B2;</span>'
-    darrow = '<span class="sortdir desc">&#x25BC;</span>'
+    direction = sorter.curr_direction(key)
     if direction:
         if direction == 'asc':
-            title = '{0} {1}'.format(link, 'descending')
-            link = link + darrow
+            title = 'descending'
+            arrow = DARROW
         elif direction == 'desc':
-            title = '{0} {1}'.format(link, 'ascending')
-            link = link + uarrow
+            title = 'ascending'
+            arrow = UARROW
     else:
-        link = link
-        title = '{0} {1}'.format(link, '(click to sort ascending)')
+        title = '(click to sort ascending)'
+        arrow = ''
+    title = '{0} {1}'.format(link, title)
     return tags.link_to(
-        whh.literal(link),
-        _orderby_path(request, direction, key),
+        whh.literal(link + arrow), _orderby_path(request, direction, key),
         title=title)
 
 
@@ -718,18 +707,20 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
     if not cruises and not allow_empty:
         return ''
 
+    sorter = Sorter(request.params.get('orderby', ''))
     headers = [
         H.th(
-            _sortable_link(request, 'ExpoCode', 'uid'), ' / ', 
-            _sortable_link(request, 'Cruise dates', 'date_start'),
+            sortable_link(request, sorter, 'ExpoCode', 'uid'), ' / ', 
+            sortable_link(request, sorter, 'Cruise dates', 'date_start'),
             class_='identifier'),
         H.th('Collections', class_='aliases'),
-        H.th(_sortable_link(request, 'Aliases', 'aliases'),
+        H.th(sortable_link(request, sorter, 'Aliases', 'aliases'),
             class_='aliases'),
         H.th(
-            _sortable_link(request, 'Chief scientist(s)', 'chiscis'), ' / ',
-            _sortable_link(request, 'Ship', 'ship'), ' / ',
-            _sortable_link(request, 'Country', 'country'),
+            sortable_link(request, sorter, 'Chief scientist(s)', 'chiscis'),
+            ' / ',
+            sortable_link(request, sorter, 'Ship', 'ship'), ' / ',
+            sortable_link(request, sorter, 'Country', 'country'),
             class_='who'),
     ]
     if show_data:

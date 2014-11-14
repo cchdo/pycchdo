@@ -643,6 +643,12 @@ def _uow_fetch(request):
         shutil.rmtree(tempdir)
 
 
+def _json_response(request, msg, status=400):
+    """Return a dict representation of an error for JSON purposes."""
+    request.response.status = status
+    return {"status": "error", "error": msg}
+
+
 def _uow_commit(request):
     """Commit a UOW.
 
@@ -658,8 +664,6 @@ def _uow_commit(request):
         readme - the readme file, used for the history note
 
     """
-    person = request.user
-    results = {}
 
     dryrun = not bool(request.params.get('fly', False))
     if dryrun:
@@ -667,25 +671,29 @@ def _uow_commit(request):
         transaction.doom()
     else:
         log.info(u'UOW commit')
+
+    results = {}
     for k, v in request.POST.items():
         if k.startswith('result['):
             key = int(k.split('[', 1)[1][:-1])
             results[key] = v
     if not results:
         log.error(u'UOW missing results')
-        request.response.status = 400
-        return {'status': 'error', 'error': 'No data changes'}
+        return _json_response(request, "No data changes")
     try:
         result_types = json_loads(request.params['result_types'])
-        support = request.POST['support']
         uow_cfg = json_loads(request.params['uow_cfg'])
+        support = request.POST['support']
         readme_file = request.POST['readme']
     except KeyError as err:
-        request.response.status = 400
-        return {'status': 'error', 'error': 'Missing {0}'.format(err)}
+        return _json_response(request, "Missing {0}".format(err))
+
+    if len(results) != len(result_types):
+        return _json_response(request, "Need result type for each result")
 
     expocode = uow_cfg['expocode']
     cruise = Cruise.get_by_id(expocode)
+    person = request.user
 
     uow = UOW()
     DBSession.add(uow)

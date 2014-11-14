@@ -1,8 +1,9 @@
 import os
+import json
 from cgi import FieldStorage
 from StringIO import StringIO
 from shutil import rmtree
-from logging import getLogger
+from logging import getLogger, DEBUG
 from tempfile import mkdtemp
 from datetime import date
 
@@ -18,6 +19,7 @@ from pycchdo.views.staff import _moderate_attribute, as_received
 
 
 log = getLogger(__name__)
+log.setLevel(DEBUG)
 
 
 class TestGlobal(RequestBaseTest):
@@ -373,6 +375,55 @@ class TestStaff(RequestBaseTest):
                 os.listdir(os.path.join(tempdir, 'asr', str(chg2.id))))
         finally:
             rmtree(tempdir)
+        
+    def test_commit(self):
+        from pycchdo.views.staff import _uow_commit
+        ccc = Cruise.create(self.testPerson).obj
+        expocode = 'expocode'
+        title = 'title'
+        summary = 'summary'
+        ccc.set(self.testPerson, 'expocode', expocode)
+
+        aaa = ccc.set(self.testPerson, 'bottle_exchange',
+                MockFieldStorage(MockFile('aaa', 'aaa.txt')))
+
+        # Want to make sure that the online file gets updated
+
+        self.request.params['fly'] = True
+        self.request.params['result[0]'] = \
+            MockFieldStorage(MockFile('result', 'result.txt'))
+        self.request.params['result_types'] = json.dumps([
+            'bottle_exchange', 
+        ])
+        self.request.params['support'] = \
+            MockFieldStorage(MockFile('support tar', 'support.tar'))
+        self.request.params['uow_cfg'] = json.dumps({
+            'expocode': expocode,
+            'q_infos': [],
+            'title': title,
+            'summary': summary,
+        })
+        self.request.params['readme'] = \
+            MockFieldStorage(MockFile('readme', 'readme.txt'))
+
+        result = _uow_commit(self.request)
+
+        self.assertEqual(result, {'status': 'ok'})
+
+        self.assertNotEqual(aaa.id, ccc.get_attr('bottle_exchange').id)
+        self.assertEqual('result', ccc.get('bottle_exchange').open_file().read())
+        uow = UOW.query().first()
+        self.assertEqual(uow.note.data_type, title)
+        self.assertEqual(uow.note.subject, summary)
+        self.assertEqual(uow.note.action, 'Website Update')
+
+        # Require result type for each result file
+        self.request.params['result_types'] = json.dumps([])
+        self.request.params['support'] = \
+            MockFieldStorage(MockFile('support tar', 'support.tar'))
+        result = _uow_commit(self.request)
+        self.assertEqual(result, {'status': 'error',
+                                  'error': 'Need result type for each result'})
         
 
 class TestMail(RequestBaseTest):

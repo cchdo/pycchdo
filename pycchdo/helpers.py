@@ -1090,7 +1090,7 @@ def correlated_submission_attached(request, submission):
                     for asr in asrs:
                         attached_to_whole.remove(asr)
                     file_asrs.append((fname, lim_str(fname), asrs))
-        except BadZipfile:
+        except (IOError, OSError, BadZipfile):
             # Bad zip file? Just don't display anything.
             pass
     else:

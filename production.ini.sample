@@ -33,7 +33,7 @@ analytics = True
 key_auth_policy = 
 key_session_factory = 
 
-sqlalchemy.url = postgresql://pycchdo:pycchd0@315@sui.ucsd.edu:5432/prod_pycchdo
+sqlalchemy.url = postgresql://pycchdo:pycchdo@h2o.ucsd.edu:5432/prod_pycchdo
 
 webassets.base_dir = %(here)s/%(app)s/static
 webassets.base_url = /static

@@ -322,6 +322,13 @@ class ChangeNoteTransformer(Comparator):
         self._aliased_change = Obj.change._aliased
 
     @property
+    def outerjoin(self):
+        def go(q):
+            return q.outerjoin(self._aliased,
+                self._aliased.change_id == self._aliased_change.id)
+        return go
+
+    @property
     def join(self):
         def go(q):
             return q.join(self._aliased,

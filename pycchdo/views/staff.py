@@ -229,7 +229,10 @@ def _query_submission_by_id(request):
     sid = request.params['query']
     if not sid:
         return Submission.query().filter(False)
-    return Submission.filtered(sid=sid)
+    try:
+        return Submission.filtered(sid=int(sid))
+    except ValueError:
+        return Submission.query().filter(False)
 
 
 list_queries = OrderedDict([
@@ -309,9 +312,11 @@ def submissions(request):
         query = request.params.dict_of_lists()
         query['ltype'] = _get_default_list_query()
         return HTTPSeeOther(location=request.current_route_path(_query=query))
+
     squery = squery.with_transformation(Submission.change.join)
     squery = squery.with_transformation(Change.p_c.join)
-    squery = squery.with_transformation(Change.notes.join)
+    squery = squery.with_transformation(Change.notes.outerjoin)
+
     if query and ltype != 'id':
         likestr = '%{0}%'.format(query)
         or_list = [
@@ -328,6 +333,7 @@ def submissions(request):
         except ValueError:
             raise HTTPBadRequest()
         squery = squery.filter(or_(*or_list))
+
     squery = squery.order_by(Submission.change._aliased.ts_c.desc())
     submissions = sorter.sort(squery.all())
     submissions = paged(request, submissions)

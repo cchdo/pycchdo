@@ -15,11 +15,24 @@ from pycchdo.tests import (
     RequestBaseTest, PersonBaseTest, MockFieldStorage, MockFile, MockSession
     )
 from pycchdo.models.serial import Cruise, FSFile, DBSession, UOW, Note
+from pycchdo.views.session import _profile_to_person
 from pycchdo.views.staff import _moderate_attribute, as_received
 
 
 log = getLogger(__name__)
 log.setLevel(DEBUG)
+
+
+class TestSession(RequestBaseTest):
+    def test_profile_to_person(self):
+        profile = {
+            'identifier': 'identifier',
+        }
+        person = _profile_to_person(profile)
+
+        self.assertEquals(person.identifier, 'identifier')
+        self.assertEquals(person.name, u'Unknown')
+        self.assertEquals(person.email, None)
 
 
 class TestGlobal(RequestBaseTest):

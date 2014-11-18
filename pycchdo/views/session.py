@@ -41,13 +41,13 @@ def _profile_to_person(profile):
      
     # these fields MAY be in the profile, but are not guaranteed. it
     # depends on the provider and their implementation.
-    name = profile.get('name')
+    name = profile.get('name', {})
     email = profile.get('email')
 
     person = Person.query().filter(Person.identifier == identifier).first()
     if not person:
-        person = create_person(identifier=identifier, name=name['formatted'],
-                               email=email)
+        name = name.get('formatted', u'Unknown')
+        person = create_person(identifier=identifier, name=name, email=email)
 
     return person
 

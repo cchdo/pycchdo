@@ -21,6 +21,7 @@ from pycchdo.views.cruise import cruise_show, cruises_index
 from pycchdo.views.submit import response_from_submission_request
 from pycchdo.views.staff import moderation, submission_attach, uow
 from pycchdo.views.collection import collections_index
+from pycchdo.views.person import person_edit
 
 
 log = getLogger(__name__)
@@ -204,3 +205,25 @@ class TestStaffModeration(RequestBaseTest):
         self.assertEqual(len(mailer.outbox), 1)
         self.assertEqual(mailer.outbox[0].subject,
                          "Data available As Received for {0}".format(ccc.uid))
+
+
+class TestInputForms(RequestBaseTest):
+    def test_person_modification(self):
+        ppp = self.testPerson
+        ppp.permissions = [u'staff']
+
+        self.request.matchdict['person_id'] = str(ppp.id)
+
+        self.request.params['_method'] = u'PUT'
+        self.request.params['identifier'] = u'test_id'
+        self.request.params['name'] = u'test_name'
+        self.request.params['name_first'] = u'test_first_name'
+        self.request.params['name_last'] = u'test_last_name'
+        self.request.params['institution'] = u'textstr'
+        self.request.params['country'] = u'textstr'
+        self.request.params['permissions'] = u''
+
+        result = person_edit(self.request)
+        self.assertIsInstance(result, HTTPSeeOther)
+        self.assertIn("_f_form_error_institution", self.request.session)
+        self.assertIn("_f_form_error_country", self.request.session)

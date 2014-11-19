@@ -1,5 +1,5 @@
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 import transaction
 
@@ -8,16 +8,18 @@ from pyramid.response import Response
 from pyramid.httpexceptions import \
     HTTPNotFound, HTTPBadRequest, HTTPSeeOther, HTTPUnauthorized
 
-from sqlalchemy.orm import noload, joinedload
+from sqlalchemy.orm import noload, joinedload, subqueryload
 
 from jinja2.exceptions import TemplateNotFound
 
 from pycchdo.models.serial import (
     Change, Cruise, Parameter, Unit, ParameterGroup, Collection, 
     Submission, FileHolder,
+    DBSession,
     )
 from pycchdo.models.searchsort import sort_list
 from pycchdo.models.search import _cruises_load_options
+from pycchdo.helpers import data_uri
 from pycchdo.views import *
 from pycchdo.views.staff import staff_signin_required
 from pycchdo.views.cruise import _contributions, _contribution_kmzs
@@ -121,17 +123,52 @@ def project_carina(request):
 
 def manifest(request):
     """A text list of files available from us."""
-    json = {}
-    for cruise in Cruise.query().options(noload('*')).all():
-        files = {}
-        for key, fattr in cruise.file_attrs.items():
-            if key == 'archive' or key.startswith('map'):
-                continue
-            files[key] = {
-                "url": data_uri(fattr),
-                "ctime": unicode(fattr.ts_c),
-            }
-        json[cruise.uid] = files
+    json = defaultdict(dict)
+    #CUSTOM_SQL
+    # Three joins, two subqueries, a cast to json then a cast to int
+    sql_query = """
+    select 
+        c.expocode, ch.id, f.created_at, cf.attr, f.name 
+    from 
+        pycchdo.cruises c 
+    join pycchdo.cruise_files cf on c.id = cf.cruise_id 
+    join pycchdo.fsfiles f on cf.file_id = f.id
+    join 
+    (select f.id, f.value->>'val' as fsfile_id from
+        (select 
+            id, changes.value::json 
+            from 
+                pycchdo.changes 
+            where 
+                changes.value like '{%' and changes.accepted is true) f
+        where f.value->>'obj_type' = 'FSFile') ch
+        on ch.fsfile_id::int = f.id
+    where 
+        cf.attr not like 'map%' 
+        and cf.attr not like 'archive'
+        and c.expocode != ''
+    """
+    results = DBSession.execute(sql_query)
+    for row in results:
+        expocode = row[0]
+        ftype = row[3]
+        url = "/data/b/c{ch_id}/{name}".format(
+                ch_id=row[1],
+                name=row[4])
+        ctime = unicode(row[2])
+
+        json[expocode][ftype] = {"url":url, "ctime":ctime}
+    #for cruise in Cruise.query().options(noload('*'),
+    #                                     subqueryload('files')).all():
+    #    files = {}
+    #    for key, fattr in cruise.file_attrs.items():
+    #        if key == 'archive' or key.startswith('map'):
+    #            continue
+    #        files[key] = {
+    #            "url": data_uri(fattr),
+    #            "ctime": unicode(fattr.ts_c),
+    #        }
+    #    json[cruise.uid] = files
     return json
 
 

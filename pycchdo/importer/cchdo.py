@@ -9,7 +9,7 @@ import tarfile
 from shutil import copyfileobj, rmtree
 from contextlib import closing, contextmanager
 from copy import copy
-from threading import current_thread, Thread, Lock
+from threading import current_thread, Thread, RLock
 import traceback
 import time
 import zipfile
@@ -2005,7 +2005,7 @@ def _import_documents_unaccounted(
     archive_attr = cruise.get_attr_change('archive')
     if archive_attr:
         log.info('%s archive already imported' % archive_import_id)
-        return
+        #return
 
     # Use a shorter temp root so long path names don't get too long. Mac OS X
     # limits to 1024 bytes.
@@ -2140,15 +2140,15 @@ def _import_documents_for_cruise(downloader, docs, expocode):
             mapped_docs[pycchdo_type] = doc
             log.debug('Mapped %s %s' % (pycchdo_type, doc.FileName))
 
-    ## Add the cruise's directory entry as import record
-    #try:
-    #    remote_dir = mapped_docs['directory'].FileName
-    #    del mapped_docs['directory']
-    #    updater.attr(cruise, 'data_dir', remote_dir)
-    #except KeyError:
-    #    log.error(
-    #        '%s has no directory registered. Cannot import.' % expocode)
-    #    return
+    # Add the cruise's directory entry as import record
+    try:
+        remote_dir = mapped_docs['directory'].FileName
+        del mapped_docs['directory']
+        updater.attr(cruise, 'data_dir', remote_dir)
+    except KeyError:
+        log.error(
+            '%s has no directory registered. Cannot import.' % expocode)
+        return
 
     # Import all files that have been mapped to the cruise
     accounted_files = copy(_DOCS_FILES_IGNORE)
@@ -2166,68 +2166,68 @@ def _import_documents_for_cruise(downloader, docs, expocode):
             log.info('%s already imported' % doc_import_id)
             continue
 
-        #preliminary = bool(doc.Preliminary)
-        #if preliminary:
-        #    log.info(
-        #        'Marking file %s for %s preliminary' % (data_type, expocode))
-        #    # Nothing else makes changes to <key>_status es so it is safe to
-        #    # assume the only <key>_status is the one we want to change.
-        #    status_key = '%s_status' % data_type
-        #    statuses = uniquify(cruise.get(status_key, []) + ['preliminary'])
-        #    updater.attr(cruise, status_key, statuses)
+        preliminary = bool(doc.Preliminary)
+        if preliminary:
+            log.info(
+                'Marking file %s for %s preliminary' % (data_type, expocode))
+            # Nothing else makes changes to <key>_status es so it is safe to
+            # assume the only <key>_status is the one we want to change.
+            status_key = '%s_status' % data_type
+            statuses = uniquify(cruise.get(status_key, []) + ['preliminary'])
+            updater.attr(cruise, status_key, statuses)
 
-        ## Check that the file to download is the same size as recorded in db.
-        #size = int(doc.Size)
-        #try:
-        #    lstat = downloader.lstat(doc.FileName)
-        #    if lstat.st_size != size:
-        #        log.warn(
-        #            'File %s has mismatched size. Expected %s got %s' % (
-        #                doc.FileName, size, lstat.st_size))
-        #except (OSError, IOError), e:
-        #    log.error((
-        #        'Unable to check file size {0}. Skip file download.:\n'
-        #        '{1!r}').format(doc.FileName, e))
-        #    continue
+        # Check that the file to download is the same size as recorded in db.
+        size = int(doc.Size)
+        try:
+            lstat = downloader.lstat(doc.FileName)
+            if lstat.st_size != size:
+                log.warn(
+                    'File %s has mismatched size. Expected %s got %s' % (
+                        doc.FileName, size, lstat.st_size))
+        except (OSError, IOError), e:
+            log.error((
+                'Unable to check file size {0}. Skip file download.:\n'
+                '{1!r}').format(doc.FileName, e))
+            continue
 
-        ## We don't care about these stamps. Regenerate later.
-        #stamps = doc.Stamp
+        # We don't care about these stamps. Regenerate later.
+        stamps = doc.Stamp
 
         field = FieldStorage()
         field.filename = os.path.basename(doc.FileName)
-        #field.type = guess_mime_type(doc.FileName)
+        field.type = guess_mime_type(doc.FileName)
 
-        #with downloader.dl(doc.FileName) as file:
-        #    if not file:
-        #        log.error('Unable to download %s. Skipping' % doc.FileName)
-        #        continue
+        with downloader.dl(doc.FileName) as file:
+            if not file:
+                log.error('Unable to download %s. Skipping' % doc.FileName)
+                continue
 
-        #    field.file = file
-        #    with su(su_lock=downloader.su_lock):
-        #        attr = updater.attr(cruise, data_type, field)
-        #        attr.value.import_path = doc.FileName
-        #        attr.import_id = doc_import_id
+            field.file = file
+            with su(su_lock=downloader.su_lock):
+                attr = updater.attr(cruise, data_type, field)
+                attr.value.import_path = doc.FileName
+                attr.import_id = doc_import_id
 
-        #date_creation = doc.Modified
-        #date_accepted = doc.LastModified
+        date_creation = doc.Modified
+        date_accepted = doc.LastModified
 
-        ## It's possible for date_creation to be a comma separated list.
-        ## I'm assuming it's lists of modification times - myshen
-        #if date_creation:
-        #    log.debug('setting creation date')
-        #    creations = date_creation.split(',')
-        #    if len(creations) > 1:
-        #        date_creations = map(str, sorted(map(parse_dt, creations)))
-        #        date_creation = date_creations[0]
-        #        updater.note(
-        #            attr, ','.join(date_creations), 'dates_updated',
-        #            ctime=date_creations[-1])
-        #    else:
-        #        attr.ts_c = date_creation
-        #if date_accepted:
-        #    log.debug('setting accept date')
-        #    attr.ts_c = parse_dt(date_accepted)
-        #    attr.ts_j = parse_dt(date_accepted)
+        # It's possible for date_creation to be a comma separated list.
+        # I'm assuming it's lists of modification times - myshen
+        if date_creation:
+            log.debug('setting creation date')
+            creations = date_creation.split(',')
+            if len(creations) > 1:
+                date_creations = map(str, sorted(map(parse_dt, creations)))
+                date_creation = date_creations[0]
+                updater.note(
+                    attr, ','.join(date_creations), 'dates_updated',
+                    ctime=date_creations[-1])
+            else:
+                attr.ts_c = date_creation
+        if date_accepted:
+            log.debug('setting accept date')
+            attr.ts_c = parse_dt(date_accepted)
+            attr.ts_j = parse_dt(date_accepted)
 
         accounted_files.append(field.filename)
         log.debug('accounted')
@@ -2493,12 +2493,12 @@ def import_(import_gid, nthreads, args):
                 transaction.begin()
                 with conn_dl(remote_host, args.skip_downloads, import_gid,
                              #local_rewriter=rewrite_dl_path_to_local,
-                             su_lock=Lock()) as downloader:
-                    #_import_queue_files(session, downloader)
-                    #_import_submissions(session, downloader)
-                    #_import_old_submissions(session, downloader)
+                             su_lock=RLock()) as downloader:
+                    _import_queue_files(session, downloader)
+                    _import_submissions(session, downloader)
+                    _import_old_submissions(session, downloader)
                     _import_documents(session, downloader, nthreads - 1)
-                    #_import_argo_files(session, downloader)
+                    _import_argo_files(session, downloader)
                     transaction.commit()
     except (KeyboardInterrupt, Exception):
         log.info('aborted transaction')

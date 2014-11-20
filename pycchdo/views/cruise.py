@@ -300,9 +300,8 @@ def _edit_attr(request, cruise_obj):
         if participants is None:
             return
 
-        change = cruise_obj.sugg(request.user,
-            'participants', Participants(participants))
-        if change:
+        change = cruise_obj.sugg(request.user, 'participants', participants)
+        if change and note:
             change._notes.append(note)
         request.session.flash(
             u'Suggested updated participants for this cruise',
@@ -310,7 +309,7 @@ def _edit_attr(request, cruise_obj):
     elif edit_action == 'Delete all participants':
         if key == 'participants':
             change = cruise_obj.delete(request.user, 'participants')
-            if change:
+            if change and note:
                 change._notes.append(note)
             request.session.flash(
                 u'Suggested that participants be cleared', 'action_taken')
@@ -366,11 +365,16 @@ def _rpi_to_participants(rpis):
             person = _rpi_obj_get_from_id_str(Person, person)
             if person is None:
                 failed = True
+        else:
+            failed = True
+            continue
         if institution:
             institution = _rpi_obj_get_from_id_str(Institution, institution)
             if institution is None:
                 failed = True
-        participants.add(Participant(role, person, institution))
+        else:
+            institution = None
+        participants.append(Participant.create(role, person, institution))
     if failed:
         participants = None
     return participants

@@ -14,10 +14,12 @@ from pyramid_mailer import get_mailer
 from pycchdo.tests import (
     PersonBaseTest, RequestBaseTest, MockFieldStorage, MockFile,
     )
-from pycchdo.models.serial import DBSession, Cruise, Person, Collection, Note
+from pycchdo.models.serial import (
+    DBSession, Cruise, Person, Collection, Note, Institution,
+    )
 from pycchdo.log import getLogger
 from pycchdo.views.toplevel import home
-from pycchdo.views.cruise import cruise_show, cruises_index
+from pycchdo.views.cruise import cruise_show, cruises_index, _edit_attr
 from pycchdo.views.submit import response_from_submission_request
 from pycchdo.views.staff import moderation, submission_attach, uow
 from pycchdo.views.collection import collections_index
@@ -95,7 +97,59 @@ class TestCruise(RequestBaseTest):
         self.request.matchdict['cruise_id'] = expocode
         with self.assertRaises(HTTPSeeOther):
             cruise_show(self.request)
-        
+
+    def _setup_participant_suggest(self):
+        self.request.params['_method'] = 'PUT'
+        self.request.params['key'] = 'participants'
+        self.request.params['action'] = 'edit_attr'
+        self.request.params['edit_action'] = 'Set participants'
+
+    def test_suggest_participant_no_person(self):
+        ccc = Cruise.create(self.testPerson).obj
+
+        self.request.matchdict['cruise_id'] = str(ccc.id)
+        self._setup_participant_suggest()
+        self.request.params['role0'] = 'Chief Scientist'
+        self.request.params['person0'] = ''
+        self.request.params['institution0'] = ''
+
+        _edit_attr(self.request, ccc)
+
+        self.assertEqual(ccc.changes(), [])
+
+    def test_suggest_participant_no_inst(self):
+        ccc = Cruise.create(self.testPerson).obj
+
+        self.request.matchdict['cruise_id'] = str(ccc.id)
+        self._setup_participant_suggest()
+        self.request.params['role0'] = 'Chief Scientist'
+        self.request.params['person0'] = str(self.testPerson.id)
+        self.request.params['institution0'] = ''
+
+        _edit_attr(self.request, ccc)
+
+        participant = ccc.changes()[0].value[0]
+        self.assertEqual(participant.person, self.testPerson)
+        self.assertEqual(participant.institution, None)
+        self.assertEqual(participant.role, 'Chief Scientist')
+
+    def test_suggest_participant(self):
+        ccc = Cruise.create(self.testPerson).obj
+        iii = Institution.create(self.testPerson).obj
+
+        self.request.matchdict['cruise_id'] = str(ccc.id)
+        self._setup_participant_suggest()
+        self.request.params['role0'] = 'Chief Scientist'
+        self.request.params['person0'] = str(self.testPerson.id)
+        self.request.params['institution0'] = str(iii.id)
+
+        _edit_attr(self.request, ccc)
+
+        participant = ccc.changes()[0].value[0]
+        self.assertEqual(participant.person, self.testPerson)
+        self.assertEqual(participant.institution, iii)
+        self.assertEqual(participant.role, 'Chief Scientist')
+
 
 class TestCollection(RequestBaseTest):
     def test_list_rejected_cruise(self):

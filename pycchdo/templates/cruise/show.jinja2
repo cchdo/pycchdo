@@ -137,8 +137,8 @@
 {%- macro participant_row(index, role, person, institution) %}
   <tr class="participant_row {{ index }}">
     <td class="role"><input type="text" name="role{{ index }}" value="{{ role|default('', true) }}" placeholder="role"></td>
-    <td class="person"><input type="text" name="person{{ index }}" value="{{ person|default('', true) }}" placeholder="person id"></td>
-    <td class="institution"><input type="text" name="institution{{ index }}" value="{{ institution|default('', true) }}" placeholder="institution id"></td>
+    <td class="person"><input type="text" name="person{{ index }}" value="{{ person.id|default('', true) }}" placeholder="person id"></td>
+    <td class="institution"><input type="text" name="institution{{ index }}" value="{{ institution.id|default('', true) }}" placeholder="institution id"></td>
   </tr>
 {%- endmacro %}
 {%- block content_attrs %} class="cruise-page{% if not cruise.accepted %} pending{%- endif %}"{%- endblock %}

@@ -221,7 +221,6 @@ CCHDO.MAP.setupSplitters = function (base) {
       panels: [{size: "80%", collapsible: false}]
     })
     .on('resize', function () {
-      console.log('resize triggered')
       google.maps.event.trigger(map, 'resize');
     })
     .jqxSplitter("collapse");
@@ -1092,11 +1091,11 @@ function GVTable(dom, splitter) {
   this._table_dom = $('<div class="cruise-table">').appendTo(this._dom);
 
   this._dcart_all = $('<div class="datacart-cruises-links data-formats">'+
-    '<a href="/datacart/add_cruises" ' +
-    'class="datacart-link datacart-results datacart-add" '+
-    'style="float: right; width: 10em; margin: 0.2em;"' +
+    '<a href="javascript:;" ' +
+    'class="datacart-link datacart-results-placeholder" '+
+    'style="margin-left: 80%; margin-bottom: 0.5em;"' +
     'title="Add all result data to data cart">' +
-    '<div class="datacart-icon">Add all data in result</div></a></div>')
+    '<div class="datacart-icon"></div></a></div>')
     .prependTo(this._dom);
 
   this._pintype = $('<button class="splitbutton"></button>')
@@ -1149,7 +1148,6 @@ GVTable.prototype.idsAdded = function (ids) {
     var info = model._infos[id];
     self.add(id, info, tid != null);
   });
-  CCHDO.MAP.layerView.layerSectionPermanent.tablelayer.setOn(true);
   this.redraw();
 };
 
@@ -1385,12 +1383,8 @@ GVTable.prototype.dark = function (id) {
 };
 
 GVTable.prototype.setDatacartAllLink = function() {
-  var self = this;
-  var link = [];
-  this.tableRows().each(function(i, x) {
-    link.push("ids=" + self.getCruiseIdForTr(x));
-  });
-  this._dcart_all.find('a').attr('href', "/datacart/add_cruises?" + link.join('&'));
+  var cart = new Cart();
+  make_datacart_links(cart, $);
 };
 
 GVTable.prototype.redraw = function () {

@@ -1013,7 +1013,8 @@ class Obj(Base, DBQueryable, Creatable, AllowableSerialMgr):
     def changes(self, state=None, replaced=False, data=None,
                 query_modifier=None):
         """Return the Obj's Changes excluding the one that created it."""
-        changes = self.changes_query(state, replaced, query_modifier).all()
+        changes = self.changes_query(state, replaced, query_modifier)
+        changes = changes.all()
         if data is None:
             return changes
         else:

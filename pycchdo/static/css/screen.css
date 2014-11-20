@@ -304,18 +304,27 @@ a.datacart-link:hover {
 }
 a.datacart-link .datacart-icon {
   display: inline-block;
+  text-align: left;
 }
 div.formats-sections span,
 a.datacart-link {
   padding: 0;
 }
 
+.dataset {
+  min-width: 20em;
+  position: relative;
+}
+
 .data-formats .short .datacart { left: 13em; margin-top: 0; }
 .cruise-listing .formats-sections th,
 .cruise-listing .formats-sections td { padding-top: 0; padding-bottom: 0; font-size: 0.7em}
-.cruise-listing .datacart-cruise-links { margin-top: 0.1em; }
-.cruise-listing .datacart-cruise-links .datacart-icon { margin-left: 0; }
 .cruise-listing tr.open .datacart-cruise-links .datacart-icon { margin-left: 3em; }
+
+.cruise-listing .datacart-cruise-links {
+  text-align: right;
+  margin-bottom: 0.3em;
+}
 .cruise-page #data .datacart-cruise-links,
 .expanded .datacart-cruise-links,
 .ui-dialog .datacart-cruise-links {
@@ -376,7 +385,7 @@ div.datacart-icon {
 .datacart-add-cruise .datacart-icon { background-position: 0 0px; }
 .datacart-remove-cruise .datacart-icon { background-position: 0 60px; }
 
-.datacart-cruise .datacart-icon { width: 5em; }
+.datacart-cruise .datacart-icon { width: 6em; }
 
 .datacart-dl th {
   padding-left: 0.2em;
@@ -397,12 +406,15 @@ div.datacart-icon {
 .datacart-dl table {
   clear: left;
 }
-.datacart-dl .tools .download {
+.datacart-dl .tools input[type="submit"] {
   font-size: 1.1em;
+  margin-right: 0.5em;
+}
+.datacart-dl .tools .download {
   background-color: #CCEEBB;
   border: 1px solid #99CC66;
   border-radius: 0.3em;
-  color: #55AA22;
+  color: #557722;
 }
 .datacart-dl .tools .download:hover {
   background-color: #ddffaa;

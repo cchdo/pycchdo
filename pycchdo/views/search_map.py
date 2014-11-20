@@ -138,12 +138,19 @@ def ids(request):
             else:
                 continue
             polygon = poly.orient(poly.Polygon(coords))
-            polygons.append(polygon)
+
             # Safe the polygon against the dateline for filtering. This could
             # be improved by allowing Cruise.cruises_in_selection to operate on
             # multipolygons and safing those as well.
-            polygon = safe_shape(polygon)
-            filters.append(TrackInChecker(polygon, filter_func))
+            if crosses_dateline(polygon):
+                safepoly0, safepoly1 = split_across_dateline(polygon)
+                polygons.append(safepoly0)
+                polygons.append(safepoly1)
+                filters.append(TrackInChecker(safepoly0, filter_func))
+                filters.append(TrackInChecker(safepoly1, filter_func))
+            else:
+                polygons.append(polygon)
+                filters.append(TrackInChecker(polygon, filter_func))
 
         time_min = int(request.params.get('time_min', DEFAULTS['time_min']))
         # Bump the year forward because we want searches up to 
@@ -155,8 +162,11 @@ def ids(request):
         # MaxBoundingRectangleIntersection
         for polygon, bounds_check in zip(polygons, filters):
             raw_tracks, limited = getTracksInSelection(polygon, time_min, time_max)
-            cruises.extend(
-                filter(lambda t: bounds_check(uniq_track(t.track)), raw_tracks))
+            log.debug(u'{0} cruises before filtering'.format(len(raw_tracks)))
+            filtered = filter(
+                lambda t: bounds_check(uniq_track(t.track)), raw_tracks)
+            log.debug(u'{0} cruises after filtering'.format(len(filtered)))
+            cruises.extend(filtered)
     elif req_ids:
         cruises = [Cruise.get_by_id(id) for id in req_ids]
     elif req_q:
@@ -373,12 +383,19 @@ def between_lng(lower, test, upper):
 
 
 def in_rect(coord, sw, ne):
+    #log.debug('{0} {1} {2}'.format(coord,sw,ne))
     return (between_lng(sw[0], coord[0], ne[0]) and
             between_lat(sw[1], coord[1], ne[1]))
+
+
 def track_in_rectangle(rect, track):
     # check each point, intersection is weird over the dateline
     ext = rect.exterior.coords
-    sw, ne = ext[0], ext[2]
+    minx = min(ext[0][0], ext[2][0])
+    maxx = max(ext[0][0], ext[2][0])
+    miny = min(ext[0][1], ext[2][1])
+    maxy = max(ext[0][1], ext[2][1])
+    sw, ne = (minx, miny), (maxx, maxy)
     return any(in_rect(coord, sw, ne) for coord in track.coords)
 
 
@@ -474,13 +491,13 @@ def shift(geom, shifter=shift_pts):
 
     # Determine the geometry type to call appropriate handler
     if geom.type in ('Point', 'LineString'):
-        return type(geom)(list(shift_pts(geom.coords, num_dim)))
+        return type(geom)(list(shifter(geom.coords, num_dim)))
     elif geom.type == 'Polygon':
         ring = geom.exterior
-        shell = type(ring)(list(shift_pts(ring.coords, num_dim)))
+        shell = type(ring)(list(shifter(ring.coords, num_dim)))
         holes = list(geom.interiors)
         for pos, ring in enumerate(holes):
-            holes[pos] = type(ring)(list(shift_pts(ring.coords, num_dim)))
+            holes[pos] = type(ring)(list(shifter(ring.coords, num_dim)))
         return type(geom)(shell, holes)
     elif geom.type.startswith('Multi') or geom.type == 'GeometryCollection':
         # Recursive call to shift all components
@@ -502,9 +519,10 @@ def split_across_dateline(polygon):
 
     lower_polys = polygon.intersection(lower)
     upper_polys = polygon.intersection(upper)
-    shift(upper_polys, unshift_pts)
+    upper_polys = shift(upper_polys, unshift_pts)
 
-    return unary_union([lower_polys, upper_polys])
+    return lower_polys, upper_polys
+    #return unary_union([lower_polys, upper_polys])
 
 
 def safe_shape(polygon):

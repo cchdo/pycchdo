@@ -10,11 +10,15 @@ from datetime import datetime
 from contextlib import contextmanager
 from re import compile as re_compile
 from traceback import format_exc
+from functools import wraps
 
 from sqlalchemy.orm import noload, joinedload, subqueryload, lazyload
 
 from whoosh import index
-from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN
+from whoosh.analysis import *
+from whoosh.fields import (
+    Schema, TEXT, KEYWORD, ID, STORED, DATETIME, BOOLEAN, NUMERIC
+    )
 from whoosh.writing import BufferedWriter, IndexingError
 from whoosh.qparser import (
     QueryParser, MultifieldParser, AndGroup, FieldAliasPlugin,
@@ -23,6 +27,11 @@ from whoosh.qparser.dateparse import DateParserPlugin
 
 from pycchdo.models import triggers
 from pycchdo.log import getLogger, ERROR, INFO, DEBUG
+
+
+DETAIL = int(DEBUG / 2)
+
+
 from pycchdo.models.serial import (
     DBSession,
     Cruise, Person, Ship, Country, Institution, Collection, Note,
@@ -43,6 +52,9 @@ _name_model = {
     'note': Note,
 }
 
+_pis_analyzer = (
+    RegexTokenizer(expression='(,|\s+)', gaps=True) | LowercaseFilter()
+)
 
 _schemas = {
     'cruise': Schema(
@@ -51,11 +63,13 @@ _schemas = {
         date_end=DATETIME,
         ship=TEXT,
         country=KEYWORD(lowercase=True, commas=True),
-        pis=KEYWORD(lowercase=True, commas=True),
+        pis=TEXT(analyzer=_pis_analyzer),
         collections=KEYWORD(lowercase=True, commas=True),
         seahunt=BOOLEAN,
         status=KEYWORD(lowercase=True, commas=True),
         mtime=STORED,
+        num_stations=NUMERIC,
+        parameter=KEYWORD(lowercase=True, commas=True),
         id=ID(stored=True, unique=True),
         ),
     'person': Schema(
@@ -226,6 +240,19 @@ def _str_to_date(text, end=False):
             return _str_to_date('{0}-01-01'.format(text))
 
 
+def visit_obj_with_cruises(func):
+    """Decorator to visit cruises of objects that have many cruises."""
+    @wraps(func)
+    def wrapper(self, obj, doc):
+        result = func(self, obj, doc)
+        # Cruise index document is not updated when changes to objects that have
+        # many cruises occurr. Doing it this way will cause recursion.
+        #for cruise in obj.cruises:
+        #    save_obj(cruise)
+        return result
+    return wrapper
+
+
 class IndexerVisitor(object):
     """Functions related to saving objs to index."""
 
@@ -241,14 +268,23 @@ class IndexerVisitor(object):
 
     @classmethod
     def collection_to_lexicon(cls, obj):
-        return u','.join(filter(None, obj.names))
+        return cls.obj_to_unicode(filter(None, obj.names))
 
     @classmethod
     def country_to_lexicon(cls, obj):
         names = filter(
             None, [unicode(obj.name), obj.iso_code(), obj.iso_code(3)])
-        names = [name.strip() for name in names]
-        return u','.join(names)
+        return cls.obj_to_unicode(names, lambda x: x.strip())
+
+    @classmethod
+    def obj_to_unicode(cls, objs, func=lambda x: x):
+        items = []
+        for obj in objs:
+            try:
+                items.append(func(obj))
+            except AttributeError:
+                pass
+        return u','.join(items)
 
     def visit(self, obj):
         doc = {}
@@ -269,28 +305,36 @@ class IndexerVisitor(object):
             doc['country'] = self.country_to_lexicon(obj.country)
         chiscis = obj.chief_scientists
         if chiscis:
-            doc['pis'] = u','.join(
-                [unicode(pi.person.full_name) for pi in chiscis])
+            doc['pis'] = self.obj_to_unicode(
+                chiscis, lambda obj: unicode(obj.person.full_name))
         if obj.collections:
-            doc['collections'] = u','.join(
-                [self.collection_to_lexicon(c) for c in obj.collections])
+            doc['collections'] = self.obj_to_unicode(
+                obj.collections, self.collection_to_lexicon)
         doc['status'] = u','.join(obj.statuses)
+        doc['num_stations'] = obj.num_stations
+        doc['parameter'] = self.obj_to_unicode(
+            obj.parameters, lambda obj: obj.parameter.name)
         doc['seahunt'] = not obj.accepted
 
+    @visit_obj_with_cruises
     def visit_person(self, obj, doc):
         doc['name'] = unicode(obj.full_name)
         doc['email'] = unicode(obj.email)
 
+    @visit_obj_with_cruises
     def visit_ship(self, obj, doc):
         doc['name'] = self.ship_to_lexicon(obj)
 
+    @visit_obj_with_cruises
     def visit_country(self, obj, doc):
         doc['names'] = self.country_to_lexicon(obj)
 
+    @visit_obj_with_cruises
     def visit_institution(self, obj, doc):
         doc['name'] = unicode(obj.name)
         doc['uri'] = unicode(obj.get('url', None))
 
+    @visit_obj_with_cruises
     def visit_collection(self, obj, doc):
         doc['names'] = self.collection_to_lexicon(obj)
 
@@ -408,13 +452,13 @@ class SearchIndex(object):
 
             try:
                 doc = obj.accept_visitor(indexer_visitor)
-            except AttributeError:
+            except Exception as exc:
+                log.error(repr(exc))
                 ixw.cancel()
-                ixw.close()
             else:
                 doc['mtime'] = obj.mtime
                 doc['id'] = _model_id_to_index_id(obj.id)
-                log.debug(u'saving {0} {1!r}'.format(name, doc))
+                log.log(DETAIL, u'saving {0} {1!r}'.format(name, doc))
                 ixw.update_document(**doc)
 
     def save_note(self, note, writer=None):
@@ -473,13 +517,13 @@ class SearchIndex(object):
             for indexed_id in indexed_ids:
                 log.debug('Check existance {0} {1}'.format(model, indexed_id))
 
-                # for missing docs
-                obj = id_objs[indexed_id]
+                obj = id_objs.get(indexed_id, None)
                 if not obj:
+                    # for missing docs
                     log.debug('Remove missing id %s' % indexed_id)
-                    ixw.delete_by_term('id', indexed_id)
-                # and modified docs
+                    ixw.delete_by_term('id', unicode(indexed_id))
                 else:
+                    # and modified docs
                     log.debug('Check %s mtime' % indexed_id)
                     try:
                         indexed_time = fields['mtime']

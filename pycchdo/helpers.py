@@ -784,13 +784,7 @@ def cruise_listing(request, cruises, pre_expand=False, allow_empty=False,
                                  classes=['body', baseclass]),
                 class_='dataset'
             ))
-        row.append(
-            H.td(
-                cruise_track_image(
-                    map_path, cruise, style='display: none;',
-                    classes=['body', baseclass]),
-                class_='map'
-            ))
+        row.append(H.td(""))
         list.append(H.tr(*row, class_=metaclass))
         list.append(
             H.tr(H.td(param_station_summary(cruise), colspan=6),

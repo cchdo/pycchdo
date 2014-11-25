@@ -18,12 +18,7 @@ from sqlalchemy.orm import noload
 
 @staff_signin_required
 def objs(request):
-    objs = Obj.query().\
-        options(
-            noload('cache_obj_avs'),
-            noload('attrs_accepted'),
-            noload('attrs')
-        ).all()
+    objs = Obj.query().all()
     objs = paged(request, objs)
     return {'objs': objs}
 

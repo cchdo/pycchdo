@@ -35,6 +35,17 @@ class TestToplevel(RequestBaseTest):
         self.assertEqual(result, {'updated': OrderedDict()})
 
 
+class TestObj(RequestBaseTest):
+    def test_index(self):
+        from pycchdo.views.obj import objs
+        with self.assertRaises(HTTPUnauthorized):
+            result = objs(self.request)
+
+        self.request.user.permissions = ['staff']
+        result = objs(self.request)
+        self.assertTrue('objs' in result)
+
+
 class TestCruise(RequestBaseTest):
     def test_show(self):
         expocode = '33RR20090320'

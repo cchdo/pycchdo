@@ -6,6 +6,7 @@ from copy import copy
 from StringIO import StringIO
 from zipfile import ZipFile, ZIP_DEFLATED
 from logging import getLogger
+from traceback import format_exc
 
 
 log = getLogger(__name__)
@@ -18,7 +19,8 @@ from pyramid.httpexceptions import (
 
 from webhelpers.text import plural
 
-from tempfilezipstream import TempFileStreamingZipFile, FileWrapper
+from tempfilezipstream import (
+    TempFileStreamingZipFile, FileWrapper, ZIP_DEFLATED)
 
 from pycchdo.views import *
 from pycchdo.models.datacart import Datacart
@@ -278,16 +280,22 @@ def _remove_single_cruise(request, cruise_id):
 
 
 class ChangeFileWrapper(FileWrapper):
-    EMPTY_FILE = StringIO('missing')
+    EMPTY_FILE = StringIO('missing, contact the CCHDO')
+
+    def __init__(self, arcname, fileobj):
+        super(ChangeFileWrapper, self).__init__(arcname, fileobj)
+        self._fobj = None
 
     @property
     def fobj(self):
         if self._fobj is None:
             try:
                 self._fobj = self.__fobj.open_file()
-            except (OSError, IOError):
+            except (OSError, IOError) as err:
                 self._fobj = copy(self.EMPTY_FILE)
-                log.error(u'Missing file {0}'.format(self.__fobj))
+                log.error(u'Missing file {0} {1!r}'.format(self.__fobj, err))
+            except Exception as error:
+                log.error(repr(error))
         return self._fobj
 
     @fobj.setter
@@ -298,7 +306,10 @@ class ChangeFileWrapper(FileWrapper):
     @fobj.deleter
     def fobj(self):
         del self.__fobj
-        del self._fobj
+        self._fobj = None
+
+    def __repr__(self):
+        return u'ChangeFileWrapper({0}, {1!r})'.format(self.arcname, self.fobj)
 
 
 def download(request):
@@ -318,25 +329,20 @@ def download(request):
 
     attrs = Change.get_all_by_ids(*ids)
 
-    with store_context(request.fsstore):
-        wrappers = []
-        for attr in attrs:
-            dfile = attr.value
-            wrappers.append(ChangeFileWrapper(dfile.name, dfile))
+    zstream = TempFileStreamingZipFile([])
+    for attr in attrs:
+        dfile = attr.value
+        zstream.write(ChangeFileWrapper(dfile.name, dfile),
+                      compress_type=ZIP_DEFLATED)
 
-        zstream = TempFileStreamingZipFile(wrappers)
+    fname = TEMPNAME.format(datetime.now().strftime('%FT%T'))
 
-        fname = TEMPNAME.format(datetime.now().strftime('%FT%T'))
-        app_iter = iter(zstream)
+    def app_iter():
+        with store_context(request.fsstore):
+            for chunk in iter(zstream):
+                yield chunk
 
-        # preload the files. fsstore context is gone by the time app_iter is
-        # started
-        zstream._load()
-        for wrapper in wrappers:
-            # This prevents load inside iter
-            wrapper._arcname = None
-
-        return Response(
-            app_iter=app_iter,
-            content_type='application/zip', 
-            content_disposition='attachment; filename={0}'.format(fname))
+    return Response(
+        app_iter=app_iter(),
+        content_type='application/zip', 
+        content_disposition='attachment; filename={0}'.format(fname))

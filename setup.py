@@ -36,7 +36,7 @@ _requires_app = [
     'whoosh',
     'geojson',
     'shapely',
-    'tempfilezipstream',
+    'tempfilezipstream>=2.0',
     #'libcchdo>=0.8.2',
     'libcchdo',
 ]

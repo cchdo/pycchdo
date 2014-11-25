@@ -4,7 +4,9 @@ from StringIO import StringIO
 from collections import OrderedDict
 
 from pyramid import testing
-from pyramid.httpexceptions import HTTPSeeOther, HTTPUnauthorized
+from pyramid.httpexceptions import (
+    HTTPSeeOther, HTTPUnauthorized, HTTPBadRequest
+)
 from pyramid_mailer import get_mailer
 
 # TODO Planning on figuring out how to render the jinja2 templates and search
@@ -193,6 +195,34 @@ class TestSubmit(RequestBaseTest):
         self.assertEqual(len(mailer.outbox), 1)
         self.assertEqual(mailer.outbox[0].subject,
                          "[CCHDO] Submission by name:  ")
+
+
+class TestStaffSubmissions(RequestBaseTest):
+    def test_submissions(self):
+        self.request.user = ppp = Person()
+        ppp.permissions = [u'staff']
+
+        from webob.multidict import MultiDict
+        from pycchdo.views.staff import submissions
+
+        resp = submissions(self.request)
+        self.assertEqual(resp['ltype'], 'Not attached not Argo')
+
+        self.request.params = MultiDict(self.request.params)
+
+        self.request.url = 'http://localhost/staff/submissions.html'
+
+        self.request.params['query'] = 'asdf'
+        self.request.params['ltype'] = 'bad'
+        # ValueError due to inability to generate route
+        with self.assertRaises(ValueError):
+            resp = submissions(self.request)
+        self.assertEqual(resp['ltype'], 'Not attached not Argo')
+
+        self.request.params['query'] = 'bad'
+        self.request.params['ltype'] = 'id'
+        with self.assertRaises(HTTPBadRequest):
+            submissions(self.request)
 
 
 class TestStaffModeration(RequestBaseTest):

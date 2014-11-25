@@ -317,21 +317,22 @@ def submissions(request):
     squery = squery.with_transformation(Change.p_c.join)
     squery = squery.with_transformation(Change.notes.outerjoin)
 
-    if query and ltype != 'id':
-        likestr = '%{0}%'.format(query)
-        or_list = [
-            Submission.expocode.ilike(likestr),
-            Submission.ship_name.ilike(likestr),
-            Submission.line.ilike(likestr),
-            Change.p_c._aliased.name.ilike(likestr),
-            Submission.line.ilike(likestr),
-            Change.notes._aliased.body.ilike(likestr),
-        ]
-        try:
-            int(query)
-            or_list.append(Submission.id == query)
-        except ValueError:
-            raise HTTPBadRequest()
+    if query:
+        if ltype != 'id':
+            likestr = '%{0}%'.format(query)
+            or_list = [
+                Submission.expocode.ilike(likestr),
+                Submission.ship_name.ilike(likestr),
+                Submission.line.ilike(likestr),
+                Change.p_c._aliased.name.ilike(likestr),
+                Submission.line.ilike(likestr),
+                Change.notes._aliased.body.ilike(likestr),
+            ]
+        else:
+            try:
+                or_list = [Submission.id == int(query)]
+            except ValueError:
+                raise HTTPBadRequest(u'ID must be an integer')
         squery = squery.filter(or_(*or_list))
 
     squery = squery.order_by(Submission.change._aliased.ts_c.desc())

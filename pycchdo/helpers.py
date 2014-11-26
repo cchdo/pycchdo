@@ -24,6 +24,8 @@ from pyramid.url import route_path
 
 from sqlalchemy_imageattach.context import store_context
 
+from sqlalchemy.orm import noload, joinedload
+
 from libcchdo.fns import uniquify
 
 from pycchdo.log import getLogger, INFO, DEBUG
@@ -989,7 +991,7 @@ def link_asr(request, attached):
                         path_asr(request, attached))
 
 
-def editor_asr(request, submission, fname=None):
+def editor_asr(request, submission, cruises, fname=None):
     """Return HTML snippet for ASR editor on submissions.
 
     Args:
@@ -1009,7 +1011,6 @@ def editor_asr(request, submission, fname=None):
     sub_dt_id = 'submission_{0}_data_type'.format(sub_id)
     sub_p_id = 'submission_{0}_parameters'.format(sub_id)
         
-    cruises = submission.cruises_from_identifier()
     if cruises:
         guessed_cid = cruises[0].uid
     else:
@@ -1079,13 +1080,16 @@ def correlated_submission_attached(request, submission):
     else:
         file_asrs = [(None, link_file_holder(submission), attached)]
 
+    submission_cruises = submission.cruises_from_identifier(
+        noload('changes'), noload('files'))
+
     for fname, link, asrs in file_asrs:
         asr_links = [link_asr(request, asr) for asr in asrs]
         asr_link = whh.literal(', '.join(asr_links))
         rows.append(H.tr(
             H.td(link),
             H.td(asr_link, class_='asrs'),
-            H.td(editor_asr(request, submission, fname)),
+            H.td(editor_asr(request, submission, submission_cruises, fname)),
             ))
     return H.table(*rows, class_='submission_asrs')
 

@@ -2291,9 +2291,9 @@ class FileHolder(object):
         else:
             return Change
 
-    def cruises_from_identifier(self):
+    def cruises_from_identifier(self, *args):
         try:
-            return Cruise.get_all_by_expocode(self.identifier)
+            return Cruise.get_all_by_expocode(self.identifier, *args)
         except AttributeError:
             return []
 
@@ -2884,12 +2884,12 @@ class Cruise(Obj):
         return cls.query().filter(Cruise.expocode == expocode)
 
     @classmethod
-    def get_by_expocode(cls, expocode):
-        return cls.query_by_expocode(expocode).first()
+    def get_by_expocode(cls, expocode, *args):
+        return cls.query_by_expocode(expocode).options(*args).first()
 
     @classmethod
-    def get_all_by_expocode(cls, expocode):
-        return cls.query_by_expocode(expocode).all()
+    def get_all_by_expocode(cls, expocode, *args):
+        return cls.query_by_expocode(expocode).options(*args).all()
 
     @classmethod
     def get_by_id(cls, cruise_id):

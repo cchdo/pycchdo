@@ -335,6 +335,10 @@ def submissions(request):
                 raise HTTPBadRequest(u'ID must be an integer')
         squery = squery.filter(or_(*or_list))
 
+    squery = squery.options(
+        subqueryload('attached'), joinedload('_file'),
+        subqueryload('attached._notes')
+    )
     squery = squery.order_by(Submission.change._aliased.ts_c.desc())
     submissions = sorter.sort(squery.all())
     submissions = paged(request, submissions)

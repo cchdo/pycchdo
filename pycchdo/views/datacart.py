@@ -324,24 +324,28 @@ def download(request):
 
     try:
         ids = map(int, archive.split(','))
-    except ValueError:
+    except (AttributeError, ValueError):
         raise HTTPBadRequest()
 
-    attrs = Change.get_all_by_ids(*ids)
+    def app_iter():
+        try:
+            attrs = Change.get_all_by_ids(*ids)
 
-    zstream = TempFileStreamingZipFile([])
-    for attr in attrs:
-        dfile = attr.value
-        zstream.write(ChangeFileWrapper(dfile.name, dfile),
-                      compress_type=ZIP_DEFLATED)
+            zstream = TempFileStreamingZipFile([])
+            for attr in attrs:
+                dfile = attr.value
+                zstream.write(ChangeFileWrapper(dfile.name, dfile),
+                              compress_type=ZIP_DEFLATED)
+        except Exception as exc:
+            log.error(u'Unable to bulk download {0} {1}'.format(
+                format_exc(exc), ids))
+            return
+        else:
+            with store_context(request.fsstore):
+                for chunk in iter(zstream):
+                    yield chunk
 
     fname = TEMPNAME.format(datetime.now().strftime('%FT%T'))
-
-    def app_iter():
-        with store_context(request.fsstore):
-            for chunk in iter(zstream):
-                yield chunk
-
     return Response(
         app_iter=app_iter(),
         content_type='application/zip', 

@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 from pyramid import testing
 from pyramid.httpexceptions import (
-    HTTPSeeOther, HTTPUnauthorized, HTTPBadRequest
+    HTTPMethodNotAllowed, HTTPSeeOther, HTTPUnauthorized, HTTPBadRequest
 )
 from pyramid_mailer import get_mailer
 
@@ -35,6 +35,34 @@ class TestToplevel(RequestBaseTest):
     def test_home(self):
         result = home(self.request)
         self.assertEqual(result, {'updated': OrderedDict()})
+
+
+class TestDatacart(RequestBaseTest):
+    def test_download(self):
+        from pycchdo.views.datacart import download
+        with self.assertRaises(HTTPMethodNotAllowed):
+            result = download(self.request)
+        with self.assertRaises(HTTPBadRequest):
+            self.request.params['_method'] = 'POST'
+            result = download(self.request)
+        with self.assertRaises(HTTPBadRequest):
+            self.request.params['archive'] = ''
+            result = download(self.request)
+
+        ccc = Cruise.create(self.testPerson).obj
+        fff = MockFieldStorage(MockFile('asdf', 'qwer.txt'))
+        aaa = ccc.set(self.testPerson, 'bottle_exchange', fff)
+
+        self.request.params['archive'] = str(aaa.id)
+        self.request.fsstore = self.request.registry.settings['fsstore']
+        result = download(self.request)
+        self.assertEqual(result._status, '200 OK')
+        self.assertTrue(result.headers['Content-Disposition'].startswith(
+            'attachment; filename=cchdo_datacart_'))
+        self.assertTrue(result.headers['Content-Disposition'].endswith(
+            '.zip'))
+        content = result._app_iter.next()
+        self.assertEqual(content[:2], 'PK')
 
 
 class TestObj(RequestBaseTest):

@@ -66,15 +66,9 @@
       </li>
     </ul>
   </li>
-  <li id="cchdo_menu_submit" class="expandable"><h1>{{ h.tags.link_to('Submit', request.route_path('submit_menu')) }}</h1>
+  <li id="cchdo_menu_submit" class="expandable"><h1>{{ h.tags.link_to('Submit', request.route_path('submit')) }}</h1>
     <ul>
       <li><a href="/submit.html">Submit data</a></li>
-      <li><a href="/seahunt.html">Seahunt</a>
-        <ul>
-          <li><a href="/contributions.html">Contributions</a></li>
-          <li>{{ whh.tags.link_to('Add a cruise', request.route_path('cruises_new')) }}</li>
-        </ul>
-      </li>
     </ul>
   </li>
   {%- if h.has_staff(request) %}

@@ -82,7 +82,7 @@ def _create_submission(request, d):
     do_if_exists(
         d, 'action_list', lambda val: setattr(sub, 'action', ', '.join(val)))
     do_if_exists(
-        d, 'notes', lambda val: sub.notes.append(Note(user, val)))
+        d, 'notes', lambda val: sub.change._notes.append(Note(user, val)))
     change = sub.change
     change.requests.append(RequestFor(request))
 

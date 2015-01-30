@@ -59,11 +59,13 @@
         <td>{{ whh.tags.text('ship', h.form_entered(request, 'ship')) }}</td>
         <td>{{ h.form_errors(request, 'ship') }}</td>
       </tr>
+      <!--
       <tr>
         <th><label for="cruise_dates">Cruise dates</label></th>
         <td>{{ whh.tags.text('cruise_dates', h.form_entered(request, 'cruise_dates'), type='date') }}</td>
         <td>{{ h.form_errors(request, 'cruise_dates') }}</td>
       </tr>
+      -->
       <th><label for="notes">Notes</label></th>
       <td>{{ whh.tags.textarea('notes', h.form_entered(request, 'notes'), cols=35, rows=5) }}</td>
     </table>
